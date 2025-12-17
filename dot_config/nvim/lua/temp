@@ -1,0 +1,49 @@
+[?1049h[22;0;0t[?1h=[H[2J[?2004h[?u[c[?25h[?25l(B[m[H[2J[?1004h[?25h[?25l[23B[38;2;224;226;234m[48;2;20;22;27mError detected while processing /Users/jeromesoyer/.config/nvim/init.lua:[K[17;24r[17;1H(B[m[38;2;224;226;234m[48;2;20;22;27m[7M[r[16;1H                                                                                
+
+E5113: Error while calling lua chunk: /Users/jeromesoyer/.config/nvim/lua/option
+s.lua:27: Vim:E185: Cannot find color scheme 'dracula'                          
+stack traceback:                                                                
+        [C]: in function 'colorscheme'                                          
+        /Users/jeromesoyer/.config/nvim/lua/options.lua:27: in main chunk       
+        [C]: in function 'require'                                              
+        /Users/jeromesoyer/.config/nvim/init.lua:5: in main chunk               ]112[2 q]112[2 q[H  [H[16;1H[K
+  [17;1H[18;1HE5113: Error while calling lua chunk: /Users/jeromesoyer/.config/nvim/lua/option
+s.lua:27: Vim:E185: Cannot find color scheme 'dracula'[K
+stack traceback:[K
+        [C]: in function 'colorscheme'[K
+        /Users/jeromesoyer/.config/nvim/lua/options.lua:27: in main chunk[K
+        [C]: in function 'require'[K
+        /Users/jeromesoyer/.config/nvim/init.lua:5: in main chunk[K[7A[?25h[?25l[H[2J[16B[?25h[?25l]112[2 q]112[2 q[?25h[?25l[H(B[m[38;2;79;82;88m[48;2;20;22;27m  1   (B[m[38;2;224;226;234m[48;2;20;22;27m[K
+(B[m[38;2;79;82;88m[48;2;20;22;27m~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~                                                                               
+(B[m[38;2;224;226;234m[48;2;20;22;27mError detected while processing /Users/jeromesoyer/.config/nvim/init.lua:       
+E5113: Error while calling lua chunk: /Users/jeromesoyer/.config/nvim/lua/option
+s.lua:27: Vim:E185: Cannot find color scheme 'dracula'                          
+stack traceback:                                                                
+        [C]: in function 'colorscheme'                                          
+        /Users/jeromesoyer/.config/nvim/lua/options.lua:27: in main chunk       
+        [C]: in function 'require'                                              
+        /Users/jeromesoyer/.config/nvim/init.lua:5: in main chunk               [7A(B[m[38;2;79;82;88m[48;2;20;22;27m~                                                                               
+~                                                                               
+~                                                                               
+~                                                                               
+~                                                                               
+~                                                                               
+~                                                                               
+(B[m[38;2;224;226;234m[48;2;20;22;27m                                                                                [6;35H(B[m[38;2;224;226;234m[48;2;20;22;27mNVIM v0.10.3[8;19HNvim is open source and freely distributable[9;29Hhttps://neovim.io/#chat[11;18Htype  :help nvim(B[m[38;2;79;82;88m[48;2;20;22;27m<Enter>(B[m[38;2;224;226;234m[48;2;20;22;27m       if you are new! [12;18Htype  :checkhealth(B[m[38;2;79;82;88m[48;2;20;22;27m<Enter>(B[m[38;2;224;226;234m[48;2;20;22;27m     to optimize Nvim[13;18Htype  :q(B[m[38;2;79;82;88m[48;2;20;22;27m<Enter>(B[m[38;2;224;226;234m[48;2;20;22;27m               to exit         [14;18Htype  :help(B[m[38;2;79;82;88m[48;2;20;22;27m<Enter>(B[m[38;2;224;226;234m[48;2;20;22;27m            for help        [16;17Htype  :help news(B[m[38;2;79;82;88m[48;2;20;22;27m<Enter>(B[m[38;2;224;226;234m[48;2;20;22;27m to see changes in v0.10[18;26HHelp poor children in Uganda![19;18Htype  :help iccf(B[m[38;2;79;82;88m[48;2;20;22;27m<Enter>(B[m[38;2;224;226;234m[48;2;20;22;27m       for information [1;7H[?25h[?25l(B[m[38;2;79;82;88m[48;2;20;22;27m[6;35H[12X[8;19H[44X[9;29H[23X[11;18H[46X
+[46X
+[46X
+[46X[16;17H[47X[18;26H[29X[19;18H[46X[5B(B[0;1m[38;2;22;24;29m[48;2;246;248;255m [No Name] (B[m[38;2;136;138;145m[48;2;215;217;225m [No Name]                                              (B[m[38;2;246;248;255m[48;2;22;24;29m Top (B[0;1m[38;2;22;24;29m[48;2;246;248;255m   1:1  [6;35H(B[m[38;2;224;226;234m[48;2;20;22;27mNVIM v0.10.3[8;19HNvim is open source and freely distributable[9;29Hhttps://neovim.io/#chat[11;18Htype  :help nvim(B[m[38;2;79;82;88m[48;2;20;22;27m<Enter>(B[m[38;2;224;226;234m[48;2;20;22;27m       if you are new! [12;18Htype  :checkhealth(B[m[38;2;79;82;88m[48;2;20;22;27m<Enter>(B[m[38;2;224;226;234m[48;2;20;22;27m     to optimize Nvim[13;18Htype  :q(B[m[38;2;79;82;88m[48;2;20;22;27m<Enter>(B[m[38;2;224;226;234m[48;2;20;22;27m               to exit         [14;18Htype  :help(B[m[38;2;79;82;88m[48;2;20;22;27m<Enter>(B[m[38;2;224;226;234m[48;2;20;22;27m            for help        [16;17Htype  :help news(B[m[38;2;79;82;88m[48;2;20;22;27m<Enter>(B[m[38;2;224;226;234m[48;2;20;22;27m to see changes in v0.10[18;26HHelp poor children in Uganda![19;18Htype  :help iccf(B[m[38;2;79;82;88m[48;2;20;22;27m<Enter>(B[m[38;2;224;226;234m[48;2;20;22;27m       for information [1;7H[?25h

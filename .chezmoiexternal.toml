@@ -9,3 +9,7 @@
     url = "https://github.com/romkatv/powerlevel10k/archive/v1.15.0.tar.gz"
     exact = true
     stripComponents = 1
+[".config/tmux/plugins/tpm"]
+    type = "git-repo"
+    url = "https://github.com/tmux-plugins/tpm ~/.tmux/plugins/tpm"
+    exact = true
