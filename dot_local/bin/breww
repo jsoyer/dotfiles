@@ -1,0 +1,91 @@
+#!/usr/bin/env python3
+"""
+Wrapper intelligent pour Homebrew qui maintient automatiquement ton Brewfile à jour.
+Usage: breww [commandes brew normales]
+"""
+
+import sys
+import subprocess
+import os
+from pathlib import Path
+
+# Configuration
+BREWFILE_PATH = Path.home() / ".private" / "Brewfile"
+
+def ensure_brewfile_dir():
+    """Crée le répertoire .private s'il n'existe pas."""
+    BREWFILE_PATH.parent.mkdir(parents=True, exist_ok=True)
+
+def should_update_brewfile(args):
+    """Détermine si la commande nécessite une mise à jour du Brewfile."""
+    if not args:
+        return False
+    
+    update_triggers = {
+        'install', 'reinstall', 'upgrade', 'update',
+        'tap', 'cask', 'bundle'
+    }
+    
+    # Vérifie si la commande ou un de ses arguments déclenche une mise à jour
+    for arg in args:
+        if arg in update_triggers:
+            return True
+        # Gère les cas comme 'brew -ca' ou '--cask'
+        if arg.startswith('-') and any(c in 'ca' for c in arg[1:]):
+            return True
+    
+    return False
+
+def run_brew_command(args):
+    """Execute la commande brew et retourne le code de sortie."""
+    cmd = ['brew'] + args
+    print(f"🍺 Exécution: {' '.join(cmd)}")
+    result = subprocess.run(cmd)
+    return result.returncode
+
+def update_brewfile():
+    """Met à jour le Brewfile avec brew bundle dump."""
+    ensure_brewfile_dir()
+    
+    print(f"\n📝 Mise à jour du Brewfile: {BREWFILE_PATH}")
+    
+    # Utilise --force pour écraser le fichier existant
+    cmd = ['brew', 'bundle', 'dump', '--file', str(BREWFILE_PATH), '--force']
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    
+    if result.returncode == 0:
+        print(f"✅ Brewfile mis à jour avec succès")
+        # Affiche un résumé si possible
+        try:
+            with open(BREWFILE_PATH, 'r') as f:
+                lines = f.readlines()
+                brews = sum(1 for l in lines if l.startswith('brew '))
+                casks = sum(1 for l in lines if l.startswith('cask '))
+                taps = sum(1 for l in lines if l.startswith('tap '))
+                print(f"   📦 {brews} formulas, {casks} casks, {taps} taps")
+        except Exception:
+            pass
+    else:
+        print(f"⚠️  Erreur lors de la mise à jour du Brewfile")
+        if result.stderr:
+            print(result.stderr)
+
+def main():
+    args = sys.argv[1:]
+    
+    # Si aucun argument, affiche l'aide brew
+    if not args:
+        subprocess.run(['brew'])
+        return
+    
+    # Execute la commande brew
+    returncode = run_brew_command(args)
+    
+    # Si la commande a réussi et nécessite une mise à jour du Brewfile
+    if returncode == 0 and should_update_brewfile(args):
+        update_brewfile()
+    
+    sys.exit(returncode)
+
+if __name__ == '__main__':
+    main()
