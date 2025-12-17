@@ -4,6 +4,11 @@
 {{- $dev_computer := promptBoolOnce . "dev_computer" "Do you do development on this computer? (true/false)" -}}
 {{- $email := promptStringOnce . "email" "Email address" -}}
 
+[git]
+    autoCommit = true
+    autoPush = true
+    commitMessageTemplateFile = ".commit_message.tmpl"
+
 [data]
     dev_computer      = {{ $dev_computer }}
     email             = {{ $email | quote }}
