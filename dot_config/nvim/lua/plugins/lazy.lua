@@ -60,6 +60,15 @@ require('lazy').setup({
     ft = { "markdown" },
     build = function() vim.fn["mkdp#util#install"]() end,
   },
+  {
+  'xvzc/chezmoi.nvim',
+  dependencies = { 'nvim-lua/plenary.nvim' },
+  config = function()
+    require("chezmoi").setup {
+      -- your configurations
+    }
+  end
+ },
   "preservim/vim-pencil",
   {
     "epwalsh/obsidian.nvim",
