@@ -17,11 +17,18 @@
     command = "nvim"
 
 [diff]
-    pager = "delta --side-by-side"
-    #command = "delta"
-    #pager = "delta"
-    #args = ["{{ "{{" }} .Destination {{ "}}" }}", "{{ "{{" }} .Target {{ "}}" }}"]
+    command = "delta"
+    pager = "delta"
+    args = [
+      "{{ `{{ .Destination }}` }}",
+      "{{ `{{ .Target }}` }}",
+    ]
 
 [merge]
     command = "nvim"
-    args = ["-d", "{{ .Destination }}", "{{ .Source }}", "{{ .Target }}"]
+    args = [
+      "-d",
+      "{{ `{{ .Destination }}` }}",
+      "{{ `{{ .Source }}` }}",
+      "{{ `{{ .Target }}` }}",
+    ]
