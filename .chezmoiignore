@@ -10,4 +10,4 @@ README.md
 .oh-my-zsh/plugins/
 .oh-my-zsh/custom/
 .oh-my-zsh/themes/
-.oh-my-zsh/custom/themes/powerlevel10k/**/*.zwc
+.oh-my-zsh/custom/themes/powerlevel10k/**
