@@ -60,54 +60,6 @@ require('lazy').setup({
     ft = { "markdown" },
     build = function() vim.fn["mkdp#util#install"]() end,
   },
-  {
-  'xvzc/chezmoi.nvim',
-  dependencies = { 'nvim-lua/plenary.nvim' },
-  config = function()
-    require("chezmoi").setup {
-      -- your configurations
-      {
-        edit = {
-        watch = false,
-        force = false,
-        ignore_patterns = {
-          "run_onchange_.*",
-          "run_once_.*", 
-          "%.chezmoiignore",
-          "%.chezmoitemplate",
-          -- Add custom patterns here
-        },
-      },
-      events = {
-        on_open = {
-          notification = {
-            enable = true,
-            msg = "Opened a chezmoi-managed file",
-            opts = {},
-          },
-        },
-        on_watch = {
-          notification = {
-            enable = true,
-            msg = "This file will be automatically applied",
-            opts = {},
-          },
-        },
-        on_apply = {
-          notification = {
-            enable = true,
-            msg = "Successfully applied",
-            opts = {},
-          },
-        },
-      },
-      telescope = {
-        select = { "<CR>" },
-      },
-    }
-    }
-  end
- },
   "preservim/vim-pencil",
   {
     "epwalsh/obsidian.nvim",
