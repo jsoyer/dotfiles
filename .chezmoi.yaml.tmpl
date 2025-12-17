@@ -12,7 +12,7 @@
 
 [data]
     dev_computer      = {{ $dev_computer }}
-    email             = {{ $email | quote }}
+    #email             = {{ $email | quote }}
     github_user       = "jsoyer"
     homelab_member    = {{ $homelab_member }}
     is_ci_workflow    = false # Set true only in CI test
@@ -22,3 +22,12 @@
     xdgConfigDir      = "{{ .chezmoi.homeDir }}/.config"
     xdgDataDir        = "{{ .chezmoi.homeDir }}/.local/share"
     xdgStateDir       = "{{ .chezmoi.homeDir }}/.local/state"
+    name = "Jerome Soyer"
+    email = "jeromesoyer@gmail.com"
+
+[edit]
+    command = "nvim"
+
+[merge]
+    command = "nvim"
+    args = ["-d", "{{ .Destination }}", "{{ .Source }}", "{{ .Target }}"]

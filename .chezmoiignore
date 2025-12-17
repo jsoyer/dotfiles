@@ -1,6 +1,11 @@
 .DS_Store
 README.md
 .oh-my-zsh/.git/
+.oh-my-zsh/.github/
+.oh-my-zsh/.gitignore
+.oh-my-zsh/.devcontainer/  
+.oh-my-zsh/.editorconfig   
+.oh-my-zsh/.prettierrc
 .oh-my-zsh/plugins/
 .oh-my-zsh/custom/
 .oh-my-zsh/themes/
