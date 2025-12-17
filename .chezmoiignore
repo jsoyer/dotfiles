@@ -1,0 +1,6 @@
+.DS_Store
+README.md
+.oh-my-zsh/.git/
+.oh-my-zsh/plugins/
+.oh-my-zsh/custom/
+.oh-my-zsh/themes/
