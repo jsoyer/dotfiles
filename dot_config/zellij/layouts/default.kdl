@@ -1,0 +1,40 @@
+layout {
+    default_tab_template {
+        children
+        pane size=1 borderless=true {
+            plugin location="file:/Users/jeromesoyer/.config/zellij/plugins/zjstatus.wasm" {
+                format_left   "{mode}#[bg=#181825] {tabs}"
+                format_center ""
+                format_right  "#[bg=#181825,fg=#89b4fa]#[bg=#89b4fa,fg=#1e1e2e,bold] {session} #[bg=#181825] {datetime}"
+                format_space  ""
+                
+                // Catppuccin Mocha colors for modes
+                mode_normal        "#[bg=#89b4fa,fg=#1e1e2e,bold] NORMAL#[bg=#181825,fg=#89b4fa]"
+                mode_locked        "#[bg=#f38ba8,fg=#1e1e2e,bold] LOCKED#[bg=#181825,fg=#f38ba8]"
+                mode_resize        "#[bg=#fab387,fg=#1e1e2e,bold] RESIZE#[bg=#181825,fg=#fab387]"
+                mode_pane          "#[bg=#a6e3a1,fg=#1e1e2e,bold] PANE#[bg=#181825,fg=#a6e3a1]"
+                mode_tab           "#[bg=#f9e2af,fg=#1e1e2e,bold] TAB#[bg=#181825,fg=#f9e2af]"
+                mode_scroll        "#[bg=#cba6f7,fg=#1e1e2e,bold] SCROLL#[bg=#181825,fg=#cba6f7]"
+                mode_enter_search  "#[bg=#94e2d5,fg=#1e1e2e,bold] SEARCH#[bg=#181825,fg=#94e2d5]"
+                mode_search        "#[bg=#94e2d5,fg=#1e1e2e,bold] SEARCH#[bg=#181825,fg=#94e2d5]"
+                mode_rename_tab    "#[bg=#f9e2af,fg=#1e1e2e,bold] RENAME#[bg=#181825,fg=#f9e2af]"
+                mode_rename_pane   "#[bg=#a6e3a1,fg=#1e1e2e,bold] RENAME#[bg=#181825,fg=#a6e3a1]"
+                mode_session       "#[bg=#f5c2e7,fg=#1e1e2e,bold] SESSION#[bg=#181825,fg=#f5c2e7]"
+                mode_move          "#[bg=#fab387,fg=#1e1e2e,bold] MOVE#[bg=#181825,fg=#fab387]"
+                mode_tmux          "#[bg=#cba6f7,fg=#1e1e2e,bold] TMUX#[bg=#181825,fg=#cba6f7]"
+                
+                // Tab styling
+                tab_normal              "#[bg=#181825,fg=#cdd6f4] {index} {name} {fullscreen_indicator}{sync_indicator}{floating_indicator}"
+                tab_active              "#[bg=#313244,fg=#89b4fa,bold] {index} {name} {fullscreen_indicator}{sync_indicator}{floating_indicator}"
+                tab_fullscreen_indicator "□ "
+                tab_sync_indicator       " "
+                tab_floating_indicator   "󰉈 "
+                
+                // DateTime
+                datetime        "#[fg=#cdd6f4,bold] {format} "
+                datetime_format "%H:%M"
+                datetime_timezone "local"
+            }
+        }
+    }
+}
