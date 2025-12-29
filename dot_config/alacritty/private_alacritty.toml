@@ -1,47 +1,54 @@
-[general]
-import = ["/Users/jeromesoyer/.config/alacritty/catppuccin-mocha.toml"]
-#import = ["/Users/jeromesoyer/.config/alacritty/dracula.toml"]
+# Alacritty Configuration - Basé sur Ghostty et WezTerm
+# Theme: Catppuccin Mocha
+
+[terminal.shell]
+program = "/opt/homebrew/bin/nu"
 
 [env]
 TERM = "xterm-256color"
 
-option_as_alt = "Both"
-
 [window]
-#dimensions            = { columns = 0, lines = 0 }
-#position              = { x = 0, y = 0 }
-padding               = { x = 10, y = 10 }
-#dynamic_padding       = true
-#decorations           = "None"
-decorations           = "Buttonless"
-
-opacity               = 0.7
-blur                  = true
-#startup_mode          = "Windowed"
-#title                 = "Alacritty"
-#dynamic_title         = true
-#class                 = { instance = "Alacritty", general = "Alacritty" }
-#decorations_theme_variant = "None"
-#resize_increments     = false
-#option_as_alt         = "None"
-
+padding = { x = 12, y = 12 }
+dynamic_padding = true
+decorations = "buttonless"
+opacity = 0.9
+blur = true
 
 [scrolling]
-history               = 65535
-#multiplier            = 3
+history = 10000
 
 [font]
-normal                = { family = "FiraCode Nerd Font Mono", style = "Regular" }
-bold                  = { family = "FiraCode Nerd Font Mono", style = "Bold" }
-italic                = { family = "FiraCode Nerd Font Mono", style = "Italic" }
-bold_italic           = { family = "FiraCode Nerd Font Mono", style = "Bold Italic" }
-size                  = 12
-offset                = { x = 0, y = 0 }
-glyph_offset          = { x = 0, y = 0 }
-#builtin_box_drawing   = true
+size = 12.0
+
+[font.normal]
+family = "JetBrainsMono Nerd Font"
 
 [selection]
 save_to_clipboard = true
 
-[mouse]
-hide_when_typing = true 
+[cursor]
+style = { shape = "Block" }
+
+[colors.primary]
+background = "#1e1e2e"
+foreground = "#cdd6f4"
+
+[colors.normal]
+black = "#45475a"
+red = "#f38ba8"
+green = "#a6e3a1"
+yellow = "#f9e2af"
+blue = "#89b4fa"
+magenta = "#f5c2e7"
+cyan = "#94e2d5"
+white = "#bac2de"
+
+[colors.bright]
+black = "#585b70"
+red = "#f38ba8"
+green = "#a6e3a1"
+yellow = "#f9e2af"
+blue = "#89b4fa"
+magenta = "#f5c2e7"
+cyan = "#94e2d5"
+white = "#a6adc8"
