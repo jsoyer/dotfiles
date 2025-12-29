@@ -1,0 +1,52 @@
+[filter "lfs"]
+	clean = git-lfs clean -- %f
+	smudge = git-lfs smudge -- %f
+	process = git-lfs filter-process
+	required = true
+
+[user]
+	name = Jerome Soyer
+	email = jeromesoyer@gmail.com
+  signingkey = /Users/jeromesoyer/.ssh/id_ed25519-github.pub
+
+[pull]
+  # Utilise "rebase" au lieu de "merge" lors d'un 'git pull'.
+  # Cela garde un historique de commits plus propre et linéaire.
+	rebase = true
+
+[core]
+  # Pour utiliser nvim comme éditeur par défaut pour les messages de commit, etc.
+  editor = nvim
+  # Gère les fins de ligne automatiquement pour éviter les problèmes entre Windows, Mac et Linux.
+  autocrlf = input
+
+[init]
+    # Nomme la branche par défaut "main" pour tout nouveau dépôt.
+  defaultBranch = main
+
+[gpg]
+  format = ssh
+
+[gpg "ssh"]
+  program = "/Applications/1Password.app/Contents/MacOS/op-ssh-sign"
+
+[commit]
+  gpgsign = true
+
+[alias]
+  # -- Alias de base --
+  st = status
+  co = checkout
+  br = branch
+  cm = commit -m
+
+  # -- Alias utiles --
+  # Affiche un log graphique et coloré, très lisible.
+  lg = log --color --graph --pretty=format:'%Cred%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%cr) %C(bold blue)<%an>%Creset' --abbrev-commit
+
+  # Affiche la liste de tous vos alias git.
+  aliases = config --get-regexp ^alias\\.
+
+  # Annule le dernier commit sans perdre les changements.
+  uncommit = reset --soft HEAD~1
+
