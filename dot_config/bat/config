@@ -1,1 +1,14 @@
+# bat configuration file
+
+# Theme
 --theme="Catppuccin Mocha"
+
+# Show line numbers, Git modifications and file header (but no grid)
+#--style="numbers,changes,header"
+
+# Use italic text on the terminal
+--italic-text=always
+
+# Add mouse scrolling support in less
+--pager="less -FR"
+
