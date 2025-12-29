@@ -1,29 +1,72 @@
 add_newline = false
-# A minimal left prompt
 format = """$directory$character"""
 palette = "catppuccin_mocha"
-# move the rest of the prompt to the right
 right_format = """$all"""
 command_timeout = 1000
+scan_timeout = 30
 
 [character]
 vicmd_symbol = "[N] >>>"
 success_symbol = '[➜](bold green)'
 
+[cmd_duration]
+min_time = 2000
+style = "bold yellow"
+
+[directory]
+truncation_length = 3
+truncate_to_repo = true
+
 [directory.substitutions]
-'~/tests/starship-custom' = 'work-project'
+'~/Documents' = '📄 Docs'
+'~/Downloads' = '📥 Downloads'
+
+[hostname]
+style = "bold purple"
+
+[username]
+format = "[$user]($style) on "
+style_user = "bold cyan"
 
 [git_branch]
-format =  '[$symbol$branch(:$remote_branch)]($style)'
+format = 'on [$symbol$branch(:$remote_branch)]($style)'
+style = "bold pink"
+symbol = " "
+
+[git_status]
+format = '([\[$all_status$ahead_behind\]]($style) )'
+style = "bold red"
+conflicted = "🏳"
+ahead = "⇡${count}"
+behind = "⇣${count}"
+diverged = "⇕⇡${ahead_count}⇣${behind_count}"
+untracked = "?${count}"
+stashed = '📦${count}'
+modified = "!${count}"
+staged = "+${count}"
+renamed = "»${count}"
+deleted = "✘${count}"
 
 [aws]
 format = '[$symbol(profile: "$profile" )(\(region: $region\) )]($style)'
 disabled = false
-style = 'bold blue'
-symbol = " "
+style = 'bold orange'
+symbol = "☁️ "
 
 [golang]
-format = '[ ](bold cyan)'
+format = '[ ](bold cyan)'
+
+[nodejs]
+format = "via [⬢ $version](bold green) "
+disabled = false
+
+[python]
+format = 'via [🐍 $version](bold yellow) '
+disabled = false
+
+[rust]
+format = 'via [🦀 $version](bold red) '
+disabled = false
 
 [kubernetes]
 symbol = '☸ '
@@ -31,11 +74,14 @@ disabled = true
 detect_files = ['Dockerfile']
 format = '[$symbol$context( \($namespace\))]($style) '
 contexts = [
-  { context_pattern = "arn:aws:eks:us-west-2:577926974532:cluster/zd-pvc-omer", style = "green", context_alias = "omerxx", symbol = " " },
+  { context_pattern = "arn:aws:eks:us-west-2:577926974532:cluster/zd-pvc-omer", style = "green", context_alias = "omerxx", symbol = " " },
 ]
 
 [docker_context]
-disabled = true
+disabled = false
+
+[package]
+disabled = false
 
 [palettes.catppuccin_mocha]
 rosewater = "#f5e0dc"
@@ -64,3 +110,28 @@ surface0 = "#313244"
 base = "#1e1e2e"
 mantle = "#181825"
 crust = "#11111b"
+
+[palettes.gruvbox_dark]
+color_fg0 = '#fbf1c7'
+color_bg1 = '#3c3836'
+color_bg3 = '#665c54'
+color_blue = '#458588'
+color_aqua = '#689d6a'
+color_green = '#98971a'
+color_orange = '#d65d0e'
+color_purple = '#b16286'
+color_red = '#cc241d'
+color_yellow = '#d79921'
+
+[palettes.dracula]
+background = "#282a36"
+current_line = "#44475a"
+foreground = "#f8f8f2"
+comment = "#6272a4"
+cyan = "#8be9fd"
+green = "#50fa7b"
+orange = "#ffb86c"
+pink = "#ff79c6"
+purple = "#bd93f9"
+red = "#ff5555"
+yellow = "#f1fa8c"
