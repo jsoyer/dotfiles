@@ -1,0 +1,420 @@
+-- ============================================================================
+-- WezTerm Configuration
+-- ============================================================================
+-- Theme: Catppuccin Mocha
+-- Font: JetBrains Mono
+-- ============================================================================
+
+local wezterm = require("wezterm")
+local config = {}
+
+-- Use config builder for better error messages
+if wezterm.config_builder then
+    config = wezterm.config_builder()
+end
+
+-- ============================================================================
+-- Shell Configuration
+-- ============================================================================
+
+-- Launch Fish as default shell
+config.default_prog = { "/opt/homebrew/bin/fish" }
+
+-- ============================================================================
+-- Appearance
+-- ============================================================================
+
+-- Theme: Catppuccin Mocha
+config.color_scheme = "Catppuccin Mocha"
+
+-- Font Configuration
+config.font = wezterm.font("JetBrains Mono")
+config.font_size = 12.0
+
+-- Window Styling
+config.window_decorations = "RESIZE"
+config.window_background_opacity = 0.9
+config.macos_window_background_blur = 30
+
+-- Window Padding
+config.window_padding = {
+    left = 12,
+    right = 12,
+    top = 12,
+    bottom = 12,
+}
+
+-- Prevent window resize when changing font size
+config.adjust_window_size_when_changing_font_size = false
+
+-- ============================================================================
+-- Tab Bar Configuration
+-- ============================================================================
+
+config.enable_tab_bar = true
+config.hide_tab_bar_if_only_one_tab = true
+config.use_fancy_tab_bar = false -- Use native style for consistency
+config.tab_bar_at_bottom = false
+config.tab_max_width = 32
+
+-- Catppuccin Mocha Tab Bar Colors
+config.colors = {
+    tab_bar = {
+        background = "#1e1e2e", -- Base
+
+        active_tab = {
+            bg_color = "#89b4fa", -- Blue
+            fg_color = "#1e1e2e", -- Base
+            intensity = "Bold",
+        },
+
+        inactive_tab = {
+            bg_color = "#313244", -- Surface0
+            fg_color = "#cdd6f4", -- Text
+        },
+
+        inactive_tab_hover = {
+            bg_color = "#45475a", -- Surface1
+            fg_color = "#cdd6f4", -- Text
+            italic = false,
+        },
+
+        new_tab = {
+            bg_color = "#313244", -- Surface0
+            fg_color = "#cdd6f4", -- Text
+        },
+
+        new_tab_hover = {
+            bg_color = "#45475a", -- Surface1
+            fg_color = "#cdd6f4", -- Text
+        },
+    },
+}
+
+-- ============================================================================
+-- Pane Configuration
+-- ============================================================================
+
+-- Dim inactive panes for better focus
+config.inactive_pane_hsb = {
+    saturation = 0.8,
+    brightness = 0.6,
+}
+
+-- ============================================================================
+-- Performance
+-- ============================================================================
+
+config.animation_fps = 60
+config.max_fps = 60
+config.scrollback_lines = 10000
+
+-- ============================================================================
+-- macOS Integration
+-- ============================================================================
+
+config.native_macos_fullscreen_mode = false -- Allows using other spaces
+
+-- ============================================================================
+-- Keybindings
+-- ============================================================================
+
+config.keys = {
+    -- ============================================================================
+    -- Window Management
+    -- ============================================================================
+
+    -- Toggle fullscreen
+    {
+        key = "f",
+        mods = "CTRL|SHIFT",
+        action = wezterm.action.ToggleFullScreen,
+    },
+
+    -- Clear scrollback
+    {
+        key = "'",
+        mods = "CTRL",
+        action = wezterm.action.ClearScrollback("ScrollbackAndViewport"),
+    },
+
+    -- ============================================================================
+    -- Pane Splitting (like tmux/zellij)
+    -- ============================================================================
+
+    -- Split horizontal (left/right) with |
+    {
+        key = "|",
+        mods = "CTRL|SHIFT",
+        action = wezterm.action.SplitHorizontal({ domain = "CurrentPaneDomain" }),
+    },
+
+    -- Split vertical (top/bottom) with -
+    {
+        key = "_",
+        mods = "CTRL|SHIFT",
+        action = wezterm.action.SplitVertical({ domain = "CurrentPaneDomain" }),
+    },
+
+    -- Alternative split bindings
+    {
+        key = "d",
+        mods = "CTRL|SHIFT",
+        action = wezterm.action.SplitHorizontal({ domain = "CurrentPaneDomain" }),
+    },
+    {
+        key = "D",
+        mods = "CTRL|SHIFT",
+        action = wezterm.action.SplitVertical({ domain = "CurrentPaneDomain" }),
+    },
+
+    -- ============================================================================
+    -- Pane Navigation (Vim-style)
+    -- ============================================================================
+
+    {
+        key = "h",
+        mods = "CTRL|SHIFT",
+        action = wezterm.action.ActivatePaneDirection("Left"),
+    },
+    {
+        key = "l",
+        mods = "CTRL|SHIFT",
+        action = wezterm.action.ActivatePaneDirection("Right"),
+    },
+    {
+        key = "k",
+        mods = "CTRL|SHIFT",
+        action = wezterm.action.ActivatePaneDirection("Up"),
+    },
+    {
+        key = "j",
+        mods = "CTRL|SHIFT",
+        action = wezterm.action.ActivatePaneDirection("Down"),
+    },
+
+    -- ============================================================================
+    -- Pane Resizing
+    -- ============================================================================
+
+    {
+        key = "LeftArrow",
+        mods = "CTRL|SHIFT",
+        action = wezterm.action.AdjustPaneSize({ "Left", 5 }),
+    },
+    {
+        key = "RightArrow",
+        mods = "CTRL|SHIFT",
+        action = wezterm.action.AdjustPaneSize({ "Right", 5 }),
+    },
+    {
+        key = "UpArrow",
+        mods = "CTRL|SHIFT",
+        action = wezterm.action.AdjustPaneSize({ "Up", 5 }),
+    },
+    {
+        key = "DownArrow",
+        mods = "CTRL|SHIFT",
+        action = wezterm.action.AdjustPaneSize({ "Down", 5 }),
+    },
+
+    -- ============================================================================
+    -- Pane Management
+    -- ============================================================================
+
+    -- Close current pane
+    {
+        key = "w",
+        mods = "CTRL|SHIFT",
+        action = wezterm.action.CloseCurrentPane({ confirm = true }),
+    },
+
+    -- Toggle pane zoom (fullscreen current pane)
+    {
+        key = "z",
+        mods = "CTRL|SHIFT",
+        action = wezterm.action.TogglePaneZoomState,
+    },
+
+    -- Rotate panes
+    {
+        key = "r",
+        mods = "CTRL|SHIFT",
+        action = wezterm.action.RotatePanes("Clockwise"),
+    },
+
+    -- ============================================================================
+    -- Tab Management
+    -- ============================================================================
+
+    -- Create new tab
+    {
+        key = "t",
+        mods = "CTRL|SHIFT",
+        action = wezterm.action.SpawnTab("CurrentPaneDomain"),
+    },
+
+    -- Close current tab
+    {
+        key = "x",
+        mods = "CTRL|SHIFT",
+        action = wezterm.action.CloseCurrentTab({ confirm = true }),
+    },
+
+    -- Navigate tabs
+    {
+        key = "[",
+        mods = "CTRL|SHIFT",
+        action = wezterm.action.ActivateTabRelative(-1),
+    },
+    {
+        key = "]",
+        mods = "CTRL|SHIFT",
+        action = wezterm.action.ActivateTabRelative(1),
+    },
+
+    -- Move tab
+    {
+        key = "{",
+        mods = "CTRL|SHIFT",
+        action = wezterm.action.MoveTabRelative(-1),
+    },
+    {
+        key = "}",
+        mods = "CTRL|SHIFT",
+        action = wezterm.action.MoveTabRelative(1),
+    },
+
+    -- Switch to specific tabs (1-9)
+    {
+        key = "1",
+        mods = "CTRL|SHIFT",
+        action = wezterm.action.ActivateTab(0),
+    },
+    {
+        key = "2",
+        mods = "CTRL|SHIFT",
+        action = wezterm.action.ActivateTab(1),
+    },
+    {
+        key = "3",
+        mods = "CTRL|SHIFT",
+        action = wezterm.action.ActivateTab(2),
+    },
+    {
+        key = "4",
+        mods = "CTRL|SHIFT",
+        action = wezterm.action.ActivateTab(3),
+    },
+    {
+        key = "5",
+        mods = "CTRL|SHIFT",
+        action = wezterm.action.ActivateTab(4),
+    },
+    {
+        key = "6",
+        mods = "CTRL|SHIFT",
+        action = wezterm.action.ActivateTab(5),
+    },
+    {
+        key = "7",
+        mods = "CTRL|SHIFT",
+        action = wezterm.action.ActivateTab(6),
+    },
+    {
+        key = "8",
+        mods = "CTRL|SHIFT",
+        action = wezterm.action.ActivateTab(7),
+    },
+    {
+        key = "9",
+        mods = "CTRL|SHIFT",
+        action = wezterm.action.ActivateTab(8),
+    },
+
+    -- ============================================================================
+    -- Copy/Paste
+    -- ============================================================================
+
+    {
+        key = "c",
+        mods = "CTRL|SHIFT",
+        action = wezterm.action.CopyTo("Clipboard"),
+    },
+    {
+        key = "v",
+        mods = "CTRL|SHIFT",
+        action = wezterm.action.PasteFrom("Clipboard"),
+    },
+
+    -- ============================================================================
+    -- Search
+    -- ============================================================================
+
+    {
+        key = "f",
+        mods = "CTRL",
+        action = wezterm.action.Search("CurrentSelectionOrEmptyString"),
+    },
+
+    -- ============================================================================
+    -- Scrollback
+    -- ============================================================================
+
+    {
+        key = "PageUp",
+        mods = "SHIFT",
+        action = wezterm.action.ScrollByPage(-1),
+    },
+    {
+        key = "PageDown",
+        mods = "SHIFT",
+        action = wezterm.action.ScrollByPage(1),
+    },
+
+    -- ============================================================================
+    -- Font Size
+    -- ============================================================================
+
+    {
+        key = "=",
+        mods = "CTRL",
+        action = wezterm.action.IncreaseFontSize,
+    },
+    {
+        key = "-",
+        mods = "CTRL",
+        action = wezterm.action.DecreaseFontSize,
+    },
+    {
+        key = "0",
+        mods = "CTRL",
+        action = wezterm.action.ResetFontSize,
+    },
+}
+
+-- ============================================================================
+-- Mouse Bindings
+-- ============================================================================
+
+config.mouse_bindings = {
+    -- Ctrl-click to open links
+    {
+        event = { Up = { streak = 1, button = "Left" } },
+        mods = "CTRL",
+        action = wezterm.action.OpenLinkAtMouseCursor,
+    },
+
+    -- Right click to paste
+    {
+        event = { Down = { streak = 1, button = "Right" } },
+        mods = "NONE",
+        action = wezterm.action.PasteFrom("Clipboard"),
+    },
+}
+
+-- ============================================================================
+-- Return Configuration
+-- ============================================================================
+
+return config
