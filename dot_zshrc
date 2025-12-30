@@ -38,8 +38,6 @@ plugins=(
   virtualenv           # Python virtualenv support
   virtualenvwrapper    # Python virtualenvwrapper
   rust                 # Rust language support
-  cargo                # Rust package manager
-  go                   # Golang support
 
   # === Git ===
   git                  # Core git aliases
