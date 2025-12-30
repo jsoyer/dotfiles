@@ -17,6 +17,8 @@ alias cat='bat'
 alias http='xh'
 
 # Eza (modern ls replacement)
+alias ls='eza --color=always --icons'
+alias ll='eza -l --color=always --icons --git -a'
 alias l='eza -l --icons --git -a'
 alias lt='eza --tree --level=2 --long --icons --git'
 alias ltree='eza --tree --level=2 --icons --git'

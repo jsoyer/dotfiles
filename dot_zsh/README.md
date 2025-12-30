@@ -23,9 +23,10 @@
 All tools are configured with the **Catppuccin Mocha** color palette for a consistent visual experience:
 - ✅ Starship prompt
 - ✅ FZF fuzzy finder
-- ✅ Eza file listings
+- ✅ Eza file listings (via Vivid)
 - ✅ Bat file viewer
 - ✅ Neovim editor
+- ✅ Vivid (LS_COLORS generator)
 
 ## 🔌 Oh-My-Zsh Plugins (48 active)
 
@@ -79,14 +80,16 @@ All tools are configured with the **Catppuccin Mocha** color palette for a consi
 
 Traditional tools are replaced with modern alternatives:
 
-| Old Command | New Command | Tool |
-|-------------|-------------|------|
-| `ls` | `l`, `lt`, `ltree` | eza |
-| `cat` | `cat` (aliased) | bat |
-| `cd` | `z` | zoxide |
-| `vim` | `vim` (aliased) | neovim |
-| `http` | `http` (aliased) | xh |
-| `find` | `fd` | fd-find |
+| Old Command | New Command | Tool | Description |
+|-------------|-------------|------|-------------|
+| `ls` | `ls`, `ll`, `l`, `lt` | eza | Modern ls with icons and git integration |
+| `cat` | `cat` (aliased) | bat | Cat with syntax highlighting |
+| `cd` | `z` | zoxide | Smart cd that learns your habits |
+| `vim` | `vim` (aliased) | neovim | Modern vim |
+| `http` | `http` (aliased) | xh | Fast HTTP client |
+| `find` | `fd` | fd-find | Fast file finder |
+| `grep` | `rg` | ripgrep | Fast grep alternative |
+| N/A | `vivid` | vivid | LS_COLORS generator |
 
 ## 📝 File-by-File Documentation
 
@@ -122,8 +125,18 @@ Traditional tools are replaced with modern alternatives:
 - **Homebrew:** Installation preferences
 - **Kubernetes:** Kubeconfig path
 - **FZF:** Catppuccin Mocha theme + fd integration
-- **Eza:** Catppuccin Mocha color scheme
+- **Vivid:** Catppuccin Mocha theme for LS_COLORS generation
+- **Eza:** Uses LS_COLORS from Vivid automatically
 - **Bat:** Catppuccin Mocha theme
+
+**Color system:**
+```bash
+# Vivid generates LS_COLORS with Catppuccin Mocha theme
+export LS_COLORS="$(vivid generate catppuccin-mocha)"
+
+# Eza automatically uses LS_COLORS for consistent file listing colors
+# All file types, extensions, and permissions are colorized consistently
+```
 
 **Performance features:**
 - History sharing between sessions
@@ -181,9 +194,14 @@ ohmyzsh    # Edit oh-my-zsh directory
 vim='nvim'
 cat='bat'
 http='xh'
+ls='eza --color=always --icons'           # NEW: Replaces ls with eza
+ll='eza -l --color=always --icons --git -a'  # NEW: Long listing with git status
 l='eza -l --icons --git -a'
 lt='eza --tree --level=2 --long --icons --git'
+ltree='eza --tree --level=2 --icons --git'
 ```
+
+**Note:** All `eza` aliases use colors from Vivid's Catppuccin Mocha theme via `LS_COLORS`
 
 #### Navigation
 ```bash
@@ -358,6 +376,36 @@ done
 typeset -U path  # Prevents duplicate entries
 ```
 
+## 🎨 Color System (Catppuccin Mocha)
+
+The entire shell uses a unified **Catppuccin Mocha** color scheme:
+
+### Vivid Integration
+```bash
+# Vivid generates comprehensive LS_COLORS
+export LS_COLORS="$(vivid generate catppuccin-mocha)"
+```
+
+**Benefits:**
+- ✅ Consistent file type colors across all tools
+- ✅ Beautiful, eye-friendly color palette
+- ✅ Smart color assignment for extensions
+- ✅ Automatically used by `eza`, `ls`, and other tools
+
+### Changing Color Themes
+
+To use a different Vivid theme, edit `~/.zsh/00-env.zsh`:
+
+```bash
+# Available themes: catppuccin-mocha, dracula, nord, gruvbox-dark, etc.
+export LS_COLORS="$(vivid generate THEME_NAME)"
+```
+
+List all available themes:
+```bash
+vivid themes
+```
+
 ## 🎯 Common Use Cases
 
 ### Quick Navigation
@@ -370,7 +418,9 @@ fcd              # Fuzzy find and cd to directory
 
 ### File Operations
 ```bash
-l                # List files with icons
+ls               # List files with icons and colors (eza)
+ll               # Long listing with git status
+l                # Detailed list with all files
 lt               # Tree view (2 levels)
 cat file.txt     # View with syntax highlighting (bat)
 extract file.zip # Universal archive extraction
@@ -472,11 +522,25 @@ compinit
 echo $FZF_DEFAULT_OPTS
 ```
 
+### Colors not working in ls/eza?
+```bash
+# Verify LS_COLORS is set by Vivid
+echo $LS_COLORS
+
+# Test Vivid directly
+vivid generate catppuccin-mocha
+
+# Check if Vivid is installed
+which vivid
+```
+
 ## 📚 Additional Resources
 
 - [Oh-My-Zsh Documentation](https://github.com/ohmyzsh/ohmyzsh/wiki)
 - [Starship Documentation](https://starship.rs/)
 - [Catppuccin Theme](https://github.com/catppuccin/catppuccin)
+- [Vivid Documentation](https://github.com/sharkdp/vivid)
+- [Eza Documentation](https://github.com/eza-community/eza)
 - [Zsh Manual](https://zsh.sourceforge.io/Doc/)
 - [FZF Examples](https://github.com/junegunn/fzf/wiki/examples)
 
@@ -502,11 +566,23 @@ brew update && brew upgrade
 source ~/.zshrc
 ```
 
+## 📦 Required Tools
+
+Install these tools for full functionality:
+
+```bash
+# Core tools
+brew install eza bat fd ripgrep vivid fzf zoxide atuin direnv neovim
+
+# Optional tools
+brew install xh httpie
+```
+
 ## 📄 License
 
 This configuration is based on various open-source projects and personal customizations.
 
 ---
 
-**Last updated:** 2025-12-26
+**Last updated:** 2025-12-30
 **Maintained by:** Jerome Soyer
