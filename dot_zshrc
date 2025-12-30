@@ -18,11 +18,12 @@ plugins=(
   extract              # Universal archive extraction (just type: extract file.zip)
   encode64             # Base64 encoding/decoding helpers
   jsontools            # JSON manipulation (pp_json, is_json, etc.)
+  emoji                # Emoji support
 
   # === Package Managers ===
   brew                 # Homebrew aliases and completion
 
-  # === Version Managers (only if you use them) ===
+  # === Version Managers ===
   pyenv                # Python version management
   jenv                 # Java version management
   rbenv                # Ruby version management
@@ -31,30 +32,70 @@ plugins=(
   node                 # Node.js aliases
   npm                  # NPM completion
   yarn                 # Yarn completion
-  poetry               # Python poetry support
+  python               # Python aliases and helpers
+  pylint               # Python linting
+  pipenv               # Python pipenv support
+  virtualenv           # Python virtualenv support
+  virtualenvwrapper    # Python virtualenvwrapper
+  rust                 # Rust language support
+  cargo                # Rust package manager
+  go                   # Golang support
 
   # === Git ===
   git                  # Core git aliases
   github               # GitHub integration
   git-extras           # Additional git commands
   gitignore            # Gitignore templates (gi python, gi node, etc.)
+  tig                  # Git text-mode interface
 
   # === Cloud & Infrastructure ===
   aws                  # AWS CLI completion
   docker               # Docker aliases and completion
+  docker-compose       # Docker Compose completion
   kubectl              # Kubernetes completion
   helm                 # Helm completion
   terraform            # Terraform completion
+  minikube             # Minikube completion
+  microk8s             # MicroK8s support
+  salt                 # SaltStack
+
+  # === Databases ===
+  postgres             # PostgreSQL helpers
+  redis-cli            # Redis CLI completion
 
   # === System ===
   macos                # macOS-specific utilities
   ssh-agent            # SSH agent management
   sudo                 # ESC ESC to add sudo
   rsync                # Rsync completion
+  gnu-utils            # GNU coreutils helpers
+  gpg-agent            # GPG agent management
+  keychain             # SSH keychain management
+
+  # === CLI Tools ===
+  httpie               # HTTPie completion
+  nmap                 # Nmap completion
+  thefuck              # Command corrector
+  tmux                 # Tmux aliases and helpers
+  fasd                 # Quick access to files/directories
+  direnv               # Auto-load environment per directory
+  dirhistory           # Navigate directory history (Alt+Left/Right)
+
+  # === Navigation & Interaction ===
+  zsh-interactive-cd   # Interactive cd with fzf
+  zsh-navigation-tools # Advanced navigation tools
+
+  # === Security & DevOps ===
+  otp                  # One-time password support
+  wakeonlan            # Wake on LAN utilities
+
+  # === Editors & IDE ===
+  vscode               # VS Code integration
 
   # === Utilities ===
   web-search           # Search from terminal (google, ddg, github, etc.)
 )
+
 
 # ============================================================================
 # Load Oh-My-Zsh
