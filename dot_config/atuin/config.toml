@@ -1,0 +1,232 @@
+## Atuin Configuration
+## Aligned with Catppuccin Mocha theme and vim-style compact UI philosophy
+## Consistent with Neovim, Zellij, WezTerm, Nushell, and Starship configurations
+
+# ============================================================================
+# Search Behavior
+# ============================================================================
+
+## Search mode: fuzzy matching (like Telescope/fzf in Neovim)
+## Provides flexible searching similar to your vim telescope setup
+search_mode = "fuzzy"
+
+## Filter mode for regular searches: search across all sessions
+## Consistent with global workspace approach (workspace filtering disabled)
+filter_mode = "global"
+
+## Filter mode when using up-key: search only current session
+## Provides context-aware navigation for recent commands
+filter_mode_shell_up_key_binding = "session"
+
+## Show preview of command context
+## Similar to preview windows in Telescope/fzf
+show_preview = true
+
+## Show tabs for switching between search modes
+## Provides visual feedback like your other tools
+show_tabs = true
+
+## Show help information in the UI
+show_help = true
+
+# ============================================================================
+# UI Style & Theme
+# ============================================================================
+
+## Compact style: minimal visual clutter
+## Aligns with compact UI philosophy across Neovim, Zellij, WezTerm
+style = "compact"
+
+## Inline height for compact display
+inline_height = 20
+
+## Enable Catppuccin Mocha theme colors
+## Consistent with your Neovim, Zellij, WezTerm, Starship theming
+## Note: Atuin inherits terminal colors from WezTerm's Catppuccin Mocha theme
+
+# ============================================================================
+# Keybindings & Navigation
+# ============================================================================
+
+## Vim-style navigation in insert mode
+## Matches your vim-first approach in all tools
+keymap_mode = "vim-insert"
+
+## Cursor style for vim modes
+## Visual feedback for mode awareness, consistent with Neovim
+keymap_cursor = { emacs = "blink-block", vim_insert = "blink-bar", vim_normal = "steady-block" }
+
+## Enter key accepts the selected command immediately
+## Streamlined workflow consistent with vim muscle memory
+enter_accept = true
+
+## Word jump mode for word-based navigation
+word_jump_mode = "emacs"
+
+## Word characters for vim-style word movement in search
+word_chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+
+## Context lines when scrolling by pages
+scroll_context_lines = 1
+
+# ============================================================================
+# History & Sync
+# ============================================================================
+
+## Sync after every command for real-time history across machines
+## Maximum data consistency (0 = sync after each command)
+sync_frequency = "0"
+
+## Sync address (default Atuin server)
+sync_address = "https://api.atuin.sh"
+
+## Auto-sync enabled for seamless multi-machine workflow
+auto_sync = true
+
+## Update check enabled
+update_check = true
+
+# ============================================================================
+# Privacy & Filtering
+# ============================================================================
+
+## Enable secrets filtering: protect sensitive data
+## Prevents accidental storage of passwords, tokens, API keys
+secrets_filter = true
+
+## Workspace filtering disabled
+## Prefer global command history across all projects
+## Aligns with your global search preference
+workspaces = false
+
+## Commands to ignore in history
+## Common navigation and utility commands that add noise
+history_filter = [
+    "^ls$",
+    "^ls ",
+    "^cd$",
+    "^cd ",
+    "^exit$",
+    "^clear$",
+]
+
+# ============================================================================
+# Shell Integration
+# ============================================================================
+
+## Dialect: Nushell
+## Proper integration with your Nushell shell environment
+dialect = "us"
+
+## Timezone: local
+## Display times in your system's timezone
+timezone = "local"
+
+# ============================================================================
+# Statistics Configuration
+# ============================================================================
+
+## Common subcommands to track for better statistics
+## Covers your dev stack: Rust, Node.js, Docker, Kubernetes, system tools
+[stats]
+common_subcommands = [
+    "apt",
+    "brew",
+    "cargo",
+    "docker",
+    "git",
+    "go",
+    "kubectl",
+    "npm",
+    "pnpm",
+    "yarn",
+    "systemctl",
+    "tmux",
+    "nvim",
+    "nu",
+]
+
+## Common prefixes to recognize (privilege escalation)
+common_prefix = [
+    "sudo",
+    "doas",
+]
+
+## Ignored commands (additional noise reduction)
+ignored_commands = [
+    "ls",
+    "cd",
+    "exit",
+    "clear",
+]
+
+# ============================================================================
+# Keys Configuration
+# ============================================================================
+
+[keys]
+## Scroll doesn't exit search interface
+## Prevents accidental exits during navigation
+scroll_exits = false
+
+# ============================================================================
+# Network & Performance
+# ============================================================================
+
+## Network timeout: 5 seconds
+## Balanced between responsiveness and reliability
+network_connect_timeout = 5
+network_timeout = 5
+
+## Local database timeout: 5 seconds
+local_timeout = 5
+
+# ============================================================================
+# Display & Formatting
+# ============================================================================
+
+## Maximum preview height for compact display
+## Minimal screen real estate usage
+max_preview_height = 4
+
+## Exit mode when no results found
+## Return original query for editing
+exit_mode = "return-original"
+
+## Store failed commands in history
+## Useful for debugging and learning from mistakes
+# This is enabled by default in Atuin
+
+# ============================================================================
+# Sync Configuration
+# ============================================================================
+
+[sync]
+## Enable sync v2 for improved synchronization
+records = true
+
+# ============================================================================
+# Integration Notes
+# ============================================================================
+
+## Shell Integration:
+## - Nushell: Atuin auto-detects Nushell; dialect only affects date format
+## - Up arrow: searches session history (filter_mode_shell_up_key_binding)
+## - Ctrl-r: fuzzy search across all history (search_mode + filter_mode)
+
+## Theme Consistency:
+## - Catppuccin Mocha colors inherited from WezTerm terminal
+## - Compact UI matches Neovim (neo-tree, telescope), Zellij layout
+## - Vim keybindings align with nvim muscle memory
+
+## Workflow Alignment:
+## - Fuzzy search like Telescope in Neovim
+## - Global filtering for workspace-agnostic workflow
+## - Sync frequency (0) ensures history available everywhere immediately
+## - Stats tracking optimized for your development stack
+
+## Privacy & Performance:
+## - secrets_filter protects credentials automatically
+## - history_filter removes noise commands (ls, cd, exit, clear)
+## - 5-second network timeout for responsive operation
+## - Failed commands stored for debugging context
