@@ -6,7 +6,6 @@ ZSH_THEME=""  # Theme disabled, using Starship instead
 # ============================================================================
 # Oh-My-Zsh Plugins
 # ============================================================================
-# Organized by category for maintainability
 # Platform-specific plugins are conditionally loaded
 
 plugins=(
@@ -23,12 +22,12 @@ plugins=(
 {{- if eq .chezmoi.os "darwin" }}
   # === macOS Package Managers ===
   brew                 # Homebrew aliases and completion
-{{- end }}
 
-  # === Version Managers (load only if installed) ===
+  # === Version Managers ===
   pyenv                # Python version management
   jenv                 # Java version management
   rbenv                # Ruby version management
+{{- end }}
 
   # === Languages & Frameworks ===
   node                 # Node.js aliases
@@ -54,12 +53,12 @@ plugins=(
   # === macOS Cloud Tools ===
   aws                  # AWS CLI completion
   minikube             # Minikube completion
+
+  # === macOS System ===
+  macos                # macOS-specific utilities
 {{- end }}
 
   # === System ===
-{{- if eq .chezmoi.os "darwin" }}
-  macos                # macOS-specific utilities
-{{- end }}
   ssh-agent            # SSH agent management
   sudo                 # ESC ESC to add sudo
   rsync                # Rsync completion
@@ -77,6 +76,12 @@ plugins=(
 {{- if eq .chezmoi.os "darwin" }}
   # === macOS Editors & IDE ===
   vscode               # VS Code integration
+
+  # === macOS Optional Tools ===
+  thefuck              # Command corrector
+  direnv               # Auto-load environment per directory
+  virtualenv           # Python virtualenv support
+  virtualenvwrapper    # Python virtualenvwrapper
 {{- end }}
 
   # === Utilities ===

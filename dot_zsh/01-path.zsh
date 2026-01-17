@@ -3,43 +3,46 @@
 # PATH configuration
 
 # Build PATH in correct order (highest priority first)
-# Note: Homebrew paths are already set by .zprofile via 'brew shellenv'
 typeset -U path  # Ensure uniqueness
 
 path=(
   # User bins (highest priority)
-  "${HOME}/.antigravity/antigravity/bin"
   "${HOME}/.local/bin"
-  "${HOME}/.jenv/bin"
-  "${HOME}/.rbenv/shims"
-  "${HOME}/.tmuxifier/bin"
+  "${HOME}/.cargo/bin"
 
-  # Preserve existing paths from .zprofile (Homebrew, etc.)
+  # Preserve existing paths
   "${path[@]}"
-
-  # Additional tool-specific paths
-  /usr/local/opt/rbenv/shims
-
-  # X11 and TeX
-  /opt/X11/bin
-  /Library/TeX/texbin
-  /usr/texbin
 )
 
-# Lazy load pyenv for faster startup
-pyenv() {
-  unfunction pyenv
-  if command -v pyenv >/dev/null 2>&1; then
-    eval "$(command pyenv init -)"
-  fi
-  pyenv "$@"
-}
+# macOS-specific paths
+if [[ "${IS_MACOS}" == "true" ]]; then
+  path=(
+    "${HOME}/.antigravity/antigravity/bin"
+    "${HOME}/.jenv/bin"
+    "${HOME}/.rbenv/shims"
+    "${HOME}/.tmuxifier/bin"
+    "${path[@]}"
+    /usr/local/opt/rbenv/shims
+    /opt/X11/bin
+    /Library/TeX/texbin
+    /usr/texbin
+  )
 
-# Lazy load jenv for faster startup
-jenv() {
-  unfunction jenv
-  if command -v jenv >/dev/null 2>&1; then
-    eval "$(command jenv init -)"
+  # Lazy load pyenv for faster startup (macOS only)
+  if command -v pyenv >/dev/null 2>&1; then
+    pyenv() {
+      unfunction pyenv
+      eval "$(command pyenv init -)"
+      pyenv "$@"
+    }
   fi
-  jenv "$@"
-}
+
+  # Lazy load jenv for faster startup (macOS only)
+  if command -v jenv >/dev/null 2>&1; then
+    jenv() {
+      unfunction jenv
+      eval "$(command jenv init -)"
+      jenv "$@"
+    }
+  fi
+fi
