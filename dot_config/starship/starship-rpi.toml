@@ -1,33 +1,33 @@
 # Starship configuration for Raspberry Pi / Linux
-# Snazzy theme - with hostname-based icons
+# Snazzy theme - compact format with hostname-based icons
 
 add_newline = false
 command_timeout = 500
 scan_timeout = 30
 
-# Format with conditional icon based on hostname
+# Compact format: icon hostname:path ❯
 format = """$env_var$hostname$directory$git_branch$git_status$character"""
 palette = "snazzy"
 
-# Custom icon based on hostname
+# Custom icon based on hostname (set in 00-env.zsh)
 [env_var.STARSHIP_ICON]
 variable = "STARSHIP_ICON"
-format = "[$env_value](bold red) "
+format = "[$env_value](bold red)"
 disabled = false
 
 [hostname]
 ssh_only = false
-format = "[$hostname](bold yellow):"
+format = " [$hostname](bold yellow):"
 disabled = false
-
-[character]
-success_symbol = '[❯](bold green)'
-error_symbol = '[❯](bold red)'
 
 [directory]
 truncation_length = 2
 style = "bold cyan"
 format = "[$path]($style) "
+
+[character]
+success_symbol = '[❯](bold green)'
+error_symbol = '[❯](bold red)'
 
 [git_branch]
 format = "[$symbol$branch]($style) "
@@ -65,6 +65,10 @@ format = "via [🐋 $context](bold cyan) "
 disabled = true
 
 [aws]
+disabled = true
+
+# Disable right prompt modules that were showing
+[username]
 disabled = true
 
 [palettes.snazzy]
