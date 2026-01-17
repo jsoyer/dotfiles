@@ -1,11 +1,18 @@
+-- Platform detection
+local is_rpi = vim.fn.filereadable("/proc/device-tree/model") == 1
+  and vim.fn.system("grep -q 'Raspberry Pi' /proc/device-tree/model 2>/dev/null && echo 1 || echo 0"):gsub("%s+", "") == "1"
+
+local is_linux = vim.fn.has("unix") == 1 and vim.fn.has("mac") == 0
+
 return {
-  -- Catppuccin colorscheme
+  -- Catppuccin colorscheme (macOS default)
   {
     "catppuccin/nvim",
     name = "catppuccin",
     priority = 1000,
+    lazy = is_rpi or is_linux,
     opts = {
-      flavour = "mocha", -- latte, frappe, macchiato, mocha
+      flavour = "mocha",
       transparent_background = false,
       integrations = {
         cmp = true,
@@ -22,17 +29,25 @@ return {
     },
   },
 
+  -- Snazzy colorscheme (RPi/Linux)
+  {
+    "connorholyday/vim-snazzy",
+    name = "snazzy",
+    priority = 1000,
+    lazy = not (is_rpi or is_linux),
+  },
+
   -- Dracula colorscheme (alternative)
   {
     "Mofiqul/dracula.nvim",
     lazy = true,
   },
 
-  -- Configure LazyVim to load catppuccin by default
+  -- Configure LazyVim to load colorscheme based on platform
   {
     "LazyVim/LazyVim",
     opts = {
-      colorscheme = "catppuccin",
+      colorscheme = (is_rpi or is_linux) and "snazzy" or "catppuccin",
     },
   },
 }
