@@ -94,3 +94,16 @@ fi
 if command -v thefuck >/dev/null 2>&1; then
   eval "$(thefuck --alias)"
 fi
+
+# ============================================================================
+# Terminal title (for tmux window naming on SSH)
+# ============================================================================
+# Update terminal title with user@hostname:path
+function set_terminal_title() {
+  print -Pn "\e]0;%n@%m:%~\a"
+}
+
+# Set title before each command
+if [[ -n "$SSH_CONNECTION" ]] || [[ -n "$TMUX" ]]; then
+  precmd_functions+=(set_terminal_title)
+fi
