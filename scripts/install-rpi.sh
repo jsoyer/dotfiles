@@ -10,15 +10,16 @@
 #   curl -sL https://raw.githubusercontent.com/jsoyer/dotfiles/main/scripts/install-rpi.sh | bash
 #
 # What this script does:
-#   1. Installs all packages via apt
-#   2. Installs Oh-My-Zsh with plugins
-#   3. Installs Tmux Plugin Manager (TPM)
-#   4. Installs Nerd Fonts for icons
-#   5. Applies dotfiles via chezmoi
+#   1. Configures system locale (en_US.UTF-8)
+#   2. Installs all packages via apt
+#   3. Installs Oh-My-Zsh with plugins
+#   4. Installs Tmux Plugin Manager (TPM)
+#   5. Installs Nerd Fonts for icons
+#   6. Applies dotfiles via chezmoi
 #
 # Platform differences:
 #   - macOS: Catppuccin Mocha theme, tmux bar at top, Ctrl+A prefix
-#   - RPi/Linux: Gruvbox Dark theme, tmux bar at bottom, Ctrl+B prefix
+#   - RPi/Linux: Snazzy theme, tmux bar at bottom, Ctrl+B prefix
 #
 # =============================================================================
 
@@ -55,6 +56,25 @@ else
 fi
 
 # =============================================================================
+# Locale Configuration
+# =============================================================================
+log_info "Configuring system locale..."
+
+# Check if en_US.UTF-8 locale is available
+if ! locale -a 2>/dev/null | grep -q "en_US.utf8"; then
+    log_info "Generating en_US.UTF-8 locale..."
+    sudo locale-gen en_US.UTF-8
+    sudo update-locale LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8
+    log_success "Locale configured"
+else
+    log_warn "Locale en_US.UTF-8 already available"
+fi
+
+# Set locale for current session
+export LANG=en_US.UTF-8
+export LC_ALL=en_US.UTF-8
+
+# =============================================================================
 # All Packages Installation (via apt)
 # =============================================================================
 log_info "Installing all packages via apt..."
@@ -76,7 +96,8 @@ sudo apt update && sudo apt install -y \
     starship \
     zoxide \
     eza \
-    vivid
+    vivid \
+    locales
 
 # Create symlinks for renamed packages on Debian/Ubuntu
 sudo ln -sf /usr/bin/batcat /usr/local/bin/bat 2>/dev/null || true
@@ -186,7 +207,7 @@ echo "  1. Log out and log back in (or run 'zsh' to start a new session)"
 echo "  2. In tmux, press Ctrl+B then I to install tmux plugins"
 echo ""
 log_info "Configuration differences from macOS:"
-echo "  - Theme: Gruvbox Dark (instead of Catppuccin Mocha)"
+echo "  - Theme: Snazzy (instead of Catppuccin Mocha)"
 echo "  - Tmux: Status bar at bottom (instead of top)"
 echo "  - Tmux: Prefix is Ctrl+B (instead of Ctrl+A)"
 echo ""

@@ -9,6 +9,17 @@
 
 set -e
 
+echo "[chezmoi] Configuring locale..."
+
+# Generate locale if not available
+if ! locale -a 2>/dev/null | grep -q "en_US.utf8"; then
+    sudo locale-gen en_US.UTF-8
+    sudo update-locale LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8
+fi
+
+export LANG=en_US.UTF-8
+export LC_ALL=en_US.UTF-8
+
 echo "[chezmoi] Installing Linux dependencies via apt..."
 
 sudo apt update && sudo apt install -y \
@@ -28,7 +39,8 @@ sudo apt update && sudo apt install -y \
     starship \
     zoxide \
     eza \
-    vivid
+    vivid \
+    locales
 
 # Create symlinks for renamed packages on Debian/Ubuntu
 sudo ln -sf /usr/bin/batcat /usr/local/bin/bat 2>/dev/null || true
