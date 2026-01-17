@@ -10,12 +10,11 @@
 #   curl -sL https://raw.githubusercontent.com/jsoyer/dotfiles/main/scripts/install-rpi.sh | bash
 #
 # What this script does:
-#   1. Installs base packages via apt (zsh, tmux, neovim, starship, zoxide, etc.)
-#   2. Installs additional tools (eza, vivid) from binaries if not in apt
-#   3. Installs Oh-My-Zsh with plugins
-#   4. Installs Tmux Plugin Manager (TPM)
-#   5. Installs Nerd Fonts for icons
-#   6. Applies dotfiles via chezmoi
+#   1. Installs all packages via apt
+#   2. Installs Oh-My-Zsh with plugins
+#   3. Installs Tmux Plugin Manager (TPM)
+#   4. Installs Nerd Fonts for icons
+#   5. Applies dotfiles via chezmoi
 #
 # Platform differences:
 #   - macOS: Catppuccin Mocha theme, tmux bar at top, Ctrl+A prefix
@@ -56,9 +55,9 @@ else
 fi
 
 # =============================================================================
-# Base Packages Installation (via apt)
+# All Packages Installation (via apt)
 # =============================================================================
-log_info "Installing base packages via apt..."
+log_info "Installing all packages via apt..."
 
 sudo apt update && sudo apt install -y \
     zsh \
@@ -75,77 +74,15 @@ sudo apt update && sudo apt install -y \
     bat \
     fontconfig \
     starship \
-    zoxide
+    zoxide \
+    eza \
+    vivid
 
 # Create symlinks for renamed packages on Debian/Ubuntu
-# (Debian renames some packages to avoid conflicts)
 sudo ln -sf /usr/bin/batcat /usr/local/bin/bat 2>/dev/null || true
 sudo ln -sf /usr/bin/fdfind /usr/local/bin/fd 2>/dev/null || true
 
-log_success "Base packages installed via apt"
-
-# =============================================================================
-# Eza Installation (modern ls replacement)
-# =============================================================================
-log_info "Installing Eza..."
-
-if ! command -v eza &> /dev/null; then
-    # Try apt first (available on newer Debian/Ubuntu)
-    if apt-cache show eza &> /dev/null 2>&1; then
-        sudo apt install -y eza
-        log_success "Eza installed via apt"
-    else
-        # Download pre-built binary for ARM
-        log_info "Eza not in apt, installing from binary..."
-        EZA_VERSION=$(curl -s https://api.github.com/repos/eza-community/eza/releases/latest | jq -r '.tag_name' | tr -d 'v')
-        ARCH=$(uname -m)
-        
-        if [[ "$ARCH" == "aarch64" ]]; then
-            wget -qO- "https://github.com/eza-community/eza/releases/download/v${EZA_VERSION}/eza_aarch64-unknown-linux-gnu.tar.gz" | sudo tar xz -C /usr/local/bin
-            log_success "Eza installed from binary (aarch64)"
-        elif [[ "$ARCH" == "armv7l" ]]; then
-            wget -qO- "https://github.com/eza-community/eza/releases/download/v${EZA_VERSION}/eza_arm-unknown-linux-gnueabihf.tar.gz" | sudo tar xz -C /usr/local/bin
-            log_success "Eza installed from binary (armv7l)"
-        else
-            log_warn "Unknown architecture: $ARCH, skipping eza binary install"
-        fi
-    fi
-else
-    log_warn "Eza already installed, skipping"
-fi
-
-# =============================================================================
-# Vivid Installation (LS_COLORS generator)
-# =============================================================================
-log_info "Installing Vivid..."
-
-if ! command -v vivid &> /dev/null; then
-    # Try apt first
-    if apt-cache show vivid &> /dev/null 2>&1; then
-        sudo apt install -y vivid
-        log_success "Vivid installed via apt"
-    else
-        log_info "Vivid not in apt, installing from binary..."
-        VIVID_VERSION=$(curl -s https://api.github.com/repos/sharkdp/vivid/releases/latest | jq -r '.tag_name' | tr -d 'v')
-        ARCH=$(uname -m)
-        
-        if [[ "$ARCH" == "aarch64" ]]; then
-            wget -qO- "https://github.com/sharkdp/vivid/releases/download/v${VIVID_VERSION}/vivid-v${VIVID_VERSION}-aarch64-unknown-linux-gnu.tar.gz" | tar xz
-            sudo mv vivid-v${VIVID_VERSION}-aarch64-unknown-linux-gnu/vivid /usr/local/bin/
-            rm -rf vivid-v${VIVID_VERSION}-aarch64-unknown-linux-gnu
-            log_success "Vivid installed from binary (aarch64)"
-        elif [[ "$ARCH" == "armv7l" ]]; then
-            wget -qO- "https://github.com/sharkdp/vivid/releases/download/v${VIVID_VERSION}/vivid-v${VIVID_VERSION}-arm-unknown-linux-gnueabihf.tar.gz" | tar xz
-            sudo mv vivid-v${VIVID_VERSION}-arm-unknown-linux-gnueabihf/vivid /usr/local/bin/
-            rm -rf vivid-v${VIVID_VERSION}-arm-unknown-linux-gnueabihf
-            log_success "Vivid installed from binary (armv7l)"
-        else
-            log_warn "Unknown architecture: $ARCH, skipping vivid binary install"
-        fi
-    fi
-else
-    log_warn "Vivid already installed, skipping"
-fi
+log_success "All packages installed via apt"
 
 # =============================================================================
 # Oh-My-Zsh Installation
