@@ -59,6 +59,90 @@ All configurations use the **Catppuccin Mocha** color palette for a consistent, 
 
 ---
 
+---
+
+## 🍓 Raspberry Pi / Linux Installation
+
+This dotfiles repository supports both macOS and Raspberry Pi/Linux with automatic platform detection and different themes.
+
+### Quick Install (One Command)
+
+```bash
+curl -sL https://raw.githubusercontent.com/jsoyer/dotfiles/main/scripts/install-rpi.sh | bash
+```
+
+This script will:
+1. Install base packages (zsh, tmux, neovim, fzf, ripgrep, etc.)
+2. Install modern CLI tools (starship, eza, bat, zoxide, vivid)
+3. Install Oh-My-Zsh with plugins
+4. Install Tmux Plugin Manager
+5. Install JetBrains Mono Nerd Font
+6. Apply dotfiles via chezmoi
+
+### Alternative: Manual Chezmoi Install
+
+If you already have Oh-My-Zsh installed:
+
+```bash
+sh -c "$(curl -fsLS get.chezmoi.io)" -- init --apply jsoyer
+```
+
+### Platform Differences
+
+| Feature | macOS | Raspberry Pi / Linux |
+|---------|-------|----------------------|
+| **Theme** | Catppuccin Mocha | Gruvbox Dark |
+| **Prompt** | `~/path ➜` | `🍓 hostname:~/path ❯` |
+| **Tmux Bar** | Top | Bottom |
+| **Tmux Prefix** | `Ctrl+A` | `Ctrl+B` |
+| **Colors** | Purple/Pink | Yellow/Orange |
+
+### Visual Comparison
+
+**macOS Terminal:**
+```
+~/projects ➜ git:(main) ✚
+```
+
+**Raspberry Pi Terminal:**
+```
+🍓 rpi-nas:~/projects main ❯
+```
+
+### Post-Installation Steps
+
+1. **Log out and log back in** (or run `zsh`)
+2. **Install tmux plugins**: Press `Ctrl+B` then `I` inside tmux
+3. **Verify installation**:
+   ```bash
+   echo "Platform: $PLATFORM"
+   echo "Is RPi: $IS_RPI"
+   echo "Starship config: $STARSHIP_CONFIG"
+   ```
+
+### Supported Architectures
+
+- `aarch64` - Raspberry Pi 4, Pi 5 (64-bit)
+- `armv7l` - Raspberry Pi 3, Pi Zero 2 (32-bit)
+- `x86_64` - Standard Linux (Intel/AMD)
+
+### What Gets Installed
+
+| Package | Description | Install Method |
+|---------|-------------|----------------|
+| `zsh` | Shell | apt |
+| `tmux` | Terminal multiplexer | apt |
+| `neovim` | Editor | apt |
+| `fzf` | Fuzzy finder | apt |
+| `bat` | cat replacement | apt |
+| `ripgrep` | grep replacement | apt |
+| `fd-find` | find replacement | apt |
+| `starship` | Prompt | curl script |
+| `eza` | ls replacement | binary/apt |
+| `zoxide` | cd replacement | curl script |
+| `vivid` | LS_COLORS | binary |
+
+
 ## 🚀 Quick Start - New Machine Setup
 
 ### One-Command Installation (Recommended)

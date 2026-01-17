@@ -1,517 +1,242 @@
 # Starship Prompt Configuration
 
-Starship is a fast, customizable, and cross-shell prompt. This configuration uses the **Catppuccin Mocha** color palette for a beautiful, consistent prompt across all shells.
+Starship is a fast, customizable, and cross-shell prompt. This configuration includes platform-specific theming for both macOS and Raspberry Pi/Linux systems.
 
 ## Overview
 
 - **Prompt**: Starship
-- **Theme**: Catppuccin Mocha palette
+- **macOS Theme**: Catppuccin Mocha
+- **RPi/Linux Theme**: Gruvbox Dark
 - **Shells**: Zsh, Fish, Nushell, Bash
-- **Location**: `~/.config/starship/starship.toml`
+- **Location**: `~/.config/starship/`
 
 ## File Structure
 
 ```
 ~/.config/starship/
-├── starship.toml         # Main configuration
-├── starship.toml.backup  # Backup of previous config
-└── README.md            # This file
+├── starship.toml         # Main config (macOS - Catppuccin Mocha)
+├── starship-rpi.toml     # RPi/Linux config (Gruvbox Dark)
+├── starship-nushell.toml # Nushell-specific config
+└── README.md             # This file
 ```
 
-## Features
+## Platform Detection
 
-### 🚀 Fast Performance
-- Written in Rust for speed
-- Minimal latency (<10ms typically)
-- Async module loading
+The correct configuration is automatically selected based on platform detection in `~/.zsh/00-env.zsh`:
 
-### 🎨 Catppuccin Mocha Colors
-- Consistent with your entire environment
-- Soothing pastel colors
-- Clear visual hierarchy
+| Platform | Config File | Theme | Prompt Style |
+|----------|-------------|-------|--------------|
+| macOS | `starship.toml` | Catppuccin Mocha | `~/path ➜` |
+| RPi/Linux | `starship-rpi.toml` | Gruvbox Dark | `🍓 hostname:~/path ❯` |
 
-### 📊 Rich Information Display
-- Git status and branch
-- Programming language versions
-- Command duration
-- Execution time
-- Directory path
-- And much more...
+### How It Works
 
-## Color Palette
-
-The prompt uses Catppuccin Mocha colors:
-
-| Color      | Hex       | Usage                          |
-|------------|-----------|--------------------------------|
-| Blue       | `#89b4fa` | Directories, prompts           |
-| Green      | `#a6e3a1` | Success, clean git status      |
-| Yellow     | `#f9e2af` | Warnings, modified files       |
-| Red        | `#f38ba8` | Errors, conflicts              |
-| Mauve      | `#cba6f7` | Special indicators             |
-| Peach      | `#fab387` | Important information          |
-| Teal       | `#94e2d5` | Additional context             |
-| Text       | `#cdd6f4` | Primary text                   |
-| Subtext    | `#a6adc8` | Secondary text                 |
-
-## Prompt Structure
-
-Your prompt displays information in this order:
-
-```
-[username@hostname] [directory] [git_branch git_status] [language_versions]
-[character] 
+```bash
+# In ~/.zsh/00-env.zsh
+if [[ "${IS_RPI}" == "true" ]]; then
+  export STARSHIP_CONFIG="${HOME}/.config/starship/starship-rpi.toml"
+else
+  export STARSHIP_CONFIG="${HOME}/.config/starship/starship.toml"
+fi
 ```
 
-### Right Prompt
+## Configuration Comparison
+
+### macOS (Catppuccin Mocha)
+
 ```
-[cmd_duration] [time]
+~/projects ➜ git:(main) ✚
 ```
 
-## Configured Modules
+Features:
+- Minimalist left prompt with directory
+- Git info and language versions on right
+- Purple/pink color scheme
+- Full module set (AWS, K8s, etc.)
 
-### Directory
-- Shows current directory path
-- Blue color (`#89b4fa`)
-- Truncates long paths intelligently
-- Shows read-only indicator
+### RPi/Linux (Gruvbox Dark)
 
-### Git Branch
-- Current git branch name
-- Mauve color (`#cba6f7`)
-- Symbol: 
+```
+🍓 rpi-nas:~/projects main ❯
+```
 
-### Git Status
-- Shows repository state
-- Colors indicate status:
-  - Green: Clean
-  - Yellow: Modified/staged
-  - Red: Conflicts/errors
+Features:
+- Raspberry icon prefix
+- Hostname always visible
+- Git branch inline
+- Yellow/orange color scheme
+- Lightweight module set
 
-Indicators:
-- `✚` - Added files
-- `✹` - Modified files
-- `✖` - Deleted files
-- `⚑` - Renamed files
-- `≡` - Untracked files
-- `⇡` - Ahead of remote
-- `⇣` - Behind remote
-- `⇕` - Diverged from remote
-- `✔` - Stashed changes
+## Color Palettes
 
-### Character
-The prompt character changes based on status:
-- `❯` (green) - Success
-- `❯` (red) - Error
-- `❯` (yellow) - Vim normal mode (if using vi mode)
+### Catppuccin Mocha (macOS)
 
-### Command Duration
-- Shows execution time for slow commands
-- Only appears for commands > 2 seconds
-- Yellow color for visibility
-- Format: `took 5s`
+| Color      | Hex       | Usage                |
+|------------|-----------|----------------------|
+| Blue       | `#89b4fa` | Directories          |
+| Green      | `#a6e3a1` | Success              |
+| Yellow     | `#f9e2af` | Warnings             |
+| Red        | `#f38ba8` | Errors               |
+| Mauve      | `#cba6f7` | Git branch           |
+| Pink       | `#f5c2e7` | Special indicators   |
 
-### Programming Languages
+### Gruvbox Dark (RPi/Linux)
 
-Automatically detects and shows versions for:
+| Color      | Hex       | Usage                |
+|------------|-----------|----------------------|
+| Blue       | `#458588` | Directories          |
+| Green      | `#98971a` | Success              |
+| Yellow     | `#d79921` | Hostname, warnings   |
+| Red        | `#cc241d` | Errors, RPi icon     |
+| Purple     | `#b16286` | Git branch           |
+| Orange     | `#d65d0e` | Special indicators   |
 
-**Node.js**
-- Symbol: 
-- Shows when `package.json` present
-- Green color
+## Modules Enabled
 
-**Python**
-- Symbol: 
-- Shows when `.py` files or virtual env detected
-- Yellow color
-- Shows virtual environment name
+### Both Platforms
 
-**Rust**
-- Symbol: 
-- Shows when `Cargo.toml` present
-- Red color
+- `directory` - Current working directory
+- `git_branch` - Current git branch
+- `git_status` - Repository status
+- `character` - Prompt character (changes on error)
+- `cmd_duration` - Command execution time
+- `python` - Python version
+- `nodejs` - Node.js version
+- `docker_context` - Docker context
 
-**Go**
-- Symbol: 
-- Shows when `go.mod` present
-- Cyan color
+### macOS Only
 
-**Ruby**
-- Symbol: 
-- Shows when `Gemfile` present
-- Red color
+- `aws` - AWS profile and region
+- `kubernetes` - K8s context and namespace
+- `golang` - Go version
+- `rust` - Rust version
 
-**Java**
-- Symbol: 
-- Shows when `.java` files present
-- Red color
+### RPi/Linux Only
+
+- `hostname` - Always shows hostname (useful for SSH)
 
 ## Shell Integration
 
-### Zsh
+### Zsh (both platforms)
+
 Starship is loaded in `~/.zshrc`:
 ```zsh
 eval "$(starship init zsh)"
 ```
 
+The correct config is set via `STARSHIP_CONFIG` environment variable.
+
 ### Fish
-Starship is loaded in `~/.config/fish/config.fish`:
+
 ```fish
 starship init fish | source
 ```
 
 ### Nushell
-Starship is loaded in `~/.config/nushell/env.nu`:
+
+Uses `starship-nushell.toml`:
 ```nushell
+$env.STARSHIP_CONFIG = "~/.config/starship/starship-nushell.toml"
 starship init nu | save -f ~/.cache/starship/init.nu
 source ~/.cache/starship/init.nu
 ```
 
 ### Bash
-Add to `~/.bashrc`:
+
 ```bash
 eval "$(starship init bash)"
 ```
 
-## Customization
+## Customization Examples
 
-### Change Directory Color
+### Change RPi Icon
+
+Edit `starship-rpi.toml`:
 ```toml
-[directory]
-style = "bold cyan"  # or any color
+# Current
+format = """[🍓](bold red) $hostname$directory..."""
+
+# Alternative icons
+format = """[🐧](bold yellow) $hostname$directory..."""  # Linux penguin
+format = """[💻](bold blue) $hostname$directory..."""    # Computer
+format = """[🏠](bold green) $hostname$directory..."""   # Home server
 ```
 
-### Modify Git Branch Symbol
-```toml
-[git_branch]
-symbol = "🌱 "
-```
+### Add Module to RPi Config
 
-### Add More Languages
 ```toml
-[php]
-format = "via [🐘 $version](147 bold) "
-```
-
-### Change Prompt Character
-```toml
-[character]
-success_symbol = "[➜](bold green)"
-error_symbol = "[✗](bold red)"
-```
-
-### Adjust Command Duration Threshold
-```toml
-[cmd_duration]
-min_time = 5000  # Show for commands > 5 seconds
-```
-
-### Add Battery Module
-```toml
-[battery]
-full_symbol = "🔋 "
-charging_symbol = "⚡️ "
-discharging_symbol = "💀 "
-
-[[battery.display]]
-threshold = 30
-style = "bold red"
-```
-
-### Add Time to Left Prompt
-```toml
-[time]
+# Add Docker context
+[docker_context]
 disabled = false
-format = '🕙[\[ $time \]]($style) '
-time_format = "%T"
+format = "via [🐋 $context](bold blue) "
 ```
 
-## Example Configurations
+### Change Hostname Color
 
-### Minimal Prompt
 ```toml
-format = """
-[┌───────────────────>](bold green)
-[│](bold green)$directory$git_branch$git_status
-[└─>](bold green) """
-
-[directory]
-truncation_length = 3
-```
-
-### Nerd Font Heavy
-```toml
-[character]
-success_symbol = "[](bold green) "
-error_symbol = "[](bold red) "
-
-[directory]
-read_only = " "
-```
-
-### Two-Line Prompt
-```toml
-format = """
-$username$hostname$directory$git_branch$git_status$nodejs$python$rust
-$character"""
+[hostname]
+format = "[$hostname](bold cyan):"  # Change from yellow to cyan
 ```
 
 ## Troubleshooting
 
-### Prompt Not Showing
+### Wrong Theme Loading
 
-**Check if Starship is installed:**
+Check which config is being used:
 ```bash
-which starship
-starship --version
+echo $STARSHIP_CONFIG
 ```
 
-**Check initialization in shell:**
+Verify platform detection:
 ```bash
-# Zsh
-grep starship ~/.zshrc
-
-# Fish
-grep starship ~/.config/fish/config.fish
-
-# Nushell
-grep starship ~/.config/nushell/env.nu
+echo "IS_RPI: $IS_RPI"
+echo "PLATFORM: $PLATFORM"
 ```
 
 ### Icons Not Displaying
 
-**Install a Nerd Font:**
+Install a Nerd Font:
 ```bash
-# Install JetBrains Mono Nerd Font
-brew tap homebrew/cask-fonts
+# macOS
 brew install --cask font-jetbrains-mono-nerd-font
+
+# Linux/RPi
+# Nerd fonts are installed by the install-rpi.sh script
 ```
 
-**Configure terminal to use the font:**
-- WezTerm: Already using JetBrains Mono
-- iTerm2: Preferences → Profiles → Text → Font
-- Terminal.app: Preferences → Profiles → Font
+### Prompt Slow on RPi
 
-### Colors Look Wrong
-
-**Verify terminal supports 24-bit color:**
-```bash
-echo $COLORTERM  # Should show "truecolor" or "24bit"
-```
-
-**Check Starship palette:**
-```toml
-# Add to starship.toml
-[palettes.catppuccin_mocha]
-rosewater = "#f5e0dc"
-flamingo = "#f2cdcd"
-pink = "#f5c2e7"
-# ... etc
-```
-
-### Prompt Too Slow
-
-**Disable expensive modules:**
+Disable expensive modules:
 ```toml
 [git_status]
-disabled = true  # Git status can be slow in large repos
+disabled = true  # Can be slow on large repos
 ```
 
-**Reduce timeout:**
-```toml
-[cmd_duration]
-min_time = 10000  # Only show for very slow commands
-```
+## Quick Reference
 
-### Configuration Not Loading
-
-**Check syntax:**
-```bash
-starship config
-```
-
-**Test configuration:**
-```bash
-starship print-config
-```
-
-**Clear cache:**
-```bash
-rm -rf ~/.cache/starship
-```
-
-## Advanced Features
-
-### Custom Modules
-
-Add custom information to your prompt:
-
-```toml
-[custom.giturl]
-command = "git remote get-url origin"
-when = "git rev-parse --git-dir"
-format = "at [$output]($style) "
-style = "bold blue"
-```
-
-### Conditional Formatting
-
-Show modules only in specific contexts:
-
-```toml
-[nodejs]
-detect_files = ["package.json", ".nvmrc"]
-detect_folders = ["node_modules"]
-```
-
-### Environment Variables
-
-```toml
-[env_var.USER]
-style = "bold yellow"
-format = "[$env_value]($style) "
-```
-
-### Fill Character
-
-```toml
-[fill]
-symbol = " "
-```
-
-### Line Break
-
-```toml
-[line_break]
-disabled = false
-```
-
-## Preset Configurations
-
-Starship includes presets you can use:
+### Useful Commands
 
 ```bash
-# View available presets
-starship preset --help
-
-# Apply a preset
-starship preset nerd-font-symbols -o ~/.config/starship/starship.toml
+starship config          # Edit current config
+starship print-config    # View full resolved config
+starship explain         # Explain current prompt segments
+starship timings         # Show module load times
 ```
 
-Available presets:
-- `nerd-font-symbols` - Use Nerd Font icons
-- `bracketed-segments` - Bracket each segment
-- `plain-text-symbols` - No special characters
-- `no-runtime-versions` - Hide language versions
-- `pure-preset` - Minimal pure-like prompt
-- `pastel-powerline` - Powerline with pastel colors
+### Test Different Config
 
-## Performance Tips
-
-### 1. Disable Unused Modules
-```toml
-[aws]
-disabled = true
-
-[gcloud]
-disabled = true
-```
-
-### 2. Limit Git Operations
-```toml
-[git_status]
-ahead = "⇡"
-behind = "⇣"
-diverged = "⇕"
-disabled = false
-```
-
-### 3. Scan Timeout
-```toml
-scan_timeout = 30  # milliseconds
-```
-
-### 4. Async Modules
-Most modules are already async - they load in parallel for speed.
-
-## Migration from Other Prompts
-
-### From Oh My Zsh Themes
-
-Starship replaces OMZ themes. Remove theme setting from `.zshrc`:
 ```bash
-# Remove or comment out:
-# ZSH_THEME="..."
-```
-
-### From Powerlevel10k
-
-Starship is similar but cross-shell:
-- Faster startup
-- Simpler configuration
-- Works in Fish, Nushell, etc.
-
-### From Pure
-
-Starship can mimic Pure:
-```bash
-starship preset pure-preset -o ~/.config/starship/starship.toml
+# Temporarily use RPi config on macOS
+STARSHIP_CONFIG=~/.config/starship/starship-rpi.toml zsh
 ```
 
 ## Resources
 
 - **Starship Documentation**: https://starship.rs/
-- **Configuration Reference**: https://starship.rs/config/
-- **Presets Gallery**: https://starship.rs/presets/
-- **Catppuccin Preset**: https://starship.rs/presets/catppuccin-powerline
-
-## Theme Consistency
-
-This Starship configuration uses **Catppuccin Mocha** colors to match your environment:
-
-- ✅ **Neovim**: Catppuccin Mocha
-- ✅ **Bat**: Catppuccin Mocha
-- ✅ **Starship**: Catppuccin Mocha palette
-- ✅ **Zsh/FZF/Eza**: Catppuccin Mocha
-- ✅ **Tmux**: Catppuccin Mocha
-- ✅ **Ghostty**: Catppuccin Mocha
-- ✅ **Zellij**: Catppuccin Mocha
-- ✅ **Nushell**: Catppuccin Mocha
-- ✅ **Fish**: Catppuccin Mocha
-- ✅ **OBS Studio**: Catppuccin Mocha
-- ✅ **WezTerm**: Catppuccin Mocha
-
-## Quick Reference
-
-### Common Customizations
-```toml
-# Minimal prompt
-format = "$directory$character"
-
-# Hide language versions
-[nodejs]
-disabled = true
-
-# Two-line prompt
-format = """
-$all
-$character"""
-
-# Change colors
-[directory]
-style = "bold cyan"
-```
-
-### Useful Commands
-```bash
-starship config          # Edit config
-starship print-config    # View full config
-starship explain         # Explain current prompt
-starship timings         # Show module timings
-```
+- **Catppuccin Starship**: https://github.com/catppuccin/starship
+- **Gruvbox Colors**: https://github.com/morhetz/gruvbox
 
 ---
 
-**Updated**: 2025-12-26  
-**Theme**: Catppuccin Mocha  
-**Starship**: Cross-shell prompt
+**Last Updated**: 2025-01-17
+**Themes**: Catppuccin Mocha (macOS) / Gruvbox Dark (RPi)
