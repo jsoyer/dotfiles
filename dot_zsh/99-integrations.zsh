@@ -96,14 +96,19 @@ if command -v thefuck >/dev/null 2>&1; then
 fi
 
 # ============================================================================
-# Terminal title (for tmux window naming on SSH)
+
 # ============================================================================
-# Update terminal title with user@hostname:path
-function set_terminal_title() {
+# Terminal/Tmux window title
+# ============================================================================
+# Set window title to hostname (works with tmux allow-rename)
+function set_window_title() {
+  # Set tmux window name to hostname
+  if [[ -n "$TMUX" ]]; then
+    printf '\033k%s\033\\' "$(hostname -s)"
+  fi
+  # Set terminal title
   print -Pn "\e]0;%n@%m:%~\a"
 }
 
-# Set title before each command
-if [[ -n "$SSH_CONNECTION" ]] || [[ -n "$TMUX" ]]; then
-  precmd_functions+=(set_terminal_title)
-fi
+# Run on each prompt
+precmd_functions+=(set_window_title)
