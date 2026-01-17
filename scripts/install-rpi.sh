@@ -10,8 +10,8 @@
 #   curl -sL https://raw.githubusercontent.com/jsoyer/dotfiles/main/scripts/install-rpi.sh | bash
 #
 # What this script does:
-#   1. Installs base packages (zsh, tmux, neovim, etc.)
-#   2. Installs modern CLI tools (starship, eza, bat, zoxide, etc.)
+#   1. Installs base packages via apt (zsh, tmux, neovim, starship, zoxide, etc.)
+#   2. Installs additional tools (eza, vivid) from binaries if not in apt
 #   3. Installs Oh-My-Zsh with plugins
 #   4. Installs Tmux Plugin Manager (TPM)
 #   5. Installs Nerd Fonts for icons
@@ -56,9 +56,9 @@ else
 fi
 
 # =============================================================================
-# Base Packages Installation
+# Base Packages Installation (via apt)
 # =============================================================================
-log_info "Installing base packages..."
+log_info "Installing base packages via apt..."
 
 sudo apt update && sudo apt install -y \
     zsh \
@@ -73,38 +73,16 @@ sudo apt update && sudo apt install -y \
     jq \
     unzip \
     bat \
-    fontconfig
+    fontconfig \
+    starship \
+    zoxide
 
 # Create symlinks for renamed packages on Debian/Ubuntu
 # (Debian renames some packages to avoid conflicts)
 sudo ln -sf /usr/bin/batcat /usr/local/bin/bat 2>/dev/null || true
 sudo ln -sf /usr/bin/fdfind /usr/local/bin/fd 2>/dev/null || true
 
-log_success "Base packages installed"
-
-# =============================================================================
-# Starship Prompt Installation
-# =============================================================================
-log_info "Installing Starship prompt..."
-
-if ! command -v starship &> /dev/null; then
-    curl -sS https://starship.rs/install.sh | sh -s -- -y
-    log_success "Starship installed"
-else
-    log_warn "Starship already installed, skipping"
-fi
-
-# =============================================================================
-# Zoxide Installation (smart cd command)
-# =============================================================================
-log_info "Installing Zoxide..."
-
-if ! command -v zoxide &> /dev/null; then
-    curl -sS https://raw.githubusercontent.com/ajeetdsouza/zoxide/main/install.sh | bash
-    log_success "Zoxide installed"
-else
-    log_warn "Zoxide already installed, skipping"
-fi
+log_success "Base packages installed via apt"
 
 # =============================================================================
 # Eza Installation (modern ls replacement)
@@ -113,22 +91,25 @@ log_info "Installing Eza..."
 
 if ! command -v eza &> /dev/null; then
     # Try apt first (available on newer Debian/Ubuntu)
-    if apt-cache show eza &> /dev/null; then
+    if apt-cache show eza &> /dev/null 2>&1; then
         sudo apt install -y eza
+        log_success "Eza installed via apt"
     else
         # Download pre-built binary for ARM
+        log_info "Eza not in apt, installing from binary..."
         EZA_VERSION=$(curl -s https://api.github.com/repos/eza-community/eza/releases/latest | jq -r '.tag_name' | tr -d 'v')
         ARCH=$(uname -m)
         
         if [[ "$ARCH" == "aarch64" ]]; then
             wget -qO- "https://github.com/eza-community/eza/releases/download/v${EZA_VERSION}/eza_aarch64-unknown-linux-gnu.tar.gz" | sudo tar xz -C /usr/local/bin
+            log_success "Eza installed from binary (aarch64)"
         elif [[ "$ARCH" == "armv7l" ]]; then
             wget -qO- "https://github.com/eza-community/eza/releases/download/v${EZA_VERSION}/eza_arm-unknown-linux-gnueabihf.tar.gz" | sudo tar xz -C /usr/local/bin
+            log_success "Eza installed from binary (armv7l)"
         else
             log_warn "Unknown architecture: $ARCH, skipping eza binary install"
         fi
     fi
-    log_success "Eza installed"
 else
     log_warn "Eza already installed, skipping"
 fi
@@ -139,21 +120,29 @@ fi
 log_info "Installing Vivid..."
 
 if ! command -v vivid &> /dev/null; then
-    VIVID_VERSION=$(curl -s https://api.github.com/repos/sharkdp/vivid/releases/latest | jq -r '.tag_name' | tr -d 'v')
-    ARCH=$(uname -m)
-    
-    if [[ "$ARCH" == "aarch64" ]]; then
-        wget -qO- "https://github.com/sharkdp/vivid/releases/download/v${VIVID_VERSION}/vivid-v${VIVID_VERSION}-aarch64-unknown-linux-gnu.tar.gz" | tar xz
-        sudo mv vivid-v${VIVID_VERSION}-aarch64-unknown-linux-gnu/vivid /usr/local/bin/
-        rm -rf vivid-v${VIVID_VERSION}-aarch64-unknown-linux-gnu
-    elif [[ "$ARCH" == "armv7l" ]]; then
-        wget -qO- "https://github.com/sharkdp/vivid/releases/download/v${VIVID_VERSION}/vivid-v${VIVID_VERSION}-arm-unknown-linux-gnueabihf.tar.gz" | tar xz
-        sudo mv vivid-v${VIVID_VERSION}-arm-unknown-linux-gnueabihf/vivid /usr/local/bin/
-        rm -rf vivid-v${VIVID_VERSION}-arm-unknown-linux-gnueabihf
+    # Try apt first
+    if apt-cache show vivid &> /dev/null 2>&1; then
+        sudo apt install -y vivid
+        log_success "Vivid installed via apt"
     else
-        log_warn "Unknown architecture: $ARCH, skipping vivid binary install"
+        log_info "Vivid not in apt, installing from binary..."
+        VIVID_VERSION=$(curl -s https://api.github.com/repos/sharkdp/vivid/releases/latest | jq -r '.tag_name' | tr -d 'v')
+        ARCH=$(uname -m)
+        
+        if [[ "$ARCH" == "aarch64" ]]; then
+            wget -qO- "https://github.com/sharkdp/vivid/releases/download/v${VIVID_VERSION}/vivid-v${VIVID_VERSION}-aarch64-unknown-linux-gnu.tar.gz" | tar xz
+            sudo mv vivid-v${VIVID_VERSION}-aarch64-unknown-linux-gnu/vivid /usr/local/bin/
+            rm -rf vivid-v${VIVID_VERSION}-aarch64-unknown-linux-gnu
+            log_success "Vivid installed from binary (aarch64)"
+        elif [[ "$ARCH" == "armv7l" ]]; then
+            wget -qO- "https://github.com/sharkdp/vivid/releases/download/v${VIVID_VERSION}/vivid-v${VIVID_VERSION}-arm-unknown-linux-gnueabihf.tar.gz" | tar xz
+            sudo mv vivid-v${VIVID_VERSION}-arm-unknown-linux-gnueabihf/vivid /usr/local/bin/
+            rm -rf vivid-v${VIVID_VERSION}-arm-unknown-linux-gnueabihf
+            log_success "Vivid installed from binary (armv7l)"
+        else
+            log_warn "Unknown architecture: $ARCH, skipping vivid binary install"
+        fi
     fi
-    log_success "Vivid installed"
 else
     log_warn "Vivid already installed, skipping"
 fi

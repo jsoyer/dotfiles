@@ -5,13 +5,14 @@
 # =============================================================================
 # This script runs automatically via chezmoi on first apply.
 # It installs essential packages and tools for Linux/Raspberry Pi systems.
+# Prefers apt packages when available for easier updates.
 # =============================================================================
 
 set -e
 
-echo "[chezmoi] Installing Linux dependencies..."
+echo "[chezmoi] Installing Linux dependencies via apt..."
 
-# Install base packages via apt
+# Install base packages via apt (including starship and zoxide)
 sudo apt update && sudo apt install -y \
     zsh \
     git \
@@ -25,24 +26,16 @@ sudo apt update && sudo apt install -y \
     jq \
     unzip \
     bat \
-    fontconfig
+    fontconfig \
+    starship \
+    zoxide
 
 # Create symlinks for renamed packages on Debian/Ubuntu
 # (bat -> batcat, fd -> fdfind on Debian-based systems)
 sudo ln -sf /usr/bin/batcat /usr/local/bin/bat 2>/dev/null || true
 sudo ln -sf /usr/bin/fdfind /usr/local/bin/fd 2>/dev/null || true
 
-# Install Starship prompt
-if ! command -v starship &> /dev/null; then
-    echo "[chezmoi] Installing Starship..."
-    curl -sS https://starship.rs/install.sh | sh -s -- -y
-fi
-
-# Install Zoxide (smart cd replacement)
-if ! command -v zoxide &> /dev/null; then
-    echo "[chezmoi] Installing Zoxide..."
-    curl -sS https://raw.githubusercontent.com/ajeetdsouza/zoxide/main/install.sh | bash
-fi
+echo "[chezmoi] Base packages installed"
 
 # Install Oh-My-Zsh if not present
 if [[ ! -d "$HOME/.oh-my-zsh" ]]; then
