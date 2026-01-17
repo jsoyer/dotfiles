@@ -19,7 +19,6 @@ case "$(uname -s)" in
     if [[ -f /proc/device-tree/model ]] && grep -q "Raspberry Pi" /proc/device-tree/model 2>/dev/null; then
       export IS_RPI=true
       export PLATFORM="rpi"
-      # Get RPi model for display
       export RPI_MODEL=$(cat /proc/device-tree/model 2>/dev/null | tr -d '\0')
     else
       export PLATFORM="linux"
@@ -41,31 +40,22 @@ export LANG=en_US.UTF-8
 export HISTFILE="${HOME}/.zsh_history"
 export HISTSIZE=50000
 export SAVEHIST=50000
-setopt EXTENDED_HISTORY          # Write timestamp to history
-setopt HIST_EXPIRE_DUPS_FIRST    # Expire duplicates first
-setopt HIST_IGNORE_DUPS          # Don't record duplicate entries
-setopt HIST_IGNORE_SPACE         # Don't record commands starting with space
-setopt HIST_VERIFY               # Show command before executing from history
-setopt SHARE_HISTORY             # Share history between sessions
+setopt EXTENDED_HISTORY
+setopt HIST_EXPIRE_DUPS_FIRST
+setopt HIST_IGNORE_DUPS
+setopt HIST_IGNORE_SPACE
+setopt HIST_VERIFY
+setopt SHARE_HISTORY
 
 # ============================================================================
 # Editor configuration
 # ============================================================================
-if [[ -n ${SSH_CONNECTION} ]]; then
-  export EDITOR='nvim'
-else
-  export EDITOR='nvim'
-fi
+export EDITOR='nvim'
 
 # ============================================================================
 # Docker configuration
 # ============================================================================
 export DOCKER_CONFIG="${DOCKER_CONFIG:-${HOME}/.docker}"
-
-# ============================================================================
-# Homebrew (macOS only)
-# ============================================================================
-#export HOMEBREW_CASK_OPTS="--appdir=/Users/jsoyer/Applications"
 
 # ============================================================================
 # Kubernetes
@@ -75,32 +65,32 @@ export KUBECONFIG="${HOME}/.kube/config"
 # ============================================================================
 # Platform-specific theming
 # ============================================================================
-if [[ "${IS_RPI}" == "true" ]]; then
+if [[ "${IS_RPI}" == "true" ]] || [[ "${IS_LINUX}" == "true" && "${IS_MACOS}" == "false" ]]; then
   # -------------------------------------------------------------------------
-  # Raspberry Pi: Gruvbox Dark theme
+  # Raspberry Pi / Linux: Snazzy theme
   # -------------------------------------------------------------------------
   export STARSHIP_CONFIG="${HOME}/.config/starship/starship-rpi.toml"
   
-  # FZF theme (Gruvbox Dark)
+  # FZF theme (Snazzy)
   export FZF_DEFAULT_OPTS=" \
---color=bg+:#3c3836,bg:#282828,spinner:#fb4934,hl:#83a598 \
---color=fg:#ebdbb2,header:#83a598,info:#d3869b,pointer:#fb4934 \
---color=marker:#fe8019,fg+:#ebdbb2,prompt:#d3869b,hl+:#83a598"
+--color=bg+:#3a3d4d,bg:#282a36,spinner:#ff5c57,hl:#57c7ff \
+--color=fg:#eff0eb,header:#57c7ff,info:#ff6ac1,pointer:#ff5c57 \
+--color=marker:#f3f99d,fg+:#eff0eb,prompt:#ff6ac1,hl+:#57c7ff"
   
-  # Vivid colors (Gruvbox Dark)
+  # Vivid colors (Snazzy)
   if command -v vivid >/dev/null 2>&1; then
-    export LS_COLORS="$(vivid generate gruvbox-dark)"
+    export LS_COLORS="$(vivid generate snazzy)"
   fi
   
-  # Bat theme (Gruvbox Dark)
-  export BAT_THEME="gruvbox-dark"
+  # Bat theme
+  export BAT_THEME="ansi"
   
   # Tmux alias to use RPi config
   alias tmux='tmux -f ~/.config/tmux/tmux-rpi.conf'
 
 else
   # -------------------------------------------------------------------------
-  # macOS / Other: Catppuccin Mocha theme
+  # macOS: Catppuccin Mocha theme
   # -------------------------------------------------------------------------
   export STARSHIP_CONFIG="${HOME}/.config/starship/starship.toml"
   
@@ -125,6 +115,5 @@ fi
 if command -v fd >/dev/null 2>&1; then
   export FZF_DEFAULT_COMMAND='fd --type f --hidden --follow --exclude .git'
 elif command -v fdfind >/dev/null 2>&1; then
-  # Debian/Ubuntu uses fdfind
   export FZF_DEFAULT_COMMAND='fdfind --type f --hidden --follow --exclude .git'
 fi

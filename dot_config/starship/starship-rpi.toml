@@ -1,9 +1,9 @@
 # Starship configuration for Raspberry Pi
-# Gruvbox Dark theme - distinct from macOS Catppuccin
+# Snazzy theme - vibrant colors
 
 add_newline = false
 format = """[🍓](bold red) $hostname$directory$git_branch$git_status$character"""
-palette = "gruvbox_dark"
+palette = "snazzy"
 command_timeout = 500
 scan_timeout = 30
 
@@ -18,17 +18,17 @@ disabled = false
 
 [directory]
 truncation_length = 2
-style = "bold color_blue"
+style = "bold cyan"
 format = "[$path]($style) "
 
 [git_branch]
 format = "[$symbol$branch]($style) "
-style = "bold color_purple"
+style = "bold magenta"
 symbol = ""
 
 [git_status]
 format = '([$all_status$ahead_behind]($style) )'
-style = "bold color_red"
+style = "bold red"
 ahead = "⇡${count}"
 behind = "⇣${count}"
 diverged = "⇕"
@@ -39,19 +39,19 @@ deleted = "✘${count}"
 
 [cmd_duration]
 min_time = 2000
-style = "bold color_yellow"
+style = "bold yellow"
 
 [python]
-format = 'via [🐍 $version](bold color_yellow) '
+format = 'via [🐍 $version](bold yellow) '
 disabled = false
 
 [nodejs]
-format = "via [⬢ $version](bold color_green) "
+format = "via [⬢ $version](bold green) "
 disabled = false
 
 [docker_context]
 disabled = false
-format = "via [🐋 $context](bold color_blue) "
+format = "via [🐋 $context](bold cyan) "
 
 [kubernetes]
 disabled = true
@@ -59,14 +59,12 @@ disabled = true
 [aws]
 disabled = true
 
-[palettes.gruvbox_dark]
-color_fg0 = '#fbf1c7'
-color_bg1 = '#3c3836'
-color_bg3 = '#665c54'
-color_blue = '#458588'
-color_aqua = '#689d6a'
-color_green = '#98971a'
-color_orange = '#d65d0e'
-color_purple = '#b16286'
-color_red = '#cc241d'
-color_yellow = '#d79921'
+[palettes.snazzy]
+red = "#ff5c57"
+green = "#5af78e"
+yellow = "#f3f99d"
+blue = "#57c7ff"
+magenta = "#ff6ac1"
+cyan = "#9aedfe"
+white = "#eff0eb"
+black = "#282a36"
