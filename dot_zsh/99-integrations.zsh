@@ -98,17 +98,3 @@ fi
 # ============================================================================
 
 # ============================================================================
-# Terminal/Tmux window title
-# ============================================================================
-# Set window title to hostname (works with tmux allow-rename)
-function set_window_title() {
-  # Set tmux window name to hostname
-  if [[ -n "$TMUX" ]]; then
-    printf '\033k%s\033\\' "$(hostname -s)"
-  fi
-  # Set terminal title
-  print -Pn "\e]0;%n@%m:%~\a"
-}
-
-# Run on each prompt
-precmd_functions+=(set_window_title)
