@@ -29,9 +29,13 @@ case "$(uname -s)" in
 esac
 
 # ============================================================================
-# Hostname-based icon for Starship prompt (RPi/Linux only)
+# Hostname-based icon for Starship prompt
 # ============================================================================
-if [[ "${IS_RPI}" == "true" ]] || [[ "${IS_LINUX}" == "true" ]]; then
+if [[ "${IS_MACOS}" == "true" ]]; then
+  # macOS icon
+  export STARSHIP_ICON="⌘"
+elif [[ "${IS_RPI}" == "true" ]] || [[ "${IS_LINUX}" == "true" ]]; then
+  # Linux/RPi icons based on hostname
   case "$(hostname)" in
     bbh-network*)
       export STARSHIP_ICON="🌐"
