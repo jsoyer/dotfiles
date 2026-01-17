@@ -7,7 +7,7 @@ ZSH_THEME=""  # Theme disabled, using Starship instead
 # Oh-My-Zsh Plugins
 # ============================================================================
 # Organized by category for maintainability
-# Only include plugins for installed tools to keep startup fast
+# Platform-specific plugins are conditionally loaded
 
 plugins=(
   # === Core Productivity ===
@@ -15,15 +15,17 @@ plugins=(
   colorize             # Syntax highlighting for cat/less
   copybuffer           # Copy command line to clipboard (Ctrl+O)
   copyfile             # Copy file contents to clipboard
-  extract              # Universal archive extraction (just type: extract file.zip)
+  extract              # Universal archive extraction
   encode64             # Base64 encoding/decoding helpers
-  jsontools            # JSON manipulation (pp_json, is_json, etc.)
+  jsontools            # JSON manipulation
   emoji                # Emoji support
 
-  # === Package Managers ===
+{{- if eq .chezmoi.os "darwin" }}
+  # === macOS Package Managers ===
   brew                 # Homebrew aliases and completion
+{{- end }}
 
-  # === Version Managers ===
+  # === Version Managers (load only if installed) ===
   pyenv                # Python version management
   jenv                 # Java version management
   rbenv                # Ruby version management
@@ -33,65 +35,52 @@ plugins=(
   npm                  # NPM completion
   yarn                 # Yarn completion
   python               # Python aliases and helpers
-  pylint               # Python linting
-  pipenv               # Python pipenv support
-  virtualenv           # Python virtualenv support
-  virtualenvwrapper    # Python virtualenvwrapper
   rust                 # Rust language support
 
   # === Git ===
   git                  # Core git aliases
   github               # GitHub integration
   git-extras           # Additional git commands
-  gitignore            # Gitignore templates (gi python, gi node, etc.)
-  tig                  # Git text-mode interface
+  gitignore            # Gitignore templates
 
   # === Cloud & Infrastructure ===
-  aws                  # AWS CLI completion
   docker               # Docker aliases and completion
   docker-compose       # Docker Compose completion
   kubectl              # Kubernetes completion
   helm                 # Helm completion
   terraform            # Terraform completion
-  minikube             # Minikube completion
-  microk8s             # MicroK8s support
-  salt                 # SaltStack
 
-  # === Databases ===
-  postgres             # PostgreSQL helpers
-  redis-cli            # Redis CLI completion
+{{- if eq .chezmoi.os "darwin" }}
+  # === macOS Cloud Tools ===
+  aws                  # AWS CLI completion
+  minikube             # Minikube completion
+{{- end }}
 
   # === System ===
+{{- if eq .chezmoi.os "darwin" }}
   macos                # macOS-specific utilities
+{{- end }}
   ssh-agent            # SSH agent management
   sudo                 # ESC ESC to add sudo
   rsync                # Rsync completion
-  gnu-utils            # GNU coreutils helpers
   gpg-agent            # GPG agent management
   keychain             # SSH keychain management
 
   # === CLI Tools ===
-  httpie               # HTTPie completion
-  nmap                 # Nmap completion
-  thefuck              # Command corrector
   tmux                 # Tmux aliases and helpers
-  fasd                 # Quick access to files/directories
-  direnv               # Auto-load environment per directory
   dirhistory           # Navigate directory history (Alt+Left/Right)
 
   # === Navigation & Interaction ===
   zsh-interactive-cd   # Interactive cd with fzf
   zsh-navigation-tools # Advanced navigation tools
 
-  # === Security & DevOps ===
-  otp                  # One-time password support
-  wakeonlan            # Wake on LAN utilities
-
-  # === Editors & IDE ===
+{{- if eq .chezmoi.os "darwin" }}
+  # === macOS Editors & IDE ===
   vscode               # VS Code integration
+{{- end }}
 
   # === Utilities ===
-  web-search           # Search from terminal (google, ddg, github, etc.)
+  web-search           # Search from terminal
 )
 
 
@@ -111,5 +100,3 @@ done
 # Starship prompt (must be last to override oh-my-zsh theme)
 # ============================================================================
 eval "$(starship init zsh)"
-export STARSHIP_CONFIG=~/.config/starship/starship.toml
-
