@@ -1,20 +1,28 @@
-# Starship configuration for Raspberry Pi
-# Snazzy theme - vibrant colors
+# Starship configuration for Raspberry Pi / Linux
+# Snazzy theme - with hostname-based icons
 
 add_newline = false
-format = """[🍓](bold red) $hostname$directory$git_branch$git_status$character"""
-palette = "snazzy"
 command_timeout = 500
 scan_timeout = 30
 
-[character]
-success_symbol = '[❯](bold green)'
-error_symbol = '[❯](bold red)'
+# Format with conditional icon based on hostname
+format = """$env_var$hostname$directory$git_branch$git_status$character"""
+palette = "snazzy"
+
+# Custom icon based on hostname
+[env_var.STARSHIP_ICON]
+variable = "STARSHIP_ICON"
+format = "[$env_value](bold red) "
+disabled = false
 
 [hostname]
 ssh_only = false
 format = "[$hostname](bold yellow):"
 disabled = false
+
+[character]
+success_symbol = '[❯](bold green)'
+error_symbol = '[❯](bold red)'
 
 [directory]
 truncation_length = 2

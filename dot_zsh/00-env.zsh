@@ -1,5 +1,4 @@
 #!/usr/bin/env zsh
-# shellcheck shell=bash
 # Environment variables configuration
 
 # ============================================================================
@@ -30,9 +29,27 @@ case "$(uname -s)" in
 esac
 
 # ============================================================================
+# Hostname-based icon for Starship prompt (RPi/Linux only)
+# ============================================================================
+if [[ "${IS_RPI}" == "true" ]] || [[ "${IS_LINUX}" == "true" ]]; then
+  case "$(hostname)" in
+    bbh-network*)
+      export STARSHIP_ICON="🌐"
+      ;;
+    omv-*)
+      export STARSHIP_ICON="🐟"
+      ;;
+    *)
+      export STARSHIP_ICON="🍓"
+      ;;
+  esac
+fi
+
+# ============================================================================
 # Locale and language
 # ============================================================================
 export LANG=en_US.UTF-8
+export LC_ALL=en_US.UTF-8
 
 # ============================================================================
 # History configuration
