@@ -1,0 +1,202 @@
+#!/bin/bash
+# =============================================================================
+# Raspberry Pi Dotfiles Installation Script
+# =============================================================================
+# Usage: curl -sL https://raw.githubusercontent.com/jsoyer/dotfiles/main/scripts/install-rpi.sh | bash
+# =============================================================================
+
+set -e
+
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+
+log_info() { echo -e "${BLUE}[INFO]${NC} $1"; }
+log_success() { echo -e "${GREEN}[OK]${NC} $1"; }
+log_warn() { echo -e "${YELLOW}[WARN]${NC} $1"; }
+log_error() { echo -e "${RED}[ERROR]${NC} $1"; }
+
+# Check if running on Raspberry Pi or Linux
+if [[ ! -f /proc/device-tree/model ]] && [[ "$(uname -s)" != "Linux" ]]; then
+    log_error "This script is intended for Raspberry Pi / Linux only"
+    exit 1
+fi
+
+if [[ -f /proc/device-tree/model ]]; then
+    RPI_MODEL=$(cat /proc/device-tree/model | tr -d '\0')
+    log_info "Detected: $RPI_MODEL"
+fi
+
+# =============================================================================
+log_info "=== Installing base packages ==="
+# =============================================================================
+sudo apt update && sudo apt install -y \
+    zsh \
+    git \
+    curl \
+    wget \
+    tmux \
+    fzf \
+    neovim \
+    fd-find \
+    ripgrep \
+    jq \
+    unzip \
+    bat \
+    fontconfig
+
+# Create symlinks for renamed packages on Debian/Ubuntu
+sudo ln -sf /usr/bin/batcat /usr/local/bin/bat 2>/dev/null || true
+sudo ln -sf /usr/bin/fdfind /usr/local/bin/fd 2>/dev/null || true
+
+log_success "Base packages installed"
+
+# =============================================================================
+log_info "=== Installing Starship prompt ==="
+# =============================================================================
+if ! command -v starship &> /dev/null; then
+    curl -sS https://starship.rs/install.sh | sh -s -- -y
+    log_success "Starship installed"
+else
+    log_warn "Starship already installed"
+fi
+
+# =============================================================================
+log_info "=== Installing Zoxide ==="
+# =============================================================================
+if ! command -v zoxide &> /dev/null; then
+    curl -sS https://raw.githubusercontent.com/ajeetdsouza/zoxide/main/install.sh | bash
+    log_success "Zoxide installed"
+else
+    log_warn "Zoxide already installed"
+fi
+
+# =============================================================================
+log_info "=== Installing Eza (modern ls) ==="
+# =============================================================================
+if ! command -v eza &> /dev/null; then
+    # Try to install from apt first (newer Debian/Ubuntu)
+    if apt-cache show eza &> /dev/null; then
+        sudo apt install -y eza
+    else
+        # Install from binary for ARM64
+        EZA_VERSION=$(curl -s https://api.github.com/repos/eza-community/eza/releases/latest | jq -r '.tag_name' | tr -d 'v')
+        ARCH=$(uname -m)
+        if [[ "$ARCH" == "aarch64" ]]; then
+            wget -qO- "https://github.com/eza-community/eza/releases/download/v${EZA_VERSION}/eza_aarch64-unknown-linux-gnu.tar.gz" | sudo tar xz -C /usr/local/bin
+        elif [[ "$ARCH" == "armv7l" ]]; then
+            wget -qO- "https://github.com/eza-community/eza/releases/download/v${EZA_VERSION}/eza_arm-unknown-linux-gnueabihf.tar.gz" | sudo tar xz -C /usr/local/bin
+        fi
+    fi
+    log_success "Eza installed"
+else
+    log_warn "Eza already installed"
+fi
+
+# =============================================================================
+log_info "=== Installing Vivid (LS_COLORS generator) ==="
+# =============================================================================
+if ! command -v vivid &> /dev/null; then
+    VIVID_VERSION=$(curl -s https://api.github.com/repos/sharkdp/vivid/releases/latest | jq -r '.tag_name' | tr -d 'v')
+    ARCH=$(uname -m)
+    if [[ "$ARCH" == "aarch64" ]]; then
+        wget -qO- "https://github.com/sharkdp/vivid/releases/download/v${VIVID_VERSION}/vivid-v${VIVID_VERSION}-aarch64-unknown-linux-gnu.tar.gz" | tar xz
+        sudo mv vivid-v${VIVID_VERSION}-aarch64-unknown-linux-gnu/vivid /usr/local/bin/
+        rm -rf vivid-v${VIVID_VERSION}-aarch64-unknown-linux-gnu
+    elif [[ "$ARCH" == "armv7l" ]]; then
+        wget -qO- "https://github.com/sharkdp/vivid/releases/download/v${VIVID_VERSION}/vivid-v${VIVID_VERSION}-arm-unknown-linux-gnueabihf.tar.gz" | tar xz
+        sudo mv vivid-v${VIVID_VERSION}-arm-unknown-linux-gnueabihf/vivid /usr/local/bin/
+        rm -rf vivid-v${VIVID_VERSION}-arm-unknown-linux-gnueabihf
+    fi
+    log_success "Vivid installed"
+else
+    log_warn "Vivid already installed"
+fi
+
+# =============================================================================
+log_info "=== Installing Oh-My-Zsh ==="
+# =============================================================================
+if [[ ! -d "$HOME/.oh-my-zsh" ]]; then
+    sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
+    log_success "Oh-My-Zsh installed"
+else
+    log_warn "Oh-My-Zsh already installed"
+fi
+
+# =============================================================================
+log_info "=== Installing Zsh plugins ==="
+# =============================================================================
+ZSH_CUSTOM="${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}"
+
+if [[ ! -d "$ZSH_CUSTOM/plugins/zsh-autosuggestions" ]]; then
+    git clone https://github.com/zsh-users/zsh-autosuggestions "$ZSH_CUSTOM/plugins/zsh-autosuggestions"
+    log_success "zsh-autosuggestions installed"
+fi
+
+if [[ ! -d "$ZSH_CUSTOM/plugins/zsh-syntax-highlighting" ]]; then
+    git clone https://github.com/zsh-users/zsh-syntax-highlighting "$ZSH_CUSTOM/plugins/zsh-syntax-highlighting"
+    log_success "zsh-syntax-highlighting installed"
+fi
+
+# =============================================================================
+log_info "=== Installing Tmux Plugin Manager ==="
+# =============================================================================
+if [[ ! -d "$HOME/.tmux/plugins/tpm" ]]; then
+    git clone https://github.com/tmux-plugins/tpm ~/.tmux/plugins/tpm
+    log_success "TPM installed"
+else
+    log_warn "TPM already installed"
+fi
+
+# =============================================================================
+log_info "=== Installing Nerd Font (optional but recommended) ==="
+# =============================================================================
+FONT_DIR="$HOME/.local/share/fonts"
+if [[ ! -f "$FONT_DIR/JetBrainsMonoNerdFont-Regular.ttf" ]]; then
+    mkdir -p "$FONT_DIR"
+    FONT_VERSION=$(curl -s https://api.github.com/repos/ryanoasis/nerd-fonts/releases/latest | jq -r '.tag_name')
+    wget -qO /tmp/JetBrainsMono.zip "https://github.com/ryanoasis/nerd-fonts/releases/download/${FONT_VERSION}/JetBrainsMono.zip"
+    unzip -qo /tmp/JetBrainsMono.zip -d "$FONT_DIR"
+    rm /tmp/JetBrainsMono.zip
+    fc-cache -fv
+    log_success "JetBrains Mono Nerd Font installed"
+else
+    log_warn "Nerd Font already installed"
+fi
+
+# =============================================================================
+log_info "=== Installing Chezmoi and applying dotfiles ==="
+# =============================================================================
+if ! command -v chezmoi &> /dev/null; then
+    sh -c "$(curl -fsLS get.chezmoi.io)" -- init --apply jsoyer
+    log_success "Chezmoi installed and dotfiles applied"
+else
+    chezmoi update
+    log_success "Dotfiles updated"
+fi
+
+# =============================================================================
+log_info "=== Changing default shell to Zsh ==="
+# =============================================================================
+if [[ "$SHELL" != *"zsh"* ]]; then
+    chsh -s "$(which zsh)"
+    log_success "Default shell changed to Zsh"
+else
+    log_warn "Zsh is already the default shell"
+fi
+
+# =============================================================================
+echo ""
+log_success "=============================================="
+log_success "  Installation complete!"
+log_success "=============================================="
+echo ""
+log_info "Next steps:"
+echo "  1. Log out and log back in (or run 'zsh')"
+echo "  2. In tmux, press Ctrl+B then I to install plugins"
+echo ""
+if [[ -f /proc/device-tree/model ]]; then
+    log_info "Your RPi prompt will show: 🍓 $(hostname):~/path ❯"
+fi
