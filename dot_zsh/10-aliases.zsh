@@ -94,3 +94,35 @@ alias server='python -m http.server 4445'
 alias tunnel='ngrok http 4445'
 alias fuzz='ffuf -w ~/hacking/SecLists/content_discovery_all.txt -mc all -u'
 alias nm='nmap -sC -sV -oN nmap'
+
+# ============================================================================
+# SSH wrapper for tmux window naming
+# ============================================================================
+ssh() {
+  # Extract hostname from ssh arguments
+  local host=""
+  for arg in "$@"; do
+    # Skip flags
+    [[ "$arg" == -* ]] && continue
+    # First non-flag argument is the destination
+    if [[ "$arg" == *@* ]]; then
+      host="${arg##*@}"  # user@host -> host
+    else
+      host="$arg"
+    fi
+    break
+  done
+  
+  # Remove domain if present (user@host.domain -> host)
+  host="${host%%.*}"
+  
+  # Rename tmux window if in tmux
+  if [[ -n "$TMUX" ]] && [[ -n "$host" ]]; then
+    tmux rename-window "$host"
+    command ssh "$@"
+    # Restore window name after SSH exits
+    tmux rename-window "zsh"
+  else
+    command ssh "$@"
+  fi
+}
