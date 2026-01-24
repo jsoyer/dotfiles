@@ -3,7 +3,7 @@
 > Modern, comprehensive dotfiles managed with [chezmoi](https://www.chezmoi.io/) and synchronized via GitHub.
 
 ![Theme](https://img.shields.io/badge/Theme-Catppuccin%20Mocha-89b4fa?style=for-the-badge)
-![Shell](https://img.shields.io/badge/Shell-Zsh%20%2B%20Nushell-a6e3a1?style=for-the-badge)
+![Shell](https://img.shields.io/badge/Shell-Zsh%20%2B%20Bash%20%2B%20Nushell-a6e3a1?style=for-the-badge)
 ![Manager](https://img.shields.io/badge/Manager-Chezmoi-f38ba8?style=for-the-badge)
 
 ---
@@ -21,8 +21,9 @@ All configurations use the **Catppuccin Mocha** color palette for a consistent, 
 
 ## 📁 What's Included
 
-### Shells
+### 🐚 Shells
 - **Zsh** - Primary shell with Oh-My-Zsh + 48 plugins
+- **Bash** - Universal fallback shell with matching configuration
 - **Nushell** - Modern structured data shell
 - **Fish** - Friendly interactive shell (backup)
 
@@ -221,7 +222,7 @@ brew install \
   neovim starship git-delta
 ```
 
-### Shells
+### 🐚 Shells
 
 ```bash
 brew install zsh nushell fish
@@ -406,6 +407,14 @@ chezmoi update  # Pull + apply automatically
 │   ├── 99-integrations.zsh
 │   ├── README.md
 │   └── secrets.zsh
+├── dot_bash/
+│   ├── 00-env.bash
+│   ├── 01-path.bash
+│   ├── 10-aliases.bash
+│   ├── 20-functions.bash
+│   ├── 99-integrations.bash
+│   └── README.md
+├── dot_bashrc
 ├── dot_zshrc
 ├── dot_zshenv
 ├── dot_zprofile
@@ -678,3 +687,52 @@ chezmoi managed
 ```
 
 Happy configuring! 🎉
+
+---
+
+## 🐚 Bash Configuration
+
+Bash configuration mirrors the Zsh setup for consistency when Zsh isn't available (e.g., minimal servers, containers, or recovery scenarios).
+
+### 📁 Structure
+
+```
+~/.bashrc                    # Main entry point
+~/.bash/                     # Modular configuration directory
+  ├── 00-env.bash           # Environment & theme configurations
+  ├── 01-path.bash          # PATH management with lazy loading
+  ├── 10-aliases.bash       # Command aliases & shortcuts
+  ├── 20-functions.bash     # Custom shell functions
+  ├── 99-integrations.bash  # External tool integrations
+  └── README.md             # Detailed documentation
+```
+
+### ✨ Features
+
+| Feature | Description |
+|---------|-------------|
+| 🎨 **Themed** | Catppuccin Mocha (macOS) / Snazzy (Linux) |
+| 🚀 **Modern Tools** | eza, bat, zoxide, fzf, starship |
+| 🔄 **Zsh Parity** | Same aliases, functions, and integrations |
+| ⚡ **Fast Startup** | Lazy loading for pyenv/jenv |
+| 🌍 **Cross-Platform** | macOS, Linux, Raspberry Pi detection |
+
+### 🔗 Zsh ↔ Bash Equivalence
+
+| Zsh Feature | Bash Equivalent |
+|-------------|-----------------|
+| Oh-My-Zsh plugins | bash-completion + manual sources |
+| `typeset -U path` | `path_prepend`/`path_append` functions |
+| `unfunction` | `unset -f` |
+| zsh-autosuggestions | N/A (use atuin for history) |
+| zsh-syntax-highlighting | N/A |
+| Starship prompt | Starship prompt ✅ |
+
+### 📖 Documentation
+
+See `~/.bash/README.md` for detailed documentation including:
+- File-by-file breakdown
+- All aliases and functions
+- Customization guide
+- Troubleshooting tips
+
