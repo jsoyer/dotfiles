@@ -558,7 +558,12 @@ This Nushell configuration uses **Catppuccin Mocha** to match your other tools:
 
 ---
 
-**Updated**: 2025-12-26  
+**Updated**: 2025-01-25  
 **Theme**: Catppuccin Mocha  
-**Shell**: Nushell 0.109.1  
+**Shell**: Nushell 0.109.1+  
 **Optimized**: Cache cleaned and regenerated
+
+## Changelog
+
+### 2025-01-25
+- Fixed `$nu.home-path` → `$nu.home-dir` (renamed in Nushell 0.80+)

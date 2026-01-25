@@ -5,7 +5,8 @@
 ## 📁 Architecture
 
 ```
-~/.bashrc                    # Main entry point
+~/.bash_profile              # Login shell entry point (sources .bashrc)
+~/.bashrc                    # Main configuration entry point
 ~/.bash/                     # Modular configuration directory
   ├── 00-env.bash           # Environment & theme configurations
   ├── 01-path.bash          # PATH management with lazy loading
@@ -13,6 +14,8 @@
   ├── 20-functions.bash     # Custom shell functions
   └── 99-integrations.bash  # External tool integrations
 ```
+
+> **Note for macOS users**: On macOS, terminals start login shells which read `.bash_profile`, not `.bashrc`. The `.bash_profile` simply sources `.bashrc` to unify behavior across platforms.
 
 ## 🎯 Why Bash?
 
@@ -46,6 +49,23 @@ Same modern tool aliases as Zsh:
 | `curl` | xh | `http` |
 
 ## 📝 File-by-File Documentation
+
+### ~/.bash_profile
+
+**Purpose:** Login shell entry point (macOS terminal sessions)
+
+**Features:**
+- Sources `~/.bashrc` for all configuration
+- Required on macOS where terminals start login shells
+
+```bash
+# Source .bashrc for interactive shell configuration
+if [[ -f "${HOME}/.bashrc" ]]; then
+  source "${HOME}/.bashrc"
+fi
+```
+
+---
 
 ### ~/.bashrc
 
