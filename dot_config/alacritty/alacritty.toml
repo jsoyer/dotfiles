@@ -2,7 +2,7 @@
 # Theme: Catppuccin Mocha
 
 [terminal.shell]
-program = "/opt/homebrew/bin/nu"
+program = "/opt/homebrew/bin/bash"
 
 [env]
 TERM = "xterm-256color"
