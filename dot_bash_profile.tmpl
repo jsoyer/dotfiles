@@ -1,0 +1,16 @@
+{{- if stat "/.toolboxenv" -}}
+# Minimal .bash_profile for toolbox - source .profile for env vars
+[ -f ~/.profile ] && . ~/.profile
+[ -f ~/.bashrc ] && . ~/.bashrc
+{{- else if eq .chezmoi.os "darwin" -}}
+# macOS bash_profile
+[ -f ~/.profile ] && . ~/.profile
+[ -f ~/.bashrc ] && . ~/.bashrc
+
+# Homebrew
+eval "$(/opt/homebrew/bin/brew shellenv)"
+{{- else -}}
+# Standard Linux .bash_profile
+[ -f ~/.profile ] && . ~/.profile
+[ -f ~/.bashrc ] && . ~/.bashrc
+{{- end }}

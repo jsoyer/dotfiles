@@ -2,10 +2,16 @@
 README.md
 .private/Brewfile
 
-{{/* Ignore bash configuration on Fedora Atomic and toolbox (shares home with host) */}}
-{{- if or (lookPath "rpm-ostree") (stat "/.toolboxenv") }}
+{{/* Ignore bash configuration on Fedora Atomic host (preserve system config) */}}
+{{- if lookPath "rpm-ostree" }}
 .bashrc
 .bash_profile
+.bash/
+{{- end }}
+
+{{/* In toolbox, only ignore .bashrc and .bash/ but allow .bash_profile for env vars */}}
+{{- if stat "/.toolboxenv" }}
+.bashrc
 .bash/
 {{- end }}
 
