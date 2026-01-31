@@ -25,7 +25,7 @@ case "$(uname -s)" in
     # --- Linux ---
     export STARSHIP_CONFIG="${HOME}/.config/starship/starship-rpi.toml"
 
-    if [[ -f "/.toolboxenv" ]]; then
+    if [[ -n "$TOOLBOX_PATH" ]] || [[ "$HOSTNAME" == "toolbx" ]]; then
       # Fedora Toolbox container
       export STARSHIP_ICON_COLOR="blue"
       export STARSHIP_ICON=""

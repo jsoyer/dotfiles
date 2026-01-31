@@ -9,7 +9,7 @@ README.md
 {{- end }}
 
 {{/* In toolbox, only ignore .bashrc and .bash/ but allow .bash_profile for env vars */}}
-{{- if stat "/.toolboxenv" }}
+{{- if env "TOOLBOX_PATH" }}
 .bashrc
 .bash/
 {{- end }}

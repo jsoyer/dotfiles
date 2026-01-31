@@ -6,7 +6,7 @@
 export STARSHIP_ICON=""
 export STARSHIP_ICON_COLOR="mauve"
 {{- else if eq .chezmoi.os "linux" }}
-if [ -f "/.toolboxenv" ]; then
+if [ -n "$TOOLBOX_PATH" ] || [ "$(hostname)" = "toolbx" ]; then
     # Fedora Toolbox
     export STARSHIP_ICON=""
     export STARSHIP_ICON_COLOR="blue"
