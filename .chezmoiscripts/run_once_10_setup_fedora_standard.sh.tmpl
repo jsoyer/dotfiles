@@ -18,6 +18,7 @@ echo "[chezmoi] Installing Fedora Standard dependencies via dnf..."
 echo "Enabling COPR repositories..."
 sudo dnf copr enable -y alternateved/eza
 sudo dnf copr enable -y atim/starship
+sudo dnf copr enable -y skoved/vivid
 
 # Install packages (skip already installed or unavailable)
 sudo dnf install -y --skip-unavailable \
@@ -37,6 +38,7 @@ sudo dnf install -y --skip-unavailable \
     fontconfig \
     starship \
     zoxide \
+    vivid \
     util-linux-user # For chsh
 
 echo "[chezmoi] Packages installed"
