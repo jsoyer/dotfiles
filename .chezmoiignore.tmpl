@@ -15,9 +15,9 @@ README.md
 
 {{/* Ignore bash configuration on Fedora Atomic systems */}}
 {{- if lookPath "rpm-ostree" }}
-dot_bashrc
-dot_bash_profile
-dot_bash/
+.bashrc
+.bash_profile
+.bash/
 {{- end }}
 
 {{/* Ignore 1Password-dependent files when op CLI is not available */}}
