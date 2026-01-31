@@ -5,9 +5,16 @@
 set -eufo pipefail
 
 echo "Installing Flatpak packages..."
-# flatpak install -y flathub \
-#   com.votre.app1 \
-#   org.votre.app2
+flatpak install -y flathub \
+com.brave.Browser \
+com.obsproject.Studio \
+dev.zed.Zed \
+io.dbeaver.DBeaverCommunity \
+io.podman_desktop.PodmanDesktop \
+md.obsidian.Obsidian \
+org.filezillaproject.Filezilla \
+org.wezfurlong.wezterm \
+org.videolan.VLC
 
 echo "Flatpak packages installation placeholder."
 {{ end -}}
