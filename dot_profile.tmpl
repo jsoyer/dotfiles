@@ -1,0 +1,29 @@
+# ~/.profile - sourced by login shells (bash, sh, etc.)
+# This file sets environment variables for starship prompt
+
+# Detect environment and set STARSHIP_ICON
+{{- if eq .chezmoi.os "darwin" }}
+export STARSHIP_ICON=""
+export STARSHIP_ICON_COLOR="mauve"
+{{- else if eq .chezmoi.os "linux" }}
+if [ -f "/.toolboxenv" ]; then
+    # Fedora Toolbox
+    export STARSHIP_ICON=""
+    export STARSHIP_ICON_COLOR="blue"
+elif [ -f /proc/device-tree/model ] && grep -q "Raspberry Pi" /proc/device-tree/model 2>/dev/null; then
+    # Raspberry Pi
+    export STARSHIP_ICON_COLOR="red"
+    case "$(hostname)" in
+        bbh-network*) export STARSHIP_ICON="🌐" ;;
+        omv-*)        export STARSHIP_ICON="🐟" ;;
+        *)            export STARSHIP_ICON="🍓" ;;
+    esac
+else
+    # Other Linux (Fedora)
+    export STARSHIP_ICON=""
+    export STARSHIP_ICON_COLOR="blue"
+fi
+{{- end }}
+
+# Starship config
+export STARSHIP_CONFIG="${HOME}/.config/starship/starship{{ if eq .chezmoi.os "linux" }}-rpi{{ end }}.toml"
