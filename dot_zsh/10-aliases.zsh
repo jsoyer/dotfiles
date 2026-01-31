@@ -30,6 +30,9 @@ alias zl='eza -lagX --icons --color=always'
 alias cl='clear'
 alias bcask='brew cask'
 
+# Toolbox - enter with zsh instead of bash
+alias toolbox='toolbox run zsh'
+
 # ============================================================================
 # Navigation
 # ============================================================================
