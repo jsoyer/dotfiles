@@ -8,35 +8,14 @@ scan_timeout = 30
 # macOS icon
 [env_var.STARSHIP_ICON]
 variable = "STARSHIP_ICON"
-format = "[$env_value](bold mauve) "
+style = "bold ${STARSHIP_ICON_COLOR:-mauve}"
+format = "[$env_value]($style) "
 disabled = false
 
-# Logique pour changer l'icône du prompt en fonction du profil de la machine
-{{ if eq .machine.profile "mac-pro" }}
 [character]
-# Prompt pour le Mac Pro
 vicmd_symbol = "[N] >>>"
-success_symbol = "[💼](bold green)"
-error_symbol = "[💼](bold red)"
-{{ else if or (eq .machine.profile "linux-atomic") (eq .machine.profile "linux-standard") }}
-[character]
-# Prompt pour les machines Linux
-vicmd_symbol = "[N] >>>"
-success_symbol = "[](bold blue)"
-error_symbol = "[](bold red)"
-{{ else if eq .machine.profile "windows" }}
-[character]
-# Prompt pour les machines Windows
-vicmd_symbol = "[N] >>>"
-success_symbol = "[](bold cyan)"
-error_symbol = "[](bold red)"
-{{ else }}
-[character]
-# Prompt pour les Macs Personnels (correspondant à l'image)
-vicmd_symbol = "[N] >>>"
-success_symbol = "[➜](bold green)"
-error_symbol = "[➜](bold red)"
-{{ end }}
+success_symbol = '[➜](bold green)'
+error_symbol = '[➜](bold red)'
 
 [cmd_duration]
 min_time = 2000
