@@ -89,7 +89,11 @@ setopt SHARE_HISTORY
 # ============================================================================
 # Editor configuration
 # ============================================================================
-export EDITOR='nvim'
+if [[ "$MACHINE_PROFILE" == "rpi" ]]; then
+  export EDITOR='nano'
+else
+  export EDITOR='nvim'
+fi
 
 # ============================================================================
 # Docker configuration
