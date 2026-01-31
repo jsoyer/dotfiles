@@ -28,8 +28,12 @@ require("lazy").setup({
     { import = "lazyvim.plugins.extras.linting.eslint" },
     { import = "lazyvim.plugins.extras.ui.mini-animate" },
 
-    -- Import your custom plugins
-    { import = "plugins" },
+    -- Import your custom plugins from subdirectories
+    { import = "plugins.core" },
+    { import = "plugins.dev" },
+    { import = "plugins.lang" },
+    { import = "plugins.tools" },
+    { import = "plugins.ui" },
   },
   defaults = {
     lazy = false,
