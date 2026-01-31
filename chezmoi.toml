@@ -16,13 +16,13 @@
 [edit]
     command = "nvim"
 
-[diff]
-    command = "delta"
-    pager = "delta"
-    args = [
-      "{{ `{{ .Destination }}` }}",
-      "{{ `{{ .Target }}` }}",
-    ]
+# [diff]
+#     command = "delta"
+#     pager = "delta"
+#     args = [
+#       "{{ `{{ .Destination }}` }}",
+#       "{{ `{{ .Target }}` }}",
+#     ]
 
 [merge]
     command = "nvim"
