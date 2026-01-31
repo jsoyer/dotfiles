@@ -25,15 +25,25 @@ export STARSHIP_CONFIG="${HOME}/.config/starship/starship.toml"
 
 case "$(uname -s)" in
 
-    Darwin)
+      Darwin)
 
-      # --- macOS ---
+        # --- macOS ---
 
-      export STARSHIP_ICON_COLOR="mauve"
+        export STARSHIP_ICON_COLOR="mauve"
 
-      export STARSHIP_ICON=""
+        export STARSHIP_ICON=""
 
-      ;;
+        if [[ "$(hostname)" == "jsoyer-macOS" ]]; then
+
+          export MACHINE_PROFILE="mac-pro"
+
+        else
+
+          export MACHINE_PROFILE="mac-personal"
+
+        fi
+
+        ;;
 
 
 
@@ -53,49 +63,73 @@ case "$(uname -s)" in
 
       case "$(hostname)" in
 
-        bbh-network*)
+              bbh-network*)
 
-          export STARSHIP_ICON="🌐"
+                export STARSHIP_ICON="🌐"
 
-          ;;
+                ;;
 
-        omv-*)
+              omv-*)
 
-          export STARSHIP_ICON="🐟"
+                export STARSHIP_ICON="🐟"
 
-          ;;
+                ;;
 
-        *)
+              *)
 
-          export STARSHIP_ICON="🍓"
+                export STARSHIP_ICON="🍓"
 
-          ;;
+                ;;
 
-      esac
+            esac
 
-    else
+            export MACHINE_PROFILE="rpi"
 
-      # Other Linux devices (Fedora)
+        else
 
-      export STARSHIP_ICON_COLOR="blue"
+          # Other Linux devices (Fedora)
 
-      export STARSHIP_ICON=""
+          export STARSHIP_ICON_COLOR="blue"
 
-    fi
+          export STARSHIP_ICON=""
+
+          if [[ "$(hostname)" == "fedora" ]]; then
+
+            export MACHINE_PROFILE="linux-standard"
+
+          elif [[ "$(hostname)" == "fedora-atomic" ]]; then
+
+            export MACHINE_PROFILE="linux-atomic"
+
+          fi
+
+        fi
 
     ;;
 
 
 
-  CYGWIN*|MINGW32*|MSYS*|MINGW*)
+    CYGWIN*|MINGW32*|MSYS*|MINGW*)
 
-    # --- Windows ---
 
-    export STARSHIP_ICON_COLOR="cyan"
 
-    export STARSHIP_ICON=""
+      # --- Windows ---
 
-    ;;
+
+
+      export STARSHIP_ICON_COLOR="cyan"
+
+
+
+      export STARSHIP_ICON=""
+
+
+
+      export MACHINE_PROFILE="windows"
+
+
+
+      ;;
 
 esac
 

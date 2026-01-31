@@ -1,0 +1,15 @@
+# Paquets Homebrew communs à toutes les machines macOS
+
+tap "homebrew/bundle"
+tap "homebrew/cask"
+tap "homebrew/core"
+brew "git"
+brew "fzf"
+brew "neovim"
+brew "chezmoi"
+brew "starship"
+cask "alacritty"
+cask "1password"
+cask "raycast"
+cask "visual-studio-code"
+cask "zed"
