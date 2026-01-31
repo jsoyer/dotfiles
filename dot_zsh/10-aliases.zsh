@@ -112,10 +112,10 @@ ssh() {
     fi
     break
   done
-  
+
   # Remove domain if present (user@host.domain -> host)
   host="${host%%.*}"
-  
+
   # Rename tmux window if in tmux
   if [[ -n "$TMUX" ]] && [[ -n "$host" ]]; then
     tmux rename-window "$host"
@@ -126,3 +126,53 @@ ssh() {
     command ssh "$@"
   fi
 }
+
+# ============================================================================
+# Homebrew
+# ============================================================================
+alias b='brew'
+alias bu='brew update'
+alias bup='brew upgrade'
+alias bcu='brew cu -a' # Uses brew-cask-upgrade
+alias bs='brew search'
+alias bl='brew list'
+alias bun='brew uninstall'
+alias bci='brew cleanup'
+alias binfo='brew info'
+alias bd='brew doctor'
+
+# ============================================================================
+# Git (Additions)
+# ============================================================================
+alias gs='git status -s'
+alias gsw='git switch'
+alias gswc='git switch -c'
+alias grs='git restore'
+alias grbi='git rebase -i'
+alias gcl='git clone'
+
+# ============================================================================
+# Chezmoi
+# ============================================================================
+alias c='chezmoi'
+alias ca='chezmoi apply -v'
+alias cu='chezmoi update -v'
+alias cdiff='chezmoi diff'
+alias cedit='chezmoi edit'
+alias cadd='chezmoi add'
+alias creadd='chezmoi re-add'
+alias cs='chezmoi status'
+alias ccd='chezmoi cd'
+
+# ============================================================================
+# Jujutsu (jj)
+# ============================================================================
+alias j='jj'
+alias js='jj st'
+alias jl="jj log -r 'all()'"
+alias jd='jj diff'
+alias jn='jj new'
+alias jui='jjui'
+alias jundo='jj undo'
+alias jp='jj git push'
+alias jf='jj git fetch'
