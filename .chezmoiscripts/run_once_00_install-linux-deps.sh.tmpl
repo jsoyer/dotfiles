@@ -11,10 +11,15 @@ set -e
 
 echo "[chezmoi] Configuring locale..."
 
-# Generate locale if not available
-if ! locale -a 2>/dev/null | grep -q "en_US.utf8"; then
-    sudo locale-gen en_US.UTF-8
-    sudo update-locale LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8
+# Ensure en_US.UTF-8 is available on Debian-based systems
+if ! locale -a 2>/dev/null | grep -qi "en_US.utf8"; then
+    echo "en_US.UTF-8 not found. Generating..."
+    # 1. Uncomment the locale in the generation file
+    sudo sed -i -e 's/# en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/' /etc/locale.gen
+    # 2. Regenerate locales non-interactively
+    sudo dpkg-reconfigure --frontend=noninteractive locales
+    # 3. Update the system's default locale
+    sudo update-locale LANG=en_US.UTF-8
 fi
 
 export LANG=en_US.UTF-8
