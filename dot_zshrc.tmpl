@@ -105,3 +105,19 @@ done
 # Starship prompt (must be last to override oh-my-zsh theme)
 # ============================================================================
 eval "$(starship init zsh)"
+
+# ===============================================================
+# Configuration spécifique à la machine (Perso vs Pro)
+# ===============================================================
+{{ if eq .chezmoi.hostname "jsoyer-macOS" -}}
+# Configuration pour le Mac Pro
+export GIT_AUTHOR_EMAIL="jsoyer@varonis.com"
+# export GPG_SIGNING_KEY="VOTRE_CLE_GPG_PRO"
+alias k="kubectl"
+
+{{ else -}}
+# Configuration pour les Macs Personnels
+export GIT_AUTHOR_EMAIL="jeromesoyer@gmail.com"
+# export GPG_SIGNING_KEY="VOTRE_CLE_GPG_PERSO"
+
+{{ end -}}

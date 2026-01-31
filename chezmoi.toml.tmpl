@@ -32,3 +32,27 @@
       "{{ `{{ .Source }}` }}",
       "{{ `{{ .Target }}` }}",
     ]
+
+# ===============================================================
+# Machine-Specific Profiles
+# ===============================================================
+# Determines the machine profile based on its hostname.
+# This is used in templates to apply specific settings.
+{{ $hostname := .chezmoi.hostname -}}
+{{ if eq $hostname "jsoyer-macOS" -}}
+[data.machine]
+  profile = "mac-pro"
+  packageManager = "brew"
+{{ else if eq $hostname "fedora-atomic" -}}
+[data.machine]
+  profile = "linux-atomic"
+  packageManager = "flatpak"
+{{ else if eq $hostname "fedora" -}}
+[data.machine]
+  profile = "linux-standard"
+  packageManager = "dnf"
+{{ else -}}
+[data.machine]
+  profile = "mac-personal"
+  packageManager = "brew"
+{{ end -}}

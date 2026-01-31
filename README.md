@@ -19,6 +19,19 @@ All configurations use the **Catppuccin Mocha** color palette for a consistent, 
 
 ---
 
+## ⚙️ Profile-Based Configuration
+
+This setup uses `chezmoi`'s templating capabilities to apply different configurations based on a `profile` attribute defined in `chezmoi.toml.tmpl`. This allows for a clean separation between machine types (professional, personal, Linux, etc.).
+
+| Profile          | Hostname(s)      | OS       | Package Manager | Prompt Icon |
+| ---------------- | ---------------- | -------- | --------------- | ----------- |
+| `mac-pro`        | `jsoyer-macOS`   | macOS    | `brew`          | `💼`          |
+| `mac-personal`   | *(default)*      | macOS    | `brew`          | `➜`           |
+| `linux-atomic`   | `fedora-atomic`  | Fedora   | `flatpak`       | ``           |
+| `linux-standard` | `fedora`         | Fedora   | `dnf`           | ``           |
+
+---
+
 ## 📁 What's Included
 
 ### 🐚 Shells

@@ -1,3 +1,54 @@
+# Fichier Brewfile template pour chezmoi
+# Utilise le nom d'hôte pour déterminer quels paquets installer.
+
+{{ if eq .chezmoi.hostname "jsoyer-macOS" -}}
+#################################
+# Paquets pour le Mac Pro
+#################################
+# Paquets communs
+tap "homebrew/bundle"
+tap "homebrew/cask"
+tap "homebrew/core"
+brew "git"
+brew "fzf"
+brew "neovim"
+brew "chezmoi"
+brew "starship"
+cask "alacritty"
+cask "1password"
+cask "raycast"
+
+# Paquets spécifiques Pro
+tap "hashicorp/tap"
+tap "pulumi/tap"
+brew "awscli"
+brew "asdf"
+brew "colima"
+brew "docker"
+brew "docker-compose"
+brew "helm"
+brew "kubernetes-cli"
+brew "k9s"
+brew "kubectx"
+brew "opentofu"
+brew "pulumi"
+brew "terraform"
+brew "lazygit"
+cask "orbstack"
+cask "slack"
+cask "visual-studio-code"
+cask "zed"
+cask "burp-suite"
+cask "dbeaver-community"
+cask "postman" # Exemple, vous pouvez l'ajouter
+cask "royal-tsx"
+mas "Remote Desktop", id: 409907375
+
+{{ else -}}
+###################################
+# Paquets pour les Macs Perso
+# (Contient votre liste complète d'origine)
+###################################
 tap "aquaproj/aqua"
 tap "buo/cask-upgrade"
 tap "charmbracelet/tap"
@@ -467,3 +518,5 @@ vscode "mechatroner.rainbow-csv"
 vscode "ms-ceintl.vscode-language-pack-fr"
 vscode "phplasma.csv-to-table"
 vscode "wraith13.zoombar-vscode"
+
+{{ end -}}
