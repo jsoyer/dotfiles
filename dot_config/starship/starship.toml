@@ -62,7 +62,7 @@ style = 'bold orange'
 symbol = "☁️ "
 
 [golang]
-format = '[ ](bold cyan)'
+format = 'via [ $version](bold cyan) '
 
 [nodejs]
 format = "via [⬢ $version](bold green) "

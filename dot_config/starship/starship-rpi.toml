@@ -32,7 +32,7 @@ error_symbol = '[❯](bold red)'
 [git_branch]
 format = "[$symbol$branch]($style) "
 style = "bold magenta"
-symbol = ""
+symbol = " "
 
 [git_status]
 format = '([$all_status$ahead_behind]($style) )'
@@ -48,6 +48,10 @@ deleted = "✘${count}"
 [cmd_duration]
 min_time = 2000
 style = "bold yellow"
+
+[golang]
+format = 'via [ $version](bold cyan) '
+disabled = false
 
 [python]
 format = 'via [🐍 $version](bold yellow) '
