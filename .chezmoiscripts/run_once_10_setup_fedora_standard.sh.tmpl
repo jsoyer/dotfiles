@@ -44,6 +44,18 @@ sudo dnf install -y --skip-unavailable \
 
 echo "[chezmoi] Packages installed"
 
+# Install Nerd Fonts for terminal icons
+if [[ ! -d "$HOME/.local/share/fonts/JetBrainsMonoNerdFont" ]]; then
+    echo "[chezmoi] Installing JetBrains Mono Nerd Font..."
+    mkdir -p "$HOME/.local/share/fonts/JetBrainsMonoNerdFont"
+    cd "$HOME/.local/share/fonts/JetBrainsMonoNerdFont"
+    curl -fLO "https://github.com/ryanoasis/nerd-fonts/releases/latest/download/JetBrainsMono.tar.xz"
+    tar -xf JetBrainsMono.tar.xz
+    rm JetBrainsMono.tar.xz
+    fc-cache -fv
+    echo "[chezmoi] Nerd Font installed"
+fi
+
 # Note: oh-my-zsh, zsh plugins, powerlevel10k, and tpm are managed by chezmoiexternal.toml
 
 echo "[chezmoi] Fedora Standard setup complete!"
