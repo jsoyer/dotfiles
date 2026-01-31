@@ -199,11 +199,6 @@ f  # Select file with FZF, copy path to clipboard
 fv  # Select file with FZF, open in neovim
 ```
 
-#### bi - Smart Homebrew Installer
-```bash
-bi install <pkg>  # Installs via brew and auto-updates the correct Brewfile
-```
-
 
 ### 30-keybindings.zsh
 **Purpose:** Custom keyboard shortcuts

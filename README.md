@@ -25,12 +25,12 @@ This setup uses `chezmoi`'s templating capabilities to apply different configura
 
 | Profile          | Hostname(s)      | OS       | Package Manager | Prompt Icon |
 | ---------------- | ---------------- | -------- | --------------- | ----------- |
-| `mac-pro`        | `jsoyer-macOS`   | macOS    | `brew`          | `💼`          |
-| `mac-personal`   | *(default)*      | macOS    | `brew`          | `➜`           |
-| `linux-atomic`   | `fedora-atomic`  | Fedora   | `flatpak`       | ``           |
-| `linux-standard` | `fedora`         | Fedora   | `dnf`           | ``           |
-| `windows`        | *(any)*          | Windows  | `scoop`         | ``           |
-| `rpi`            | *(rpi kernel)*   | Linux    | `apt`           | `🍓`          |
+| `mac`            | `jsoyer-macOS`   | macOS    | `brew`          | `💼`        |
+| `mac`            | *(default)*      | macOS    | `brew`          | ``         |
+| `linux`          | `fedora-atomic`  | Fedora   | `flatpak`       | ``         |
+| `linux`          | `fedora`         | Fedora   | `dnf`           | ``         |
+| `windows`        | *(any)*          | Windows  | `scoop`         | ``         |
+| `rpi`            | *(rpi kernel)*   | Linux    | `apt`           | `🍓`        |
 
 ---
 
@@ -356,15 +356,15 @@ chezmoi apply
 
 ### Updating Homebrew Packages (macOS)
 
-A custom `bi` function wraps the `brew` command. When you install a package with `bi install <package>`, it automatically:
+A custom `breww` script wraps the `brew` command. When you install a package with `breww install <package>`, it automatically:
 1. Installs the package via Homebrew.
 2. Dumps the machine's current list of packages into the correct profile-specific `Brewfile` (`_pro` or `_personal`).
 3. Commits and pushes the change to GitHub.
 
 **Usage:**
 ```bash
-# Instead of 'brew install ...', use 'bi install ...'
-bi install ripgrep
+# Instead of 'brew install ...', use 'breww install ...'
+breww install ripgrep
 ```
 
 ### Checking What's Changed
@@ -763,4 +763,3 @@ See `~/.bash/README.md` for detailed documentation including:
 - All aliases and functions
 - Customization guide
 - Troubleshooting tips
-

@@ -5,6 +5,11 @@
 # Build PATH in correct order (highest priority first)
 typeset -U path  # Ensure uniqueness
 
+# Add ~/bin for Raspberry Pi user scripts, if it exists
+if [[ -d "$HOME/bin" ]] && [[ "$MACHINE_PROFILE" == "rpi" ]]; then
+  path=("$HOME/bin" $path)
+fi
+
 path=(
   # User bins (highest priority)
   "${HOME}/.local/bin"
