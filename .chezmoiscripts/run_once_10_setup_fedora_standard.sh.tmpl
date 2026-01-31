@@ -1,4 +1,6 @@
-{{- if eq .chezmoi.hostname "fedora" -}}
+{{- $isToolbox := stat "/.toolboxenv" -}}
+{{- $isStandardFedora := and (lookPath "dnf") (not (lookPath "rpm-ostree")) -}}
+{{- if or $isToolbox $isStandardFedora }}
 #!/bin/bash
 # =============================================================================
 # Fedora Standard - Dependencies Installation Script
@@ -10,8 +12,12 @@ set -eufo pipefail
 
 echo "[chezmoi] Installing Fedora Standard dependencies via dnf..."
 
+echo "Enabling COPR repository for eza..."
+sudo dnf copr enable -y alternateved/eza
+
 # Translating package list from apt to dnf
 sudo dnf install -y \
+    eza \
     zsh \
     git \
     curl \
@@ -27,7 +33,6 @@ sudo dnf install -y \
     fontconfig \
     starship \
     zoxide \
-    eza \
     vivid \
     util-linux-user # For chsh
 
