@@ -19,8 +19,8 @@ echo "Enabling COPR repositories..."
 sudo dnf copr enable -y alternateved/eza
 sudo dnf copr enable -y atim/starship
 
-# Translating package list from apt to dnf
-sudo dnf install -y \
+# Install packages (skip already installed or unavailable)
+sudo dnf install -y --skip-unavailable \
     eza \
     zsh \
     git \
@@ -37,7 +37,6 @@ sudo dnf install -y \
     fontconfig \
     starship \
     zoxide \
-    vivid \
     util-linux-user # For chsh
 
 echo "[chezmoi] Packages installed"
