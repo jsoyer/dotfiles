@@ -29,6 +29,8 @@ This setup uses `chezmoi`'s templating capabilities to apply different configura
 | `mac-personal`   | *(default)*      | macOS    | `brew`          | `➜`           |
 | `linux-atomic`   | `fedora-atomic`  | Fedora   | `flatpak`       | ``           |
 | `linux-standard` | `fedora`         | Fedora   | `dnf`           | ``           |
+| `windows`        | *(any)*          | Windows  | `scoop`         | ``           |
+| `rpi`            | *(rpi kernel)*   | Linux    | `apt`           | `🍓`          |
 
 ---
 

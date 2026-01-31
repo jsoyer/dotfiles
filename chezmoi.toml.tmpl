@@ -55,6 +55,10 @@
 [data.machine]
   profile = "rpi"
   packageManager = "apt"
+{{ else if eq .chezmoi.os "windows" -}}
+[data.machine]
+  profile = "windows"
+  packageManager = "scoop"
 {{ else -}}
 [data.machine]
   profile = "mac-personal"

@@ -24,6 +24,12 @@ error_symbol = "[💼](bold red)"
 vicmd_symbol = "[N] >>>"
 success_symbol = "[](bold blue)"
 error_symbol = "[](bold red)"
+{{ else if eq .machine.profile "windows" }}
+[character]
+# Prompt pour les machines Windows
+vicmd_symbol = "[N] >>>"
+success_symbol = "[](bold cyan)"
+error_symbol = "[](bold red)"
 {{ else }}
 [character]
 # Prompt pour les Macs Personnels (correspondant à l'image)
