@@ -128,18 +128,18 @@ ssh() {
 }
 
 # ============================================================================
-# Homebrew
+# Homebrew (via breww wrapper)
 # ============================================================================
-alias b='brew'
-alias bu='brew update'
-alias bup='brew upgrade'
-alias bcu='brew cu -a' # Uses brew-cask-upgrade
-alias bs='brew search'
-alias bl='brew list'
-alias bun='brew uninstall'
-alias bci='brew cleanup'
-alias binfo='brew info'
-alias bd='brew doctor'
+alias b='breww'
+alias bu='breww update'
+alias bup='breww upgrade'
+alias bcu='breww cu -a' # Uses brew-cask-upgrade
+alias bs='breww search'
+alias bl='breww list'
+alias bun='breww uninstall'
+alias bci='breww cleanup'
+alias binfo='breww info'
+alias bd='breww doctor'
 
 # ============================================================================
 # Git (Additions)
