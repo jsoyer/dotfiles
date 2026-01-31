@@ -12,8 +12,14 @@ set -eufo pipefail
 
 echo "[chezmoi] Installing Fedora Standard dependencies via dnf..."
 
-echo "Enabling COPR repository for eza..."
+echo "Enabling COPR repositories..."
 sudo dnf copr enable -y alternateved/eza
+
+# Starship needs a COPR repo on aarch64
+if [[ "$(uname -m)" == "aarch64" ]]; then
+    echo "Enabling COPR repository for starship (aarch64)..."
+    sudo dnf copr enable -y atim/starship
+fi
 
 # Translating package list from apt to dnf
 sudo dnf install -y \
