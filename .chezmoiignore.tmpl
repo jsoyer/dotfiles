@@ -19,3 +19,8 @@ dot_bashrc
 dot_bash_profile
 dot_bash/
 {{- end }}
+
+{{/* Ignore 1Password-dependent files when op CLI is not available */}}
+{{- if not (lookPath "op") }}
+.ssh/config
+{{- end }}
