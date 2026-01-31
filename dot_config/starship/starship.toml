@@ -8,7 +8,7 @@ scan_timeout = 30
 # macOS icon
 [env_var.STARSHIP_ICON]
 variable = "STARSHIP_ICON"
-style = "bold ${STARSHIP_ICON_COLOR:-mauve}"
+style = "bold mauve"
 format = "[$env_value]($style) "
 disabled = false
 

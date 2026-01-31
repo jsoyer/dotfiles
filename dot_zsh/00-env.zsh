@@ -13,7 +13,7 @@ case "$(uname -s)" in
   Darwin)
     # --- macOS ---
     export STARSHIP_ICON_COLOR="mauve"
-    export STARSHIP_ICON=""
+    export STARSHIP_ICON=""
     if [[ "$(hostname)" == "jsoyer-macOS" ]]; then
       export MACHINE_PROFILE="mac-pro"
     else
@@ -28,7 +28,7 @@ case "$(uname -s)" in
     if [[ -n "$TOOLBOX_PATH" ]] || [[ "$HOSTNAME" == *toolbx* ]]; then
       # Fedora Toolbox container
       export STARSHIP_ICON_COLOR="blue"
-      export STARSHIP_ICON=""
+      export STARSHIP_ICON=""
       export MACHINE_PROFILE="toolbox"
 
     elif [[ -f /proc/device-tree/model ]] && grep -q "Raspberry Pi" /proc/device-tree/model 2>/dev/null; then
@@ -50,7 +50,7 @@ case "$(uname -s)" in
     else
       # Other Linux devices (Fedora)
       export STARSHIP_ICON_COLOR="blue"
-      export STARSHIP_ICON=""
+      export STARSHIP_ICON=""
       if [[ "$(hostname)" == "fedora" ]]; then
         export MACHINE_PROFILE="linux-standard"
       elif [[ "$(hostname)" == "fedora-atomic" ]]; then
