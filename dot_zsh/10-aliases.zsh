@@ -155,14 +155,30 @@ alias gcl='git clone'
 # Chezmoi
 # ============================================================================
 alias c='chezmoi'
-alias ca='chezmoi apply -v'
-alias cu='chezmoi update -v'
 alias cdiff='chezmoi diff'
 alias cedit='chezmoi edit'
 alias cadd='chezmoi add'
 alias creadd='chezmoi re-add'
 alias cs='chezmoi status'
 alias ccd='chezmoi cd'
+
+# Chezmoi apply/update with verbose mode
+# On RPi, use --no-diff to avoid deadlock bug in chezmoi's GitDiffSystem
+ca() {
+  if [[ "$MACHINE_PROFILE" == "rpi" ]]; then
+    chezmoi apply -v --no-diff "$@"
+  else
+    chezmoi apply -v "$@"
+  fi
+}
+
+cu() {
+  if [[ "$MACHINE_PROFILE" == "rpi" ]]; then
+    chezmoi update -v --no-diff "$@"
+  else
+    chezmoi update -v "$@"
+  fi
+}
 
 # ============================================================================
 # Jujutsu (jj)
