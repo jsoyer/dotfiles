@@ -2,9 +2,8 @@
 README.md
 .private/Brewfile
 
-{{/* Ignore bash configuration on Fedora Atomic host (preserve system config) */}}
+{{/* Ignore full bash configuration on Fedora Atomic host, but allow minimal .bashrc */}}
 {{- if lookPath "rpm-ostree" }}
-.bashrc
 .bash_profile
 .bash/
 {{- end }}
