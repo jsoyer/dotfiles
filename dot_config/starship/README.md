@@ -31,14 +31,11 @@ The correct configuration is automatically selected based on platform detection 
 
 ### How It Works
 
-```bash
-# In ~/.zsh/00-env.zsh
-if [[ "${IS_RPI}" == "true" ]]; then
-  export STARSHIP_CONFIG="${HOME}/.config/starship/starship-rpi.toml"
-else
-  export STARSHIP_CONFIG="${HOME}/.config/starship/starship.toml"
-fi
-```
+The master logic lives in `~/.zsh/00-env.zsh`. It detects the machine's profile and exports two key environment variables:
+1.  `STARSHIP_CONFIG`: Points to the correct `.toml` file to use (e.g., `starship.toml` for macOS, `starship-rpi.toml` for Linux).
+2.  `STARSHIP_ICON`: Sets the main icon character for the prompt (``, ``, `🍓`, etc.).
+
+This icon is then displayed by the `[env_var.STARSHIP_ICON]` section in `starship.toml`.
 
 ## Configuration Comparison
 

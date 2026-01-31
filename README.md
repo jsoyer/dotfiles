@@ -71,7 +71,7 @@ This setup uses `chezmoi`'s templating capabilities to apply different configura
 - **FZF** - Fuzzy finder
 - **Vivid** - LS_COLORS generator
 - **TheFuck** - Command corrector
-- **Git** - Version control with aliases
+- **Git, Jujutsu, Brew, Chezmoi** - Version control and system management with extensive custom aliases.
 
 ---
 
@@ -352,6 +352,19 @@ chezmoi re-add ~/.config/tool/config  # Auto-commits & pushes
 # Or via chezmoi
 chezmoi edit ~/.config/tool/config
 chezmoi apply
+```
+
+### Updating Homebrew Packages (macOS)
+
+A custom `bi` function wraps the `brew` command. When you install a package with `bi install <package>`, it automatically:
+1. Installs the package via Homebrew.
+2. Dumps the machine's current list of packages into the correct profile-specific `Brewfile` (`_pro` or `_personal`).
+3. Commits and pushes the change to GitHub.
+
+**Usage:**
+```bash
+# Instead of 'brew install ...', use 'bi install ...'
+bi install ripgrep
 ```
 
 ### Checking What's Changed

@@ -115,33 +115,13 @@ Traditional tools are replaced with modern alternatives:
 - Ensures non-login shells have proper environment
 
 ### 00-env.zsh
-**Purpose:** Core environment variables and tool configurations
+**Purpose:** Core environment variables and profile-based theming.
 
-**Sections:**
-- **Locale:** UTF-8 encoding
-- **History:** 50,000 lines with deduplication and timestamps
-- **Editor:** nvim (local) or vim (SSH)
-- **Docker:** Config directory path
-- **Homebrew:** Installation preferences
-- **Kubernetes:** Kubeconfig path
-- **FZF:** Catppuccin Mocha theme + fd integration
-- **Vivid:** Catppuccin Mocha theme for LS_COLORS generation
-- **Eza:** Uses LS_COLORS from Vivid automatically
-- **Bat:** Catppuccin Mocha theme
-
-**Color system:**
-```bash
-# Vivid generates LS_COLORS with Catppuccin Mocha theme
-export LS_COLORS="$(vivid generate catppuccin-mocha)"
-
-# Eza automatically uses LS_COLORS for consistent file listing colors
-# All file types, extensions, and permissions are colorized consistently
-```
-
-**Performance features:**
-- History sharing between sessions
-- Duplicate filtering
-- Timestamp tracking
+**Key features:**
+- **Profile-Aware Theming:** A `case` statement on `uname` and `hostname` detects the machine type (macOS Pro/Personal, Fedora, Raspberry Pi, Windows) and exports the correct `STARSHIP_ICON` and `STARSHIP_ICON_COLOR` for a unique prompt on each machine profile.
+- **History:** 50,000 lines with deduplication.
+- **Editor:** `nvim`.
+- **FZF & Bat Theming:** Sets the theme for FZF and Bat.
 
 ### 01-path.zsh
 **Purpose:** PATH management with performance optimization
@@ -183,67 +163,18 @@ jenv()   # Loads jenv only when used
 
 **Categories:**
 
-#### Configuration
-```bash
-zshconfig  # Edit .zshrc with nvim
-ohmyzsh    # Edit oh-my-zsh directory
-```
+#### Modern Replacements
+`ls`, `cat`, `vim`, `http` are aliased to modern alternatives (`eza`, `bat`, `nvim`, `xh`).
 
-#### Modern replacements
-```bash
-vim='nvim'
-cat='bat'
-http='xh'
-ls='eza --color=always --icons'           # NEW: Replaces ls with eza
-ll='eza -l --color=always --icons --git -a'  # NEW: Long listing with git status
-l='eza -l --icons --git -a'
-lt='eza --tree --level=2 --long --icons --git'
-ltree='eza --tree --level=2 --icons --git'
-```
+#### Navigation & System
+Shortcuts for directory navigation (`..`, `...`) and system commands.
 
-**Note:** All `eza` aliases use colors from Vivid's Catppuccin Mocha theme via `LS_COLORS`
+#### Git, Docker, Kubernetes
+Extensive short aliases for common `git` (`gco`, `gp`, `gst`), `docker` (`dco`, `dps`), and `kubectl` (`k`, `kg`, `kl`) commands.
 
-#### Navigation
-```bash
-..          # cd ..
-...         # cd ../..
-....        # cd ../../..
-iclouddrive # cd to iCloud Drive
-```
+#### Homebrew, Chezmoi, Jujutsu
+Quick aliases for package management (`bup`, `bcu`), dotfile management (`ca`, `cu`, `cedit`), and the `jj` version control system (`js`, `jl`, `jp`).
 
-#### Git
-```bash
-gc='git commit -m'
-gca='git commit -a -m'
-gp='git push origin HEAD'
-gst='git status'
-glog='git log --graph --pretty...'  # Beautiful git log
-```
-
-#### Docker
-```bash
-dco='docker compose'
-dps='docker ps'
-dx='docker exec -it'
-```
-
-#### Kubernetes
-```bash
-k='kubectl'
-kg='kubectl get'
-kl='kubectl logs -f'
-ke='kubectl exec -it'
-kc='kubectx'
-kns='kubens'
-```
-
-#### Security/Pentesting
-```bash
-gobust='gobuster dir...'
-fuzz='ffuf -w...'
-nm='nmap -sC -sV -oN nmap'
-server='python -m http.server 4445'
-```
 
 ### 20-functions.zsh
 **Purpose:** Custom shell functions for enhanced productivity
@@ -267,6 +198,12 @@ f  # Select file with FZF, copy path to clipboard
 ```bash
 fv  # Select file with FZF, open in neovim
 ```
+
+#### bi - Smart Homebrew Installer
+```bash
+bi install <pkg>  # Installs via brew and auto-updates the correct Brewfile
+```
+
 
 ### 30-keybindings.zsh
 **Purpose:** Custom keyboard shortcuts
