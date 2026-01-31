@@ -1,0 +1,34 @@
+[git]
+    autoAdd = true
+    autoCommit = true
+    autoPush = true
+    commitMessageTemplateFile = ".commit_message.tmpl"
+
+[data]
+    github_user       = "jsoyer"
+    xdgCacheDir       = "{{ .chezmoi.homeDir }}/.cache"
+    xdgConfigDir      = "{{ .chezmoi.homeDir }}/.config"
+    xdgDataDir        = "{{ .chezmoi.homeDir }}/.local/share"
+    xdgStateDir       = "{{ .chezmoi.homeDir }}/.local/state"
+    name = "Jerome Soyer"
+    email = "jeromesoyer@gmail.com"
+
+[edit]
+    command = "nvim"
+
+[diff]
+    command = "delta"
+    pager = "delta"
+    args = [
+      "{{ `{{ .Destination }}` }}",
+      "{{ `{{ .Target }}` }}",
+    ]
+
+[merge]
+    command = "nvim"
+    args = [
+      "-d",
+      "{{ `{{ .Destination }}` }}",
+      "{{ `{{ .Source }}` }}",
+      "{{ `{{ .Target }}` }}",
+    ]

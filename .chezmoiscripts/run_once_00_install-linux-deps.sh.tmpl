@@ -1,4 +1,4 @@
-{{- if eq .machine.profile "rpi" -}}
+{{- if and (eq .chezmoi.os "linux") (contains "rpi" .chezmoi.kernel.osrelease) -}}
 #!/bin/bash
 # =============================================================================
 # Linux/RPi Dependencies Installation Script

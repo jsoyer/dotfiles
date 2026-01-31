@@ -1,7 +1,7 @@
 #!/bin/bash
 # Ce script installe les paquets Flatpak sur les machines Fedora Atomic
 
-{{ if eq .machine.packageManager "flatpak" -}}
+{{- if eq .chezmoi.hostname "fedora-atomic" -}}
 set -eufo pipefail
 
 echo "Installing Flatpak packages..."

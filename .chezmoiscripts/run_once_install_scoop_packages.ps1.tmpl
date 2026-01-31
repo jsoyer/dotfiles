@@ -1,6 +1,4 @@
-{{ if eq .machine.packageManager "scoop" -}}
-# {{ .chezmoi.sourceFile | relativetarget }}
-#
+{{- if eq .chezmoi.os "windows" -}}
 # Installs packages via Scoop on Windows machines.
 
 #Requires -Version 5.1
