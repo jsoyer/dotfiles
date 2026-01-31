@@ -31,7 +31,7 @@ alias cl='clear'
 alias bcask='brew cask'
 
 # Toolbox - enter with zsh instead of bash
-alias toolbox='toolbox run zsh'
+alias tbx='toolbox run zsh'
 
 # ============================================================================
 # Navigation
