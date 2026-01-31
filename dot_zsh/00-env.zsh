@@ -25,27 +25,15 @@ export STARSHIP_CONFIG="${HOME}/.config/starship/starship.toml"
 
 case "$(uname -s)" in
 
-  Darwin)
+    Darwin)
 
-    # --- macOS ---
+      # --- macOS ---
 
-    export STARSHIP_ICON_COLOR="mauve"
+      export STARSHIP_ICON_COLOR="mauve"
 
-    if [[ "$(hostname)" == "jsoyer-macOS" ]]; then
+      export STARSHIP_ICON=""
 
-      # Professional Mac
-
-      export STARSHIP_ICON="💼"
-
-    else
-
-      # Personal Macs
-
-      export STARSHIP_ICON="⌘"
-
-    fi
-
-    ;;
+      ;;
 
 
 
