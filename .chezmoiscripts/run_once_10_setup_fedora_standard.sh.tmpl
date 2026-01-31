@@ -1,12 +1,15 @@
-{{- $isToolbox := stat "/.toolboxenv" -}}
-{{- $isStandardFedora := and (lookPath "dnf") (not (lookPath "rpm-ostree")) -}}
-{{- if or $isToolbox $isStandardFedora -}}
 #!/bin/bash
 # =============================================================================
 # Fedora Standard - Dependencies Installation Script
 # =============================================================================
 # This script runs automatically via chezmoi on first apply for this profile.
 # =============================================================================
+{{- $isToolbox := stat "/.toolboxenv" }}
+{{- $isStandardFedora := and (lookPath "dnf") (not (lookPath "rpm-ostree")) }}
+{{- if not (or $isToolbox $isStandardFedora) }}
+# Not a Fedora Standard or Toolbox system, skipping
+exit 0
+{{- end }}
 
 set -eufo pipefail
 
@@ -62,4 +65,3 @@ if [[ ! -d "$HOME/.tmux/plugins/tpm" ]]; then
 fi
 
 echo "[chezmoi] Fedora Standard setup complete!"
-{{- end -}}
