@@ -1,28 +1,17 @@
-{{- if eq .machine.profile "rpi" -}}
+{{- if eq .machine.profile "linux-standard" -}}
 #!/bin/bash
 # =============================================================================
-# Linux/RPi Dependencies Installation Script
+# Fedora Standard - Dependencies Installation Script
 # =============================================================================
-# This script runs automatically via chezmoi on first apply.
-# All packages are installed via apt for easy maintenance.
+# This script runs automatically via chezmoi on first apply for this profile.
 # =============================================================================
 
-set -e
+set -eufo pipefail
 
-echo "[chezmoi] Configuring locale..."
+echo "[chezmoi] Installing Fedora Standard dependencies via dnf..."
 
-# Generate locale if not available
-if ! locale -a 2>/dev/null | grep -q "en_US.utf8"; then
-    sudo locale-gen en_US.UTF-8
-    sudo update-locale LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8
-fi
-
-export LANG=en_US.UTF-8
-export LC_ALL=en_US.UTF-8
-
-echo "[chezmoi] Installing Linux dependencies via apt..."
-
-sudo apt update && sudo apt install -y \
+# Translating package list from apt to dnf
+sudo dnf install -y \
     zsh \
     git \
     curl \
@@ -40,11 +29,7 @@ sudo apt update && sudo apt install -y \
     zoxide \
     eza \
     vivid \
-    locales
-
-# Create symlinks for renamed packages on Debian/Ubuntu
-sudo ln -sf /usr/bin/batcat /usr/local/bin/bat 2>/dev/null || true
-sudo ln -sf /usr/bin/fdfind /usr/local/bin/fd 2>/dev/null || true
+    util-linux-user # For chsh
 
 echo "[chezmoi] Packages installed"
 
@@ -65,10 +50,10 @@ if [[ ! -d "$ZSH_CUSTOM/plugins/zsh-syntax-highlighting" ]]; then
     git clone https://github.com/zsh-users/zsh-syntax-highlighting "$ZSH_CUSTOM/plugins/zsh-syntax-highlighting"
 fi
 
-# Install TPM
+# Install TPM (Tmux Plugin Manager)
 if [[ ! -d "$HOME/.tmux/plugins/tpm" ]]; then
     git clone https://github.com/tmux-plugins/tpm ~/.tmux/plugins/tpm
 fi
 
-echo "[chezmoi] Linux dependencies installation complete!"
+echo "[chezmoi] Fedora Standard setup complete!"
 {{- end -}}

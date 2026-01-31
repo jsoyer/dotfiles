@@ -51,6 +51,10 @@
 [data.machine]
   profile = "linux-standard"
   packageManager = "dnf"
+{{ else if contains "rpi" .chezmoi.kernel.osrelease -}}
+[data.machine]
+  profile = "rpi"
+  packageManager = "apt"
 {{ else -}}
 [data.machine]
   profile = "mac-personal"
