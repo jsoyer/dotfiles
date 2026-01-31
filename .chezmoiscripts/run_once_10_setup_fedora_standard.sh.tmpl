@@ -1,6 +1,6 @@
 {{- $isToolbox := stat "/.toolboxenv" -}}
 {{- $isStandardFedora := and (lookPath "dnf") (not (lookPath "rpm-ostree")) -}}
-{{- if or $isToolbox $isStandardFedora }}
+{{- if or $isToolbox $isStandardFedora -}}
 #!/bin/bash
 # =============================================================================
 # Fedora Standard - Dependencies Installation Script

@@ -13,8 +13,8 @@ README.md
 .oh-my-zsh/custom/themes/powerlevel10k/**
 .private/Brewfile
 
-{{/* Ignore bash configuration on Fedora Atomic systems */}}
-{{- if lookPath "rpm-ostree" }}
+{{/* Ignore bash configuration on Fedora Atomic and toolbox (shares home with host) */}}
+{{- if or (lookPath "rpm-ostree") (stat "/.toolboxenv") }}
 .bashrc
 .bash_profile
 .bash/
