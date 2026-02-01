@@ -1,0 +1,42 @@
+#!/bin/bash
+# =============================================================================
+# Fedora Atomic - Dependencies Installation Script
+# =============================================================================
+# This script runs automatically via chezmoi on first apply for Fedora Atomic
+# systems (Silverblue, Kinoite, etc.)
+# =============================================================================
+{{- $isFedoraAtomic := and (lookPath "rpm-ostree") (not (stat "/.toolboxenv")) }}
+{{- if not $isFedoraAtomic }}
+# Not a Fedora Atomic system, skipping
+exit 0
+{{- end }}
+
+set -eufo pipefail
+
+echo "[chezmoi] Installing Fedora Atomic dependencies via rpm-ostree..."
+
+# =============================================================================
+# Tailscale Installation
+# =============================================================================
+if ! rpm -q tailscale &>/dev/null; then
+    echo "[chezmoi] Installing Tailscale..."
+
+    # Add Tailscale repository
+    if ! sudo ostree remote list | grep -q tailscale; then
+        echo "[chezmoi] Adding Tailscale repository..."
+        sudo curl -fsSL https://pkgs.tailscale.com/stable/fedora/tailscale.repo \
+            -o /etc/yum.repos.d/tailscale.repo
+    fi
+
+    # Install tailscale with --apply-live to avoid immediate reboot
+    sudo rpm-ostree install --apply-live tailscale
+
+    # Enable and start the tailscaled service
+    sudo systemctl enable --now tailscaled
+
+    echo "[chezmoi] Tailscale installed. Run 'sudo tailscale up' to authenticate."
+else
+    echo "[chezmoi] Tailscale already installed"
+fi
+
+echo "[chezmoi] Fedora Atomic setup complete!"
