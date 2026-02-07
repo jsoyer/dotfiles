@@ -1,9 +1,21 @@
-{{- if glob (joinPath .chezmoi.homeDir ".Brewfile") -}}
+{{- if eq .chezmoi.os "darwin" -}}
 #!/bin/bash
 
-# Ensure this script runs on .Brewfile changes by including a hash of its file contents:
-# ~/.Brewfile: {{ include (joinPath .chezmoi.homeDir ".Brewfile") | sha256sum }}
+# Brewfile hashes – chezmoi reruns this script when any Brewfile changes
+# common:   {{ include "dot_private/Brewfile_common" | sha256sum }}
+# personal: {{ include "dot_private/Brewfile_personal" | sha256sum }}
+# pro:      {{ include "dot_private/Brewfile_pro" | sha256sum }}
 
+set -euo pipefail
 eval "$(brew shellenv)"
-brew bundle --no-lock --global --file ~/.Brewfile
+
+BREWFILE_DIR="{{ .chezmoi.sourceDir }}/dot_private"
+
+{{- if eq .chezmoi.hostname "jsoyer-macOS" }}
+echo "==> brew bundle install (pro profile)"
+cat "$BREWFILE_DIR/Brewfile_common" "$BREWFILE_DIR/Brewfile_pro" | brew bundle install --no-lock --file=-
+{{- else }}
+echo "==> brew bundle install (personal profile)"
+cat "$BREWFILE_DIR/Brewfile_common" "$BREWFILE_DIR/Brewfile_personal" | brew bundle install --no-lock --file=-
+{{- end }}
 {{ end -}}

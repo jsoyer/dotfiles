@@ -11,6 +11,11 @@ alias ohmyzsh='nvim ~/.oh-my-zsh'
 # ============================================================================
 # Modern CLI tool replacements
 # ============================================================================
+# Neovim with raised file descriptor limit
+nvim() {
+  ulimit -n 4096
+  command nvim "$@"
+}
 alias vim='nvim'
 alias la='tree'
 alias cat='bat'
