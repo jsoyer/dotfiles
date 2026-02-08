@@ -1,8 +1,6 @@
 # Paquets Homebrew communs à toutes les machines macOS
 
 tap "homebrew/bundle"
-tap "homebrew/cask"
-tap "homebrew/core"
 brew "bat"
 brew "chezmoi"
 brew "curl"
