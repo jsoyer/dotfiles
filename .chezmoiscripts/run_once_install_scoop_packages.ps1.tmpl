@@ -2,11 +2,28 @@
 # Installs packages via Scoop on Windows machines.
 
 #Requires -Version 5.1
-#Requires -RunAsAdministrator
 
+# =============================================================================
+# Install Scoop if not present
+# =============================================================================
+if (-not (Get-Command scoop -ErrorAction SilentlyContinue)) {
+    Write-Host "[chezmoi] Installing Scoop..."
+    Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser -Force
+    Invoke-RestMethod -Uri https://get.scoop.sh | Invoke-Expression
+}
+
+# =============================================================================
+# Add buckets
+# =============================================================================
+Write-Host "[chezmoi] Adding Scoop buckets..."
+scoop bucket add extras
+scoop bucket add versions
+
+# =============================================================================
+# Install packages
+# =============================================================================
 Write-Host "[chezmoi] Installing Scoop packages..."
+scoop install 1password-cli 7zip chezmoi git
 
-scoop install git chezmoi
-
-Write-Host "[chezmoi] Scoop packages installed."
+Write-Host "[chezmoi] Scoop setup complete."
 {{ end -}}
