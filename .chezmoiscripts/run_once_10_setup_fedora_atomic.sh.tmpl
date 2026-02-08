@@ -16,6 +16,12 @@ set -eufo pipefail
 echo "[chezmoi] Installing Fedora Atomic dependencies via rpm-ostree..."
 
 # =============================================================================
+# Core packages
+# =============================================================================
+echo "[chezmoi] Installing git and chezmoi..."
+sudo rpm-ostree install --apply-live --idempotent git chezmoi
+
+# =============================================================================
 # Tailscale Installation
 # =============================================================================
 if ! rpm -q tailscale &>/dev/null; then
