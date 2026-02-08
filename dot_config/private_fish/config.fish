@@ -3,6 +3,14 @@
 # ============================================================================
 
 # ============================================================================
+# Fisher bootstrap – auto-install on first launch
+# ============================================================================
+if not functions -q fisher
+    curl -sL https://raw.githubusercontent.com/jorgebucaran/fisher/main/functions/fisher.fish | source
+    fisher update
+end
+
+# ============================================================================
 # Homebrew Configuration
 # ============================================================================
 # Initialize Homebrew environment (equivalent to 'brew shellenv')
@@ -45,13 +53,7 @@ set -gx KUBECONFIG $HOME/.kube/config
 # ============================================================================
 fish_config theme choose "Catppuccin Mocha"
 
-# ============================================================================
-# Starship Prompt
-# ============================================================================
-if command -v starship &> /dev/null
-    starship init fish | source
-    set -gx STARSHIP_CONFIG $HOME/.config/starship/starship.toml
-end
+# Prompt is managed by Tide (installed via Fisher / fish_plugins)
 
 # ============================================================================
 # Environment Variables (Catppuccin Mocha)
