@@ -33,6 +33,9 @@ alias zl='eza -lagX --icons --color=always'
 alias cl='clear'
 alias bcask='brew cask'
 
+# Toolbox - enter with zsh instead of bash
+alias tbx='/usr/bin/toolbox run zsh'
+
 # ============================================================================
 # Navigation
 # ============================================================================
@@ -61,6 +64,16 @@ alias ga='git add -p'
 alias gcoall='git checkout -- .'
 alias gr='git remote'
 alias gre='git reset'
+
+# ============================================================================
+# Git (Additions)
+# ============================================================================
+alias gs='git status -s'
+alias gsw='git switch'
+alias gswc='git switch -c'
+alias grs='git restore'
+alias grbi='git rebase -i'
+alias gcl='git clone'
 
 # ============================================================================
 # Docker
@@ -97,3 +110,59 @@ alias server='python -m http.server 4445'
 alias tunnel='ngrok http 4445'
 alias fuzz='ffuf -w ~/hacking/SecLists/content_discovery_all.txt -mc all -u'
 alias nm='nmap -sC -sV -oN nmap'
+
+# ============================================================================
+# Homebrew (via breww wrapper)
+# ============================================================================
+alias b='breww'
+alias bu='breww update'
+alias bup='breww upgrade'
+alias bcu='breww cu -a' # Uses brew-cask-upgrade
+alias bs='breww search'
+alias bl='breww list'
+alias bun='breww uninstall'
+alias bci='breww cleanup'
+alias binfo='breww info'
+alias bd='breww doctor'
+
+# ============================================================================
+# Chezmoi
+# ============================================================================
+alias c='chezmoi'
+alias cdiff='chezmoi diff'
+alias cedit='chezmoi edit'
+alias cadd='chezmoi add'
+alias creadd='chezmoi re-add'
+alias cs='chezmoi status'
+alias ccd='chezmoi cd'
+
+# Chezmoi apply/update with verbose mode
+# On RPi, use --no-diff to avoid deadlock bug in chezmoi's GitDiffSystem
+ca() {
+  if [[ "$MACHINE_PROFILE" == "rpi" ]]; then
+    chezmoi apply -v --no-diff "$@"
+  else
+    chezmoi apply -v "$@"
+  fi
+}
+
+cu() {
+  if [[ "$MACHINE_PROFILE" == "rpi" ]]; then
+    chezmoi update -v --no-diff "$@"
+  else
+    chezmoi update -v "$@"
+  fi
+}
+
+# ============================================================================
+# Jujutsu (jj)
+# ============================================================================
+alias j='jj'
+alias js='jj st'
+alias jl="jj log -r 'all()'"
+alias jd='jj diff'
+alias jn='jj new'
+alias jui='jjui'
+alias jundo='jj undo'
+alias jp='jj git push'
+alias jf='jj git fetch'

@@ -897,24 +897,43 @@ $env.config = {
     ]
 }
 
+# ============================================================================
+# Custom functions
+# ============================================================================
 def --env cx [arg] {
     cd $arg
     ls -l
 }
 
-alias l = ls --all
-alias c = clear
-alias ll = ls -l
-alias lt = eza --tree --level=2 --long --icons --git
-alias v = nvim
-alias as = aerospace
-alias asr = atuin scripts run
-
 def ff [] {
     aerospace list-windows --all | fzf --bind 'enter:execute(bash -c "aerospace focus --window-id {1}")+abort'
 }
 
+# ============================================================================
+# Modern CLI tool replacements
+# ============================================================================
+alias vim = nvim
+alias cat = bat
+alias http = xh
+alias v = nvim
+alias as = aerospace
+alias asr = atuin scripts run
+
+# Eza (modern ls replacement)
+alias l = eza -l --icons --git -a
+alias ll = eza -l --color=always --icons --git -a
+alias lt = eza --tree --level=2 --long --icons --git
+alias ltree = eza --tree --level=2 --icons --git
+alias zl = eza -lagX --icons --color=always
+
+# ============================================================================
+# System
+# ============================================================================
+alias cl = clear
+
+# ============================================================================
 # Git
+# ============================================================================
 alias gc = git commit -m
 alias gca = git commit -a -m
 alias gp = git push origin HEAD
@@ -931,19 +950,83 @@ alias gcoall = git checkout -- .
 alias gr = git remote
 alias gre = git reset
 
-# K8s
+# ============================================================================
+# Git (Additions)
+# ============================================================================
+alias gs = git status -s
+alias gsw = git switch
+alias gswc = git switch -c
+alias grs = git restore
+alias grbi = git rebase -i
+alias gcl = git clone
+
+# ============================================================================
+# Docker
+# ============================================================================
+alias dco = docker compose
+alias dps = docker ps
+alias dpa = docker ps -a
+alias dl = docker ps -l -q
+alias dx = docker exec -it
+
+# ============================================================================
+# Kubernetes
+# ============================================================================
 alias k = kubectl
 alias ka = kubectl apply -f
 alias kg = kubectl get
 alias kd = kubectl describe
 alias kdel = kubectl delete
-alias kl = kubectl logs
+alias kl = kubectl logs -f
 alias kgpo = kubectl get pod
 alias kgd = kubectl get deployments
 alias kc = kubectx
 alias kns = kubens
-alias kl = kubectl logs -f
 alias ke = kubectl exec -it
+
+# ============================================================================
+# Security & Pentesting tools
+# ============================================================================
+alias server = python -m http.server 4445
+alias tunnel = ngrok http 4445
+
+# ============================================================================
+# Homebrew (via breww wrapper)
+# ============================================================================
+alias b = breww
+alias bu = breww update
+alias bup = breww upgrade
+alias bcu = breww cu -a
+alias bs = breww search
+alias bl = breww list
+alias bun = breww uninstall
+alias bci = breww cleanup
+alias binfo = breww info
+alias bd = breww doctor
+
+# ============================================================================
+# Chezmoi
+# ============================================================================
+alias c = chezmoi
+alias cdiff = chezmoi diff
+alias cedit = chezmoi edit
+alias cadd = chezmoi add
+alias creadd = chezmoi re-add
+alias cs = chezmoi status
+alias ccd = chezmoi cd
+
+# ============================================================================
+# Jujutsu (jj)
+# ============================================================================
+alias j = jj
+alias js = jj st
+alias jl = jj log -r 'all()'
+alias jd = jj diff
+alias jn = jj new
+alias jui = jjui
+alias jundo = jj undo
+alias jp = jj git push
+alias jf = jj git fetch
 
 # ============================================================================
 # Ruby Configuration
