@@ -4,7 +4,7 @@
 # ============================================================================
 # PATH Configuration (MUST BE FIRST)
 # ============================================================================
-$env.PATH = ($env.PATH | split row (char esep) | prepend '/opt/homebrew/bin')
+$env.PATH = ($env.PATH | split row (char esep) | prepend '/opt/homebrew/bin' | prepend ($env.HOME | path join '.local' 'bin'))
 
 # ============================================================================
 # Starship Prompt Integration
