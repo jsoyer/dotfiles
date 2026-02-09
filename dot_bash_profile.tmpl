@@ -5,10 +5,11 @@
 {{- else if eq .chezmoi.os "darwin" -}}
 # macOS bash_profile
 [ -f ~/.profile ] && . ~/.profile
-[ -f ~/.bashrc ] && . ~/.bashrc
 
-# Homebrew
+# Homebrew (must be before .bashrc so starship and other brew tools are in PATH)
 eval "$(/opt/homebrew/bin/brew shellenv)"
+
+[ -f ~/.bashrc ] && . ~/.bashrc
 {{- else -}}
 # Standard Linux .bash_profile
 [ -f ~/.profile ] && . ~/.profile

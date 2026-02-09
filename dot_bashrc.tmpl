@@ -45,11 +45,5 @@ done
 alias tbx='/usr/bin/toolbox run zsh'
 {{- end }}
 
-# ============================================================================
-# Starship prompt (must be last)
-# ============================================================================
-if command -v starship >/dev/null 2>&1; then
-  eval "$(starship init bash)"
-  export STARSHIP_CONFIG=~/.config/starship/starship.toml
-fi
+# Starship prompt is initialized in 99-integrations.bash (before atuin)
 {{- end }}

@@ -54,6 +54,13 @@ if command -v docker >/dev/null 2>&1; then
 fi
 
 # ============================================================================
+# Starship prompt (must be before atuin which sets up precmd_functions)
+# ============================================================================
+if command -v starship >/dev/null 2>&1; then
+  eval "$(starship init bash)"
+fi
+
+# ============================================================================
 # Zoxide - Smarter cd command
 # ============================================================================
 if command -v zoxide >/dev/null 2>&1; then
