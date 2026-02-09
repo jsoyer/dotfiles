@@ -37,7 +37,7 @@ format = "[$user]($style) on "
 style_user = "bold cyan"
 
 [git_branch]
-format = 'on [$symbol$branch(:$remote_branch)]($style)'
+format = '[$symbol$branch(:$remote_branch)]($style) '
 style = "bold pink"
 symbol = " "
 
@@ -57,7 +57,7 @@ deleted = "✘${count}"
 
 [aws]
 format = '[$symbol(profile: "$profile" )(\(region: $region\) )]($style)'
-disabled = false
+disabled = true
 style = 'bold orange'
 symbol = "☁️ "
 
