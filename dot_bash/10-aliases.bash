@@ -15,9 +15,12 @@ nvim() {
   command nvim "$@"
 }
 alias vim='nvim'
+alias v='nvim'
 alias la='tree'
 alias cat='bat'
 alias http='xh'
+alias as='aerospace'
+alias asr='atuin scripts run'
 
 # Eza (modern ls replacement)
 alias ls='eza --color=always --icons'
