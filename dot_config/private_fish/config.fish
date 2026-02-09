@@ -40,6 +40,15 @@ fish_add_path -g /Library/TeX/texbin
 fish_add_path -g /usr/texbin
 
 # ============================================================================
+# Machine Profile Detection
+# ============================================================================
+if test (hostname) = "jsoyer-macOS"
+    set -gx MACHINE_PROFILE "mac-pro"
+else
+    set -gx MACHINE_PROFILE "mac-personal"
+end
+
+# ============================================================================
 # Environment Variables
 # ============================================================================
 set -gx LANG en_US.UTF-8

@@ -12,6 +12,11 @@ case "$(uname -s)" in
   Darwin)
     export IS_MACOS=true
     export PLATFORM="macos"
+    if [[ "$(hostname)" == "jsoyer-macOS" ]]; then
+      export MACHINE_PROFILE="mac-pro"
+    else
+      export MACHINE_PROFILE="mac-personal"
+    fi
     ;;
   Linux)
     export IS_LINUX=true
