@@ -2,6 +2,11 @@
 font-family = "JetBrainsMono Nerd Font"
 font-size = 12
 shell-integration = zsh
+{{ if eq .chezmoi.os "darwin" -}}
+command = /bin/zsh
+{{ else -}}
+command = /usr/bin/zsh
+{{ end -}}
 term = xterm-256color
 copy-on-select = true
 window-theme = system

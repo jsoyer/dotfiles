@@ -163,7 +163,11 @@ background_blur 30
 # Advanced
 # ============================================================================
 
+{{ if eq .chezmoi.os "darwin" -}}
 shell /opt/homebrew/bin/nu
+{{ else -}}
+shell /usr/bin/nu
+{{ end -}}
 editor .
 close_on_child_death no
 allow_remote_control no

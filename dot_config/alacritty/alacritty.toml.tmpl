@@ -2,7 +2,11 @@
 # Theme: Catppuccin Mocha
 
 [terminal.shell]
+{{ if eq .chezmoi.os "darwin" -}}
 program = "/opt/homebrew/bin/bash"
+{{ else -}}
+program = "/usr/bin/bash"
+{{ end -}}
 args = ["-l"]
 
 [env]
