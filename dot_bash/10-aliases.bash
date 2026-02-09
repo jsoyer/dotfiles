@@ -118,6 +118,7 @@ alias nm='nmap -sC -sV -oN nmap'
 # Homebrew (via breww wrapper)
 # ============================================================================
 alias b='breww'
+alias bi='breww install'
 alias bu='breww update'
 alias bup='breww upgrade'
 alias bcu='breww cu -a' # Uses brew-cask-upgrade

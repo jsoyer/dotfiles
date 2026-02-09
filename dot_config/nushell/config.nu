@@ -913,9 +913,10 @@ def ff [] {
 # Modern CLI tool replacements
 # ============================================================================
 alias vim = nvim
+alias v = nvim
+alias la = tree
 alias cat = bat
 alias http = xh
-alias v = nvim
 alias as = aerospace
 alias asr = atuin scripts run
 
@@ -930,6 +931,8 @@ alias zl = eza -lagX --icons --color=always
 # System
 # ============================================================================
 alias cl = clear
+alias bcask = brew cask
+alias tbx = /usr/bin/toolbox run zsh
 
 # ============================================================================
 # Git
@@ -983,17 +986,24 @@ alias kgd = kubectl get deployments
 alias kc = kubectx
 alias kns = kubens
 alias ke = kubectl exec -it
+alias kcns = kubectl config set-context --current --namespace
 
 # ============================================================================
 # Security & Pentesting tools
 # ============================================================================
+alias gobust = gobuster dir --wordlist ~/security/wordlists/diccnoext.txt --wildcard --url
+alias dirsearch = python dirsearch.py -w db/dicc.txt -b -u
+alias massdns = ~/hacking/tools/massdns/bin/massdns -r ~/hacking/tools/massdns/lists/resolvers.txt -t A -o S bf-targets.txt -w livehosts.txt -s 4000
 alias server = python -m http.server 4445
 alias tunnel = ngrok http 4445
+alias fuzz = ffuf -w ~/hacking/SecLists/content_discovery_all.txt -mc all -u
+alias nm = nmap -sC -sV -oN nmap
 
 # ============================================================================
 # Homebrew (via breww wrapper)
 # ============================================================================
 alias b = breww
+alias bi = breww install
 alias bu = breww update
 alias bup = breww upgrade
 alias bcu = breww cu -a
