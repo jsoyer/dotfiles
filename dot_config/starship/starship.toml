@@ -57,7 +57,7 @@ deleted = "✘${count}"
 
 [aws]
 format = '[$symbol(profile: "$profile" )(\(region: $region\) )]($style)'
-disabled = true
+disabled = false
 style = 'bold orange'
 symbol = "☁️ "
 
