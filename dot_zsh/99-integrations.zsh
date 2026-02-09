@@ -3,16 +3,6 @@
 # External tools and integrations
 
 # ============================================================================
-# Zplug - Plugin manager (macOS only)
-# ============================================================================
-if [[ "${IS_MACOS}" == "true" ]]; then
-  export ZPLUG_HOME=/opt/homebrew/opt/zplug
-  if [[ -f ${ZPLUG_HOME}/init.zsh ]]; then
-    source "${ZPLUG_HOME}/init.zsh"
-  fi
-fi
-
-# ============================================================================
 # FZF - Fuzzy finder
 # ============================================================================
 if [[ -f ~/.fzf.zsh ]]; then
@@ -26,8 +16,9 @@ fi
 # ============================================================================
 # Zsh autosuggestions
 # ============================================================================
+_brew_prefix="${HOMEBREW_PREFIX:-/opt/homebrew}"
 if [[ "${IS_MACOS}" == "true" ]]; then
-  _zsh_autosuggest_path="$(brew --prefix 2>/dev/null)/share/zsh-autosuggestions/zsh-autosuggestions.zsh"
+  _zsh_autosuggest_path="${_brew_prefix}/share/zsh-autosuggestions/zsh-autosuggestions.zsh"
 else
   # Linux: installed via oh-my-zsh custom plugins or apt
   _zsh_autosuggest_path="${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/plugins/zsh-autosuggestions/zsh-autosuggestions.zsh"
@@ -42,7 +33,7 @@ unset _zsh_autosuggest_path
 # Zsh syntax highlighting
 # ============================================================================
 if [[ "${IS_MACOS}" == "true" ]]; then
-  _zsh_syntax_path="$(brew --prefix 2>/dev/null)/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh"
+  _zsh_syntax_path="${_brew_prefix}/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh"
 else
   # Linux: installed via oh-my-zsh custom plugins or apt
   _zsh_syntax_path="${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/plugins/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh"
@@ -51,27 +42,27 @@ fi
 if [[ -f ${_zsh_syntax_path} ]]; then
   source "${_zsh_syntax_path}"
 fi
-unset _zsh_syntax_path
+unset _zsh_syntax_path _brew_prefix
 
 # ============================================================================
-# Zoxide - Smarter cd command
+# Zoxide - Smarter cd command (cached init)
 # ============================================================================
 if command -v zoxide >/dev/null 2>&1; then
-  eval "$(zoxide init zsh)"
+  _cache_eval zoxide 'zoxide init zsh'
 fi
 
 # ============================================================================
-# Atuin - Magical shell history (optional)
+# Atuin - Magical shell history (cached init)
 # ============================================================================
 if command -v atuin >/dev/null 2>&1; then
-  eval "$(atuin init zsh)"
+  _cache_eval atuin 'atuin init zsh'
 fi
 
 # ============================================================================
-# Direnv - Environment switcher (optional)
+# Direnv - Environment switcher (cached init)
 # ============================================================================
 if command -v direnv >/dev/null 2>&1; then
-  eval "$(direnv hook zsh)"
+  _cache_eval direnv 'direnv hook zsh'
 fi
 
 # ============================================================================
@@ -89,12 +80,12 @@ if [[ -f /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh ]]; then
 fi
 
 # ============================================================================
-# Thefuck - Command correction (optional)
+# Thefuck - Command correction (lazy-loaded on first 'fuck' call)
 # ============================================================================
 if command -v thefuck >/dev/null 2>&1; then
-  eval "$(thefuck --alias)"
+  fuck() {
+    unfunction fuck
+    eval "$(thefuck --alias)"
+    fuck "$@"
+  }
 fi
-
-# ============================================================================
-
-# ============================================================================
