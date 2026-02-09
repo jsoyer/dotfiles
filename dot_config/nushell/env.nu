@@ -27,6 +27,11 @@ mkdir ~/.cache/carapace
 carapace _carapace nushell | save --force ~/.cache/carapace/init.nu
 
 # ============================================================================
+# Machine Profile Detection
+# ============================================================================
+$env.MACHINE_PROFILE = if (sys host).hostname == "jsoyer-macOS" { "mac-pro" } else { "mac-personal" }
+
+# ============================================================================
 # Environment Variables
 # ============================================================================
 $env.BAT_THEME = "Catppuccin Mocha"
