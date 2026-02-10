@@ -16,9 +16,9 @@ fi
 # Bash completion
 # ============================================================================
 if [[ "${IS_MACOS}" == "true" ]]; then
-  # Homebrew bash-completion
-  if [[ -r "$(brew --prefix 2>/dev/null)/etc/profile.d/bash_completion.sh" ]]; then
-    source "$(brew --prefix)/etc/profile.d/bash_completion.sh"
+  # Homebrew bash-completion (use $HOMEBREW_PREFIX to avoid subprocess)
+  if [[ -r "${HOMEBREW_PREFIX:-/opt/homebrew}/etc/profile.d/bash_completion.sh" ]]; then
+    source "${HOMEBREW_PREFIX:-/opt/homebrew}/etc/profile.d/bash_completion.sh"
   fi
 else
   # Linux bash-completion
@@ -30,18 +30,18 @@ else
 fi
 
 # ============================================================================
-# Kubectl completion
+# Kubectl completion (cached)
 # ============================================================================
 if command -v kubectl >/dev/null 2>&1; then
-  source <(kubectl completion bash)
+  _cache_eval kubectl 'kubectl completion bash'
   complete -o default -F __start_kubectl k
 fi
 
 # ============================================================================
-# Helm completion
+# Helm completion (cached)
 # ============================================================================
 if command -v helm >/dev/null 2>&1; then
-  source <(helm completion bash)
+  _cache_eval helm 'helm completion bash'
 fi
 
 # ============================================================================
@@ -57,28 +57,28 @@ fi
 # Starship prompt (must be before atuin which sets up precmd_functions)
 # ============================================================================
 if command -v starship >/dev/null 2>&1; then
-  eval "$(starship init bash)"
+  _cache_eval starship 'starship init bash'
 fi
 
 # ============================================================================
-# Zoxide - Smarter cd command
+# Zoxide - Smarter cd command (cached)
 # ============================================================================
 if command -v zoxide >/dev/null 2>&1; then
-  eval "$(zoxide init bash)"
+  _cache_eval zoxide 'zoxide init bash'
 fi
 
 # ============================================================================
-# Atuin - Magical shell history (optional)
+# Atuin - Magical shell history (cached)
 # ============================================================================
 if command -v atuin >/dev/null 2>&1; then
-  eval "$(atuin init bash)"
+  _cache_eval atuin 'atuin init bash'
 fi
 
 # ============================================================================
-# Direnv - Environment switcher (optional)
+# Direnv - Environment switcher (cached)
 # ============================================================================
 if command -v direnv >/dev/null 2>&1; then
-  eval "$(direnv hook bash)"
+  _cache_eval direnv 'direnv hook bash'
 fi
 
 # ============================================================================
@@ -96,10 +96,14 @@ if [[ -f /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh ]]; then
 fi
 
 # ============================================================================
-# Thefuck - Command correction (optional)
+# Thefuck - Command correction (lazy-loaded, ~200ms cold start)
 # ============================================================================
 if command -v thefuck >/dev/null 2>&1; then
-  eval "$(thefuck --alias)"
+  fuck() {
+    unset -f fuck
+    eval "$(thefuck --alias)"
+    fuck "$@"
+  }
 fi
 
 # ============================================================================
@@ -114,8 +118,8 @@ fi
 # ============================================================================
 if [[ -f /usr/share/bash-completion/completions/git ]]; then
   source /usr/share/bash-completion/completions/git
-elif [[ "${IS_MACOS}" == "true" ]] && [[ -f "$(brew --prefix 2>/dev/null)/etc/bash_completion.d/git-completion.bash" ]]; then
-  source "$(brew --prefix)/etc/bash_completion.d/git-completion.bash"
+elif [[ "${IS_MACOS}" == "true" ]] && [[ -f "${HOMEBREW_PREFIX:-/opt/homebrew}/etc/bash_completion.d/git-completion.bash" ]]; then
+  source "${HOMEBREW_PREFIX:-/opt/homebrew}/etc/bash_completion.d/git-completion.bash"
 fi
 
 # ============================================================================

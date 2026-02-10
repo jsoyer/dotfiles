@@ -34,6 +34,21 @@ shopt -s globstar         # Enable ** for recursive globbing
 shopt -s nocaseglob       # Case-insensitive globbing
 
 # ============================================================================
+# Cache helper for eval-based tool init (avoid fork on every shell start)
+# Usage: _cache_eval <name> <command>
+# Invalidate: rm -rf ~/.cache/<name>
+# ============================================================================
+_cache_eval() {
+  local name="$1" cmd="$2"
+  local cache="${HOME}/.cache/${name}/init.bash"
+  if [[ ! -f "$cache" ]] || [[ ! -s "$cache" ]]; then
+    mkdir -p "$(dirname "$cache")"
+    eval "$cmd" > "$cache" 2>/dev/null
+  fi
+  source "$cache"
+}
+
+# ============================================================================
 # Load modular configuration files
 # ============================================================================
 for config_file in "${HOME}"/.bash/*.bash; do
