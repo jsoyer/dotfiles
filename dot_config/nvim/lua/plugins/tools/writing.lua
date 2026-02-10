@@ -13,7 +13,7 @@ return {
       workspaces = {
         {
           name = "Notes",
-          path = "/Users/jeromesoyer/Obsidian/Notes",
+          path = vim.fn.expand("~/Obsidian/Notes"),
         },
       },
       daily_notes = {

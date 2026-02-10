@@ -9,7 +9,7 @@ $env.PATH = ($env.PATH | split row (char esep) | prepend '/opt/homebrew/bin' | p
 # ============================================================================
 # Starship Prompt Integration
 # ============================================================================
-$env.STARSHIP_CONFIG = "/Users/jeromesoyer/.config/starship/starship-nushell.toml"
+$env.STARSHIP_CONFIG = ($env.HOME | path join ".config" "starship" "starship-nushell.toml")
 mkdir ~/.cache/starship
 starship init nu | save -f ~/.cache/starship/init.nu
 source ~/.cache/starship/init.nu

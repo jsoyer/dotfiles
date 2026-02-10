@@ -1,8 +1,12 @@
-source-file /Users/jeromesoyer/.config/tmux/tmux.reset.conf
+source-file ~/.config/tmux/tmux.reset.conf
 set-option -g default-terminal 'screen-256color'
 set-option -g terminal-overrides ',xterm-256color:RGB'
+{{ if eq .chezmoi.os "darwin" -}}
 set-option -g default-shell /opt/homebrew/bin/zsh
 set-option -g default-command "reattach-to-user-namespace -l /opt/homebrew/bin/zsh"
+{{ else -}}
+set-option -g default-shell /usr/bin/zsh
+{{ end -}}
 
 set -g prefix ^A
 set -g base-index 1              # start indexing windows at 1 instead of 0
@@ -41,7 +45,7 @@ set -g @floax-bind 'b'
 set -g @floax-change-path 'true'
 set -g @sessionx-bind-zo-new-window 'ctrl-y'
 set -g @sessionx-auto-accept 'off'
-set -g @sessionx-custom-paths '/Users/jsoyer/dotfiles'
+set -g @sessionx-custom-paths '{{ .chezmoi.homeDir }}/dotfiles'
 set -g @sessionx-bind 'o'
 set -g @sessionx-x-path '~/dotfiles'
 set -g @sessionx-window-height '85%'
