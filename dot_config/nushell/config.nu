@@ -1054,3 +1054,8 @@ if ($gem_bin | path exists) {
   $env.PATH = ($env.PATH | prepend $gem_bin)
 }
 $env.DIRENV_LOG_FORMAT = ""
+
+# ============================================================================
+# Zoxide (smart cd)
+# ============================================================================
+source ~/.zoxide.nu

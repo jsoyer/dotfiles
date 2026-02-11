@@ -270,3 +270,10 @@ alias jui='jjui'
 alias jundo='jj undo'
 alias jp='jj git push'
 alias jf='jj git fetch'
+
+# ============================================================================
+# Zoxide (smart cd)
+# ============================================================================
+if command -q zoxide
+    zoxide init --cmd cd fish | source
+end

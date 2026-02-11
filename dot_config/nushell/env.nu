@@ -18,7 +18,6 @@ source ~/.cache/starship/init.nu
 # Zoxide Prompt Integration
 # ============================================================================
 zoxide init nushell --cmd cd | save -f ~/.zoxide.nu
-source ~/.zoxide.nu
 
 # ============================================================================
 # Carapace Prompt Integration
