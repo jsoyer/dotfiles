@@ -48,7 +48,7 @@ unset _zsh_syntax_path _brew_prefix
 # Zoxide - Smarter cd command (cached init)
 # ============================================================================
 if command -v zoxide >/dev/null 2>&1; then
-  _cache_eval zoxide 'zoxide init zsh'
+  _cache_eval zoxide 'zoxide init --cmd cd zsh'
 fi
 
 # ============================================================================

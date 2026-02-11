@@ -64,7 +64,7 @@ fi
 # Zoxide - Smarter cd command (cached)
 # ============================================================================
 if command -v zoxide >/dev/null 2>&1; then
-  _cache_eval zoxide 'zoxide init bash'
+  _cache_eval zoxide 'zoxide init --cmd cd bash'
 fi
 
 # ============================================================================
