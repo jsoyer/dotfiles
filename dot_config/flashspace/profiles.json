@@ -1,0 +1,47 @@
+{
+  "profiles" : [
+    {
+      "id" : "64623298-22A7-4405-8995-60624F5A9F3F",
+      "name" : "Default",
+      "workspaces" : [
+        {
+          "apps" : [
+
+          ],
+          "display" : "Studio Display",
+          "id" : "D2E52793-6C51-4E48-8E06-CCA1EEF73878",
+          "name" : "Main"
+        },
+        {
+          "apps" : [
+            {
+              "bundleIdentifier" : "com.brave.Browser",
+              "iconPath" : "/Applications/Brave Browser.app/Contents/Resources/app.icns",
+              "name" : "Brave Browser"
+            },
+            {
+              "bundleIdentifier" : "com.google.Chrome",
+              "iconPath" : "/Applications/Google Chrome.app/Contents/Resources/app.icns",
+              "name" : "Google Chrome"
+            }
+          ],
+          "display" : "Studio Display",
+          "id" : "5658A8F6-A5F8-465A-B813-A330AD4C706A",
+          "name" : "Browser"
+        },
+        {
+          "apps" : [
+            {
+              "bundleIdentifier" : "dev.zed.Zed",
+              "iconPath" : "/Applications/Zed.app/Contents/Resources/Zed.icns",
+              "name" : "Zed"
+            }
+          ],
+          "display" : "Studio Display",
+          "id" : "6FBF670A-C7D9-4B05-B56E-8FB7E44485BF",
+          "name" : "Editor"
+        }
+      ]
+    }
+  ]
+}
