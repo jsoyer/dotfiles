@@ -1,0 +1,28 @@
+{{- if and (lookPath "gpg") (lookPath "op") -}}
+#!/bin/bash
+
+set -eo pipefail
+
+GPG_KEY_ID="027B16CE3562EF9E"
+OP_PRIVATE_DOC="7rd7xxbwdyghdigju4odgvgxou"
+OP_PUBLIC_DOC="mjm4qfoafklqc65zqwfhkppzqq"
+
+# Check if key is already imported
+if gpg --list-secret-keys "$GPG_KEY_ID" &>/dev/null; then
+  echo "===> GPG key $GPG_KEY_ID already imported, skipping"
+  exit 0
+fi
+
+echo "===> Importing GPG key from 1Password..."
+
+# Import public key first
+op document get "$OP_PUBLIC_DOC" | gpg --import
+
+# Import private key
+op document get "$OP_PRIVATE_DOC" | gpg --import
+
+# Set trust to ultimate
+echo "${GPG_KEY_ID}:6:" | gpg --import-ownertrust
+
+echo "===> GPG key $GPG_KEY_ID imported and trusted"
+{{- end }}
