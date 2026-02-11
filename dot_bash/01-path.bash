@@ -31,6 +31,7 @@ path_prepend "${HOME}/.local/bin"
 if [[ "${IS_MACOS}" == "true" ]]; then
   path_prepend "${HOME}/.antigravity/antigravity/bin"
   path_prepend "${HOME}/.jenv/bin"
+  path_prepend "${HOMEBREW_PREFIX:-/opt/homebrew}/opt/ruby/bin"
   path_prepend "${HOME}/.rbenv/shims"
   path_prepend "${HOME}/.tmuxifier/bin"
   path_append "/usr/local/opt/rbenv/shims"

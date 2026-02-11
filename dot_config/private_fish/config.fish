@@ -28,6 +28,7 @@ set -gx INFOPATH "/opt/homebrew/share/info" $INFOPATH
 fish_add_path -g $HOME/.antigravity/antigravity/bin
 fish_add_path -g $HOME/.local/bin
 fish_add_path -g $HOME/.jenv/bin
+fish_add_path -g /opt/homebrew/opt/ruby/bin
 fish_add_path -g $HOME/.rbenv/shims
 fish_add_path -g $HOME/.tmuxifier/bin
 

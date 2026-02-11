@@ -24,6 +24,7 @@ if [[ "${IS_MACOS}" == "true" ]]; then
   path=(
     "${HOME}/.antigravity/antigravity/bin"
     "${HOME}/.jenv/bin"
+    "${HOMEBREW_PREFIX:-/opt/homebrew}/opt/ruby/bin"
     "${HOME}/.rbenv/shims"
     "${HOME}/.tmuxifier/bin"
     "${path[@]}"
