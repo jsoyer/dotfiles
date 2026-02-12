@@ -18,3 +18,8 @@ README.md
 {{- if not (lookPath "op") }}
 .ssh/config
 {{- end }}
+
+{{/* Ignore scripts directory on pro machine (RPi bootstrap only) */}}
+{{- if eq .chezmoi.hostname "jsoyer-macOS" }}
+scripts/
+{{- end }}

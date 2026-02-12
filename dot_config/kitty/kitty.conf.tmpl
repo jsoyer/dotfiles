@@ -170,7 +170,8 @@ shell /usr/bin/nu
 {{ end -}}
 editor .
 close_on_child_death no
-allow_remote_control no
+allow_remote_control socket-only
+listen_on unix:/tmp/kitty-socket
 update_check_interval 0
 term xterm-256color
 

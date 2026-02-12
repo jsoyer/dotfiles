@@ -7,7 +7,9 @@
 [user]
 	name = Jerome Soyer
 	email = jeromesoyer@gmail.com
-  signingkey = /Users/jeromesoyer/.ssh/id_ed25519-github.pub
+{{- if lookPath "op" }}
+  signingkey = {{ .chezmoi.homeDir }}/.ssh/id_ed25519-github.pub
+{{- end }}
 
 [pull]
   # Utilise "rebase" au lieu de "merge" lors d'un 'git pull'.
@@ -24,6 +26,8 @@
     # Nomme la branche par défaut "main" pour tout nouveau dépôt.
   defaultBranch = main
 
+{{- if lookPath "op" }}
+
 [gpg]
   format = ssh
 
@@ -32,6 +36,7 @@
 
 [commit]
   gpgsign = true
+{{- end }}
 
 [alias]
   # -- Alias de base --
@@ -49,4 +54,3 @@
 
   # Annule le dernier commit sans perdre les changements.
   uncommit = reset --soft HEAD~1
-
