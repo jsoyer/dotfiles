@@ -41,7 +41,6 @@ echo "🐧 Installing Fedora Standard packages via dnf..."
 
 sudo dnf install -y --skip-unavailable \
     chezmoi \
-    eza \
     zsh \
     git \
     curl \
@@ -62,7 +61,15 @@ sudo dnf install -y --skip-unavailable \
     fish \
     kitty \
     nushell \
-    util-linux-user
+    util-linux-user \
+    cargo \
+    rust
+
+# Install eza via cargo (not in Fedora repos)
+if ! command -v eza &>/dev/null; then
+    echo "📦 Installing eza via cargo..."
+    cargo install eza
+fi
 {{- end }}
 
 # =============================================================================
@@ -73,7 +80,6 @@ echo "📦 Installing Fedora Toolbox packages via dnf..."
 
 sudo dnf install -y --skip-unavailable \
     chezmoi \
-    eza \
     zsh \
     git \
     curl \
@@ -93,7 +99,15 @@ sudo dnf install -y --skip-unavailable \
     fish \
     kitty \
     nushell \
-    util-linux-user
+    util-linux-user \
+    cargo \
+    rust
+
+# Install eza via cargo (not in Fedora repos)
+if ! command -v eza &>/dev/null; then
+    echo "📦 Installing eza via cargo..."
+    cargo install eza
+fi
 {{- end }}
 
 # =============================================================================
