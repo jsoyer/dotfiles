@@ -1,4 +1,4 @@
-{{- if and (eq .chezmoi.os "linux") (lookPath "docker") -}}
+{{- if and (or (eq .chezmoi.os "linux") (eq .chezmoi.os "darwin")) (lookPath "docker") -}}
 #!/bin/bash
 # =============================================================================
 # Docker Maintenance - Containers, Images, and docker-compose updates
