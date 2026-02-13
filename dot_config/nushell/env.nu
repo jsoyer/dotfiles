@@ -22,9 +22,13 @@ zoxide init nushell --cmd cd | save -f ~/.cache/zoxide/init.nu
 # ============================================================================
 # Carapace Integration (generate cache, sourced in config.nu)
 # ============================================================================
-$env.CARAPACE_BRIDGES = 'zsh,fish,bash,inshellisense'
 mkdir ~/.cache/carapace
-carapace _carapace nushell | save --force ~/.cache/carapace/init.nu
+if (which carapace | is-not-empty) {
+    $env.CARAPACE_BRIDGES = 'zsh,fish,bash,inshellisense'
+    carapace _carapace nushell | save --force ~/.cache/carapace/init.nu
+} else {
+    "" | save --force ~/.cache/carapace/init.nu
+}
 
 # ============================================================================
 # Machine Profile Detection
