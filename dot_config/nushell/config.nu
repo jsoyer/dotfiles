@@ -1085,9 +1085,9 @@ def cup [...args: string] {
     }
 
     # Docker/Podman maintenance
-    let container_runtime = if (^command -v docker | complete).exit_code == 0; and (^docker info | complete).exit_code == 0 {
+    let container_runtime = if (^command -v docker | complete).exit_code == 0 and (^docker info | complete).exit_code == 0 {
         "docker"
-    } else if (^command -v podman | complete).exit_code == 0; and (^podman info | complete).exit_code == 0 {
+    } else if (^command -v podman | complete).exit_code == 0 and (^podman info | complete).exit_code == 0 {
         "podman"
     } else {
         ""
