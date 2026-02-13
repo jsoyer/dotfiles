@@ -370,6 +370,60 @@ case "$PLATFORM" in
 esac
 
 # =============================================================================
+# Check and install SSH if needed (Linux only)
+# =============================================================================
+
+check_ssh() {
+    if [[ "$OS" != "Linux" ]]; then
+        return
+    fi
+    
+    log_info "Checking SSH server..."
+    
+    # Check if sshd is installed (various possible packages)
+    if command -v sshd &>/dev/null || [[ -f "/usr/sbin/sshd" ]] || dpkg -l | grep -q "openssh-server" || rpm -q openssh-server &>/dev/null 2>&1; then
+        log_info "🔐 SSH server already installed"
+        
+        # Check if service is running
+        if systemctl is-active --quiet sshd 2>/dev/null || systemctl is-active --quiet ssh 2>/dev/null; then
+            log_success "🔐 SSH service is running"
+        else
+            log_warn "🔐 SSH is installed but not running"
+            read -p "Start SSH service now? (y/N) " -n 1 -r
+            echo
+            if [[ $REPLY =~ ^[Yy]$ ]]; then
+                sudo systemctl enable --now sshd 2>/dev/null || sudo systemctl enable --now ssh 2>/dev/null
+                log_success "🔐 SSH service started"
+            fi
+        fi
+    else
+        log_warn "🔐 SSH server is not installed"
+        read -p "Install and enable SSH server? (y/N) " -n 1 -r
+        echo
+        if [[ $REPLY =~ ^[Yy]$ ]]; then
+            case "$PLATFORM" in
+                fedora|fedora-atomic)
+                    sudo dnf install -y openssh-server
+                    sudo systemctl enable --now sshd
+                    ;;
+                rpi|debian)
+                    sudo apt update
+                    sudo apt install -y openssh-server
+                    sudo systemctl enable --now ssh
+                    ;;
+                toolbox)
+                    sudo dnf install -y openssh-server
+                    sudo systemctl enable --now sshd
+                    ;;
+            esac
+            log_success "🔐 SSH server installed and started"
+        fi
+    fi
+}
+
+check_ssh
+
+# =============================================================================
 # Apply dotfiles
 # =============================================================================
 log_info "Initializing chezmoi and applying dotfiles..."
