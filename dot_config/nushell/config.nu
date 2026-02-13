@@ -1067,6 +1067,8 @@ if ($gem_bin | path exists) {
 $env.DIRENV_LOG_FORMAT = ""
 
 # ============================================================================
-# Zoxide (smart cd)
+# Integrations (sourced from cache generated in env.nu)
 # ============================================================================
-source ~/.zoxide.nu
+source ~/.cache/starship/init.nu
+source ~/.cache/zoxide/init.nu
+source ~/.cache/carapace/init.nu

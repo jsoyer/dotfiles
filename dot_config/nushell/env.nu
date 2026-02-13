@@ -12,15 +12,15 @@ $env.PATH = ($env.PATH | split row (char esep) | prepend '/opt/homebrew/bin' | p
 $env.STARSHIP_CONFIG = ($env.HOME | path join ".config" "starship" "starship-nushell.toml")
 mkdir ~/.cache/starship
 starship init nu | save -f ~/.cache/starship/init.nu
-source ~/.cache/starship/init.nu
 
 # ============================================================================
-# Zoxide Prompt Integration
+# Zoxide Integration (generate cache, sourced in config.nu)
 # ============================================================================
-zoxide init nushell --cmd cd | save -f ~/.zoxide.nu
+mkdir ~/.cache/zoxide
+zoxide init nushell --cmd cd | save -f ~/.cache/zoxide/init.nu
 
 # ============================================================================
-# Carapace Prompt Integration
+# Carapace Integration (generate cache, sourced in config.nu)
 # ============================================================================
 $env.CARAPACE_BRIDGES = 'zsh,fish,bash,inshellisense'
 mkdir ~/.cache/carapace
