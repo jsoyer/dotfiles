@@ -1,4 +1,4 @@
-{{- if and (lookPath "gpg") (lookPath "op") -}}
+{{- if and (ne .chezmoi.os "windows") (lookPath "gpg") (lookPath "op") -}}
 #!/bin/bash
 
 set -eo pipefail
