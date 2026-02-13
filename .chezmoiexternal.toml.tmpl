@@ -1,3 +1,4 @@
+{{- if ne .chezmoi.os "windows" -}}
 [".oh-my-zsh"]
     type = "git-repo"
     url = "https://github.com/ohmyzsh/ohmyzsh.git"
@@ -18,3 +19,4 @@
     type = "git-repo"
     url = "https://github.com/tmux-plugins/tpm"
     refreshPeriod = "168h"
+{{- end }}
