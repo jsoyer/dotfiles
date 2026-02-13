@@ -1,0 +1,12 @@
+{{- if eq .chezmoi.os "windows" -}}
+#Requires -Version 5.1
+# Update Scoop packages
+
+Write-Host "==> Updating Scoop..." -ForegroundColor Cyan
+scoop update
+
+Write-Host "==> Upgrading Scoop packages..." -ForegroundColor Cyan
+scoop update --all
+
+Write-Host "==> Upgrade complete!" -ForegroundColor Green
+{{- end -}}

@@ -1,0 +1,18 @@
+{{- if eq .chezmoi.os "darwin" -}}
+#!/bin/bash
+# Update Homebrew packages
+
+set -euo pipefail
+eval "$(brew shellenv)"
+
+echo "==> Updating Homebrew packages..."
+brew upgrade
+
+echo "==> Cleaning up old versions..."
+brew cleanup
+
+echo "==> Updating Homebrew itself..."
+brew update
+
+echo "==> Upgrade complete!"
+{{- end -}}
