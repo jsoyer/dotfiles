@@ -513,16 +513,19 @@ log_info "Initializing chezmoi and applying dotfiles..."
 
 if [[ -d "$HOME/.local/share/chezmoi" ]]; then
     log_info "chezmoi already initialized, updating..."
-    # Handle case where branch has no tracking info
     cd "$HOME/.local/share/chezmoi"
-    if ! git config --get "branch.main.remote" &>/dev/null && ! git config --get "branch.master.remote" &>/dev/null; then
-        log_warn "No tracking info, setting up remote..."
+    # Ensure remote exists and branch has tracking
+    if ! git rev-parse --verify origin/main &>/dev/null 2>&1; then
+        log_info "Setting up git remote and branch tracking..."
+        git remote set-url origin https://github.com/jsoyer/dotfiles.git 2>/dev/null || git remote add origin https://github.com/jsoyer/dotfiles.git 2>/dev/null || true
+        git fetch origin
         git branch --set-upstream-to=origin/main main 2>/dev/null || git branch --set-upstream-to=origin/master master 2>/dev/null || true
     fi
-    chezmoi update || log_warn "chezmoi update failed, trying apply..."
+    chezmoi update || log_warn "chezmoi update failed"
     chezmoi apply || true
 else
-    chezmoi init --apply jsoyer
+    log_info "Initializing chezmoi from GitHub..."
+    chezmoi init https://github.com/jsoyer/dotfiles.git --apply
 fi
 
 log_success "✨ Dotfiles applied!"
