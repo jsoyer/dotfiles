@@ -1105,9 +1105,9 @@ def cup [...args: string] {
 
             if (^$container_runtime compose -f $compose_file ps --services --filter "status=running" 2>/dev/null | complete).exit_code == 0 {
                 print $"  → Updating ($project_name)"
-                let pull_output = (^$container_runtime compose -f $compose_file pull out+err>)
+                let pull_output = (^$container_runtime compose -f $compose_file pull | complete)
                 
-                if $pull_output | str contains "Pulling" {
+                if $pull_output.stdout | str contains "Pulling" {
                     print "  🔄 New images found, restarting containers..."
                     ^$container_runtime compose -f $compose_file up -d
                 } else {
