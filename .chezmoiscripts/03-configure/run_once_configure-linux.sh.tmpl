@@ -13,10 +13,10 @@ if [[ ! -d "$HOME/.local/share/fonts/JetBrainsMonoNerdFont" ]]; then
     echo "[chezmoi] Installing JetBrains Mono Nerd Font..."
     mkdir -p "$HOME/.local/share/fonts/JetBrainsMonoNerdFont"
     cd "$HOME/.local/share/fonts/JetBrainsMonoNerdFont"
-    curl -fLO "https://github.com/ryanoasis/nerd-fonts/releases/latest/download/JetBrainsMono.tar.xz"
+    curl -fsSL "https://github.com/ryanoasis/nerd-fonts/releases/latest/download/JetBrainsMono.tar.xz" -o JetBrainsMono.tar.xz
     tar -xf JetBrainsMono.tar.xz
     rm JetBrainsMono.tar.xz
-    fc-cache -fv
+    fc-cache -f > /dev/null 2>&1
     echo "[chezmoi] Nerd Font installed"
 fi
 
