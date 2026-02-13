@@ -324,6 +324,7 @@ function cup
                 echo "🐍 Updating apt packages..."
                 sudo apt update
                 sudo apt dist-upgrade -y
+                sudo apt autoremove -y
             else if command -q dnf
                 if command -q rpm-ostree
                     echo "🐧 Updating Fedora Atomic..."

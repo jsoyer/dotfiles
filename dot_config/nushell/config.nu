@@ -1081,6 +1081,7 @@ def cup [...args: string] {
                 print "🐍 Updating apt packages..."
                 ^sudo apt update
                 ^sudo apt dist-upgrade -y
+                ^sudo apt autoremove -y
             } else if (^command -v dnf | complete).exit_code == 0 {
                 if (^command -v rpm-ostree | complete).exit_code == 0 {
                     print "🐧 Updating Fedora Atomic..."
