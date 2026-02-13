@@ -268,6 +268,59 @@ alias creadd='chezmoi re-add'
 alias cs='chezmoi status'
 alias ccd='chezmoi cd'
 
+# Chezmoi apply/update with verbose mode
+# On RPi, use --no-diff to avoid deadlock bug in chezmoi's GitDiffSystem
+function ca
+    if test "$MACHINE_PROFILE" = "rpi"
+        chezmoi apply -v --no-diff $argv
+    else
+        chezmoi apply -v $argv
+    end
+end
+
+function cu
+    if test "$MACHINE_PROFILE" = "rpi"
+        chezmoi update -v --no-diff $argv
+    else
+        chezmoi update -v $argv
+    end
+end
+
+# Chezmoi update + package updates
+function cup
+    if test "$MACHINE_PROFILE" = "rpi"
+        chezmoi update -v --no-diff $argv
+    else
+        chezmoi update -v $argv
+    end
+
+    set os (uname -s | tr '[:upper:]' '[:lower:]')
+
+    switch $os
+        case darwin
+            brew upgrade
+            brew cleanup
+            brew update
+        case linux
+            set arch (uname -m)
+            if string match -q "*rpi*" $arch
+                sudo apt update
+                sudo apt upgrade -y
+            else if command -q dnf
+                if command -q rpm-ostree
+                    sudo rpm-ostree upgrade
+                else
+                    sudo dnf upgrade -y
+                end
+            end
+        case windows
+            scoop update
+            scoop update --all
+    end
+
+    echo "==> Update complete!"
+end
+
 # ============================================================================
 # Jujutsu (jj)
 # ============================================================================
