@@ -1,0 +1,51 @@
+{{- if and (eq .chezmoi.os "linux") (lookPath "docker") -}}
+#!/bin/bash
+# =============================================================================
+# Docker Maintenance - Containers, Images, and docker-compose updates
+# =============================================================================
+
+set -e
+
+echo "🐳 Starting Docker maintenance..."
+
+# Check if Docker daemon is running
+if ! docker info &>/dev/null; then
+    echo "❌ Docker daemon is not running. Skipping Docker maintenance."
+    exit 0
+fi
+
+# List running containers
+echo "📋 Running containers:"
+docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Image}}"
+
+echo ""
+echo "📦 Updating docker-compose projects..."
+
+# Find all docker-compose.yml files in home directory and update them
+find "$HOME" -name "docker-compose.yml" -not -path "*/.*" 2>/dev/null | while read -r compose_file; do
+    project_dir=$(dirname "$compose_file")
+    project_name=$(basename "$project_dir")
+    
+    echo "  → Updating $project_name in $project_dir"
+    
+    # Check if any container from this project is running
+    if docker-compose -f "$compose_file" ps --services --filter "status=running" 2>/dev/null | grep -q .; then
+        echo "    ⏳ Pulling new images..."
+        docker-compose -f "$compose_file" pull || true
+        
+        echo "    🔄 Starting containers..."
+        docker-compose -f "$compose_file" up -d
+    else
+        echo "    ⏭️  Skipping (no running containers)"
+    fi
+done
+
+echo ""
+echo "🗑️ Cleaning up unused Docker images..."
+
+# Remove all unused images (not just dangling ones)
+docker image prune -a -f
+
+echo ""
+echo "✨ Docker maintenance complete!"
+{{- end -}}
