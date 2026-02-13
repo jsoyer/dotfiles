@@ -80,6 +80,85 @@ case "$OS" in
 esac
 
 # =============================================================================
+# Check if OS is up to date
+# =============================================================================
+
+check_os_updates() {
+    log_info "Checking for OS updates..."
+    
+    case "$PLATFORM" in
+        macos)
+            if command -v softwareupdate &>/dev/null; then
+                UPDATES=$(softwareupdate -l 2>&1 || true)
+                if echo "$UPDATES" | grep -q "No new software available"; then
+                    log_success "🍎 macOS is up to date"
+                else
+                    log_warn "🍎 macOS has updates available. Run 'softwareupdate -i -a' to update."
+                    read -p "Continue anyway? (y/N) " -n 1 -r
+                    echo
+                    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+                        log_info "Aborting..."
+                        exit 0
+                    fi
+                fi
+            fi
+            ;;
+        fedora)
+            if command -v dnf &>/dev/null; then
+                log_info "Checking for Fedora updates..."
+                if sudo dnf check-update &>/dev/null; then
+                    log_success "🐧 Fedora is up to date"
+                else
+                    log_warn "🐧 Fedora has updates available. Run 'sudo dnf upgrade' to update."
+                    read -p "Continue anyway? (y/N) " -n 1 -r
+                    echo
+                    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+                        log_info "Aborting..."
+                        exit 0
+                    fi
+                fi
+            fi
+            ;;
+        fedora-atomic)
+            log_info "Checking for Fedora Atomic updates..."
+            if sudo rpm-ostree upgrade --check 2>&1 | grep -q "No upgrade available"; then
+                log_success "🐧 Fedora Atomic is up to date"
+            else
+                log_warn "🐧 Fedora Atomic has updates available. Run 'sudo rpm-ostree upgrade' to update."
+                read -p "Continue anyway? (y/N) " -n 1 -r
+                echo
+                if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+                    log_info "Aborting..."
+                    exit 0
+                fi
+            fi
+            ;;
+        rpi|debian)
+            if command -v apt &>/dev/null; then
+                log_info "Checking for Debian/RPi updates..."
+                if sudo apt-get -s upgrade 2>&1 | grep -q "0 upgraded, 0 newly installed"; then
+                    log_success "🐍 Debian/RPi is up to date"
+                else
+                    log_warn "🐍 Debian/RPi has updates available. Run 'sudo apt update && sudo apt dist-upgrade' to update."
+                    read -p "Continue anyway? (y/N) " -n 1 -r
+                    echo
+                    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+                        log_info "Aborting..."
+                        exit 0
+                    fi
+                fi
+            fi
+            ;;
+        toolbox)
+            log_info "Skipping update check for Toolbox container"
+            ;;
+    esac
+}
+
+# Check for updates before installing
+check_os_updates
+
+# =============================================================================
 # Install git + chezmoi
 # =============================================================================
 
