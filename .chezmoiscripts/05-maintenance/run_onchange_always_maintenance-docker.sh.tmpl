@@ -16,8 +16,7 @@ fi
 
 # List running containers
 echo "📋 Running containers:"
-DOCKER_FORMAT='table {{.Names}}\t{{.Status}}\t{{.Image}}'
-docker ps --format "$DOCKER_FORMAT"
+docker ps
 
 echo ""
 echo "📦 Updating docker-compose projects..."
