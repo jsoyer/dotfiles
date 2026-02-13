@@ -189,21 +189,12 @@ alias cs='chezmoi status'
 alias ccd='chezmoi cd'
 
 # Chezmoi apply/update with verbose mode
-# On RPi, use --no-diff to avoid deadlock bug in chezmoi's GitDiffSystem
 ca() {
-  if [[ "$MACHINE_PROFILE" == "rpi" ]]; then
-    chezmoi apply -v --no-diff "$@"
-  else
-    chezmoi apply -v "$@"
-  fi
+  chezmoi apply -v "$@"
 }
 
 cu() {
-  if [[ "$MACHINE_PROFILE" == "rpi" ]]; then
-    chezmoi update -v --no-diff "$@"
-  else
-    chezmoi update -v "$@"
-  fi
+  chezmoi update -v "$@"
 }
 
 # Chezmoi update + package updates
