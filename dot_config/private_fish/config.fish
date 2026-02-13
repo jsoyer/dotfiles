@@ -323,7 +323,7 @@ function cup
             if string match -q "*rpi*" $arch
                 echo "🐍 Updating apt packages..."
                 sudo apt update
-                sudo apt upgrade -y
+                sudo apt dist-upgrade -y
             else if command -q dnf
                 if command -q rpm-ostree
                     echo "🐧 Updating Fedora Atomic..."

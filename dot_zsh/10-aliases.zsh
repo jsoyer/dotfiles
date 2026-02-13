@@ -229,7 +229,7 @@ cup() {
     linux)
       if [[ "$(uname -m)" == *"rpi"* ]] || grep -qi rpi /proc/version 2>/dev/null; then
         echo "🐍 Updating apt packages..."
-        sudo apt update && sudo apt upgrade -y
+        sudo apt update && sudo apt dist-upgrade -y
       elif command -v dnf &>/dev/null; then
         if command -v rpm-ostree &>/dev/null; then
           echo "🐧 Updating Fedora Atomic..."
