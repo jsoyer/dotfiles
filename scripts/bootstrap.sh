@@ -11,6 +11,7 @@
 #   - macOS (Homebrew)
 #   - Fedora Standard (dnf)
 #   - Fedora Atomic (rpm-ostree)
+#   - Fedora Toolbox (container)
 #   - Raspberry Pi / Debian / Ubuntu (apt)
 #
 # For Windows, use bootstrap.ps1 instead:
@@ -35,27 +36,39 @@ log_error() { echo -e "${RED}[ERROR]${NC} $1"; exit 1; }
 # Platform Detection
 # =============================================================================
 OS="$(uname -s)"
+ARCH="$(uname -m)"
 log_info "Detecting platform..."
 
 case "$OS" in
     Darwin)
         PLATFORM="macos"
-        log_success "Detected: macOS $(sw_vers -productVersion)"
+        EMOJI="🍎"
+        log_success "Detected: $EMOJI macOS $(sw_vers -productVersion)"
         ;;
     Linux)
-        if command -v rpm-ostree &>/dev/null; then
+        # Check for Toolbox container
+        if [[ -n "$TOOLBOX_PATH" ]] || [[ -f "/run/host/usr/lib/os-release" ]]; then
+            PLATFORM="toolbox"
+            EMOJI="📦"
+            log_success "Detected: $EMOJI Fedora Toolbox"
+        elif command -v rpm-ostree &>/dev/null; then
             PLATFORM="fedora-atomic"
-            log_success "Detected: Fedora Atomic"
+            EMOJI="🐧"
+            log_success "Detected: $EMOJI Fedora Atomic"
         elif command -v dnf &>/dev/null; then
             PLATFORM="fedora"
-            log_success "Detected: Fedora Standard"
+            EMOJI="🐧"
+            log_success "Detected: $EMOJI Fedora Standard"
         elif command -v apt &>/dev/null; then
-            PLATFORM="debian"
-            if [[ -f /proc/device-tree/model ]]; then
-                RPI_MODEL=$(tr -d '\0' < /proc/device-tree/model)
-                log_success "Detected: $RPI_MODEL"
+            # Check for Raspberry Pi
+            if [[ "$ARCH" == "aarch64" ]] || [[ "$ARCH" == "arm64" ]] || grep -qi "rpi\|raspberry" /proc/device-tree/model 2>/dev/null || [[ -f "/sys/firmware/devicetree/base/model" ]] && grep -qi "rpi" /sys/firmware/devicetree/base/model 2>/dev/null; then
+                PLATFORM="rpi"
+                EMOJI="🍓"
+                log_success "Detected: $EMOJI Raspberry Pi"
             else
-                log_success "Detected: Debian/Ubuntu"
+                PLATFORM="debian"
+                EMOJI="🐍"
+                log_success "Detected: $EMOJI Debian/Ubuntu"
             fi
         else
             log_error "Unsupported Linux distribution"
@@ -71,27 +84,32 @@ esac
 # =============================================================================
 
 install_macos() {
-    # Xcode CLI tools
-    if ! xcode-select -p &>/dev/null; then
-        log_info "Installing Xcode Command Line Tools..."
-        xcode-select --install
-        # Wait for installation
-        until xcode-select -p &>/dev/null; do
-            sleep 5
-        done
-        log_success "Xcode CLI tools installed"
+    # Check if git is available
+    if command -v git &>/dev/null; then
+        log_warn "🍎 Git already installed"
     else
-        log_warn "Xcode CLI tools already installed"
+        # Xcode CLI tools
+        if ! xcode-select -p &>/dev/null; then
+            log_info "Installing Xcode Command Line Tools..."
+            xcode-select --install
+            # Wait for installation
+            until xcode-select -p &>/dev/null; do
+                sleep 5
+            done
+            log_success "Xcode CLI tools installed"
+        else
+            log_warn "Xcode CLI tools already installed"
+        fi
     fi
 
     # Homebrew
-    if ! command -v brew &>/dev/null; then
+    if command -v brew &>/dev/null; then
+        log_warn "🍺 Homebrew already installed"
+    else
         log_info "Installing Homebrew..."
         /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
         eval "$(/opt/homebrew/bin/brew shellenv)"
-        log_success "Homebrew installed"
-    else
-        log_warn "Homebrew already installed"
+        log_success "🍺 Homebrew installed"
     fi
 
     # chezmoi via Homebrew
@@ -108,7 +126,11 @@ install_fedora() {
     log_info "Installing git and chezmoi via dnf..."
 
     # Install git
-    sudo dnf install -y git
+    if command -v git &>/dev/null; then
+        log_warn "🐧 Git already installed"
+    else
+        sudo dnf install -y git
+    fi
 
     # Install chezmoi - prefer dnf package, fallback to official script
     if command -v chezmoi &>/dev/null; then
@@ -122,7 +144,7 @@ install_fedora() {
         export PATH="$HOME/.local/bin:$PATH"
     fi
 
-    log_success "git and chezmoi installed"
+    log_success "🐧 git and chezmoi installed"
 }
 
 install_fedora_atomic() {
@@ -130,7 +152,7 @@ install_fedora_atomic() {
 
     # Install git - prefer rpm-ostree package, fallback to official
     if command -v git &>/dev/null; then
-        log_warn "git already installed"
+        log_warn "🐧 Git already installed"
     elif rpm -q git &>/dev/null; then
         log_info "git already in system"
     else
@@ -149,18 +171,46 @@ install_fedora_atomic() {
         export PATH="$HOME/.local/bin:$PATH"
     fi
 
-    log_success "git and chezmoi installed"
+    log_success "🐧 git and chezmoi installed"
+}
+
+install_toolbox() {
+    log_info "Installing git and chezmoi in Toolbox..."
+
+    # Install git via dnf
+    if command -v git &>/dev/null; then
+        log_warn "🐧 Git already installed"
+    else
+        sudo dnf install -y git
+    fi
+
+    # Install chezmoi via official script
+    if command -v chezmoi &>/dev/null; then
+        log_warn "chezmoi already installed"
+    else
+        log_info "Installing chezmoi via official script..."
+        sh -c "$(curl -fsLS get.chezmoi.io)" -- -b "$HOME/.local/bin"
+        export PATH="$HOME/.local/bin:$PATH"
+    fi
+
+    log_success "📦 git and chezmoi installed"
 }
 
 install_debian() {
     log_info "Installing git and chezmoi via apt..."
-    sudo apt update
-    sudo apt install -y git curl
+
+    # Check if git is available first
+    if command -v git &>/dev/null; then
+        log_warn "🐍 Git already installed"
+    else
+        sudo apt update
+        sudo apt install -y git curl
+    fi
 
     # Install chezmoi - prefer apt package, fallback to official script
     if command -v chezmoi &>/dev/null; then
         log_warn "chezmoi already installed"
-    elif apt-cache show chezmoi &>/dev/null; then
+    elif apt-cache show chezmoi &>/dev/null 2>&1; then
         log_info "Installing chezmoi via apt..."
         sudo apt install -y chezmoi
     else
@@ -169,13 +219,41 @@ install_debian() {
         export PATH="$HOME/.local/bin:$PATH"
     fi
 
-    log_success "git and chezmoi installed"
+    log_success "🐍 git and chezmoi installed"
+}
+
+install_rpi() {
+    log_info "Installing git and chezmoi via apt..."
+
+    # Check if git is available first
+    if command -v git &>/dev/null; then
+        log_warn "🍓 Git already installed"
+    else
+        sudo apt update
+        sudo apt install -y git curl
+    fi
+
+    # Install chezmoi - prefer apt package, fallback to official script
+    if command -v chezmoi &>/dev/null; then
+        log_warn "chezmoi already installed"
+    elif apt-cache show chezmoi &>/dev/null 2>&1; then
+        log_info "Installing chezmoi via apt..."
+        sudo apt install -y chezmoi
+    else
+        log_info "chezmoi not in apt repos, installing via official script..."
+        sh -c "$(curl -fsLS get.chezmoi.io)" -- -b "$HOME/.local/bin"
+        export PATH="$HOME/.local/bin:$PATH"
+    fi
+
+    log_success "🍓 git and chezmoi installed"
 }
 
 case "$PLATFORM" in
     macos)          install_macos ;;
     fedora)         install_fedora ;;
     fedora-atomic)  install_fedora_atomic ;;
+    toolbox)        install_toolbox ;;
+    rpi)            install_rpi ;;
     debian)         install_debian ;;
 esac
 
@@ -191,14 +269,14 @@ else
     chezmoi init --apply jsoyer
 fi
 
-log_success "Dotfiles applied!"
+log_success "✨ Dotfiles applied!"
 
 # =============================================================================
 # Done
 # =============================================================================
 echo ""
 echo -e "${GREEN}=============================================="
-echo -e "  Bootstrap Complete!"
+echo -e "  $EMOJI Bootstrap Complete!"
 echo -e "==============================================${NC}"
 echo ""
 log_info "chezmoi has installed and configured everything."
