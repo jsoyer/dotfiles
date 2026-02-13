@@ -21,8 +21,9 @@ if [[ ! -d "$HOME/.local/share/fonts/JetBrainsMonoNerdFont" ]]; then
 fi
 
 # =============================================================================
-# Set Zsh as default shell
+# Set Zsh as default shell (not for Fedora Atomic)
 # =============================================================================
+{{- if not (lookPath "rpm-ostree") }}
 if command -v zsh &>/dev/null; then
     if [[ "$SHELL" != *"zsh"* ]]; then
         echo "🐚 Setting Zsh as default shell..."
@@ -33,6 +34,7 @@ if command -v zsh &>/dev/null; then
 else
     echo "⚠️ Zsh not installed, skipping shell change"
 fi
+{{- end }}
 
 echo "✅ Linux configuration complete!"
 {{- end }}
