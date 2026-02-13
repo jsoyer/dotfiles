@@ -116,11 +116,10 @@ check_os_updates() {
         fedora)
             if command -v dnf &>/dev/null; then
                 log_info "Checking for Fedora updates..."
-                if sudo dnf check-update 2>&1 | grep -q "Last metadata expiration check"; then
-                    UPDATES=$(sudo dnf check-update 2>&1 || true)
-                    if echo "$UPDATES" | grep -qE "^(Fedora|.*No packages)"; then
-                        log_success "🐧 Fedora is up to date"
-                    else
+                UPDATES=$(sudo dnf check-update 2>&1 || true)
+                if echo "$UPDATES" | grep -qE "^(Fedora|.*No packages|Last metadata)"; then
+                    # Check if there are actually updates
+                    if echo "$UPDATES" | grep -qE "^[a-z].*\.[a-z].*"; then
                         log_warn "🐧 Fedora has updates available!"
                         echo "$UPDATES"
                         read -p "Update now? (y/N) " -n 1 -r
@@ -128,10 +127,17 @@ check_os_updates() {
                         if [[ $REPLY =~ ^[Yy]$ ]]; then
                             log_info "Updating Fedora..."
                             sudo dnf upgrade -y
-                            log_success "Fedora updated."
+                            log_success "Fedora updated. Reboot recommended."
+                            read -p "Reboot now? (y/N) " -n 1 -r
+                            echo
+                            if [[ $REPLY =~ ^[Yy]$ ]]; then
+                                sudo reboot
+                            fi
                         else
                             log_warn "Skipping update. You can run 'sudo dnf upgrade' later."
                         fi
+                    else
+                        log_success "🐧 Fedora is up to date"
                     fi
                 fi
             fi
@@ -163,9 +169,9 @@ check_os_updates() {
         rpi|debian)
             if command -v apt &>/dev/null; then
                 log_info "Checking for Debian/RPi updates..."
-                sudo apt update -qq
-                UPDATES=$(sudo apt-get -s upgrade 2>&1 || true)
-                if echo "$UPDATES" | grep -q "0 upgraded, 0 newly installed"; then
+                sudo apt update -qq 2>/dev/null
+                UPDATES=$(sudo apt-get -s dist-upgrade 2>&1 || true)
+                if echo "$UPDATES" | grep -q "0 upgraded, 0 newly installed, 0 to remove"; then
                     log_success "🐍 Debian/RPi is up to date"
                 else
                     log_warn "🐍 Debian/RPi has updates available!"
@@ -175,7 +181,12 @@ check_os_updates() {
                     if [[ $REPLY =~ ^[Yy]$ ]]; then
                         log_info "Updating Debian/RPi..."
                         sudo apt dist-upgrade -y
-                        log_success "Debian/RPi updated."
+                        log_success "Debian/RPi updated. Reboot recommended."
+                        read -p "Reboot now? (y/N) " -n 1 -r
+                        echo
+                        if [[ $REPLY =~ ^[Yy]$ ]]; then
+                            sudo reboot
+                        fi
                     else
                         log_warn "Skipping update. You can run 'sudo apt update && sudo apt dist-upgrade' later."
                     fi
@@ -183,7 +194,27 @@ check_os_updates() {
             fi
             ;;
         toolbox)
-            log_info "📦 Skipping update check for Toolbox container"
+            if command -v dnf &>/dev/null; then
+                log_info "Checking for Toolbox updates..."
+                UPDATES=$(sudo dnf check-update 2>&1 || true)
+                if echo "$UPDATES" | grep -qE "^(Fedora|.*No packages|Last metadata)"; then
+                    if echo "$UPDATES" | grep -qE "^[a-z].*\.[a-z].*"; then
+                        log_warn "📦 Toolbox has updates available!"
+                        echo "$UPDATES"
+                        read -p "Update now? (y/N) " -n 1 -r
+                        echo
+                        if [[ $REPLY =~ ^[Yy]$ ]]; then
+                            log_info "Updating Toolbox..."
+                            sudo dnf upgrade -y
+                            log_success "📦 Toolbox updated."
+                        else
+                            log_warn "Skipping update. You can run 'sudo dnf upgrade' later."
+                        fi
+                    else
+                        log_success "📦 Toolbox is up to date"
+                    fi
+                fi
+            fi
             ;;
     esac
 }
@@ -402,8 +433,12 @@ check_ssh() {
         echo
         if [[ $REPLY =~ ^[Yy]$ ]]; then
             case "$PLATFORM" in
-                fedora|fedora-atomic)
+                fedora)
                     sudo dnf install -y openssh-server
+                    sudo systemctl enable --now sshd
+                    ;;
+                fedora-atomic)
+                    sudo rpm-ostree install --apply-live openssh-server
                     sudo systemctl enable --now sshd
                     ;;
                 rpi|debian)
