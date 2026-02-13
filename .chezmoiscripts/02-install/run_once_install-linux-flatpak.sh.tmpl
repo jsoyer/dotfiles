@@ -9,9 +9,9 @@ set -eufo pipefail
 
 echo "📦 Setting up Flatpak..."
 
-# Add flathub remote if not exists
-if ! flatpak remote-list | grep -q flathub; then
-    flatpak remote-add --if-not-exists flathub https://flathub.org/flathub.flatpakrepo || true
+# Add flathub remote if not exists (ignore errors - may already be configured)
+if ! flatpak remote-list 2>/dev/null | grep -q flathub; then
+    flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo 2>/dev/null || true
 fi
 
 echo "📦 Installing Flatpak packages..."
@@ -25,7 +25,7 @@ flatpak install -y flathub \
     org.filezillaproject.Filezilla \
     org.kde.kitty \
     org.wezfurlong.wezterm \
-    org.videolan.VLC || true
+    org.videolan.VLC 2>/dev/null || true
 
 echo "✅ Flatpak packages installation complete."
 {{ end -}}

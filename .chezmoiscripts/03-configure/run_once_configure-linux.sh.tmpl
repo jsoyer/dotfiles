@@ -23,10 +23,15 @@ fi
 # =============================================================================
 # Set Zsh as default shell
 # =============================================================================
-if [[ "$SHELL" != *"zsh"* ]]; then
-    echo "🐚 Setting Zsh as default shell..."
-    chsh -s "$(which zsh)"
-    echo "✅ Default shell changed to Zsh (log out and back in to apply)"
+if command -v zsh &>/dev/null; then
+    if [[ "$SHELL" != *"zsh"* ]]; then
+        echo "🐚 Setting Zsh as default shell..."
+        ZSH_PATH=$(command -v zsh)
+        chsh -s "$ZSH_PATH" || true
+        echo "✅ Default shell changed to Zsh (log out and back in to apply)"
+    fi
+else
+    echo "⚠️ Zsh not installed, skipping shell change"
 fi
 
 echo "✅ Linux configuration complete!"
