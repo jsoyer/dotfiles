@@ -94,36 +94,61 @@ install_macos() {
         log_warn "Homebrew already installed"
     fi
 
-    # chezmoi
-    if ! command -v chezmoi &>/dev/null; then
-        log_info "Installing chezmoi..."
+    # chezmoi via Homebrew
+    if command -v chezmoi &>/dev/null; then
+        log_warn "chezmoi already installed"
+    else
+        log_info "Installing chezmoi via Homebrew..."
         brew install chezmoi
         log_success "chezmoi installed"
-    else
-        log_warn "chezmoi already installed"
     fi
 }
 
 install_fedora() {
     log_info "Installing git and chezmoi via dnf..."
+
+    # Install git
     sudo dnf install -y git
-    if ! command -v chezmoi &>/dev/null; then
+
+    # Install chezmoi - prefer dnf package, fallback to official script
+    if command -v chezmoi &>/dev/null; then
+        log_warn "chezmoi already installed"
+    elif dnf info chezmoi &>/dev/null; then
+        log_info "Installing chezmoi via dnf..."
+        sudo dnf install -y chezmoi
+    else
+        log_info "chezmoi not in dnf repos, installing via official script..."
         sh -c "$(curl -fsLS get.chezmoi.io)" -- -b "$HOME/.local/bin"
         export PATH="$HOME/.local/bin:$PATH"
     fi
+
     log_success "git and chezmoi installed"
 }
 
 install_fedora_atomic() {
-    log_info "Installing git via rpm-ostree..."
-    if ! command -v git &>/dev/null; then
+    log_info "Installing git and chezmoi via rpm-ostree..."
+
+    # Install git - prefer rpm-ostree package, fallback to official
+    if command -v git &>/dev/null; then
+        log_warn "git already installed"
+    elif rpm -q git &>/dev/null; then
+        log_info "git already in system"
+    else
+        log_info "Installing git via rpm-ostree..."
         sudo rpm-ostree install --apply-live --idempotent git
     fi
-    if ! command -v chezmoi &>/dev/null; then
-        log_info "Installing chezmoi..."
+
+    # Install chezmoi - prefer rpm-ostree, fallback to official script
+    if command -v chezmoi &>/dev/null; then
+        log_warn "chezmoi already installed"
+    elif rpm -q chezmoi &>/dev/null; then
+        log_info "chezmoi already in system"
+    else
+        log_info "Installing chezmoi via official script..."
         sh -c "$(curl -fsLS get.chezmoi.io)" -- -b "$HOME/.local/bin"
         export PATH="$HOME/.local/bin:$PATH"
     fi
+
     log_success "git and chezmoi installed"
 }
 
@@ -131,10 +156,19 @@ install_debian() {
     log_info "Installing git and chezmoi via apt..."
     sudo apt update
     sudo apt install -y git curl
-    if ! command -v chezmoi &>/dev/null; then
+
+    # Install chezmoi - prefer apt package, fallback to official script
+    if command -v chezmoi &>/dev/null; then
+        log_warn "chezmoi already installed"
+    elif apt-cache show chezmoi &>/dev/null; then
+        log_info "Installing chezmoi via apt..."
+        sudo apt install -y chezmoi
+    else
+        log_info "chezmoi not in apt repos, installing via official script..."
         sh -c "$(curl -fsLS get.chezmoi.io)" -- -b "$HOME/.local/bin"
         export PATH="$HOME/.local/bin:$PATH"
     fi
+
     log_success "git and chezmoi installed"
 }
 
