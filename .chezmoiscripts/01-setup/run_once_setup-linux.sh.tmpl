@@ -57,13 +57,13 @@ fi
 {{- if lookPath "rpm-ostree" }}
 if ! rpm -q tailscale &>/dev/null; then
     echo "🔒 Installing Tailscale..."
-    if ! sudo ostree remote list | grep -q tailscale; then
+    if ! sudo ostree remote list 2>/dev/null | grep -q tailscale; then
         sudo curl -fsSL https://pkgs.tailscale.com/stable/fedora/tailscale.repo \
-            -o /etc/yum.repos.d/tailscale.repo
+            -o /etc/yum.repos.d/tailscale.repo 2>/dev/null || true
     fi
-    sudo rpm-ostree install --idempotent --apply-live tailscale || true
-    sudo systemctl enable --now tailscaled || true
-    echo "🔒 Tailscale installed. Run 'sudo tailscale up' to authenticate."
+    sudo rpm-ostree install --idempotent --apply-live tailscale 2>/dev/null || true
+    sudo systemctl enable --now tailscaled 2>/dev/null || true
+    echo "🔒 Tailscale installation attempted. Run 'sudo tailscale up' to authenticate."
 else
     echo "🔒 Tailscale already installed"
 fi
