@@ -1,10 +1,10 @@
 {{- if and (eq .chezmoi.os "linux") (contains "rpi" .chezmoi.kernel.osrelease) -}}
 #!/bin/bash
 # =============================================================================
-# Linux/RPi Dependencies Installation Script
+# Raspberry Pi - Dependencies Installation Script
 # =============================================================================
 # This script runs automatically via chezmoi on first apply.
-# All packages are installed via apt for easy maintenance.
+# OMZ, zsh plugins, and TPM are managed by .chezmoiexternal.toml.tmpl
 # =============================================================================
 
 set -e
@@ -14,18 +14,15 @@ echo "[chezmoi] Configuring locale..."
 # Ensure en_US.UTF-8 is available on Debian-based systems
 if ! locale -a 2>/dev/null | grep -qi "en_US.utf8"; then
     echo "en_US.UTF-8 not found. Generating..."
-    # 1. Uncomment the locale in the generation file
     sudo sed -i -e 's/# en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/' /etc/locale.gen
-    # 2. Regenerate locales non-interactively
     sudo dpkg-reconfigure --frontend=noninteractive locales
-    # 3. Update the system's default locale
     sudo update-locale LANG=en_US.UTF-8
 fi
 
 export LANG=en_US.UTF-8
 export LC_ALL=en_US.UTF-8
 
-echo "[chezmoi] Installing Linux dependencies via apt..."
+echo "[chezmoi] Installing dependencies via apt..."
 
 sudo apt update && sudo apt install -y \
     chezmoi \
@@ -54,27 +51,28 @@ sudo ln -sf /usr/bin/fdfind /usr/local/bin/fd 2>/dev/null || true
 
 echo "[chezmoi] Packages installed"
 
-# Install Oh-My-Zsh if not present
-if [[ ! -d "$HOME/.oh-my-zsh" ]]; then
-    echo "[chezmoi] Installing Oh-My-Zsh..."
-    sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
+# =============================================================================
+# Nerd Font Installation
+# =============================================================================
+if [[ ! -d "$HOME/.local/share/fonts/JetBrainsMonoNerdFont" ]]; then
+    echo "[chezmoi] Installing JetBrains Mono Nerd Font..."
+    mkdir -p "$HOME/.local/share/fonts/JetBrainsMonoNerdFont"
+    cd "$HOME/.local/share/fonts/JetBrainsMonoNerdFont"
+    curl -fLO "https://github.com/ryanoasis/nerd-fonts/releases/latest/download/JetBrainsMono.tar.xz"
+    tar -xf JetBrainsMono.tar.xz
+    rm JetBrainsMono.tar.xz
+    fc-cache -fv
+    echo "[chezmoi] Nerd Font installed"
 fi
 
-# Install Zsh plugins
-ZSH_CUSTOM="${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}"
-
-if [[ ! -d "$ZSH_CUSTOM/plugins/zsh-autosuggestions" ]]; then
-    git clone https://github.com/zsh-users/zsh-autosuggestions "$ZSH_CUSTOM/plugins/zsh-autosuggestions"
+# =============================================================================
+# Set Zsh as default shell
+# =============================================================================
+if [[ "$SHELL" != *"zsh"* ]]; then
+    echo "[chezmoi] Setting Zsh as default shell..."
+    chsh -s "$(which zsh)"
+    echo "[chezmoi] Default shell changed to Zsh (log out and back in to apply)"
 fi
 
-if [[ ! -d "$ZSH_CUSTOM/plugins/zsh-syntax-highlighting" ]]; then
-    git clone https://github.com/zsh-users/zsh-syntax-highlighting "$ZSH_CUSTOM/plugins/zsh-syntax-highlighting"
-fi
-
-# Install TPM
-if [[ ! -d "$HOME/.tmux/plugins/tpm" ]]; then
-    git clone https://github.com/tmux-plugins/tpm ~/.tmux/plugins/tpm
-fi
-
-echo "[chezmoi] Linux dependencies installation complete!"
+echo "[chezmoi] Raspberry Pi setup complete!"
 {{- end -}}

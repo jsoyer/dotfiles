@@ -78,11 +78,18 @@ Git repos auto-refreshed weekly:
 - zsh-autosuggestions, zsh-syntax-highlighting
 - Tmux Plugin Manager (TPM)
 
+### Bootstrap Scripts (`scripts/`)
+- `bootstrap.sh` - Multiplatform bootstrap (macOS, Fedora, RPi/Debian)
+- `bootstrap.ps1` - Windows bootstrap (Scoop + chezmoi)
+
 ### Setup Scripts (`.chezmoiscripts/`)
 - `run_once_00_install-xcode-devtools.sh.tmpl` - macOS Xcode CLI tools
 - `run_once_01_install_homebrew.sh.tmpl` - Homebrew installation
-- `run_once_00_install-linux-deps.sh.tmpl` - APT packages for Linux/RPi
+- `run_once_00_install-linux-deps.sh.tmpl` - APT packages + fonts + chsh for RPi
 - `run_once_10_setup_fedora_standard.sh.tmpl` - DNF packages for Fedora
+- `run_once_10_setup_fedora_atomic.sh.tmpl` - rpm-ostree packages for Fedora Atomic
+- `run_once_install_scoop_packages.ps1.tmpl` - Scoop packages for Windows
+- `run_once_install_flatpak_packages.sh.tmpl` - Flatpak packages for Fedora Atomic
 - `run_onchange_after_brew-bundle.sh.tmpl` - Runs `brew bundle` when Brewfile changes
 
 ### Platform Profiles
@@ -91,7 +98,8 @@ Configuration adapts based on:
 - **Fedora** (`linux` + `lookPath "dnf"`): DNF packages, Flatpak
 - **Fedora Atomic** (`lookPath "rpm-ostree"`): Minimal bash, container-focused
 - **Toolbox** (`env "TOOLBOX_PATH"`): Container environment, zsh-only
-- **Raspberry Pi** (kernel detection): APT packages, Gruvbox theme, nano editor
+- **Raspberry Pi** (kernel detection): APT packages, Gruvbox theme
+- **Windows** (`eq .chezmoi.os "windows"`): Scoop packages, minimal config (git, tmux, bash)
 
 ### Key Directories
 - `dot_config/` - XDG config files (nvim, starship, tmux, wezterm, etc.)

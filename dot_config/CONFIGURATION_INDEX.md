@@ -416,6 +416,18 @@ Style: Mocha
 
 ---
 
+## Platform Support
+
+| Platform | Bootstrap | Package Manager | Configs Applied |
+|----------|-----------|-----------------|-----------------|
+| **macOS** | `bootstrap.sh` | Homebrew | All (shells, terminals, editors, CLI tools) |
+| **Fedora Standard** | `bootstrap.sh` | dnf + COPR | All except Homebrew-specific |
+| **Fedora Atomic** | `bootstrap.sh` | rpm-ostree + Flatpak | All except Homebrew-specific |
+| **Raspberry Pi** | `bootstrap.sh` | apt | All with Gruvbox Dark theme |
+| **Windows** | `bootstrap.ps1` | Scoop | Minimal (git, tmux, bash) |
+
+---
+
 ## Theme Consistency
 
 All tools use **Catppuccin Mocha**:

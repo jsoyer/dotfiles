@@ -77,27 +77,31 @@ This setup uses `chezmoi`'s templating capabilities to apply different configura
 
 ---
 
-## 🍓 Raspberry Pi / Linux Installation
+## 🚀 Quick Start - New Machine Setup
 
-This dotfiles repository supports both macOS and Raspberry Pi/Linux with automatic platform detection and different themes.
+### One-Command Bootstrap (Recommended)
 
-### Quick Install (One Command)
+The bootstrap script detects your platform and installs everything automatically:
 
+**macOS / Linux / Fedora / Raspberry Pi:**
 ```bash
-curl -sL https://raw.githubusercontent.com/jsoyer/dotfiles/main/scripts/install-rpi.sh | bash
+curl -sL https://raw.githubusercontent.com/jsoyer/dotfiles/main/scripts/bootstrap.sh | bash
 ```
 
-This script will:
-1. Install base packages (zsh, tmux, neovim, fzf, ripgrep, etc.)
-2. Install modern CLI tools (starship, eza, bat, zoxide, vivid)
-3. Install Oh-My-Zsh with plugins
-4. Install Tmux Plugin Manager
-5. Install JetBrains Mono Nerd Font
-6. Apply dotfiles via chezmoi
+**Windows (PowerShell):**
+```powershell
+irm https://raw.githubusercontent.com/jsoyer/dotfiles/main/scripts/bootstrap.ps1 | iex
+```
+
+The bootstrap script will:
+1. Detect your platform (macOS, Fedora, Debian/RPi, Windows)
+2. Install prerequisites (git, package manager)
+3. Install chezmoi
+4. Apply all dotfiles and run platform-specific setup scripts
 
 ### Alternative: Manual Chezmoi Install
 
-If you already have Oh-My-Zsh installed:
+If you already have git and a package manager:
 
 ```bash
 sh -c "$(curl -fsLS get.chezmoi.io)" -- init --apply jsoyer
@@ -105,74 +109,18 @@ sh -c "$(curl -fsLS get.chezmoi.io)" -- init --apply jsoyer
 
 ### Platform Differences
 
-| Feature | macOS | Raspberry Pi / Linux |
-|---------|-------|----------------------|
-| **Theme** | Catppuccin Mocha | Gruvbox Dark |
-| **Prompt** | `~/path ➜` | `🍓 hostname:~/path ❯` |
-| **Tmux Bar** | Top | Bottom |
-| **Tmux Prefix** | `Ctrl+A` | `Ctrl+B` |
-| **Colors** | Purple/Pink | Yellow/Orange |
-
-### Visual Comparison
-
-**macOS Terminal:**
-```
-~/projects ➜ git:(main) ✚
-```
-
-**Raspberry Pi Terminal:**
-```
-🍓 rpi-nas:~/projects main ❯
-```
+| Feature | macOS | Fedora | Raspberry Pi | Windows |
+|---------|-------|--------|-------------|---------|
+| **Theme** | Catppuccin Mocha | Catppuccin Mocha | Gruvbox Dark | N/A |
+| **Package Manager** | Homebrew | dnf / rpm-ostree | apt | Scoop |
+| **Prompt** | `~/path ➜` | `~/path ➜` | `🍓 host:~/path ❯` | N/A |
+| **Tmux Bar** | Top | Top | Bottom | Top |
+| **Tmux Prefix** | `Ctrl+A` | `Ctrl+A` | `Ctrl+B` | `Ctrl+A` |
 
 ### Post-Installation Steps
 
-1. **Log out and log back in** (or run `zsh`)
-2. **Install tmux plugins**: Press `Ctrl+B` then `I` inside tmux
-3. **Verify installation**:
-   ```bash
-   echo "Platform: $PLATFORM"
-   echo "Is RPi: $IS_RPI"
-   echo "Starship config: $STARSHIP_CONFIG"
-   ```
-
-### Supported Architectures
-
-- `aarch64` - Raspberry Pi 4, Pi 5 (64-bit)
-- `armv7l` - Raspberry Pi 3, Pi Zero 2 (32-bit)
-- `x86_64` - Standard Linux (Intel/AMD)
-
-### What Gets Installed
-
-| Package | Description | Install Method |
-|---------|-------------|----------------|
-| `zsh` | Shell | apt |
-| `tmux` | Terminal multiplexer | apt |
-| `neovim` | Editor | apt |
-| `fzf` | Fuzzy finder | apt |
-| `bat` | cat replacement | apt |
-| `ripgrep` | grep replacement | apt |
-| `fd-find` | find replacement | apt |
-| `starship` | Prompt | curl script |
-| `eza` | ls replacement | binary/apt |
-| `zoxide` | cd replacement | curl script |
-| `vivid` | LS_COLORS | binary |
-
-
-## 🚀 Quick Start - New Machine Setup
-
-### One-Command Installation (Recommended)
-
-```bash
-# Installs chezmoi AND applies all dotfiles in one command
-sh -c "$(curl -fsLS get.chezmoi.io)" -- init --apply jsoyer
-```
-
-This will:
-1. ✅ Install chezmoi
-2. ✅ Clone your dotfiles from GitHub
-3. ✅ Apply all configurations automatically
-4. ✅ Run setup scripts (Xcode tools, Homebrew, etc.)
+1. **Log out and log back in** to apply shell changes
+2. **Install tmux plugins**: Press tmux prefix then `I` inside tmux
 
 ---
 
@@ -446,7 +394,10 @@ chezmoi update  # Pull + apply automatically
 ├── dot_zshrc
 ├── dot_zshenv
 ├── dot_zprofile
-├── chezmoi.toml                        # Chezmoi configuration
+├── scripts/
+│   ├── bootstrap.sh                    # Multiplatform bootstrap (macOS/Linux)
+│   └── bootstrap.ps1                   # Windows bootstrap (PowerShell/Scoop)
+├── .chezmoi.toml.tmpl                  # Chezmoi configuration template
 └── README.md                           # This file
 ```
 
@@ -697,8 +648,11 @@ These dotfiles are based on various open-source projects and personal customizat
 ## ⚡ Quick Reference
 
 ```bash
-# Setup new machine
-sh -c "$(curl -fsLS get.chezmoi.io)" -- init --apply jsoyer
+# Setup new machine (macOS/Linux)
+curl -sL https://raw.githubusercontent.com/jsoyer/dotfiles/main/scripts/bootstrap.sh | bash
+
+# Setup new machine (Windows PowerShell)
+# irm https://raw.githubusercontent.com/jsoyer/dotfiles/main/scripts/bootstrap.ps1 | iex
 
 # Update configuration (master machine)
 nvim ~/.config/tool/config

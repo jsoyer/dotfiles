@@ -1,0 +1,172 @@
+#!/bin/bash
+# =============================================================================
+# Multiplatform Bootstrap Script
+# =============================================================================
+# Installs git + chezmoi on any platform, then applies dotfiles.
+#
+# Usage:
+#   curl -sL https://raw.githubusercontent.com/jsoyer/dotfiles/main/scripts/bootstrap.sh | bash
+#
+# Supported platforms:
+#   - macOS (Homebrew)
+#   - Fedora Standard (dnf)
+#   - Fedora Atomic (rpm-ostree)
+#   - Raspberry Pi / Debian / Ubuntu (apt)
+#
+# For Windows, use bootstrap.ps1 instead:
+#   irm https://raw.githubusercontent.com/jsoyer/dotfiles/main/scripts/bootstrap.ps1 | iex
+# =============================================================================
+
+set -e
+
+# Colors
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m'
+
+log_info() { echo -e "${BLUE}[INFO]${NC} $1"; }
+log_success() { echo -e "${GREEN}[OK]${NC} $1"; }
+log_warn() { echo -e "${YELLOW}[WARN]${NC} $1"; }
+log_error() { echo -e "${RED}[ERROR]${NC} $1"; exit 1; }
+
+# =============================================================================
+# Platform Detection
+# =============================================================================
+OS="$(uname -s)"
+log_info "Detecting platform..."
+
+case "$OS" in
+    Darwin)
+        PLATFORM="macos"
+        log_success "Detected: macOS $(sw_vers -productVersion)"
+        ;;
+    Linux)
+        if command -v rpm-ostree &>/dev/null; then
+            PLATFORM="fedora-atomic"
+            log_success "Detected: Fedora Atomic"
+        elif command -v dnf &>/dev/null; then
+            PLATFORM="fedora"
+            log_success "Detected: Fedora Standard"
+        elif command -v apt &>/dev/null; then
+            PLATFORM="debian"
+            if [[ -f /proc/device-tree/model ]]; then
+                RPI_MODEL=$(tr -d '\0' < /proc/device-tree/model)
+                log_success "Detected: $RPI_MODEL"
+            else
+                log_success "Detected: Debian/Ubuntu"
+            fi
+        else
+            log_error "Unsupported Linux distribution"
+        fi
+        ;;
+    *)
+        log_error "Unsupported OS: $OS. For Windows, use bootstrap.ps1"
+        ;;
+esac
+
+# =============================================================================
+# Install git + chezmoi
+# =============================================================================
+
+install_macos() {
+    # Xcode CLI tools
+    if ! xcode-select -p &>/dev/null; then
+        log_info "Installing Xcode Command Line Tools..."
+        xcode-select --install
+        # Wait for installation
+        until xcode-select -p &>/dev/null; do
+            sleep 5
+        done
+        log_success "Xcode CLI tools installed"
+    else
+        log_warn "Xcode CLI tools already installed"
+    fi
+
+    # Homebrew
+    if ! command -v brew &>/dev/null; then
+        log_info "Installing Homebrew..."
+        /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+        eval "$(/opt/homebrew/bin/brew shellenv)"
+        log_success "Homebrew installed"
+    else
+        log_warn "Homebrew already installed"
+    fi
+
+    # chezmoi
+    if ! command -v chezmoi &>/dev/null; then
+        log_info "Installing chezmoi..."
+        brew install chezmoi
+        log_success "chezmoi installed"
+    else
+        log_warn "chezmoi already installed"
+    fi
+}
+
+install_fedora() {
+    log_info "Installing git and chezmoi via dnf..."
+    sudo dnf install -y git
+    if ! command -v chezmoi &>/dev/null; then
+        sh -c "$(curl -fsLS get.chezmoi.io)" -- -b "$HOME/.local/bin"
+        export PATH="$HOME/.local/bin:$PATH"
+    fi
+    log_success "git and chezmoi installed"
+}
+
+install_fedora_atomic() {
+    log_info "Installing git via rpm-ostree..."
+    if ! command -v git &>/dev/null; then
+        sudo rpm-ostree install --apply-live --idempotent git
+    fi
+    if ! command -v chezmoi &>/dev/null; then
+        log_info "Installing chezmoi..."
+        sh -c "$(curl -fsLS get.chezmoi.io)" -- -b "$HOME/.local/bin"
+        export PATH="$HOME/.local/bin:$PATH"
+    fi
+    log_success "git and chezmoi installed"
+}
+
+install_debian() {
+    log_info "Installing git and chezmoi via apt..."
+    sudo apt update
+    sudo apt install -y git curl
+    if ! command -v chezmoi &>/dev/null; then
+        sh -c "$(curl -fsLS get.chezmoi.io)" -- -b "$HOME/.local/bin"
+        export PATH="$HOME/.local/bin:$PATH"
+    fi
+    log_success "git and chezmoi installed"
+}
+
+case "$PLATFORM" in
+    macos)          install_macos ;;
+    fedora)         install_fedora ;;
+    fedora-atomic)  install_fedora_atomic ;;
+    debian)         install_debian ;;
+esac
+
+# =============================================================================
+# Apply dotfiles
+# =============================================================================
+log_info "Initializing chezmoi and applying dotfiles..."
+
+if [[ -d "$HOME/.local/share/chezmoi" ]]; then
+    log_info "chezmoi already initialized, updating..."
+    chezmoi update
+else
+    chezmoi init --apply jsoyer
+fi
+
+log_success "Dotfiles applied!"
+
+# =============================================================================
+# Done
+# =============================================================================
+echo ""
+echo -e "${GREEN}=============================================="
+echo -e "  Bootstrap Complete!"
+echo -e "==============================================${NC}"
+echo ""
+log_info "chezmoi has installed and configured everything."
+log_info "Log out and log back in to apply all shell changes."
+echo ""
