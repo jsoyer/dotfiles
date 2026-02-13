@@ -30,7 +30,7 @@ sudo ln -sf /usr/bin/fdfind /usr/local/bin/fd 2>/dev/null || true
 # =============================================================================
 # Fedora Standard - COPR repositories
 # =============================================================================
-{{- if and (lookPath "dnf") (not (lookPath "rpm-ostree")) (not (stat "/.toolboxenv")) }}
+{{- if and (lookPath "dnf") (not (lookPath "rpm-ostree")) (not (stat "/.toolboxenv")) (not (env "TOOLBOX_PATH")) }}
 echo "📦 Enabling COPR repositories..."
 
 sudo dnf copr enable -y alternateved/eza
@@ -42,22 +42,27 @@ sudo dnf copr enable -y atim/nushell
 # =============================================================================
 # Fedora - Tailscale Installation
 # =============================================================================
-{{- if or (lookPath "dnf") (lookPath "rpm-ostree") }}
+{{- if and (lookPath "dnf") (not (lookPath "rpm-ostree")) (not (stat "/.toolboxenv")) (not (env "TOOLBOX_PATH")) }}
 if ! rpm -q tailscale &>/dev/null; then
     echo "🔒 Installing Tailscale..."
-
-    {{- if lookPath "dnf" }}
     sudo dnf config-manager addrepo --from-repofile=https://pkgs.tailscale.com/stable/fedora/tailscale.repo
     sudo dnf install -y tailscale
-    {{- else if lookPath "rpm-ostree" }}
+    sudo systemctl enable --now tailscaled || true
+    echo "🔒 Tailscale installed. Run 'sudo tailscale up' to authenticate."
+else
+    echo "🔒 Tailscale already installed"
+fi
+{{- end }}
+
+{{- if lookPath "rpm-ostree" }}
+if ! rpm -q tailscale &>/dev/null; then
+    echo "🔒 Installing Tailscale..."
     if ! sudo ostree remote list | grep -q tailscale; then
         sudo curl -fsSL https://pkgs.tailscale.com/stable/fedora/tailscale.repo \
             -o /etc/yum.repos.d/tailscale.repo
     fi
-    sudo rpm-ostree install --apply-live tailscale
-    {{- end }}
-
-    sudo systemctl enable --now tailscaled
+    sudo rpm-ostree install --idempotent --apply-live tailscale || true
+    sudo systemctl enable --now tailscaled || true
     echo "🔒 Tailscale installed. Run 'sudo tailscale up' to authenticate."
 else
     echo "🔒 Tailscale already installed"
