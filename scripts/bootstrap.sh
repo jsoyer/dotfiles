@@ -425,6 +425,7 @@ git
 openssh-server
 curl
 wget
+chezmoi
 EOF
         fi
         log_success "Base layer config created at /etc/rpm-ostree.conf"
@@ -434,7 +435,7 @@ EOF
     
     # Verify packages are installed (rpm-ostree will apply them on next boot)
     log_info "Verifying base layer packages..."
-    BASE_PACKAGES="git openssh-server curl wget"
+    BASE_PACKAGES="git openssh-server curl wget chezmoi"
     for pkg in $BASE_PACKAGES; do
         if ! rpm -q "$pkg" &>/dev/null; then
             log_warn "Package $pkg not installed, adding to base layer..."
