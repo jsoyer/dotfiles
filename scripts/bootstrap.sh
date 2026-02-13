@@ -433,13 +433,22 @@ EOF
         log_info "Base layer config already exists at /etc/rpm-ostree.conf"
     fi
     
-    # Verify packages are installed (rpm-ostree will apply them on next boot)
+    # Verify packages are in base layer (rpm-ostree.conf), add if missing
     log_info "Verifying base layer packages..."
     BASE_PACKAGES="git openssh-server curl wget chezmoi"
     for pkg in $BASE_PACKAGES; do
+        if ! grep -q "^${pkg}$" /etc/rpm-ostree.conf 2>/dev/null; then
+            if ! grep -q "${pkg}" /etc/rpm-ostree.conf 2>/dev/null; then
+                log_info "Adding $pkg to base layer..."
+                echo "$pkg" | sudo tee -a /etc/rpm-ostree.conf > /dev/null
+            fi
+        fi
+    done
+    
+    # Install packages that aren't installed yet (will apply on next boot)
+    for pkg in $BASE_PACKAGES; do
         if ! rpm -q "$pkg" &>/dev/null; then
-            log_warn "Package $pkg not installed, adding to base layer..."
-            sudo rpm-ostree install --apply-live "$pkg" 2>/dev/null || true
+            log_warn "Package $pkg not installed yet - will be available after next boot"
         fi
     done
     
@@ -459,20 +468,23 @@ check_ssh() {
     
     log_info "Checking SSH server..."
     
-    # Check if sshd is installed (various possible packages)
-    if command -v sshd &>/dev/null || [[ -f "/usr/sbin/sshd" ]] || dpkg -l | grep -q "openssh-server" || rpm -q openssh-server &>/dev/null 2>&1; then
+    # Check if sshd is installed (various methods, sshd might not be in PATH)
+    if [[ -f "/usr/sbin/sshd" ]] || [[ -f "/usr/sbin/sshd" ]] || dpkg -l 2>/dev/null | grep -q "openssh-server" || rpm -q openssh-server &>/dev/null 2>&1; then
         log_info "🔐 SSH server already installed"
         
-        # Check if service is running
+        # Check if service is enabled/running
         if systemctl is-active --quiet sshd 2>/dev/null || systemctl is-active --quiet ssh 2>/dev/null; then
             log_success "🔐 SSH service is running"
+        elif systemctl is-enabled --quiet sshd 2>/dev/null || systemctl is-enabled --quiet ssh 2>/dev/null; then
+            log_success "🔐 SSH service is enabled (not running, starting now...)"
+            sudo systemctl start sshd 2>/dev/null || sudo systemctl start ssh 2>/dev/null
         else
-            log_warn "🔐 SSH is installed but not running"
-            read -p "Start SSH service now? (y/N) " -n 1 -r
+            log_warn "🔐 SSH is installed but not enabled"
+            read -p "Enable and start SSH service now? (y/N) " -n 1 -r
             echo
             if [[ $REPLY =~ ^[Yy]$ ]]; then
                 sudo systemctl enable --now sshd 2>/dev/null || sudo systemctl enable --now ssh 2>/dev/null
-                log_success "🔐 SSH service started"
+                log_success "🔐 SSH service enabled and started"
             fi
         fi
     else
@@ -484,10 +496,16 @@ check_ssh() {
                 fedora)
                     sudo dnf install -y openssh-server
                     sudo systemctl enable --now sshd
+                    log_success "🔐 SSH server installed and enabled"
                     ;;
                 fedora-atomic)
-                    sudo rpm-ostree install --apply-live openssh-server
-                    sudo systemctl enable --now sshd
+                    # Add to base layer config for persistence
+                    if ! grep -q "openssh-server" /etc/rpm-ostree.conf 2>/dev/null; then
+                        log_info "Adding openssh-server to base layer..."
+                        echo "openssh-server" | sudo tee -a /etc/rpm-ostree.conf > /dev/null
+                    fi
+                    sudo rpm-ostree install openssh-server
+                    log_warn "SSH will be active after reboot. Run 'sudo systemctl enable --now sshd' after reboot."
                     ;;
                 rpi|debian)
                     sudo apt update
@@ -499,7 +517,11 @@ check_ssh() {
                     sudo systemctl enable --now sshd
                     ;;
             esac
-            log_success "🔐 SSH server installed and started"
+            if [[ "$PLATFORM" == "fedora-atomic" ]]; then
+                log_warn "🔐 SSH will be active after reboot"
+            else
+                log_success "🔐 SSH server installed and enabled"
+            fi
         fi
     fi
 }
@@ -512,7 +534,7 @@ check_ssh
 log_info "Initializing chezmoi and applying dotfiles..."
 
 if [[ -d "$HOME/.local/share/chezmoi" ]]; then
-    log_info "chezmoi already initialized, fixing git configuration..."
+    log_info "chezmoi already initialized, updating..."
     CHEZMOI_DIR="$HOME/.local/share/chezmoi"
     cd "$CHEZMOI_DIR"
     
@@ -521,7 +543,8 @@ if [[ -d "$HOME/.local/share/chezmoi" ]]; then
         git remote add origin https://github.com/jsoyer/dotfiles.git
     fi
     
-    # Fetch and setup tracking
+    # Fetch latest changes
+    log_info "Fetching latest dotfiles..."
     git fetch origin
     
     # Try to set upstream for main or master
@@ -532,8 +555,8 @@ if [[ -d "$HOME/.local/share/chezmoi" ]]; then
         git branch --set-upstream-to=origin/master master 2>/dev/null || true
     fi
     
-    # Now run chezmoi update
-    chezmoi update || log_warn "chezmoi update failed"
+    # Now run chezmoi apply (faster than update, we already fetched)
+    chezmoi apply
 else
     log_info "Initializing chezmoi from GitHub..."
     chezmoi init https://github.com/jsoyer/dotfiles.git --apply
