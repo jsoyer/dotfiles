@@ -401,6 +401,58 @@ case "$PLATFORM" in
 esac
 
 # =============================================================================
+# Ensure persistent packages survive Fedora Atomic upgrades
+# =============================================================================
+
+setup_fedora_atomic_base_layer() {
+    if [[ "$PLATFORM" != "fedora-atomic" ]]; then
+        return
+    fi
+    
+    log_info "Setting up Fedora Atomic base layer..."
+    
+    # Create /etc/rpm-ostree.conf if not exists
+    if [[ ! -f /etc/rpm-ostree.conf ]]; then
+        # Check if we have the config file in dotfiles
+        if [[ -f "$HOME/.config/fedora/rpm-ostree.conf" ]]; then
+            log_info "Installing base layer config from dotfiles..."
+            sudo cp "$HOME/.config/fedora/rpm-ostree.conf" /etc/rpm-ostree.conf
+        else
+            log_info "Creating /etc/rpm-ostree.conf with default packages..."
+            sudo tee /etc/rpm-ostree.conf > /dev/null << 'EOF'
+[Packages]
+git
+openssh-server
+zsh
+curl
+wget
+podman
+podman-compose
+neovim
+vim
+EOF
+        fi
+        log_success "Base layer config created at /etc/rpm-ostree.conf"
+    else
+        log_info "Base layer config already exists at /etc/rpm-ostree.conf"
+    fi
+    
+    # Verify packages are installed (rpm-ostree will apply them on next boot)
+    log_info "Verifying base layer packages..."
+    BASE_PACKAGES="git openssh-server zsh curl wget podman podman-compose neovim vim"
+    for pkg in $BASE_PACKAGES; do
+        if ! rpm -q "$pkg" &>/dev/null; then
+            log_warn "Package $pkg not installed, adding to base layer..."
+            sudo rpm-ostree install --apply-live "$pkg" 2>/dev/null || true
+        fi
+    done
+    
+    log_success "Fedora Atomic base layer configured"
+}
+
+setup_fedora_atomic_base_layer
+
+# =============================================================================
 # Check and install SSH if needed (Linux only)
 # =============================================================================
 
