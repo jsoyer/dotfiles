@@ -82,16 +82,6 @@ Git repos auto-refreshed weekly:
 - `bootstrap.sh` - Multiplatform bootstrap (macOS, Fedora, RPi/Debian)
 - `bootstrap.ps1` - Windows bootstrap (Scoop + chezmoi)
 
-### Setup Scripts (`.chezmoiscripts/`)
-- `run_once_00_install-xcode-devtools.sh.tmpl` - macOS Xcode CLI tools
-- `run_once_01_install_homebrew.sh.tmpl` - Homebrew installation
-- `run_once_00_install-linux-deps.sh.tmpl` - APT packages + fonts + chsh for RPi
-- `run_once_10_setup_fedora_standard.sh.tmpl` - DNF packages for Fedora
-- `run_once_10_setup_fedora_atomic.sh.tmpl` - rpm-ostree packages for Fedora Atomic
-- `run_once_install_scoop_packages.ps1.tmpl` - Scoop packages for Windows
-- `run_once_install_flatpak_packages.sh.tmpl` - Flatpak packages for Fedora Atomic
-- `run_onchange_after_brew-bundle.sh.tmpl` - Runs `brew bundle` when Brewfile changes
-
 ### Platform Profiles
 Configuration adapts based on:
 - **macOS** (`darwin`): Full setup with Homebrew, pyenv
@@ -106,6 +96,12 @@ Configuration adapts based on:
 - `dot_private/` - Brewfiles (`Brewfile_pro`, `Brewfile_personal`, `Brewfile_common`)
 - `dot_local/bin/` - Custom scripts (e.g., `breww` - Homebrew wrapper with auto-sync)
 - `dot_ssh/` - SSH config with 1Password integration (templated)
+
+### Shell Aliases
+- `ca` - chezmoi apply -v
+- `cu` - chezmoi update -v
+- `cup` - chezmoi update + package updates (all platforms)
+- `c` - chezmoi (shortcut)
 
 ## Lua Diagnostics Note
 

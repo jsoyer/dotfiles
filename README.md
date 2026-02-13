@@ -328,6 +328,24 @@ chezmoi status
 chezmoi managed
 ```
 
+### Updating All Packages (All Platforms)
+
+The `cup` command (chezmoi update + packages) updates everything:
+
+```bash
+# chezmoi update + Homebrew/DNF/Scoop + Docker/Podman
+cup
+```
+
+This performs:
+1. `chezmoi update` - Pull latest dotfiles
+2. Package updates:
+   - **macOS**: `brew upgrade` + `brew update` + `mas upgrade` (App Store)
+   - **Linux (RPi)**: `apt dist-upgrade` + `apt autoremove`
+   - **Linux (Fedora)**: `dnf upgrade` or `rpm-ostree upgrade`
+   - **Windows**: `scoop update` + `scoop update --all`
+3. **Docker/Podman** (if running): Update containers and prune images
+
 ### Syncing Multiple Machines
 
 ```bash
@@ -346,8 +364,26 @@ chezmoi update  # Pull + apply automatically
 ```
 ~/.local/share/chezmoi/
 ├── .chezmoiscripts/
-│   ├── 00_install-xcode-devtools.sh    # Auto-run on first apply
-│   └── 01_install_homebrew.sh          # Auto-run on first apply
+│   ├── 01-setup/                    # System prerequisites
+│   │   ├── run_once_setup-macos.sh
+│   │   └── run_once_setup-linux.sh
+│   ├── 02-install/                 # Package installation
+│   │   ├── run_once_install-linux-packages.sh
+│   │   ├── run_once_install-linux-flatpak.sh
+│   │   ├── run_once_install-1password.sh
+│   │   ├── run_once_install-windows-packages.ps1
+│   │   └── run_onchange_after_brew-bundle.sh
+│   ├── 03-configure/               # Post-install configuration
+│   │   ├── run_once_configure-linux.sh
+│   │   ├── run_once_configure-macos.sh
+│   │   └── run_once_configure-gpg.sh
+│   ├── 04-update/                  # Package updates
+│   │   ├── run_onchange_update-homebrew.sh
+│   │   ├── run_onchange_update-linux.sh
+│   │   ├── run_onchange_update-appstore.sh
+│   │   └── run_onchange_update-windows.ps1
+│   └── 05-maintenance/              # Maintenance
+│       └── run_onchange_always_maintenance-container.sh
 ├── dot_config/
 │   ├── alacritty/
 │   │   └── alacritty.toml
@@ -658,8 +694,8 @@ curl -sL https://raw.githubusercontent.com/jsoyer/dotfiles/main/scripts/bootstra
 nvim ~/.config/tool/config
 chezmoi re-add ~/.config/tool/config
 
-# Sync to other machines
-chezmoi update
+# Sync + update packages (all platforms)
+cup
 
 # Check status
 chezmoi status
