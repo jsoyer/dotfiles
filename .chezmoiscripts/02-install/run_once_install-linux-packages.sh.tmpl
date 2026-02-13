@@ -30,12 +30,7 @@ sudo apt update && sudo apt install -y \
     zoxide \
     eza \
     vivid \
-    locales || true
-
-if ! command -v chezmoi &> /dev/null; then
-    echo "[chezmoi] Installing chezmoi via official script..."
-    sh -c "$(curl -fsSL https://get.chezmoi.io)"
-fi
+    locales
 {{- end }}
 
 # =============================================================================
@@ -74,9 +69,7 @@ sudo dnf install -y --skip-unavailable \
 # Fedora Atomic - rpm-ostree packages
 # =============================================================================
 {{- if and (lookPath "rpm-ostree") (not (stat "/.toolboxenv")) }}
-echo "[chezmoi] Installing Fedora Atomic packages via rpm-ostree..."
-
-sudo rpm-ostree install --apply-live --idempotent git chezmoi
+echo "[chezmoi] Fedora Atomic - no additional packages (git/chezmoi handled by bootstrap)"
 {{- end }}
 
 echo "[chezmoi] Linux packages installation complete!"
