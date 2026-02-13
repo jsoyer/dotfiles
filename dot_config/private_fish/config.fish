@@ -302,6 +302,12 @@ function cup
             brew upgrade
             brew cleanup
             brew update
+            echo "📱 Updating App Store apps..."
+            if command -q mas
+                mas upgrade
+            else
+                echo "⚠️  mas-cli not installed (run: brew install mas)"
+            end
         case linux
             set arch (uname -m)
             if string match -q "*rpi*" $arch

@@ -1,0 +1,17 @@
+{{- if eq .chezmoi.os "darwin" -}}
+#!/bin/bash
+# Update macOS App Store apps via mas-cli
+
+set -euo pipefail
+
+echo "📱 Updating macOS App Store apps..."
+
+if command -v mas &> /dev/null; then
+    mas outdated
+    mas upgrade
+else
+    echo "⚠️  mas-cli not installed (run: brew install mas)"
+fi
+
+echo "✅ App Store update complete!"
+{{- end -}}

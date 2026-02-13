@@ -1062,6 +1062,12 @@ def cup [...args: string] {
             ^brew upgrade
             ^brew cleanup
             ^brew update
+            print "📱 Updating App Store apps..."
+            if (^command -v mas | complete).exit_code == 0 {
+                ^mas upgrade
+            } else {
+                print "⚠️  mas-cli not installed (run: brew install mas)"
+            }
         }
         "linux" => {
             let arch = (^uname -m)

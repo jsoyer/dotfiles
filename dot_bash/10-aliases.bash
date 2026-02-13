@@ -183,6 +183,12 @@ cup() {
       brew upgrade
       brew cleanup
       brew update
+      echo "📱 Updating App Store apps..."
+      if command -v mas &> /dev/null; then
+        mas upgrade
+      else
+        echo "⚠️  mas-cli not installed (run: brew install mas)"
+      fi
       ;;
     linux)
       if [[ "$(uname -m)" == *"rpi"* ]] || grep -qi rpi /proc/version 2>/dev/null; then
