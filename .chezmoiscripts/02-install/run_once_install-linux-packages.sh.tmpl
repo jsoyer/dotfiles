@@ -10,7 +10,7 @@ set -eufo pipefail
 # Raspberry Pi / Debian - apt packages
 # =============================================================================
 {{- if contains "rpi" .chezmoi.kernel.osrelease }}
-echo "[chezmoi] Installing Raspberry Pi packages via apt..."
+echo "🐍 Installing Raspberry Pi packages via apt..."
 
 sudo apt update && sudo apt install -y \
     zsh \
@@ -37,7 +37,7 @@ sudo apt update && sudo apt install -y \
 # Fedora Standard - dnf packages
 # =============================================================================
 {{- if and (lookPath "dnf") (not (lookPath "rpm-ostree")) (not (stat "/.toolboxenv")) }}
-echo "[chezmoi] Installing Fedora Standard packages via dnf..."
+echo "🐧 Installing Fedora Standard packages via dnf..."
 
 sudo dnf install -y --skip-unavailable \
     chezmoi \
@@ -69,8 +69,8 @@ sudo dnf install -y --skip-unavailable \
 # Fedora Atomic - rpm-ostree packages
 # =============================================================================
 {{- if and (lookPath "rpm-ostree") (not (stat "/.toolboxenv")) }}
-echo "[chezmoi] Fedora Atomic - no additional packages (git/chezmoi handled by bootstrap)"
+echo "🐧 Fedora Atomic - no additional packages (git/chezmoi handled by bootstrap)"
 {{- end }}
 
-echo "[chezmoi] Linux packages installation complete!"
+echo "✅ Linux packages installation complete!"
 {{- end }}

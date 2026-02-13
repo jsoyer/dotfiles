@@ -5,14 +5,14 @@
 set -euo pipefail
 eval "$(brew shellenv)"
 
-echo "==> Updating Homebrew packages..."
+echo "🍺 Updating Homebrew packages..."
 brew upgrade
 
-echo "==> Cleaning up old versions..."
+echo "🧹 Cleaning up old versions..."
 brew cleanup
 
-echo "==> Updating Homebrew itself..."
+echo "🔄 Updating Homebrew itself..."
 brew update
 
-echo "==> Upgrade complete!"
+echo "✅ Upgrade complete!"
 {{- end -}}

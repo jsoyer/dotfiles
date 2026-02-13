@@ -205,33 +205,33 @@ cup() {
   case "$os" in
     darwin)
       eval "$(brew shellenv)"
-      echo "==> Updating Homebrew packages..."
+      echo "🍺 Updating Homebrew packages..."
       brew upgrade
       brew cleanup
       brew update
       ;;
     linux)
       if [[ "$(uname -m)" == *"rpi"* ]] || grep -qi rpi /proc/version 2>/dev/null; then
-        echo "==> Updating apt packages..."
+        echo "🐍 Updating apt packages..."
         sudo apt update && sudo apt upgrade -y
       elif command -v dnf &>/dev/null; then
         if command -v rpm-ostree &>/dev/null; then
-          echo "==> Updating Fedora Atomic..."
+          echo "🐧 Updating Fedora Atomic..."
           sudo rpm-ostree upgrade
         else
-          echo "==> Updating Fedora packages..."
+          echo "🐧 Updating Fedora packages..."
           sudo dnf upgrade -y
         fi
       fi
       ;;
     windows)
-      echo "==> Updating Scoop packages..."
+      echo "🪣 Updating Scoop packages..."
       scoop update
       scoop update --all
       ;;
   esac
 
-  echo "==> Update complete!"
+  echo "✅ Update complete!"
 }
 
 # ============================================================================

@@ -12,10 +12,10 @@ eval "$(brew shellenv)"
 BREWFILE_DIR="{{ .chezmoi.sourceDir }}/dot_private"
 
 {{- if eq .chezmoi.hostname "jsoyer-macOS" }}
-echo "==> brew bundle install (pro profile)"
+echo "🍺 brew bundle install (pro profile)"
 cat "$BREWFILE_DIR/Brewfile_common" "$BREWFILE_DIR/Brewfile_pro" | brew bundle install --file=-
 {{- else }}
-echo "==> brew bundle install (personal profile)"
+echo "🍺 brew bundle install (personal profile)"
 cat "$BREWFILE_DIR/Brewfile_common" "$BREWFILE_DIR/Brewfile_personal" | brew bundle install --file=-
 {{- end }}
 {{ end -}}

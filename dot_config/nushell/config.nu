@@ -1058,6 +1058,7 @@ def cup [...args: string] {
 
     match $os {
         "darwin" => {
+            print "🍺 Updating Homebrew packages..."
             ^brew upgrade
             ^brew cleanup
             ^brew update
@@ -1065,22 +1066,28 @@ def cup [...args: string] {
         "linux" => {
             let arch = (^uname -m)
             if ($arch | str contains "rpi") {
+                print "🐍 Updating apt packages..."
                 ^sudo apt update
                 ^sudo apt upgrade -y
             } else if (^command -v dnf | complete).exit_code == 0 {
                 if (^command -v rpm-ostree | complete).exit_code == 0 {
+                    print "🐧 Updating Fedora Atomic..."
                     ^sudo rpm-ostree upgrade
                 } else {
+                    print "🐧 Updating Fedora packages..."
                     ^sudo dnf upgrade -y
                 }
             }
         }
         "windows" => {
+            print "🪣 Updating Scoop packages..."
             ^scoop update
             ^scoop update --all
         }
         _ => { }
     }
+
+    print "✅ Update complete!"
 }
 
 # ============================================================================

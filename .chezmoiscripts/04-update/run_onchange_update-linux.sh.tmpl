@@ -5,21 +5,21 @@
 set -euo pipefail
 
 {{- if contains "rpi" .chezmoi.kernel.osrelease }}
-echo "==> Updating Raspberry Pi packages..."
+echo "🐍 Updating Raspberry Pi packages..."
 sudo apt update
 sudo apt upgrade -y
 sudo apt autoremove -y
 {{- end }}
 
 {{- if and (lookPath "dnf") (not (lookPath "rpm-ostree")) (not (stat "/.toolboxenv")) }}
-echo "==> Updating Fedora packages..."
+echo "🐧 Updating Fedora packages..."
 sudo dnf upgrade -y
 {{- end }}
 
 {{- if lookPath "rpm-ostree" }}
-echo "==> Updating Fedora Atomic (rpm-ostree)..."
+echo "🐧 Updating Fedora Atomic (rpm-ostree)..."
 sudo rpm-ostree upgrade
 {{- end }}
 
-echo "==> Upgrade complete!"
+echo "✅ Upgrade complete!"
 {{- end -}}

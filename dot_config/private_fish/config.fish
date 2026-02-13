@@ -298,27 +298,32 @@ function cup
 
     switch $os
         case darwin
+            echo "🍺 Updating Homebrew packages..."
             brew upgrade
             brew cleanup
             brew update
         case linux
             set arch (uname -m)
             if string match -q "*rpi*" $arch
+                echo "🐍 Updating apt packages..."
                 sudo apt update
                 sudo apt upgrade -y
             else if command -q dnf
                 if command -q rpm-ostree
+                    echo "🐧 Updating Fedora Atomic..."
                     sudo rpm-ostree upgrade
                 else
+                    echo "🐧 Updating Fedora packages..."
                     sudo dnf upgrade -y
                 end
             end
         case windows
+            echo "🪣 Updating Scoop packages..."
             scoop update
             scoop update --all
     end
 
-    echo "==> Update complete!"
+    echo "✅ Update complete!"
 end
 
 # ============================================================================

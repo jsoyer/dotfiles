@@ -10,7 +10,7 @@ set -e
 # Raspberry Pi / Debian - Locale configuration
 # =============================================================================
 {{- if contains "rpi" .chezmoi.kernel.osrelease }}
-echo "[chezmoi] Configuring locale..."
+echo "🐍 Configuring locale..."
 
 if ! locale -a 2>/dev/null | grep -qi "en_US.utf8"; then
     echo "en_US.UTF-8 not found. Generating..."
@@ -31,7 +31,7 @@ sudo ln -sf /usr/bin/fdfind /usr/local/bin/fd 2>/dev/null || true
 # Fedora Standard - COPR repositories
 # =============================================================================
 {{- if and (lookPath "dnf") (not (lookPath "rpm-ostree")) (not (stat "/.toolboxenv")) }}
-echo "[chezmoi] Enabling COPR repositories..."
+echo "📦 Enabling COPR repositories..."
 
 sudo dnf copr enable -y alternateved/eza
 sudo dnf copr enable -y atim/starship
@@ -44,7 +44,7 @@ sudo dnf copr enable -y atim/nushell
 # =============================================================================
 {{- if or (lookPath "dnf") (lookPath "rpm-ostree") }}
 if ! rpm -q tailscale &>/dev/null; then
-    echo "[chezmoi] Installing Tailscale..."
+    echo "🔒 Installing Tailscale..."
 
     {{- if lookPath "dnf" }}
     sudo dnf config-manager addrepo --from-repofile=https://pkgs.tailscale.com/stable/fedora/tailscale.repo
@@ -58,11 +58,11 @@ if ! rpm -q tailscale &>/dev/null; then
     {{- end }}
 
     sudo systemctl enable --now tailscaled
-    echo "[chezmoi] Tailscale installed. Run 'sudo tailscale up' to authenticate."
+    echo "🔒 Tailscale installed. Run 'sudo tailscale up' to authenticate."
 else
-    echo "[chezmoi] Tailscale already installed"
+    echo "🔒 Tailscale already installed"
 fi
 {{- end }}
 
-echo "[chezmoi] Linux setup complete!"
+echo "✅ Linux setup complete!"
 {{- end }}

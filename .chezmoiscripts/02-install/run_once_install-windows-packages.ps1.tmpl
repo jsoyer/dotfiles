@@ -7,7 +7,7 @@
 # Install Scoop if not present
 # =============================================================================
 if (-not (Get-Command scoop -ErrorAction SilentlyContinue)) {
-    Write-Host "[chezmoi] Installing Scoop..."
+    Write-Host "🪣 Installing Scoop..." -ForegroundColor Cyan
     Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser -Force
     Invoke-RestMethod -Uri https://get.scoop.sh | Invoke-Expression
 }
@@ -15,15 +15,15 @@ if (-not (Get-Command scoop -ErrorAction SilentlyContinue)) {
 # =============================================================================
 # Add buckets
 # =============================================================================
-Write-Host "[chezmoi] Adding Scoop buckets..."
+Write-Host "🪣 Adding Scoop buckets..." -ForegroundColor Cyan
 if (-not (scoop bucket list | Select-String -Quiet 'extras')) { scoop bucket add extras }
 if (-not (scoop bucket list | Select-String -Quiet 'versions')) { scoop bucket add versions }
 
 # =============================================================================
 # Install packages
 # =============================================================================
-Write-Host "[chezmoi] Installing Scoop packages..."
+Write-Host "📦 Installing Scoop packages..." -ForegroundColor Cyan
 scoop install 7zip chezmoi git zed
 
-Write-Host "[chezmoi] Scoop setup complete."
+Write-Host "✅ Scoop setup complete." -ForegroundColor Green
 {{ end -}}
