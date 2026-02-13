@@ -513,7 +513,14 @@ log_info "Initializing chezmoi and applying dotfiles..."
 
 if [[ -d "$HOME/.local/share/chezmoi" ]]; then
     log_info "chezmoi already initialized, updating..."
-    chezmoi update
+    # Handle case where branch has no tracking info
+    cd "$HOME/.local/share/chezmoi"
+    if ! git config --get "branch.main.remote" &>/dev/null && ! git config --get "branch.master.remote" &>/dev/null; then
+        log_warn "No tracking info, setting up remote..."
+        git branch --set-upstream-to=origin/main main 2>/dev/null || git branch --set-upstream-to=origin/master master 2>/dev/null || true
+    fi
+    chezmoi update || log_warn "chezmoi update failed, trying apply..."
+    chezmoi apply || true
 else
     chezmoi init --apply jsoyer
 fi
