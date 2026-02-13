@@ -16,8 +16,8 @@ if (-not (Get-Command scoop -ErrorAction SilentlyContinue)) {
 # Add buckets
 # =============================================================================
 Write-Host "[chezmoi] Adding Scoop buckets..."
-scoop bucket add extras
-scoop bucket add versions
+if (-not (scoop bucket list | Select-String -Quiet 'extras')) { scoop bucket add extras }
+if (-not (scoop bucket list | Select-String -Quiet 'versions')) { scoop bucket add versions }
 
 # =============================================================================
 # Install packages
