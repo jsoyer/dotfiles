@@ -23,3 +23,29 @@ README.md
 {{- if eq .chezmoi.hostname "jsoyer-macOS" }}
 scripts/
 {{- end }}
+
+{{/* Ignore Unix-only configs on Windows */}}
+{{- if eq .chezmoi.os "windows" }}
+.zsh/
+.zshrc
+.zshenv
+.p10k.zsh
+.bash/
+.bash_profile
+.bashrc
+.config/alacritty/
+.config/atuin/
+.config/bat/
+.config/btop/
+.config/fish/
+.config/flashspace/
+.config/ghostty/
+.config/kitty/
+.config/lazygit/
+.config/nushell/
+.config/sketchybar/
+.config/skhd/
+.config/thefuck/
+.config/zellij/
+.config/tmux/
+{{- end }}
