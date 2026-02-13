@@ -36,7 +36,7 @@ sudo apt update && sudo apt install -y \
 # =============================================================================
 # Fedora Standard - dnf packages
 # =============================================================================
-{{- if and (lookPath "dnf") (not (lookPath "rpm-ostree")) (not (stat "/.toolboxenv")) }}
+{{- if and (lookPath "dnf") (not (lookPath "rpm-ostree")) (not (stat "/.toolboxenv")) (not (env "TOOLBOX_PATH")) }}
 echo "🐧 Installing Fedora Standard packages via dnf..."
 
 sudo dnf install -y --skip-unavailable \
@@ -59,6 +59,37 @@ sudo dnf install -y --skip-unavailable \
     zoxide \
     vivid \
     jetbrains-mono-fonts-all \
+    fish \
+    kitty \
+    nushell \
+    util-linux-user
+{{- end }}
+
+# =============================================================================
+# Fedora Toolbox - dnf packages (same as Fedora Standard)
+# =============================================================================
+{{- if and (lookPath "dnf") (or (stat "/.toolboxenv") (env "TOOLBOX_PATH")) }}
+echo "📦 Installing Fedora Toolbox packages via dnf..."
+
+sudo dnf install -y --skip-unavailable \
+    chezmoi \
+    eza \
+    zsh \
+    git \
+    curl \
+    wget \
+    tmux \
+    fzf \
+    neovim \
+    fd-find \
+    ripgrep \
+    jq \
+    unzip \
+    bat \
+    fontconfig \
+    starship \
+    zoxide \
+    vivid \
     fish \
     kitty \
     nushell \
