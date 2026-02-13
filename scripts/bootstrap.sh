@@ -46,15 +46,16 @@ case "$OS" in
         log_success "Detected: $EMOJI macOS $(sw_vers -productVersion)"
         ;;
     Linux)
-        # Check for Toolbox container
-        if [[ -n "$TOOLBOX_PATH" ]] || [[ -f "/run/host/usr/lib/os-release" ]]; then
-            PLATFORM="toolbox"
-            EMOJI="📦"
-            log_success "Detected: $EMOJI Fedora Toolbox"
-        elif command -v rpm-ostree &>/dev/null; then
+        # Check for Fedora Atomic (rpm-ostree) - must be checked BEFORE Toolbox
+        if command -v rpm-ostree &>/dev/null || [[ -f "/run/ostree" ]]; then
             PLATFORM="fedora-atomic"
             EMOJI="🐧"
             log_success "Detected: $EMOJI Fedora Atomic"
+        # Check for Toolbox container
+        elif [[ -n "$TOOLBOX_PATH" ]] || [[ -f "/run/host/usr/lib/os-release" ]]; then
+            PLATFORM="toolbox"
+            EMOJI="📦"
+            log_success "Detected: $EMOJI Fedora Toolbox"
         elif command -v dnf &>/dev/null; then
             PLATFORM="fedora"
             EMOJI="🐧"
