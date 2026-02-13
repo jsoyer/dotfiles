@@ -1107,7 +1107,7 @@ def cup [...args: string] {
                 print $"  → Updating ($project_name)"
                 let pull_output = (^$container_runtime compose -f $compose_file pull | complete)
                 
-                if $pull_output.stdout | str contains "Pulling" {
+                if ($pull_output.stdout | str contains "Pulling") {
                     print "  🔄 New images found, restarting containers..."
                     ^$container_runtime compose -f $compose_file up -d
                 } else {
