@@ -1,0 +1,68 @@
+{{- if eq .chezmoi.os "linux" -}}
+#!/bin/bash
+# =============================================================================
+# Linux Setup - Locale, Repositories, Tailscale
+# =============================================================================
+
+set -e
+
+# =============================================================================
+# Raspberry Pi / Debian - Locale configuration
+# =============================================================================
+{{- if contains "rpi" .chezmoi.kernel.osrelease }}
+echo "[chezmoi] Configuring locale..."
+
+if ! locale -a 2>/dev/null | grep -qi "en_US.utf8"; then
+    echo "en_US.UTF-8 not found. Generating..."
+    sudo sed -i -e 's/# en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/' /etc/locale.gen
+    sudo dpkg-reconfigure --frontend=noninteractive locales
+    sudo update-locale LANG=en_US.UTF-8
+fi
+
+export LANG=en_US.UTF-8
+export LC_ALL=en_US.UTF-8
+
+# Create symlinks for renamed packages on Debian/Ubuntu
+sudo ln -sf /usr/bin/batcat /usr/local/bin/bat 2>/dev/null || true
+sudo ln -sf /usr/bin/fdfind /usr/local/bin/fd 2>/dev/null || true
+{{- end }}
+
+# =============================================================================
+# Fedora Standard - COPR repositories
+# =============================================================================
+{{- if and (lookPath "dnf") (not (lookPath "rpm-ostree")) (not (stat "/.toolboxenv")) }}
+echo "[chezmoi] Enabling COPR repositories..."
+
+sudo dnf copr enable -y alternateved/eza
+sudo dnf copr enable -y atim/starship
+sudo dnf copr enable -y skoved/vivid
+sudo dnf copr enable -y atim/nushell
+{{- end }}
+
+# =============================================================================
+# Fedora - Tailscale Installation
+# =============================================================================
+{{- if or (lookPath "dnf") (lookPath "rpm-ostree") }}
+if ! rpm -q tailscale &>/dev/null; then
+    echo "[chezmoi] Installing Tailscale..."
+
+    {{- if lookPath "dnf" }}
+    sudo dnf config-manager addrepo --from-repofile=https://pkgs.tailscale.com/stable/fedora/tailscale.repo
+    sudo dnf install -y tailscale
+    {{- else if lookPath "rpm-ostree" }}
+    if ! sudo ostree remote list | grep -q tailscale; then
+        sudo curl -fsSL https://pkgs.tailscale.com/stable/fedora/tailscale.repo \
+            -o /etc/yum.repos.d/tailscale.repo
+    fi
+    sudo rpm-ostree install --apply-live tailscale
+    {{- end }}
+
+    sudo systemctl enable --now tailscaled
+    echo "[chezmoi] Tailscale installed. Run 'sudo tailscale up' to authenticate."
+else
+    echo "[chezmoi] Tailscale already installed"
+fi
+{{- end }}
+
+echo "[chezmoi] Linux setup complete!"
+{{- end }}

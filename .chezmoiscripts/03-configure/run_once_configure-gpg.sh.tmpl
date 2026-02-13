@@ -1,5 +1,8 @@
 {{- if and (ne .chezmoi.os "windows") (lookPath "gpg") (lookPath "op") -}}
 #!/bin/bash
+# =============================================================================
+# GPG Key Import from 1Password
+# =============================================================================
 
 set -eo pipefail
 

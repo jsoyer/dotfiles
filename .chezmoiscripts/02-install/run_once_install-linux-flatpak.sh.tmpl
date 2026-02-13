@@ -1,0 +1,25 @@
+{{- if eq .chezmoi.os "linux" -}}
+{{- if lookPath "rpm-ostree" -}}
+#!/bin/bash
+# =============================================================================
+# Flatpak Packages Installation (Fedora Atomic)
+# =============================================================================
+
+set -eufo pipefail
+
+echo "Installing Flatpak packages..."
+flatpak install -y flathub \
+    com.brave.Browser \
+    com.obsproject.Studio \
+    dev.zed.Zed \
+    io.dbeaver.DBeaverCommunity \
+    io.podman_desktop.PodmanDesktop \
+    md.obsidian.Obsidian \
+    org.filezillaproject.Filezilla \
+    org.kde.kitty \
+    org.wezfurlong.wezterm \
+    org.videolan.VLC
+
+echo "Flatpak packages installation complete."
+{{ end -}}
+{{- end }}

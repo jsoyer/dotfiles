@@ -1,0 +1,33 @@
+{{- if eq .chezmoi.os "linux" -}}
+#!/bin/bash
+# =============================================================================
+# Linux Configuration - Nerd Fonts + Zsh default shell
+# =============================================================================
+
+set -e
+
+# =============================================================================
+# Nerd Fonts Installation (all Linux distros)
+# =============================================================================
+if [[ ! -d "$HOME/.local/share/fonts/JetBrainsMonoNerdFont" ]]; then
+    echo "[chezmoi] Installing JetBrains Mono Nerd Font..."
+    mkdir -p "$HOME/.local/share/fonts/JetBrainsMonoNerdFont"
+    cd "$HOME/.local/share/fonts/JetBrainsMonoNerdFont"
+    curl -fLO "https://github.com/ryanoasis/nerd-fonts/releases/latest/download/JetBrainsMono.tar.xz"
+    tar -xf JetBrainsMono.tar.xz
+    rm JetBrainsMono.tar.xz
+    fc-cache -fv
+    echo "[chezmoi] Nerd Font installed"
+fi
+
+# =============================================================================
+# Set Zsh as default shell
+# =============================================================================
+if [[ "$SHELL" != *"zsh"* ]]; then
+    echo "[chezmoi] Setting Zsh as default shell..."
+    chsh -s "$(which zsh)"
+    echo "[chezmoi] Default shell changed to Zsh (log out and back in to apply)"
+fi
+
+echo "[chezmoi] Linux configuration complete!"
+{{- end }}

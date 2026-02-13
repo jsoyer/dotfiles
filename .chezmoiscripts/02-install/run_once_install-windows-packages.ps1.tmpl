@@ -23,7 +23,7 @@ if (-not (scoop bucket list | Select-String -Quiet 'versions')) { scoop bucket a
 # Install packages
 # =============================================================================
 Write-Host "[chezmoi] Installing Scoop packages..."
-scoop install 1password-cli 7zip chezmoi git zed
+scoop install 7zip chezmoi git zed
 
 Write-Host "[chezmoi] Scoop setup complete."
 {{ end -}}
