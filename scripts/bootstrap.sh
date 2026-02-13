@@ -512,17 +512,28 @@ check_ssh
 log_info "Initializing chezmoi and applying dotfiles..."
 
 if [[ -d "$HOME/.local/share/chezmoi" ]]; then
-    log_info "chezmoi already initialized, updating..."
-    cd "$HOME/.local/share/chezmoi"
-    # Ensure remote exists and branch has tracking
-    if ! git rev-parse --verify origin/main &>/dev/null 2>&1; then
-        log_info "Setting up git remote and branch tracking..."
-        git remote set-url origin https://github.com/jsoyer/dotfiles.git 2>/dev/null || git remote add origin https://github.com/jsoyer/dotfiles.git 2>/dev/null || true
-        git fetch origin
-        git branch --set-upstream-to=origin/main main 2>/dev/null || git branch --set-upstream-to=origin/master master 2>/dev/null || true
+    log_info "chezmoi already initialized, fixing git configuration..."
+    CHEZMOI_DIR="$HOME/.local/share/chezmoi"
+    cd "$CHEZMOI_DIR"
+    
+    # Configure git remote if needed
+    if ! git remote get-url origin &>/dev/null 2>&1; then
+        git remote add origin https://github.com/jsoyer/dotfiles.git
     fi
+    
+    # Fetch and setup tracking
+    git fetch origin
+    
+    # Try to set upstream for main or master
+    if git rev-parse --verify origin/main &>/dev/null 2>&1; then
+        git branch --set-upstream-to=origin/main main 2>/dev/null || true
+    fi
+    if git rev-parse --verify origin/master &>/dev/null 2>&1; then
+        git branch --set-upstream-to=origin/master master 2>/dev/null || true
+    fi
+    
+    # Now run chezmoi update
     chezmoi update || log_warn "chezmoi update failed"
-    chezmoi apply || true
 else
     log_info "Initializing chezmoi from GitHub..."
     chezmoi init https://github.com/jsoyer/dotfiles.git --apply
