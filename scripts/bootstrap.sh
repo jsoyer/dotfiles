@@ -423,13 +423,8 @@ setup_fedora_atomic_base_layer() {
 [Packages]
 git
 openssh-server
-zsh
 curl
 wget
-podman
-podman-compose
-neovim
-vim
 EOF
         fi
         log_success "Base layer config created at /etc/rpm-ostree.conf"
@@ -439,7 +434,7 @@ EOF
     
     # Verify packages are installed (rpm-ostree will apply them on next boot)
     log_info "Verifying base layer packages..."
-    BASE_PACKAGES="git openssh-server zsh curl wget podman podman-compose neovim vim"
+    BASE_PACKAGES="git openssh-server curl wget"
     for pkg in $BASE_PACKAGES; do
         if ! rpm -q "$pkg" &>/dev/null; then
             log_warn "Package $pkg not installed, adding to base layer..."
