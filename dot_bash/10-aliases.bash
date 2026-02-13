@@ -115,6 +115,17 @@ alias fuzz='ffuf -w ~/hacking/SecLists/content_discovery_all.txt -mc all -u'
 alias nm='nmap -sC -sV -oN nmap'
 
 # ============================================================================
+# SSH wrapper for Kitty kitten ssh
+# ============================================================================
+ssh() {
+  if [[ "$TERM" == "xterm-kitty" ]]; then
+    kitten ssh "$@"
+  else
+    command ssh "$@"
+  fi
+}
+
+# ============================================================================
 # Homebrew (via breww wrapper)
 # ============================================================================
 alias b='breww'

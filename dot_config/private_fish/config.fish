@@ -108,6 +108,15 @@ alias lt='eza --tree --level=2 --long --icons --git'
 alias ltree='eza --tree --level=2 --icons --git'
 alias zl='eza -lagX --icons --color=always'
 
+# SSH wrapper for Kitty kitten ssh
+function ssh --wraps=ssh
+    if test "$TERM" = "xterm-kitty"
+        kitten ssh $argv
+    else
+        command ssh $argv
+    end
+end
+
 # ============================================================================
 # Development Environment Managers
 # ============================================================================

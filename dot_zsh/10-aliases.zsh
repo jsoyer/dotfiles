@@ -107,9 +107,13 @@ alias fuzz='ffuf -w ~/hacking/SecLists/content_discovery_all.txt -mc all -u'
 alias nm='nmap -sC -sV -oN nmap'
 
 # ============================================================================
-# SSH wrapper for tmux window naming
+# SSH wrapper for tmux window naming + Kitty kitten ssh
 # ============================================================================
 ssh() {
+  # Use kitten ssh when running inside Kitty
+  local ssh_cmd=(command ssh)
+  [[ "$TERM" == "xterm-kitty" ]] && ssh_cmd=(kitten ssh)
+
   # Extract hostname from ssh arguments
   local host=""
   for arg in "$@"; do
@@ -130,11 +134,11 @@ ssh() {
   # Rename tmux window if in tmux
   if [[ -n "$TMUX" ]] && [[ -n "$host" ]]; then
     tmux rename-window "$host"
-    command ssh "$@"
+    "${ssh_cmd[@]}" "$@"
     # Restore window name after SSH exits
     tmux rename-window "zsh"
   else
-    command ssh "$@"
+    "${ssh_cmd[@]}" "$@"
   fi
 }
 
