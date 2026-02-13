@@ -211,6 +211,26 @@ cup() {
       ;;
   esac
 
+  # Docker maintenance
+  if command -v docker &>/dev/null && docker info &>/dev/null 2>&1; then
+    echo "🐳 Running Docker maintenance..."
+    docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Image}}"
+    
+    find "$HOME" -name "docker-compose.yml" -not -path "*/.*" 2>/dev/null | while read -r compose_file; do
+      project_dir=$(dirname "$compose_file")
+      project_name=$(basename "$project_dir")
+      
+      if docker-compose -f "$compose_file" ps --services --filter "status=running" 2>/dev/null | grep -q .; then
+        echo "  → Updating $project_name"
+        docker-compose -f "$compose_file" pull || true
+        docker-compose -f "$compose_file" up -d
+      fi
+    done
+    
+    docker image prune -a -f
+    echo "✨ Docker maintenance complete!"
+  fi
+
   echo "✅ Update complete!"
 }
 

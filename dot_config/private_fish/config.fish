@@ -329,6 +329,28 @@ function cup
             scoop update --all
     end
 
+    # Docker maintenance
+    if command -q docker
+        if docker info >/dev/null 2>&1
+            echo "🐳 Running Docker maintenance..."
+            docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Image}}"
+            
+            for compose_file in (find $HOME -name "docker-compose.yml" -not -path "*/.*" 2>/dev/null)
+                set project_dir (dirname $compose_file)
+                set project_name (basename $project_dir)
+                
+                if docker-compose -f $compose_file ps --services --filter "status=running" 2>/dev/null | grep -q .
+                    echo "  → Updating $project_name"
+                    docker-compose -f $compose_file pull
+                    docker-compose -f $compose_file up -d
+                end
+            end
+            
+            docker image prune -a -f
+            echo "✨ Docker maintenance complete!"
+        end
+    end
+
     echo "✅ Update complete!"
 end
 

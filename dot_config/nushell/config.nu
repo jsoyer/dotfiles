@@ -1093,6 +1093,29 @@ def cup [...args: string] {
         _ => { }
     }
 
+    # Docker maintenance
+    if (^command -v docker | complete).exit_code == 0 {
+        if (^docker info | complete).exit_code == 0 {
+            print "🐳 Running Docker maintenance..."
+            ^docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Image}}"
+
+            let compose_files = (^find $env.HOME -name "docker-compose.yml" -not -path "*/.*" 2>/dev/null | complete)
+            for compose_file in $compose_files {
+                let project_dir = ($compose_file | path dirname)
+                let project_name = ($project_dir | path basename)
+
+                if (^docker-compose -f $compose_file ps --services --filter "status=running" 2>/dev/null | complete).exit_code == 0 {
+                    print $"  → Updating ($project_name)"
+                    ^docker-compose -f $compose_file pull
+                    ^docker-compose -f $compose_file up -d
+                }
+            }
+
+            ^docker image prune -a -f
+            print "✨ Docker maintenance complete!"
+        }
+    }
+
     print "✅ Update complete!"
 }
 
