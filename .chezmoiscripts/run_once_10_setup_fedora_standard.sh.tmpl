@@ -20,6 +20,7 @@ echo "Enabling COPR repositories..."
 sudo dnf copr enable -y alternateved/eza
 sudo dnf copr enable -y atim/starship
 sudo dnf copr enable -y skoved/vivid
+sudo dnf copr enable -y atim/nushell
 
 # Install packages (skip already installed or unavailable)
 sudo dnf install -y --skip-unavailable \
@@ -43,6 +44,7 @@ sudo dnf install -y --skip-unavailable \
     vivid \
     jetbrains-mono-fonts-all \
     kitty \
+    nushell \
     util-linux-user # For chsh
 
 echo "[chezmoi] Packages installed"
