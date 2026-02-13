@@ -1109,8 +1109,14 @@ def cup [...args: string] {
 
                 if (^docker compose -f $compose_file ps --services --filter "status=running" 2>/dev/null | complete).exit_code == 0 {
                     print $"  → Updating ($project_name)"
-                    ^docker compose -f $compose_file pull
-                    ^docker compose -f $compose_file up -d
+                    let pull_output = (^docker compose -f $compose_file pull 2>&1)
+                    
+                    if $pull_output | str contains "Pulling" {
+                        print "  🔄 New images found, restarting containers..."
+                        ^docker compose -f $compose_file up -d
+                    } else {
+                        print "  ✅ No new images, containers up to date"
+                    }
                 }
             }
 

@@ -253,8 +253,14 @@ cup() {
       
       if docker compose -f "$compose_file" ps --services --filter "status=running" 2>/dev/null | grep -q .; then
         echo "  → Updating $project_name"
-        docker compose -f "$compose_file" pull || true
-        docker compose -f "$compose_file" up -d
+        pull_output=$(docker compose -f "$compose_file" pull 2>&1)
+        
+        if echo "$pull_output" | grep -qE "(Pulling|Downloading|Extracting|Status: Downloaded)"; then
+          echo "  🔄 New images found, restarting containers..."
+          docker compose -f "$compose_file" up -d
+        else
+          echo "  ✅ No new images, containers up to date"
+        fi
       fi
     done
     

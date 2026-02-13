@@ -31,10 +31,15 @@ find "$HOME" -name "docker-compose.yml" -not -path "*/.*" 2>/dev/null | while re
     # Check if any container from this project is running
     if docker compose -f "$compose_file" ps --services --filter "status=running" 2>/dev/null | grep -q .; then
         echo "    ⏳ Pulling new images..."
-        docker compose -f "$compose_file" pull || true
+        pull_output=$(docker compose -f "$compose_file" pull 2>&1)
         
-        echo "    🔄 Starting containers..."
-        docker compose -f "$compose_file" up -d
+        # Check if new images were pulled
+        if echo "$pull_output" | grep -qE "(Pulling|Downloading|Extracting|Status: Downloaded)"; then
+            echo "    🔄 New images found, restarting containers..."
+            docker compose -f "$compose_file" up -d
+        else
+            echo "    ✅ No new images, containers up to date"
+        fi
     else
         echo "    ⏭️  Skipping (no running containers)"
     fi
