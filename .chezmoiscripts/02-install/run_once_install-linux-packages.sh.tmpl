@@ -13,7 +13,6 @@ set -eufo pipefail
 echo "[chezmoi] Installing Raspberry Pi packages via apt..."
 
 sudo apt update && sudo apt install -y \
-    chezmoi \
     zsh \
     git \
     curl \
@@ -31,7 +30,12 @@ sudo apt update && sudo apt install -y \
     zoxide \
     eza \
     vivid \
-    locales
+    locales || true
+
+if ! command -v chezmoi &> /dev/null; then
+    echo "[chezmoi] Installing chezmoi via official script..."
+    sh -c "$(curl -fsSL https://get.chezmoi.io)"
+fi
 {{- end }}
 
 # =============================================================================
