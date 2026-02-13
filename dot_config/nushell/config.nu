@@ -972,6 +972,9 @@ alias dpa = docker ps -a
 alias dl = docker ps -l -q
 alias dx = docker exec -it
 
+# docker-compose -> docker compose (alias for compatibility)
+alias docker-compose = ^docker compose
+
 # ============================================================================
 # Kubernetes
 # ============================================================================
@@ -1104,10 +1107,10 @@ def cup [...args: string] {
                 let project_dir = ($compose_file | path dirname)
                 let project_name = ($project_dir | path basename)
 
-                if (^docker-compose -f $compose_file ps --services --filter "status=running" 2>/dev/null | complete).exit_code == 0 {
+                if (^docker compose -f $compose_file ps --services --filter "status=running" 2>/dev/null | complete).exit_code == 0 {
                     print $"  → Updating ($project_name)"
-                    ^docker-compose -f $compose_file pull
-                    ^docker-compose -f $compose_file up -d
+                    ^docker compose -f $compose_file pull
+                    ^docker compose -f $compose_file up -d
                 }
             }
 
