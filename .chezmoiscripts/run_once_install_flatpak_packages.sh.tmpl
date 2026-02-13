@@ -1,3 +1,4 @@
+{{- if eq .chezmoi.os "linux" -}}
 #!/bin/bash
 # Ce script installe les paquets Flatpak sur les machines Fedora Atomic
 
@@ -18,3 +19,4 @@ org.videolan.VLC
 
 echo "Flatpak packages installation placeholder."
 {{ end -}}
+{{- end }}

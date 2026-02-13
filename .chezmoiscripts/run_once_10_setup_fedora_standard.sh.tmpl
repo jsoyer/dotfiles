@@ -1,3 +1,4 @@
+{{- if eq .chezmoi.os "linux" -}}
 #!/bin/bash
 # =============================================================================
 # Fedora Standard - Dependencies Installation Script
@@ -74,3 +75,4 @@ else
 fi
 
 echo "[chezmoi] Fedora Standard setup complete!"
+{{- end }}
