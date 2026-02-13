@@ -79,7 +79,7 @@ alias grbi='git rebase -i'
 alias gcl='git clone'
 
 # ============================================================================
-# Docker
+# Docker / Podman
 # ============================================================================
 alias dco='docker compose'
 alias dps='docker ps'
@@ -90,6 +90,11 @@ alias dx='docker exec -it'
 # docker-compose -> docker compose (function for compatibility)
 docker-compose() {
     docker compose "$@"
+}
+
+# Podman Compose
+podman-compose() {
+    podman compose "$@"
 }
 
 # ============================================================================
@@ -216,30 +221,38 @@ cup() {
       ;;
   esac
 
-  # Docker maintenance
+  # Docker/Podman maintenance
   if command -v docker &>/dev/null && docker info &>/dev/null 2>&1; then
-    echo "🐳 Running Docker maintenance..."
-    docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Image}}"
+    CONTAINER_RUNTIME="docker"
+    EMOJI="🐳"
+  elif command -v podman &>/dev/null && podman info &>/dev/null 2>&1; then
+    CONTAINER_RUNTIME="podman"
+    EMOJI="🦭"
+  fi
+
+  if [ -n "$CONTAINER_RUNTIME" ]; then
+    echo "$EMOJI Running container maintenance..."
+    $CONTAINER_RUNTIME ps
     
     find "$HOME" -name "docker-compose.yml" -not -path "*/.*" 2>/dev/null | while read -r compose_file; do
       project_dir=$(dirname "$compose_file")
       project_name=$(basename "$project_dir")
       
-      if docker compose -f "$compose_file" ps --services --filter "status=running" 2>/dev/null | grep -q .; then
+      if $CONTAINER_RUNTIME compose -f "$compose_file" ps --services --filter "status=running" 2>/dev/null | grep -q .; then
         echo "  → Updating $project_name"
-        pull_output=$(docker compose -f "$compose_file" pull 2>&1)
+        pull_output=$($CONTAINER_RUNTIME compose -f "$compose_file" pull 2>&1)
         
         if echo "$pull_output" | grep -qE "(Pulling|Downloading|Extracting|Status: Downloaded)"; then
           echo "  🔄 New images found, restarting containers..."
-          docker compose -f "$compose_file" up -d
+          $CONTAINER_RUNTIME compose -f "$compose_file" up -d
         else
           echo "  ✅ No new images, containers up to date"
         fi
       fi
     done
     
-    docker image prune -a -f
-    echo "✨ Docker maintenance complete!"
+    $CONTAINER_RUNTIME image prune -a -f
+    echo "✨ Container maintenance complete!"
   fi
 
   echo "✅ Update complete!"

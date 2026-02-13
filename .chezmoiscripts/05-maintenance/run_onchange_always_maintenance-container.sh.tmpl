@@ -1,25 +1,31 @@
-{{- if and (or (eq .chezmoi.os "linux") (eq .chezmoi.os "darwin")) (lookPath "docker") -}}
+{{- if or (eq .chezmoi.os "linux") (eq .chezmoi.os "darwin") -}}
 #!/bin/bash
 # =============================================================================
-# Docker Maintenance - Containers, Images, and docker-compose updates
+# Container Maintenance - Docker/Podman, Containers, Images, and compose updates
 # =============================================================================
 
 set -e
 
-echo "🐳 Starting Docker maintenance..."
-
-# Check if Docker daemon is running
-if ! docker info &>/dev/null; then
-    echo "❌ Docker daemon is not running. Skipping Docker maintenance."
+# Detect container runtime (docker or podman)
+if command -v docker &>/dev/null && docker info &>/dev/null 2>&1; then
+    CONTAINER_RUNTIME="docker"
+    EMOJI="🐳"
+elif command -v podman &>/dev/null && podman info &>/dev/null 2>&1; then
+    CONTAINER_RUNTIME="podman"
+    EMOJI="🦭"
+else
+    echo "❌ No container runtime (Docker/Podman) is running. Skipping maintenance."
     exit 0
 fi
 
+echo "$EMOJI Starting container maintenance ($CONTAINER_RUNTIME)..."
+
 # List running containers
 echo "📋 Running containers:"
-docker ps
+$CONTAINER_RUNTIME ps
 
 echo ""
-echo "📦 Updating docker-compose projects..."
+echo "📦 Updating compose projects..."
 
 # Find all docker-compose.yml files in home directory and update them
 find "$HOME" -name "docker-compose.yml" -not -path "*/.*" 2>/dev/null | while read -r compose_file; do
@@ -29,14 +35,14 @@ find "$HOME" -name "docker-compose.yml" -not -path "*/.*" 2>/dev/null | while re
     echo "  → Updating $project_name in $project_dir"
     
     # Check if any container from this project is running
-    if docker compose -f "$compose_file" ps --services --filter "status=running" 2>/dev/null | grep -q .; then
+    if $CONTAINER_RUNTIME compose -f "$compose_file" ps --services --filter "status=running" 2>/dev/null | grep -q .; then
         echo "    ⏳ Pulling new images..."
-        pull_output=$(docker compose -f "$compose_file" pull 2>&1)
+        pull_output=$($CONTAINER_RUNTIME compose -f "$compose_file" pull 2>&1)
         
         # Check if new images were pulled
         if echo "$pull_output" | grep -qE "(Pulling|Downloading|Extracting|Status: Downloaded)"; then
             echo "    🔄 New images found, restarting containers..."
-            docker compose -f "$compose_file" up -d
+            $CONTAINER_RUNTIME compose -f "$compose_file" up -d
         else
             echo "    ✅ No new images, containers up to date"
         fi
@@ -46,11 +52,11 @@ find "$HOME" -name "docker-compose.yml" -not -path "*/.*" 2>/dev/null | while re
 done
 
 echo ""
-echo "🗑️ Cleaning up unused Docker images..."
+echo "🗑️ Cleaning up unused images..."
 
-# Remove all unused images (not just dangling ones)
-docker image prune -a -f
+# Remove all unused images
+$CONTAINER_RUNTIME image prune -a -f
 
 echo ""
-echo "✨ Docker maintenance complete!"
+echo "✨ Container maintenance complete!"
 {{- end -}}

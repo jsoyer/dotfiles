@@ -964,7 +964,7 @@ alias grbi = git rebase -i
 alias gcl = git clone
 
 # ============================================================================
-# Docker
+# Docker / Podman
 # ============================================================================
 alias dco = docker compose
 alias dps = docker ps
@@ -974,6 +974,9 @@ alias dx = docker exec -it
 
 # docker-compose -> docker compose (alias for compatibility)
 alias docker-compose = ^docker compose
+
+# Podman Compose
+alias podman-compose = ^podman compose
 
 # ============================================================================
 # Kubernetes
@@ -1096,33 +1099,40 @@ def cup [...args: string] {
         _ => { }
     }
 
-    # Docker maintenance
-    if (^command -v docker | complete).exit_code == 0 {
-        if (^docker info | complete).exit_code == 0 {
-            print "🐳 Running Docker maintenance..."
-            ^docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Image}}"
+    # Docker/Podman maintenance
+    let container_runtime = if (^command -v docker | complete).exit_code == 0 && (^docker info | complete).exit_code == 0 {
+        "docker"
+    } else if (^command -v podman | complete).exit_code == 0 && (^podman info | complete).exit_code == 0 {
+        "podman"
+    } else {
+        ""
+    }
 
-            let compose_files = (^find $env.HOME -name "docker-compose.yml" -not -path "*/.*" 2>/dev/null | complete)
-            for compose_file in $compose_files {
-                let project_dir = ($compose_file | path dirname)
-                let project_name = ($project_dir | path basename)
+    if $container_runtime != "" {
+        let emoji = if $container_runtime == "docker" { "🐳" } else { "🦭" }
+        print $"($emoji) Running container maintenance..."
+        ^$container_runtime ps
 
-                if (^docker compose -f $compose_file ps --services --filter "status=running" 2>/dev/null | complete).exit_code == 0 {
-                    print $"  → Updating ($project_name)"
-                    let pull_output = (^docker compose -f $compose_file pull 2>&1)
-                    
-                    if $pull_output | str contains "Pulling" {
-                        print "  🔄 New images found, restarting containers..."
-                        ^docker compose -f $compose_file up -d
-                    } else {
-                        print "  ✅ No new images, containers up to date"
-                    }
+        let compose_files = (^find $env.HOME -name "docker-compose.yml" -not -path "*/.*" 2>/dev/null | complete)
+        for compose_file in $compose_files {
+            let project_dir = ($compose_file | path dirname)
+            let project_name = ($project_dir | path basename)
+
+            if (^$container_runtime compose -f $compose_file ps --services --filter "status=running" 2>/dev/null | complete).exit_code == 0 {
+                print $"  → Updating ($project_name)"
+                let pull_output = (^$container_runtime compose -f $compose_file pull 2>&1)
+                
+                if $pull_output | str contains "Pulling" {
+                    print "  🔄 New images found, restarting containers..."
+                    ^$container_runtime compose -f $compose_file up -d
+                } else {
+                    print "  ✅ No new images, containers up to date"
                 }
             }
-
-            ^docker image prune -a -f
-            print "✨ Docker maintenance complete!"
         }
+
+        ^$container_runtime image prune -a -f
+        print "✨ Container maintenance complete!"
     }
 
     print "✅ Update complete!"

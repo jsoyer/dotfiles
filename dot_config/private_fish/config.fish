@@ -207,7 +207,7 @@ alias grbi='git rebase -i'
 alias gcl='git clone'
 
 # ============================================================================
-# Docker
+# Docker / Podman
 # ============================================================================
 alias dco='docker compose'
 alias dps='docker ps'
@@ -218,6 +218,11 @@ alias dx='docker exec -it'
 # docker-compose -> docker compose (function for compatibility)
 function docker-compose
     docker compose $argv
+end
+
+# Podman Compose
+function podman-compose
+    podman compose $argv
 end
 
 # ============================================================================
@@ -334,26 +339,43 @@ function cup
             scoop update --all
     end
 
-    # Docker maintenance
+    # Docker/Podman maintenance
     if command -q docker
         if docker info >/dev/null 2>&1
-            echo "🐳 Running Docker maintenance..."
-            docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Image}}"
+            set CONTAINER_RUNTIME "docker"
+            set EMOJI "🐳"
+        end
+    else if command -q podman
+        if podman info >/dev/null 2>&1
+            set CONTAINER_RUNTIME "podman"
+            set EMOJI "🦭"
+        end
+    end
+
+    if set -q CONTAINER_RUNTIME
+        echo "$EMOJI Running container maintenance..."
+        $CONTAINER_RUNTIME ps
+        
+        for compose_file in (find $HOME -name "docker-compose.yml" -not -path "*/.*" 2>/dev/null)
+            set project_dir (dirname $compose_file)
+            set project_name (basename $project_dir)
             
-            for compose_file in (find $HOME -name "docker-compose.yml" -not -path "*/.*" 2>/dev/null)
-                set project_dir (dirname $compose_file)
-                set project_name (basename $project_dir)
+            if $CONTAINER_RUNTIME compose -f $compose_file ps --services --filter "status=running" 2>/dev/null | grep -q .
+                echo "  → Updating $project_name"
+                set pull_output ($CONTAINER_RUNTIME compose -f $compose_file pull 2>&1)
                 
-                if docker compose -f $compose_file ps --services --filter "status=running" 2>/dev/null | grep -q .
-                    echo "  → Updating $project_name"
-                    set pull_output (docker compose -f $compose_file pull 2>&1)
-                    
-                    if echo "$pull_output" | grep -qE "(Pulling|Downloading|Extracting|Status: Downloaded)"
-                        echo "  🔄 New images found, restarting containers..."
-                        docker compose -f $compose_file up -d
-                    else
-                        echo "  ✅ No new images, containers up to date"
-                    end
+                if echo "$pull_output" | grep -qE "(Pulling|Downloading|Extracting|Status: Downloaded)"
+                    echo "  🔄 New images found, restarting containers..."
+                    $CONTAINER_RUNTIME compose -f $compose_file up -d
+                else
+                    echo "  ✅ No new images, containers up to date"
+                end
+            end
+        end
+        
+        $CONTAINER_RUNTIME image prune -a -f
+        echo "✨ Container maintenance complete!"
+    end
                 end
             end
             
