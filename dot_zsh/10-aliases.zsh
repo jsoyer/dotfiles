@@ -207,7 +207,7 @@ cup() {
     darwin)
       eval "$(brew shellenv)"
       echo "🍺 Updating Homebrew packages..."
-      brew upgrade
+      brew upgrade --greedy
       brew cleanup
       brew update
       echo "📱 Updating App Store apps..."

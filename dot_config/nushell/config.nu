@@ -1049,7 +1049,7 @@ def cup [...args: string] {
     match $os {
         "darwin" => {
             print "🍺 Updating Homebrew packages..."
-            ^brew upgrade
+            ^brew upgrade --greedy
             ^brew cleanup
             ^brew update
             print "📱 Updating App Store apps..."

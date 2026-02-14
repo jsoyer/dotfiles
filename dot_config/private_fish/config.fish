@@ -301,7 +301,7 @@ function cup
     switch $os
         case darwin
             echo "🍺 Updating Homebrew packages..."
-            brew upgrade
+            brew upgrade --greedy
             brew cleanup
             brew update
             echo "📱 Updating App Store apps..."
