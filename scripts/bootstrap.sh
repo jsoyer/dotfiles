@@ -293,9 +293,6 @@ install_fedora() {
 install_fedora_atomic() {
     log_info "Installing git and chezmoi via rpm-ostree..."
 
-    # Add ~/.local/bin to PATH for chezmoi
-    export PATH="$HOME/.local/bin:$PATH"
-
     # Install git - use --apply-live to apply immediately
     if command -v git &>/dev/null; then
         log_warn "🐧 Git already installed"
@@ -306,14 +303,14 @@ install_fedora_atomic() {
         sudo rpm-ostree install --apply-live --idempotent git
     fi
 
-    # Install chezmoi - prefer official script (faster than rpm-ostree)
+    # Install chezmoi via rpm-ostree (adds to base layer)
     if command -v chezmoi &>/dev/null; then
         log_warn "chezmoi already installed"
     elif rpm -q chezmoi &>/dev/null; then
         log_info "chezmoi already in system"
     else
-        log_info "Installing chezmoi via official script..."
-        sh -c "$(curl -fsLS get.chezmoi.io)" -- -b "$HOME/.local/bin"
+        log_info "Installing chezmoi via rpm-ostree..."
+        sudo rpm-ostree install --apply-live --idempotent chezmoi
     fi
 
     log_success "🐧 git and chezmoi installed"
@@ -560,7 +557,6 @@ if [[ -d "$HOME/.local/share/chezmoi" ]]; then
     fi
     
     # Now run chezmoi apply (faster than update, we already fetched)
-    export PATH="$HOME/.local/bin:$PATH"
     chezmoi apply
 else
     log_info "Initializing chezmoi from GitHub..."
