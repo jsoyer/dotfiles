@@ -1,4 +1,4 @@
-{{- if ne .chezmoi.os "windows" -}}
+{{- if and (ne .chezmoi.os "windows") (not (lookPath "rpm-ostree")) -}}
 [".oh-my-zsh"]
     type = "git-repo"
     url = "https://github.com/ohmyzsh/ohmyzsh.git"
@@ -15,6 +15,11 @@
     type = "git-repo"
     url = "https://github.com/zsh-users/zsh-syntax-highlighting.git"
     refreshPeriod = "168h"
+
+[".config/tmux/plugins/tpm"]
+    type = "git-repo"
+    url = "https://github.com/tmux-plugins/tpm"
+    refreshPeriod = "168h"
 {{- end }}
 
 {{- if and (eq .chezmoi.os "darwin") (ne .chezmoi.hostname "jsoyer-macOS") }}
@@ -23,8 +28,3 @@
     url = "https://github.com/orangci/walls-catppuccin-mocha.git"
     refreshPeriod = "168h"
 {{- end }}
-
-[".config/tmux/plugins/tpm"]
-    type = "git-repo"
-    url = "https://github.com/tmux-plugins/tpm"
-    refreshPeriod = "168h"
