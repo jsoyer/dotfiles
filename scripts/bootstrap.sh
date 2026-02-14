@@ -293,7 +293,10 @@ install_fedora() {
 install_fedora_atomic() {
     log_info "Installing git and chezmoi via rpm-ostree..."
 
-    # Install git - prefer rpm-ostree package, fallback to official
+    # Add ~/.local/bin to PATH for chezmoi
+    export PATH="$HOME/.local/bin:$PATH"
+
+    # Install git - use --apply-live to apply immediately
     if command -v git &>/dev/null; then
         log_warn "🐧 Git already installed"
     elif rpm -q git &>/dev/null; then
@@ -303,7 +306,7 @@ install_fedora_atomic() {
         sudo rpm-ostree install --apply-live --idempotent git
     fi
 
-    # Install chezmoi - prefer rpm-ostree, fallback to official script
+    # Install chezmoi - prefer official script (faster than rpm-ostree)
     if command -v chezmoi &>/dev/null; then
         log_warn "chezmoi already installed"
     elif rpm -q chezmoi &>/dev/null; then
@@ -311,7 +314,6 @@ install_fedora_atomic() {
     else
         log_info "Installing chezmoi via official script..."
         sh -c "$(curl -fsLS get.chezmoi.io)" -- -b "$HOME/.local/bin"
-        export PATH="$HOME/.local/bin:$PATH"
     fi
 
     log_success "🐧 git and chezmoi installed"
@@ -448,11 +450,13 @@ EOF
     # Install packages that aren't installed yet (will apply on next boot)
     for pkg in $BASE_PACKAGES; do
         if ! rpm -q "$pkg" &>/dev/null; then
-            log_warn "Package $pkg not installed yet - will be available after next boot"
+            log_info "Installing $pkg to base layer..."
+            sudo rpm-ostree install "$pkg" || log_warn "Could not install $pkg"
         fi
     done
     
     log_success "Fedora Atomic base layer configured"
+    log_warn "⚠️  Reboot required for base layer packages to be available!"
 }
 
 setup_fedora_atomic_base_layer
@@ -556,6 +560,7 @@ if [[ -d "$HOME/.local/share/chezmoi" ]]; then
     fi
     
     # Now run chezmoi apply (faster than update, we already fetched)
+    export PATH="$HOME/.local/bin:$PATH"
     chezmoi apply
 else
     log_info "Initializing chezmoi from GitHub..."
