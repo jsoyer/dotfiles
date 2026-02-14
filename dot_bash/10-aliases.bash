@@ -181,7 +181,11 @@ cup() {
     darwin)
       eval "$(brew shellenv)"
       echo "🍺 Updating Homebrew packages..."
-      brew upgrade --greedy
+      if [[ "$MACHINE_PROFILE" == "mac-pro" ]]; then
+        brew upgrade
+      else
+        brew upgrade --greedy
+      fi
       brew cleanup
       brew update
       echo "📱 Updating App Store apps..."

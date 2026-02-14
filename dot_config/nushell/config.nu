@@ -1049,7 +1049,11 @@ def cup [...args: string] {
     match $os {
         "darwin" => {
             print "🍺 Updating Homebrew packages..."
-            ^brew upgrade --greedy
+            if $env.MACHINE_PROFILE == "mac-pro" {
+                ^brew upgrade
+            } else {
+                ^brew upgrade --greedy
+            }
             ^brew cleanup
             ^brew update
             print "📱 Updating App Store apps..."

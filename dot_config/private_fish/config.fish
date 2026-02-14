@@ -301,7 +301,11 @@ function cup
     switch $os
         case darwin
             echo "🍺 Updating Homebrew packages..."
-            brew upgrade --greedy
+            if test "$MACHINE_PROFILE" = "mac-pro"
+                brew upgrade
+            else
+                brew upgrade --greedy
+            end
             brew cleanup
             brew update
             echo "📱 Updating App Store apps..."
