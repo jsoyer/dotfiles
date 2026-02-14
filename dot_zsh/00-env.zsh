@@ -16,6 +16,8 @@ case "$(uname -s)" in
     export STARSHIP_ICON=""
     if [[ "$(hostname)" == "jsoyer-macOS" ]]; then
       export MACHINE_PROFILE="mac-pro"
+      # Mac Pro: install casks in $HOME/Applications
+      export HOMEBREW_CASK_OPTS="--appdir=${HOME}/Applications"
     else
       export MACHINE_PROFILE="mac-personal"
     fi

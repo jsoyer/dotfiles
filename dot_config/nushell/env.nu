@@ -35,6 +35,11 @@ if (which carapace | is-not-empty) {
 # ============================================================================
 $env.MACHINE_PROFILE = if (sys host).hostname == "jsoyer-macOS" { "mac-pro" } else { "mac-personal" }
 
+# Mac Pro: install casks in $HOME/Applications
+if $env.MACHINE_PROFILE == "mac-pro" {
+    $env.HOMEBREW_CASK_OPTS = $"--appdir=($env.HOME)/Applications"
+}
+
 # ============================================================================
 # Environment Variables
 # ============================================================================
