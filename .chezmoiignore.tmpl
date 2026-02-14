@@ -26,7 +26,7 @@ scripts/
 {{- end }}
 
 {{/* Ignore COSMIC DE config on non-Fedora systems */}}
-{{- if not (and (eq .chezmoi.os "linux") (lookPath "dnf")) }}
+{{- if not (and (eq .chezmoi.os "linux") (or (lookPath "dnf") (lookPath "rpm-ostree"))) }}
 .config/cosmic/
 {{- end }}
 
