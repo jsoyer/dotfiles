@@ -20,10 +20,8 @@ CLAUDE.md
 .ssh/config
 {{- end }}
 
-{{/* Scripts directory is only for RPi */}}
-{{- if not (and (eq .chezmoi.os "linux") (contains "rpi" (get .chezmoi.kernel "osrelease" | default ""))) }}
+{{/* Scripts directory is only for bootstrap - never apply to $HOME */}}
 scripts/
-{{- end }}
 
 {{/* Ignore COSMIC DE config on non-Fedora systems */}}
 {{- if not (and (eq .chezmoi.os "linux") (or (lookPath "dnf") (lookPath "rpm-ostree"))) }}
