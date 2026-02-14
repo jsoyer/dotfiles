@@ -55,7 +55,12 @@ end
 set -gx LANG en_US.UTF-8
 set -gx EDITOR nvim
 set -gx DOCKER_CONFIG $HOME/.docker
-set -gx HOMEBREW_CASK_OPTS "--appdir=/Applications"
+
+# Homebrew Cask appdir based on machine profile
+if test "$MACHINE_PROFILE" = "mac-pro"
+    set -gx HOMEBREW_CASK_OPTS "--appdir=$HOME/Applications"
+end
+
 set -gx KUBECONFIG $HOME/.kube/config
 
 # ============================================================================
