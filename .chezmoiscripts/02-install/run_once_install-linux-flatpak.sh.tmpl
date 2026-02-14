@@ -15,7 +15,7 @@ if ! flatpak remote-list 2>/dev/null | grep -q flathub; then
 fi
 
 echo "📦 Installing Flatpak packages..."
-flatpak install -y flathub \
+flatpak install --noninteractive flathub \
     com.brave.Browser \
     com.obsproject.Studio \
     dev.zed.Zed \
