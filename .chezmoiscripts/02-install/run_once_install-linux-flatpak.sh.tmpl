@@ -9,13 +9,21 @@ set -eufo pipefail
 
 echo "📦 Setting up Flatpak..."
 
-# Add flathub remote if not exists (ignore errors - may already be configured)
+# Check if flatpak is installed, install if not
+if ! command -v flatpak &>/dev/null; then
+    echo "📦 Flatpak not found, installing..."
+    sudo rpm-ostree install flatpak
+    echo "⚠️  Flatpak installed. You may need to reboot for it to be available."
+fi
+
+# Add flathub remote if not exists
 if ! flatpak remote-list 2>/dev/null | grep -q flathub; then
-    flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo 2>/dev/null || true
+    flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flathubrepo
 fi
 
 echo "📦 Installing Flatpak packages..."
-flatpak install --noninteractive flathub \
+# Install each package individually to see which one fails
+for pkg in \
     com.brave.Browser \
     com.obsproject.Studio \
     dev.zed.Zed \
@@ -25,7 +33,11 @@ flatpak install --noninteractive flathub \
     org.filezillaproject.Filezilla \
     org.kde.kitty \
     org.wezfurlong.wezterm \
-    org.videolan.VLC 2>/dev/null || true
+    org.videolan.VLC
+do
+    echo "  → Installing $pkg..."
+    flatpak install --noninteractive flathub "$pkg" || echo "  ⚠️  Failed to install $pkg"
+done
 
 echo "✅ Flatpak packages installation complete."
 {{ end -}}
