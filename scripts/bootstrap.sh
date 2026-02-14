@@ -451,13 +451,10 @@ EOF
     done
     
     # Install packages that aren't installed yet (will apply on next boot)
-    for pkg in $BASE_PACKAGES; do
+    # Skip wget - provided by wget2 on Fedora
+    BASE_PACKAGES_CLEAN=$(echo $BASE_PACKAGES | sed 's/wget//')
+    for pkg in $BASE_PACKAGES_CLEAN; do
         if ! rpm -q "$pkg" &>/dev/null; then
-            # Skip wget - provided by wget2
-            if [[ "$pkg" == "wget" ]] && rpm -q wget2 &>/dev/null; then
-                log_info "wget provided by wget2, skipping..."
-                continue
-            fi
             log_info "Installing $pkg to base layer..."
             sudo rpm-ostree install "$pkg" 2>/dev/null || log_warn "Could not install $pkg"
         fi
