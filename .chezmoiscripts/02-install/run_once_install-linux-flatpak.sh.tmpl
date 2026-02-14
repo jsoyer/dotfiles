@@ -13,16 +13,17 @@ echo "📦 Setting up Flatpak..."
 if ! command -v flatpak &>/dev/null; then
     echo "📦 Flatpak not found, installing..."
     sudo rpm-ostree install flatpak
-    echo "⚠️  Flatpak installed. You may need to reboot for it to be available."
+    echo "⚠️  Flatpak installed. Reboot required, then run this script again."
+    exit 0
 fi
 
 # Add flathub remote if not exists
 if ! flatpak remote-list 2>/dev/null | grep -q flathub; then
-    flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flathubrepo
+    sudo flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flathubrepo
 fi
 
 echo "📦 Installing Flatpak packages..."
-# Install each package individually to see which one fails
+# Install each package individually with sudo
 for pkg in \
     com.brave.Browser \
     com.obsproject.Studio \
@@ -36,7 +37,7 @@ for pkg in \
     org.videolan.VLC
 do
     echo "  → Installing $pkg..."
-    flatpak install --noninteractive flathub "$pkg" || echo "  ⚠️  Failed to install $pkg"
+    sudo flatpak install --system --noninteractive flathub "$pkg" || echo "  ⚠️  Failed to install $pkg"
 done
 
 echo "✅ Flatpak packages installation complete."
