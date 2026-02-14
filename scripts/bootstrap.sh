@@ -293,6 +293,9 @@ install_fedora() {
 install_fedora_atomic() {
     log_info "Installing git and chezmoi via rpm-ostree..."
 
+    # Add ~/.local/bin to PATH for potential official installs
+    export PATH="$HOME/.local/bin:$PATH"
+
     # Install git - use --apply-live to apply immediately
     if command -v git &>/dev/null; then
         log_warn "🐧 Git already installed"
@@ -303,14 +306,17 @@ install_fedora_atomic() {
         sudo rpm-ostree install --apply-live --idempotent git
     fi
 
-    # Install chezmoi via rpm-ostree (adds to base layer)
+    # Install chezmoi via rpm-ostree OR fallback to official script
     if command -v chezmoi &>/dev/null; then
         log_warn "chezmoi already installed"
-    elif rpm -q chezmoi &>/dev/null; then
-        log_info "chezmoi already in system"
     else
         log_info "Installing chezmoi via rpm-ostree..."
-        sudo rpm-ostree install --apply-live --idempotent chezmoi
+        if ! sudo rpm-ostree install --apply-live --idempotent chezmoi 2>/dev/null; then
+            log_warn "chezmoi already in base layer (will be available after reboot)"
+            # Fallback: install via official script to ~/.local/bin
+            log_info "Installing chezmoi via official script to ~/.local/bin..."
+            sh -c "$(curl -fsLS get.chezmoi.io)" -- -b "$HOME/.local/bin"
+        fi
     fi
 
     log_success "🐧 git and chezmoi installed"
@@ -447,8 +453,13 @@ EOF
     # Install packages that aren't installed yet (will apply on next boot)
     for pkg in $BASE_PACKAGES; do
         if ! rpm -q "$pkg" &>/dev/null; then
+            # Skip wget - provided by wget2
+            if [[ "$pkg" == "wget" ]] && rpm -q wget2 &>/dev/null; then
+                log_info "wget provided by wget2, skipping..."
+                continue
+            fi
             log_info "Installing $pkg to base layer..."
-            sudo rpm-ostree install "$pkg" || log_warn "Could not install $pkg"
+            sudo rpm-ostree install "$pkg" 2>/dev/null || log_warn "Could not install $pkg"
         fi
     done
     
@@ -557,6 +568,7 @@ if [[ -d "$HOME/.local/share/chezmoi" ]]; then
     fi
     
     # Now run chezmoi apply (faster than update, we already fetched)
+    export PATH="$HOME/.local/bin:$PATH"
     chezmoi apply
 else
     log_info "Initializing chezmoi from GitHub..."
