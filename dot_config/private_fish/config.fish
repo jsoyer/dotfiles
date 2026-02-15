@@ -39,6 +39,7 @@ fish_add_path -g /usr/local/opt/rbenv/shims
 fish_add_path -g /opt/X11/bin
 fish_add_path -g /Library/TeX/texbin
 fish_add_path -g /usr/texbin
+fish_add_path -g /usr/local/texlive/2025basic/bin/universal-darwin
 
 # ============================================================================
 # Machine Profile Detection

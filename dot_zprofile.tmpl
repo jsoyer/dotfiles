@@ -2,6 +2,9 @@
 # macOS-specific configuration
 eval "$(/opt/homebrew/bin/brew shellenv)"
 
+# TeX Live 2025 Basic
+export PATH="/usr/local/texlive/2025basic/bin/universal-darwin:$PATH"
+
 # Added by OrbStack: command-line tools and integration
 source ~/.orbstack/shell/init.zsh 2>/dev/null || :
 
