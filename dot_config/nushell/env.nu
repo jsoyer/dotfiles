@@ -4,7 +4,7 @@
 # ============================================================================
 # PATH Configuration (MUST BE FIRST)
 # ============================================================================
-$env.PATH = ($env.PATH | split row (char esep) | prepend '/opt/homebrew/bin' | prepend '/opt/homebrew/opt/ruby/bin' | prepend ($env.HOME | path join '.local' 'bin'))
+$env.PATH = ($env.PATH | split row (char esep) | prepend '/opt/homebrew/bin' | prepend '/opt/homebrew/opt/ruby/bin' | prepend ($env.HOME | path join '.local' 'bin') | prepend '/usr/local/texlive/2025basic/bin/universal-darwin')
 
 # ============================================================================
 # Starship Prompt Integration
