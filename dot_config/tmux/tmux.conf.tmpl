@@ -1,3 +1,6 @@
+{{- if and (eq .chezmoi.os "linux") (hasKey .chezmoi.kernel "osrelease") (contains "rpi" .chezmoi.kernel.osrelease) -}}
+source-file ~/.config/tmux/tmux-rpi.conf
+{{- else -}}
 source-file ~/.config/tmux/tmux.reset.conf
 set-option -g default-terminal 'screen-256color'
 set-option -g terminal-overrides ',xterm-256color:RGB'
@@ -23,7 +26,7 @@ set -g pane-border-style 'fg=brightblack,bg=default'
 set -g set-titles on
 set -g set-titles-string '#{pane_title}'
 
-set -g @fzf-url-fzf-options '-p 60%,30% --prompt="   " --border-label=" Open URL "'
+set -g @fzf-url-fzf-options '-p 60%,30% --prompt="   " --border-label=" Open URL "'
 set -g @fzf-url-history-limit '2000'
 
 set -g @plugin 'tmux-plugins/tpm'
@@ -57,18 +60,18 @@ set -g @continuum-restore 'on'
 set -g @resurrect-strategy-nvim 'session'
 set -g @catppuccin_flavour 'mocha'  # Explicitly set Catppuccin Mocha flavor
 
-set -g @catppuccin_window_left_separator ""
-set -g @catppuccin_window_right_separator " "
+set -g @catppuccin_window_left_separator ""
+set -g @catppuccin_window_right_separator " "
 set -g @catppuccin_window_middle_separator " █"
 set -g @catppuccin_window_number_position "right"
 set -g @catppuccin_window_default_fill "number"
 set -g @catppuccin_window_default_text "#W"
 set -g @catppuccin_window_current_fill "number"
-set -g @catppuccin_window_current_text "#W#{?window_zoomed_flag,(),}"
+set -g @catppuccin_window_current_text "#W#{?window_zoomed_flag,(),}"
 set -g @catppuccin_status_modules_right "directory date_time"
 set -g @catppuccin_status_modules_left "session"
-set -g @catppuccin_status_left_separator  " "
-set -g @catppuccin_status_right_separator " "
+set -g @catppuccin_status_left_separator  " "
+set -g @catppuccin_status_right_separator " "
 set -g @catppuccin_status_right_separator_inverse "no"
 set -g @catppuccin_status_fill "icon"
 set -g @catppuccin_status_connect_separator "no"
@@ -96,3 +99,4 @@ bind c new-window -c "#{pane_current_path}"
 # ============================================================================
 
 # ============================================================================
+{{- end }}

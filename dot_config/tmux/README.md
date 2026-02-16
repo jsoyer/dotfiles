@@ -6,8 +6,8 @@
 
 ```
 ~/.config/tmux/
-├── tmux.conf              # Main config (macOS - Catppuccin Mocha)
-├── tmux-rpi.conf          # RPi/Linux config (Gruvbox Dark)
+├── tmux.conf              # Main config (auto-detects platform via chezmoi template)
+├── tmux-rpi.conf          # RPi/Linux config (Snazzy theme)
 ├── tmux.reset.conf        # Base keybindings reset
 ├── plugins/               # TPM plugins directory
 │   ├── tpm/               # Tmux Plugin Manager
@@ -24,14 +24,11 @@
     └── cal.sh             # Calendar script
 ```
 
-**Symlink:** `~/.tmux.conf -> ~/.config/tmux/tmux.conf`
-
 ## Platform Differences
 
 | Feature | macOS | RPi/Linux |
 |---------|-------|-----------|
-| **Config File** | `tmux.conf` | `tmux-rpi.conf` |
-| **Theme** | Catppuccin Mocha | Gruvbox Dark |
+| **Theme** | Catppuccin Mocha | Snazzy |
 | **Status Bar** | Top | Bottom |
 | **Prefix Key** | `Ctrl+A` | `Ctrl+B` |
 | **Plugins** | Full (11 plugins) | Lightweight (4 plugins) |
@@ -40,13 +37,12 @@
 
 ### Platform Detection
 
-On RPi/Linux, the tmux alias in `~/.zsh/00-env.zsh` automatically uses the correct config:
+The `tmux.conf.tmpl` chezmoi template auto-detects the platform at install time:
 
-```bash
-if [[ "${IS_RPI}" == "true" ]]; then
-  alias tmux='tmux -f ~/.config/tmux/tmux-rpi.conf'
-fi
-```
+- **RPi**: detected via `contains "rpi" .chezmoi.kernel.osrelease` — generates a `tmux.conf` that sources `tmux-rpi.conf`
+- **macOS / other Linux**: generates the full Catppuccin config inline
+
+No shell alias is needed — tmux always loads `~/.config/tmux/tmux.conf` and the template takes care of the rest.
 
 ## macOS Configuration (Catppuccin Mocha)
 
@@ -74,7 +70,7 @@ fi
 
 More ergonomic than default Ctrl+B, easier to reach.
 
-## RPi/Linux Configuration (Gruvbox Dark)
+## RPi/Linux Configuration (Snazzy)
 
 ### Appearance
 
@@ -89,7 +85,7 @@ More ergonomic than default Ctrl+B, easier to reach.
 ```
 
 ### Features
-- Gruvbox Dark color palette (yellow/orange tones)
+- Snazzy color palette (vibrant blues, pinks, cyans)
 - Status bar at bottom (traditional style)
 - Simple separators (no powerline)
 - Raspberry icon in status bar
@@ -186,16 +182,19 @@ Inside tmux, press:
 | Inactive border | Surface0 | `#313244` |
 | Status bg | Mantle | `#181825` |
 
-### Gruvbox Dark (RPi)
+### Snazzy (RPi)
 
 | Element | Color | Hex |
 |---------|-------|-----|
-| Background | bg | `#282828` |
-| Foreground | fg | `#ebdbb2` |
-| Active border | Yellow | `#d79921` |
-| Inactive border | bg3 | `#665c54` |
-| Status bg | bg1 | `#3c3836` |
-| RPi icon | Red | `#cc241d` |
+| Background | bg | `#282a36` |
+| Foreground | fg | `#eff0eb` |
+| Active border | Blue | `#57c7ff` |
+| Inactive border | Gray | `#3a3d4d` |
+| Red | RPi icon | `#ff5c57` |
+| Green | Separators | `#5af78e` |
+| Yellow | Session name | `#f3f99d` |
+| Magenta | Date | `#ff6ac1` |
+| Cyan | Window tabs | `#9aedfe` |
 
 ## Customization
 
@@ -204,36 +203,36 @@ Inside tmux, press:
 Edit `tmux-rpi.conf`:
 ```bash
 # Change status bar background
-set -g status-style "bg=#458588 fg=#ebdbb2"  # Blue instead of gray
+set -g status-style "bg=#57c7ff fg=#282a36"  # Blue instead of dark
 ```
 
 ### Add Module to RPi Status
 
 ```bash
 # Add CPU temperature (RPi specific)
-set -g status-right "#[fg=#665c54]│ #[fg=#98971a]CPU: #(cat /sys/class/thermal/thermal_zone0/temp | awk '{print $1/1000}')°C #[fg=#665c54]│ #[fg=#458588]#H #[fg=#d79921]%H:%M "
+set -g status-right "#[fg=#5af78e]│ #[fg=#f3f99d]CPU: #(cat /sys/class/thermal/thermal_zone0/temp | awk '{print $1/1000}')°C #[fg=#5af78e]│ #[fg=#57c7ff]#H #[fg=#ff6ac1]%H:%M "
 ```
 
 ### Change Window Format
 
 ```bash
 # Show window flags
-set -g window-status-current-format "#[fg=#282828,bg=#d79921,bold] #I:#W#F "
+set -g window-status-current-format "#[fg=#282a36,bg=#57c7ff,bold] #I:#W#F "
 ```
 
 ## Troubleshooting
 
 ### Wrong Config Loading on RPi
 
-Verify the alias is set:
+Verify the generated config sources the RPi file:
 ```bash
-alias tmux
-# Should show: tmux='tmux -f ~/.config/tmux/tmux-rpi.conf'
+head -1 ~/.config/tmux/tmux.conf
+# Should show: source-file ~/.config/tmux/tmux-rpi.conf
 ```
 
-Force specific config:
+Force re-generation via chezmoi:
 ```bash
-tmux -f ~/.config/tmux/tmux-rpi.conf
+chezmoi apply ~/.config/tmux/tmux.conf
 ```
 
 ### Plugins Not Installing
@@ -288,6 +287,6 @@ tmux kill-session -t name  # Kill session
 
 ---
 
-**Last Updated**: 2025-01-17
+**Last Updated**: 2026-02-16
 **macOS Theme**: Catppuccin Mocha (top bar, Ctrl+A)
-**RPi Theme**: Gruvbox Dark (bottom bar, Ctrl+B)
+**RPi Theme**: Snazzy (bottom bar, Ctrl+B)
