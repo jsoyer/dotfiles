@@ -1,0 +1,61 @@
+# Catppuccin Mocha — NeoMutt color scheme (256-color)
+# Palette xterm-256color (approximations Catppuccin Mocha) :
+#   base      color235   text      color189   blue      color111
+#   green     color150   red       color211   yellow    color223
+#   mauve     color183   teal      color116   peach     color215
+#   surface0  color237   overlay0  color60    subtext0  color146
+
+# Base
+color normal        color189 color235
+color error         color211 color235
+color tilde         color237 color235
+color message       color189 color235
+color markers       color211 color235
+color attachment    color215 color235
+color search        color235 color150
+color indicator     color189 color237
+color tree          color111 color235
+
+# Status bar
+color status        color189 color237
+color status bold   color183 color237
+
+# Index
+color index         color146 color235 ".*"
+color index         color150 color235 "~N"
+color index         color111 color235 "~O"
+color index         color223 color235 "~F"
+color index         color211 color235 "~D"
+color index         color60  color235 "~T"
+color index bold    color189 color235 "~N"
+color index bold    color183 color235 "~F"
+
+# Headers
+color hdrdefault    color60  color235
+color header        color111 color235 "^(From|To|Cc|Bcc)"
+color header        color183 color235 "^(Subject)"
+color header        color116 color235 "^(Date)"
+
+# Body / quotes
+color quoted        color111 color235
+color quoted1       color183 color235
+color quoted2       color116 color235
+color quoted3       color150 color235
+color quoted4       color223 color235
+color signature     color60  color235
+
+# URLs / emails / PGP
+color body          color150 color235 "(https?|ftp)://[^ \t\r\n]*"
+color body          color223 color235 "[-a-z_0-9.]+@[-a-z_0-9.]+"
+color body          color150 color235 "^gpg: Good signature"
+color body          color211 color235 "^gpg: Bad signature"
+color body          color223 color235 "^gpg: "
+
+# Sidebar
+color sidebar_divider    color238 color235
+color sidebar_flagged    color211 color235
+color sidebar_highlight  color189 color237
+color sidebar_indicator  color183 color235
+color sidebar_new        color150 color235
+color sidebar_ordinary   color60  color235
+color sidebar_unread     color111 color235

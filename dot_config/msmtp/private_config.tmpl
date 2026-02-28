@@ -1,0 +1,17 @@
+# msmtp configuration — SMTP relay
+# Managed by chezmoi — do not edit directly
+# Passwords fetched at runtime via 1Password CLI
+
+defaults
+auth           on
+tls            on
+logfile        {{ .xdgStateDir }}/msmtp/msmtp.log
+
+account        gmail
+host           smtp.gmail.com
+port           587
+from           {{ .email }}
+user           {{ .email }}
+passwordeval   "op read 'op://Private/Gmail NeoMutt/password'"
+
+account default : gmail

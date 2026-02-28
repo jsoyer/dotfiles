@@ -1,0 +1,21 @@
+# Gmail account configuration
+# Managed by chezmoi — do not edit directly
+
+set realname = "{{ .name }}"
+set from     = "{{ .email }}"
+set sendmail = "msmtp -a gmail"
+
+# Local Maildir
+set mbox_type = Maildir
+set folder    = "{{ .xdgDataDir }}/mail/gmail"
+set spoolfile = "+Inbox"
+set postponed = "+[Gmail]/Drafts"
+set record    = "+[Gmail]/Sent Mail"
+set trash     = "+[Gmail]/Trash"
+
+# Sidebar folders
+mailboxes \
+  +Inbox \
+  "+[Gmail]/Sent Mail" \
+  "+[Gmail]/Drafts" \
+  "+[Gmail]/Trash"

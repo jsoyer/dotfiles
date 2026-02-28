@@ -1,0 +1,76 @@
+# NeoMutt configuration
+# Managed by chezmoi — do not edit directly
+
+# ── Account ──────────────────────────────────────────────────────────────────
+source ~/.config/neomutt/accounts/gmail.muttrc
+
+# ── Theme ─────────────────────────────────────────────────────────────────────
+source ~/.config/neomutt/colors/catppuccin-mocha.muttrc
+
+# ── Editor ────────────────────────────────────────────────────────────────────
+set editor        = "nvim"
+set mailcap_path  = ~/.config/neomutt/mailcap
+
+# ── Display ───────────────────────────────────────────────────────────────────
+set date_format   = "%Y-%m-%d %H:%M"
+set index_format  = "[%Z] %D  %-20.20F  %s"
+set sort          = threads
+set sort_aux      = reverse-last-date-received
+set uncollapse_jump
+set markers       = no
+
+# ── Pager ─────────────────────────────────────────────────────────────────────
+set pager_index_lines = 10
+set pager_context     = 3
+set pager_stop
+
+# ── MIME ──────────────────────────────────────────────────────────────────────
+auto_view text/html
+alternative_order text/plain text/enriched text/html
+
+# ── Sidebar ───────────────────────────────────────────────────────────────────
+set sidebar_visible = yes
+set sidebar_width   = 30
+set sidebar_format  = "%B%?F? [%F]?%* %?N?%N/?%S"
+set mail_check_stats
+
+# ── Notmuch virtual folders ───────────────────────────────────────────────────
+set nm_default_url = "notmuch://{{ .xdgDataDir }}/mail"
+
+virtual-mailboxes \
+  "⚫ Unread"  "notmuch://?query=tag:unread" \
+  "📅 Today"   "notmuch://?query=date:today..now" \
+  "📆 Week"    "notmuch://?query=date:1w..now" \
+  "⭐ Flagged" "notmuch://?query=tag:flagged"
+
+# ── Keybindings (vim-style) ───────────────────────────────────────────────────
+bind index,pager \Cb sidebar-prev
+bind index,pager \Cf sidebar-next
+bind index,pager \Co sidebar-open
+
+bind index g  noop
+bind index gg first-entry
+bind index G  last-entry
+bind pager g  noop
+bind pager gg top
+bind pager G  bottom
+
+bind index,pager R        group-reply
+bind index       <Tab>    sync-mailbox
+bind index       <Space>  collapse-thread
+
+# Notmuch search
+bind index,pager X change-vfolder
+bind index,pager \\ vfolder-from-query
+
+# ── Headers ───────────────────────────────────────────────────────────────────
+ignore *
+unignore from to cc date subject
+unhdr_order *
+hdr_order from to cc date subject
+
+# ── Compose ───────────────────────────────────────────────────────────────────
+set mime_type_query_command = "file --mime-type -b %s"
+set reply_to
+set fast_reply
+set include

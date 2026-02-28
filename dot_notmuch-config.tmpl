@@ -1,0 +1,19 @@
+# notmuch configuration — full-text mail indexer
+# Managed by chezmoi — do not edit directly
+
+[database]
+path={{ .xdgDataDir }}/mail
+
+[user]
+name={{ .name }}
+primary_email={{ .email }}
+
+[new]
+tags=unread;inbox;
+ignore=.mbsyncstate;.uidvalidity
+
+[search]
+exclude_tags=deleted;spam;
+
+[maildir]
+synchronize_flags=true

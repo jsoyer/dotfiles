@@ -1,0 +1,27 @@
+# mbsync (isync) configuration — Gmail
+# Managed by chezmoi — do not edit directly
+# Passwords fetched at runtime via 1Password CLI
+
+IMAPAccount gmail
+Host imap.gmail.com
+Port 993
+User {{ .email }}
+PassCmd "op read 'op://Private/Gmail NeoMutt/password'"
+TLSType IMAPS
+AuthMechs LOGIN
+
+IMAPStore gmail-remote
+Account gmail
+
+MaildirStore gmail-local
+SubFolders Verbatim
+Path {{ .xdgDataDir }}/mail/gmail/
+Inbox {{ .xdgDataDir }}/mail/gmail/Inbox
+
+Channel gmail
+Far :gmail-remote:
+Near :gmail-local:
+Patterns * ![Gmail]/All\ Mail ![Gmail]/Important ![Gmail]/Spam
+Create Near
+Expunge None
+SyncState *
