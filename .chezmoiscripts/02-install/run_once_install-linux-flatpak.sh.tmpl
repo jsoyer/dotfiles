@@ -17,13 +17,16 @@ if ! command -v flatpak &>/dev/null; then
     exit 0
 fi
 
-# Add flathub remote if not exists
-if ! flatpak remote-list 2>/dev/null | grep -q flathub; then
-    sudo flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flathubrepo
+# Add flathub remote if not exists (system-wide)
+if ! sudo flatpak remote-list --system 2>/dev/null | grep -q flathub; then
+    sudo flatpak remote-add --system --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
 fi
 
+# Refresh metadata so installs don't fail with "No remote refs found"
+echo "📦 Refreshing Flathub metadata..."
+sudo flatpak update --appstream flathub --system 2>/dev/null || true
+
 echo "📦 Installing Flatpak packages..."
-# Install each package individually with sudo
 for pkg in \
     best.ellie.StartupConfiguration \
     com.brave.Browser \
@@ -51,8 +54,12 @@ for pkg in \
     org.videolan.VLC \
     tech.feliciano.pocket-casts
 do
-    echo "  → Installing $pkg..."
-    sudo flatpak install --system --noninteractive flathub "$pkg" || echo "  ⚠️  Failed to install $pkg"
+    if flatpak info "$pkg" &>/dev/null; then
+        echo "  ✅ $pkg already installed"
+    else
+        echo "  → Installing $pkg..."
+        sudo flatpak install --system --noninteractive flathub "$pkg" || echo "  ⚠️  Failed to install $pkg"
+    fi
 done
 
 echo "✅ Flatpak packages installation complete."
