@@ -25,15 +25,31 @@ fi
 echo "📦 Installing Flatpak packages..."
 # Install each package individually with sudo
 for pkg in \
+    best.ellie.StartupConfiguration \
     com.brave.Browser \
+    com.discordapp.Discord \
+    com.google.Chrome \
     com.obsproject.Studio \
+    dev.edfloreshz.CosmicTweaks \
     dev.zed.Zed \
     io.dbeaver.DBeaverCommunity \
+    io.github.BuddySirJava.SSH-Studio \
+    io.github.cosmic_utils.camera \
+    io.github.shiftey.Desktop \
     io.podman_desktop.PodmanDesktop \
     md.obsidian.Obsidian \
+    org.fedoraproject.MediaWriter \
     org.filezillaproject.Filezilla \
-    org.wezfurlong.wezterm \
-    org.videolan.VLC
+    org.gnome.Firmware \
+    org.gnome.Loupe \
+    org.gnome.Photos \
+    org.localsend.localsend_app \
+    org.remmina.Remmina \
+    org.signal.Signal \
+    org.telegram.desktop \
+    org.torproject.torbrowser-launcher \
+    org.videolan.VLC \
+    tech.feliciano.pocket-casts
 do
     echo "  → Installing $pkg..."
     sudo flatpak install --system --noninteractive flathub "$pkg" || echo "  ⚠️  Failed to install $pkg"
