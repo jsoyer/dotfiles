@@ -43,8 +43,16 @@ alias tbx='/usr/bin/toolbox run zsh'
 
 # Toolbox shortcuts (Fedora Atomic host only, not inside a toolbox)
 if command -v rpm-ostree &>/dev/null && [[ ! -f /.toolboxenv ]] && [[ -z "$TOOLBOX_PATH" ]]; then
-    fedora() { toolbox enter "fedora-$(rpm -E %fedora)"; }
-    alias arch='toolbox enter arch-rolling'
+    _tbx_enter() {
+        local name="$1"
+        if toolbox run --container "$name" sh -c 'command -v zsh' &>/dev/null 2>&1; then
+            toolbox run --container "$name" zsh
+        else
+            toolbox enter "$name"
+        fi
+    }
+    fedora() { _tbx_enter "fedora-$(rpm -E %fedora)"; }
+    arch() { _tbx_enter arch-rolling; }
 fi
 
 # ============================================================================

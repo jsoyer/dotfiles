@@ -8,9 +8,17 @@ fi
 # Toolbox - enter with zsh instead of bash
 alias tbx='/usr/bin/toolbox run zsh'
 
-# Toolbox shortcuts
-fedora() { toolbox enter "fedora-$(rpm -E %fedora)"; }
-alias arch='toolbox enter arch-rolling'
+# Toolbox shortcuts - launch zsh if available, fallback to default shell
+_tbx_enter() {
+    local name="$1"
+    if toolbox run --container "$name" sh -c 'command -v zsh' &>/dev/null 2>&1; then
+        toolbox run --container "$name" zsh
+    else
+        toolbox enter "$name"
+    fi
+}
+fedora() { _tbx_enter "fedora-$(rpm -E %fedora)"; }
+arch() { _tbx_enter arch-rolling; }
 
 export PATH="$HOME/.local/bin:$PATH"
 
