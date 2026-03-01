@@ -16,9 +16,11 @@
 [edit]
     command = "nvim"
 
+{{- if lookPath "delta" }}
 [diff]
     command = "delta"
     pager = "delta"
+{{- end }}
 
 [merge]
     command = "nvim"
