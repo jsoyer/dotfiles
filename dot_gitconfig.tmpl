@@ -54,3 +54,13 @@
 
   # Annule le dernier commit sans perdre les changements.
   uncommit = reset --soft HEAD~1
+
+{{- if lookPath "gh" }}
+
+[credential "https://github.com"]
+	helper =
+	helper = !{{ lookPath "gh" }} auth git-credential
+[credential "https://gist.github.com"]
+	helper =
+	helper = !{{ lookPath "gh" }} auth git-credential
+{{- end }}
