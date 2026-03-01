@@ -1,0 +1,43 @@
+{{- if and (lookPath "rpm-ostree") (not (stat "/.toolboxenv")) -}}
+#!/bin/bash
+# =============================================================================
+# Toolbox Setup - Fedora Atomic
+# Creates a Fedora toolbox (latest = host version) and an Arch Linux toolbox
+# =============================================================================
+
+set -e
+
+if ! command -v toolbox &>/dev/null; then
+    echo "⚠️  toolbox not found, skipping"
+    exit 0
+fi
+
+# =============================================================================
+# Fedora toolbox - latest release (matches host)
+# =============================================================================
+FEDORA_VERSION=$(rpm -E %fedora)
+FEDORA_TOOLBOX="fedora-${FEDORA_VERSION}"
+
+if toolbox list --containers 2>/dev/null | awk 'NR>1{print $2}' | grep -qx "${FEDORA_TOOLBOX}"; then
+    echo "📦 Fedora toolbox '${FEDORA_TOOLBOX}' already exists"
+else
+    echo "📦 Creating Fedora ${FEDORA_VERSION} toolbox..."
+    toolbox create --distro fedora --release "${FEDORA_VERSION}" "${FEDORA_TOOLBOX}"
+    echo "✅ Fedora toolbox '${FEDORA_TOOLBOX}' created"
+fi
+
+# =============================================================================
+# Arch Linux toolbox - rolling
+# =============================================================================
+ARCH_TOOLBOX="arch-rolling"
+
+if toolbox list --containers 2>/dev/null | awk 'NR>1{print $2}' | grep -qx "${ARCH_TOOLBOX}"; then
+    echo "🐧 Arch toolbox '${ARCH_TOOLBOX}' already exists"
+else
+    echo "🐧 Creating Arch Linux toolbox..."
+    toolbox create --distro arch --release rolling "${ARCH_TOOLBOX}"
+    echo "✅ Arch toolbox '${ARCH_TOOLBOX}' created"
+fi
+
+echo "✅ Toolboxes setup complete!"
+{{- end -}}
