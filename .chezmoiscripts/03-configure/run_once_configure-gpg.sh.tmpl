@@ -37,8 +37,13 @@ fi
 
 # Set trust to ultimate only if public key was imported
 if gpg --list-keys "$GPG_KEY_ID" &>/dev/null; then
-  echo "${GPG_KEY_ID}:6:" | gpg --import-ownertrust
-  echo "✅ GPG key $GPG_KEY_ID imported and trusted"
+  FINGERPRINT=$(gpg --fingerprint --with-colons "$GPG_KEY_ID" 2>/dev/null | awk -F: '/^fpr/{print $10; exit}')
+  if [[ -n "$FINGERPRINT" ]]; then
+    echo "${FINGERPRINT}:6:" | gpg --import-ownertrust
+    echo "✅ GPG key $GPG_KEY_ID imported and trusted"
+  else
+    echo "⚠️  Could not retrieve fingerprint for GPG key $GPG_KEY_ID"
+  fi
 else
   echo "⚠️  GPG key $GPG_KEY_ID not found after import attempts"
 fi
