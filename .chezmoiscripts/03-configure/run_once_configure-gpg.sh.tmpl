@@ -18,14 +18,28 @@ fi
 
 echo "🔑 Importing GPG key from 1Password..."
 
-# Import public key first
-op document get "$OP_PUBLIC_DOC" | gpg --import
+# Import public key
+if op document get "$OP_PUBLIC_DOC" 2>/dev/null | gpg --import 2>/dev/null; then
+  echo "🔑 Public key imported"
+else
+  echo "⚠️  Failed to import public key (doc: $OP_PUBLIC_DOC) — check UUID in 1Password"
+fi
 
-# Import private key
-op document get "$OP_PRIVATE_DOC" | gpg --import
+# Import private key (optional — not all machines need signing capability)
+if op_output=$(op document get "$OP_PRIVATE_DOC" 2>&1); then
+  echo "$op_output" | gpg --import && echo "🔑 Private key imported" \
+    || echo "⚠️  Failed to import private key into GPG"
+else
+  echo "⚠️  Private key document not found in 1Password (doc: $OP_PRIVATE_DOC)"
+  echo "    To fix: update OP_PRIVATE_DOC in run_once_configure-gpg.sh.tmpl"
+  echo "    Run: op document list | grep -i gpg"
+fi
 
-# Set trust to ultimate
-echo "${GPG_KEY_ID}:6:" | gpg --import-ownertrust
-
-echo "✅ GPG key $GPG_KEY_ID imported and trusted"
+# Set trust to ultimate only if public key was imported
+if gpg --list-keys "$GPG_KEY_ID" &>/dev/null; then
+  echo "${GPG_KEY_ID}:6:" | gpg --import-ownertrust
+  echo "✅ GPG key $GPG_KEY_ID imported and trusted"
+else
+  echo "⚠️  GPG key $GPG_KEY_ID not found after import attempts"
+fi
 {{- end }}
