@@ -8,6 +8,10 @@ fi
 # Toolbox - enter with zsh instead of bash
 alias tbx='/usr/bin/toolbox run zsh'
 
+# Toolbox shortcuts
+fedora() { toolbox enter "fedora-$(rpm -E %fedora)"; }
+alias arch='toolbox enter arch-rolling'
+
 export PATH="$HOME/.local/bin:$PATH"
 
 # Starship prompt

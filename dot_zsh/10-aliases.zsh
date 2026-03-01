@@ -41,6 +41,12 @@ alias bcask='brew cask'
 # Toolbox - enter with zsh instead of bash
 alias tbx='/usr/bin/toolbox run zsh'
 
+# Toolbox shortcuts (Fedora Atomic host only, not inside a toolbox)
+if command -v rpm-ostree &>/dev/null && [[ ! -f /.toolboxenv ]] && [[ -z "$TOOLBOX_PATH" ]]; then
+    fedora() { toolbox enter "fedora-$(rpm -E %fedora)"; }
+    alias arch='toolbox enter arch-rolling'
+fi
+
 # ============================================================================
 # Navigation
 # ============================================================================
