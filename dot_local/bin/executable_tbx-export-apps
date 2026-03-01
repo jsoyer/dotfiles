@@ -1,0 +1,100 @@
+#!/bin/bash
+# tbx-export-apps - Export all GUI apps from a toolbox as .desktop wrappers
+#
+# Usage:
+#   tbx-export-apps <container>
+#   tbx-export-apps arch-rolling
+#   tbx-export-apps --all          # export from all toolboxes
+#   tbx-export-apps --clean        # remove all tbx-generated .desktop files
+
+set -euo pipefail
+
+DEST="$HOME/.local/share/applications"
+mkdir -p "$DEST"
+
+_export_from_container() {
+    local container="$1"
+    local count=0
+
+    echo "📦 Exporting GUI apps from '${container}'..."
+
+    # List all .desktop files in the container
+    local desktop_files
+    desktop_files=$(toolbox run --container "$container" sh -c \
+        "find /usr/share/applications -name '*.desktop' 2>/dev/null" \
+        2>/dev/null) || { echo "  ⚠️  Could not read container '$container'"; return; }
+
+    while IFS= read -r desktop_file; do
+        [[ -z "$desktop_file" ]] && continue
+
+        # Read the file content from inside the toolbox
+        local content
+        content=$(toolbox run --container "$container" cat "$desktop_file" 2>/dev/null) || continue
+
+        # Skip non-GUI, hidden or no-display entries
+        echo "$content" | grep -q  '^Type=Application'  || continue
+        echo "$content" | grep -qE '^NoDisplay=true'    && continue
+        echo "$content" | grep -qE '^Hidden=true'       && continue
+
+        local display_name icon exec_line categories
+        display_name=$(echo "$content" | grep -m1 '^Name='       | cut -d= -f2-)
+        icon=$(echo         "$content" | grep -m1 '^Icon='       | cut -d= -f2-)
+        exec_line=$(echo    "$content" | grep -m1 '^Exec='       | cut -d= -f2-)
+        categories=$(echo   "$content" | grep -m1 '^Categories=' | cut -d= -f2-)
+
+        [[ -z "$exec_line" ]] && continue
+
+        local basename output
+        basename=$(basename "$desktop_file" .desktop)
+        output="$DEST/${basename}-${container}.desktop"
+
+        cat > "$output" << EOF
+[Desktop Entry]
+Name=${display_name} (${container})
+Exec=toolbox run --container ${container} ${exec_line}
+Type=Application
+Icon=${icon}
+Categories=${categories:-Utility;}
+Terminal=false
+X-Toolbox=true
+X-Toolbox-Container=${container}
+EOF
+        echo "  ✅ ${display_name} → ${basename}-${container}.desktop"
+        (( count++ )) || true
+
+    done <<< "$desktop_files"
+
+    echo "  → ${count} app(s) exported from '${container}'"
+}
+
+case "${1:-}" in
+    --all)
+        # Export from every known toolbox
+        while IFS= read -r container; do
+            [[ -z "$container" ]] && continue
+            _export_from_container "$container"
+        done < <(toolbox list --containers 2>/dev/null | awk 'NR>1{print $2}')
+        ;;
+    --clean)
+        echo "🗑️  Removing tbx-generated .desktop files..."
+        grep -rl '^X-Toolbox=true' "$DEST" 2>/dev/null | while read -r f; do
+            echo "  rm $f"
+            rm -f "$f"
+        done
+        update-desktop-database "$DEST" 2>/dev/null || true
+        echo "✅ Done"
+        exit 0
+        ;;
+    "")
+        echo "Usage: tbx-export-apps <container>"
+        echo "       tbx-export-apps --all"
+        echo "       tbx-export-apps --clean"
+        exit 1
+        ;;
+    *)
+        _export_from_container "$1"
+        ;;
+esac
+
+update-desktop-database "$DEST" 2>/dev/null || true
+echo "✅ Export complete — apps available in your launcher"

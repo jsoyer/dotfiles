@@ -1,0 +1,66 @@
+#!/bin/bash
+# tbx-app - Create a .desktop wrapper for a single toolbox GUI app
+#
+# Usage:
+#   tbx-app <container> <app>
+#   tbx-app arch-rolling firefox
+#   tbx-app fedora-43 gimp
+#
+# The script reads the original .desktop from inside the toolbox
+# (if found) to get the name, icon and Exec line, then creates
+# a wrapper in ~/.local/share/applications/.
+
+set -euo pipefail
+
+CONTAINER="${1:-}"
+APP="${2:-}"
+
+if [[ -z "$CONTAINER" || -z "$APP" ]]; then
+    echo "Usage: tbx-app <container> <app>"
+    echo "  tbx-app arch-rolling firefox"
+    echo "  tbx-app fedora-43 gimp"
+    exit 1
+fi
+
+DEST="$HOME/.local/share/applications"
+mkdir -p "$DEST"
+
+# Try to find the original .desktop inside the toolbox
+desktop_path=$(toolbox run --container "$CONTAINER" sh -c \
+    "find /usr/share/applications -iname '${APP}*.desktop' 2>/dev/null | head -1" \
+    2>/dev/null || true)
+
+if [[ -n "$desktop_path" ]]; then
+    content=$(toolbox run --container "$CONTAINER" cat "$desktop_path" 2>/dev/null)
+    display_name=$(echo "$content" | grep -m1 '^Name='  | cut -d= -f2-)
+    icon=$(echo        "$content" | grep -m1 '^Icon='  | cut -d= -f2-)
+    exec_line=$(echo   "$content" | grep -m1 '^Exec='  | cut -d= -f2-)
+    categories=$(echo  "$content" | grep -m1 '^Categories=' | cut -d= -f2-)
+else
+    echo "⚠️  No .desktop found for '$APP' in '$CONTAINER', using defaults"
+    display_name="$APP"
+    icon="$APP"
+    exec_line="$APP"
+    categories="Utility;"
+fi
+
+OUTPUT="$DEST/${APP}-${CONTAINER}.desktop"
+
+cat > "$OUTPUT" << EOF
+[Desktop Entry]
+Name=${display_name} (${CONTAINER})
+Exec=toolbox run --container ${CONTAINER} ${exec_line}
+Type=Application
+Icon=${icon}
+Categories=${categories:-Utility;}
+Terminal=false
+X-Toolbox=true
+X-Toolbox-Container=${CONTAINER}
+EOF
+
+update-desktop-database "$DEST" 2>/dev/null || true
+
+echo "✅ Created: $OUTPUT"
+echo "   Name : ${display_name} (${CONTAINER})"
+echo "   Exec : toolbox run --container ${CONTAINER} ${exec_line}"
+echo "   Icon : ${icon}"
