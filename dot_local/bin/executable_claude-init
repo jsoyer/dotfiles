@@ -1,0 +1,85 @@
+#!/usr/bin/env bash
+# claude-init — generate a CLAUDE.md for the current project
+# Detects stack from project files and pre-fills relevant sections
+
+set -euo pipefail
+
+TARGET="$(pwd)/CLAUDE.md"
+
+if [[ -f "$TARGET" ]]; then
+  echo "CLAUDE.md already exists. Overwrite? (y/N)"
+  read -r answer
+  [[ "$answer" != "y" ]] && exit 0
+fi
+
+PROJECT_NAME="$(basename "$(pwd)")"
+
+# Detect stack
+STACK=()
+DEV_COMMANDS=""
+
+if [[ -f "package.json" ]]; then
+  RUNTIME="$(node --version 2>/dev/null || echo "Node.js")"
+  if [[ -f "pnpm-lock.yaml" ]]; then PM="pnpm"; elif [[ -f "yarn.lock" ]]; then PM="yarn"; else PM="npm"; fi
+  STACK+=("TypeScript/JavaScript ($PM)")
+  # Detect framework
+  if grep -q '"next"' package.json 2>/dev/null; then STACK+=("Next.js"); fi
+  if grep -q '"react"' package.json 2>/dev/null; then STACK+=("React"); fi
+  if grep -q '"vue"' package.json 2>/dev/null; then STACK+=("Vue"); fi
+  DEV_COMMANDS="# Install\n$PM install\n\n# Dev\n$PM run dev\n\n# Build\n$PM run build\n\n# Test\n$PM test\n\n# Lint\n$PM run lint"
+fi
+
+if [[ -f "Cargo.toml" ]]; then
+  STACK+=("Rust")
+  DEV_COMMANDS="# Build\ncargo build\n\n# Test\ncargo test\n\n# Lint\ncargo clippy\n\n# Format\ncargo fmt"
+fi
+
+if [[ -f "go.mod" ]]; then
+  MODULE="$(head -1 go.mod | awk '{print $2}')"
+  STACK+=("Go ($MODULE)")
+  DEV_COMMANDS="# Build\ngo build ./...\n\n# Test\ngo test ./...\n\n# Lint\ngolangci-lint run"
+fi
+
+if [[ -f "pyproject.toml" ]] || [[ -f "requirements.txt" ]]; then
+  STACK+=("Python")
+  if [[ -f "pyproject.toml" ]]; then
+    DEV_COMMANDS="# Install\nuv sync\n\n# Test\nuv run pytest\n\n# Lint\nuv run ruff check"
+  else
+    DEV_COMMANDS="# Install\npip install -r requirements.txt\n\n# Test\npytest"
+  fi
+fi
+
+if [[ ${#STACK[@]} -eq 0 ]]; then
+  STACK+=("<!-- detected: none -->")
+fi
+
+STACK_STR="$(IFS=", "; echo "${STACK[*]}")"
+
+cat > "$TARGET" <<EOF
+# CLAUDE.md — $PROJECT_NAME
+
+## Project Overview
+<!-- Brief description of what this project does -->
+
+## Tech Stack
+$STACK_STR
+
+## Architecture
+\`\`\`
+$(find . -maxdepth 2 -type d -not -path '*/.*' -not -path '*/node_modules/*' -not -path '*/target/*' -not -path '*/__pycache__/*' | sort | head -20)
+\`\`\`
+
+## Dev Commands
+\`\`\`bash
+$(printf "$DEV_COMMANDS")
+\`\`\`
+
+## Code Style
+- <!-- conventions -->
+
+## Key Files
+- <!-- important files -->
+EOF
+
+echo "✓ CLAUDE.md created for $PROJECT_NAME (stack: $STACK_STR)"
+echo "  Edit it to add project-specific context before starting a session."

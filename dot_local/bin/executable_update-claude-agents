@@ -1,0 +1,161 @@
+#!/usr/bin/env bash
+# update-claude-agents — re-downloads all Claude Code agents from VoltAgent/awesome-claude-code-subagents
+# Usage: update-claude-agents [--dry-run]
+
+set -euo pipefail
+
+BASE="https://raw.githubusercontent.com/VoltAgent/awesome-claude-code-subagents/main/categories"
+AGENTS_DIR="$HOME/.claude/agents"
+CHEZMOI_DIR="$HOME/.local/share/chezmoi/dot_claude/agents"
+DRY_RUN=0
+
+[[ "${1:-}" == "--dry-run" ]] && DRY_RUN=1
+
+declare -A AGENT_CATEGORIES=(
+  # 01 - Core Development
+  [api-designer]="01-core-development"
+  [backend-developer]="01-core-development"
+  [electron-pro]="01-core-development"
+  [frontend-developer]="01-core-development"
+  [fullstack-developer]="01-core-development"
+  [graphql-architect]="01-core-development"
+  [microservices-architect]="01-core-development"
+  [mobile-developer]="01-core-development"
+  [ui-designer]="01-core-development"
+  [websocket-engineer]="01-core-development"
+  # 02 - Language Specialists
+  [angular-architect]="02-language-specialists"
+  [cpp-pro]="02-language-specialists"
+  [django-developer]="02-language-specialists"
+  [golang-pro]="02-language-specialists"
+  [javascript-pro]="02-language-specialists"
+  [nextjs-developer]="02-language-specialists"
+  [php-pro]="02-language-specialists"
+  [python-pro]="02-language-specialists"
+  [rails-expert]="02-language-specialists"
+  [react-specialist]="02-language-specialists"
+  [rust-engineer]="02-language-specialists"
+  [sql-pro]="02-language-specialists"
+  [swift-expert]="02-language-specialists"
+  [typescript-pro]="02-language-specialists"
+  [vue-expert]="02-language-specialists"
+  # 03 - Infrastructure
+  [cloud-architect]="03-infrastructure"
+  [database-administrator]="03-infrastructure"
+  [deployment-engineer]="03-infrastructure"
+  [devops-engineer]="03-infrastructure"
+  [devops-incident-responder]="03-infrastructure"
+  [docker-expert]="03-infrastructure"
+  [incident-responder]="03-infrastructure"
+  [kubernetes-specialist]="03-infrastructure"
+  [network-engineer]="03-infrastructure"
+  [platform-engineer]="03-infrastructure"
+  [security-engineer]="03-infrastructure"
+  [sre-engineer]="03-infrastructure"
+  [terraform-engineer]="03-infrastructure"
+  [terragrunt-expert]="03-infrastructure"
+  # 04 - Quality & Security
+  [accessibility-tester]="04-quality-security"
+  [architect-reviewer]="04-quality-security"
+  [chaos-engineer]="04-quality-security"
+  [code-reviewer]="04-quality-security"
+  [compliance-auditor]="04-quality-security"
+  [debugger]="04-quality-security"
+  [error-detective]="04-quality-security"
+  [penetration-tester]="04-quality-security"
+  [performance-engineer]="04-quality-security"
+  [qa-expert]="04-quality-security"
+  [security-auditor]="04-quality-security"
+  [test-automator]="04-quality-security"
+  # 06 - Developer Experience
+  [build-engineer]="06-developer-experience"
+  [cli-developer]="06-developer-experience"
+  [dependency-manager]="06-developer-experience"
+  [documentation-engineer]="06-developer-experience"
+  [dx-optimizer]="06-developer-experience"
+  [git-workflow-manager]="06-developer-experience"
+  [legacy-modernizer]="06-developer-experience"
+  [mcp-developer]="06-developer-experience"
+  [refactoring-specialist]="06-developer-experience"
+  [slack-expert]="06-developer-experience"
+  [tooling-engineer]="06-developer-experience"
+  # 07 - Specialized Domains
+  [api-documenter]="07-specialized-domains"
+  [blockchain-developer]="07-specialized-domains"
+  [embedded-systems]="07-specialized-domains"
+  [fintech-engineer]="07-specialized-domains"
+  [iot-engineer]="07-specialized-domains"
+  [mobile-app-developer]="07-specialized-domains"
+  [payment-integration]="07-specialized-domains"
+  [quant-analyst]="07-specialized-domains"
+  [risk-manager]="07-specialized-domains"
+  [seo-specialist]="07-specialized-domains"
+  # 08 - Business & Product
+  [business-analyst]="08-business-product"
+  [content-marketer]="08-business-product"
+  [customer-success-manager]="08-business-product"
+  [legal-advisor]="08-business-product"
+  [product-manager]="08-business-product"
+  [project-manager]="08-business-product"
+  [sales-engineer]="08-business-product"
+  [scrum-master]="08-business-product"
+  [technical-writer]="08-business-product"
+  [ux-researcher]="08-business-product"
+  [wordpress-master]="08-business-product"
+  # 09 - Meta Orchestration
+  [agent-installer]="09-meta-orchestration"
+  [agent-organizer]="09-meta-orchestration"
+  [context-manager]="09-meta-orchestration"
+  [error-coordinator]="09-meta-orchestration"
+  [it-ops-orchestrator]="09-meta-orchestration"
+  [knowledge-synthesizer]="09-meta-orchestration"
+  [multi-agent-coordinator]="09-meta-orchestration"
+  [performance-monitor]="09-meta-orchestration"
+  [task-distributor]="09-meta-orchestration"
+  [workflow-orchestrator]="09-meta-orchestration"
+  # 10 - Research & Analysis
+  [competitive-analyst]="10-research-analysis"
+  [context-manager]="09-meta-orchestration"
+  [data-researcher]="10-research-analysis"
+  [market-researcher]="10-research-analysis"
+  [research-analyst]="10-research-analysis"
+  [scientific-literature-researcher]="10-research-analysis"
+  [search-specialist]="10-research-analysis"
+  [trend-analyst]="10-research-analysis"
+)
+
+updated=0
+failed=0
+skipped=0
+
+echo "Updating Claude Code agents from VoltAgent/awesome-claude-code-subagents..."
+echo ""
+
+for agent in "${!AGENT_CATEGORIES[@]}"; do
+  cat="${AGENT_CATEGORIES[$agent]}"
+  url="$BASE/$cat/$agent.md"
+  dest="$AGENTS_DIR/$agent.md"
+
+  if [[ $DRY_RUN -eq 1 ]]; then
+    echo "  would update: $agent"
+    ((skipped++))
+    continue
+  fi
+
+  if curl -sS --fail "$url" -o "$dest" 2>/dev/null; then
+    ((updated++))
+  else
+    echo "  ✗ failed: $agent"
+    ((failed++))
+  fi
+done
+
+if [[ $DRY_RUN -eq 0 ]]; then
+  echo "  ✓ $updated agents updated, $failed failed"
+
+  # Sync to chezmoi
+  if [[ -d "$CHEZMOI_DIR" ]]; then
+    cp "$AGENTS_DIR"/*.md "$CHEZMOI_DIR/"
+    echo "  ✓ synced to chezmoi"
+  fi
+fi
