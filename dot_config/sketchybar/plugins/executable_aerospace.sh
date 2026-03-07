@@ -1,8 +1,21 @@
 #!/usr/bin/env bash
 
-# Highlight the focused workspace, dim the others
+source "$CONFIG_DIR/colors.sh"
+
 if [ "$1" = "$FOCUSED_WORKSPACE" ]; then
-  sketchybar --set $NAME background.color=0x88FF00FF label.shadow.drawing=on icon.shadow.drawing=on background.border_width=2
+  sketchybar --set $NAME \
+    background.color=$WS_ACTIVE_BG         \
+    background.border_width=2              \
+    background.border_color=$WS_ACTIVE_BORDER \
+    icon.color=$WS_ACTIVE_ICON             \
+    icon.shadow.drawing=on                 \
+    label.shadow.drawing=on
 else
-  sketchybar --set $NAME background.color=0x44FFFFFF label.shadow.drawing=off icon.shadow.drawing=off background.border_width=0
+  sketchybar --set $NAME \
+    background.color=$WS_INACTIVE_BG       \
+    background.border_width=0              \
+    background.border_color=$TRANSPARENT   \
+    icon.color=$WS_INACTIVE_ICON           \
+    icon.shadow.drawing=off                \
+    label.shadow.drawing=off
 fi

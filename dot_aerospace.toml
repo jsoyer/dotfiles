@@ -72,17 +72,17 @@ outer.left= 5
 # Fallback value (if you omit the key): mode.main.binding = {}
 [mode.main.binding]
 
-# App shortcuts
-alt-b = 'exec-and-forget open -a /Applications/Brave\ Browser.app'
-alt-c = 'exec-and-forget open -a /Applications/Cursor.app/'
-alt-i = 'exec-and-forget open -a /Applications/Ghostty.app'
-alt-s = 'exec-and-forget open -a /Applications/Slack.app'
-alt-d = 'exec-and-forget open -a /Applications/Discord.app'
-alt-p = 'exec-and-forget open -a /Applications/Adobe\ Premiere\ Pro\ 2025/Adobe\ Premiere\ Pro\ 2025.app/'
-alt-o = 'exec-and-forget open -a /Applications/OBS.app/'
-alt-w = 'exec-and-forget open -a /Applications/Obsidian.app'
-alt-n = 'exec-and-forget open -a /Applications/Notion.app'
-alt-a = 'exec-and-forget open -a /Applications/ChatGPT.app'
+# App shortcuts — using app name avoids breaking on path/version changes
+alt-b = 'exec-and-forget open -a "Brave Browser"'
+alt-c = 'exec-and-forget open -a "Cursor"'
+alt-i = 'exec-and-forget open -a "Ghostty"'
+alt-s = 'exec-and-forget open -a "Slack"'
+alt-d = 'exec-and-forget open -a "Discord"'
+alt-p = 'exec-and-forget open -a "Adobe Premiere Pro 2025"'
+alt-o = 'exec-and-forget open -a "OBS"'
+alt-w = 'exec-and-forget open -a "Obsidian"'
+alt-n = 'exec-and-forget open -a "Notion"'
+alt-a = 'exec-and-forget open -a "ChatGPT"'
 alt-shift-r = ['exec-and-forget /opt/homebrew/bin/sketchybar --reload']
 
 # See: https://nikitabobko.github.io/AeroSpace/commands#layout

@@ -1,36 +1,39 @@
-#!/usr/bin/env sh
+#!/usr/bin/env bash
+
+source "$CONFIG_DIR/colors.sh"
 
 PLUGIN_DIR="$CONFIG_DIR/plugins"
 ITEM_DIR="$CONFIG_DIR/items"
 
 ##### Bar Appearance #####
-# https://felixkratz.github.io/SketchyBar/config/bar
-sketchybar --bar position=top height=40 blur_radius=30 color=0x40000000
+sketchybar --bar \
+  position=top    \
+  height=40       \
+  blur_radius=50  \
+  color=$BAR_COLOR
 
-##### Changing Defaults #####
-# https://felixkratz.github.io/SketchyBar/config/items
-default=(
-  padding_left=5
-  padding_right=5
-  icon.font="Hack Nerd Font:Bold:17.0"
-  label.font="SF Pro:Semibold:17.0"
-  icon.color=0xffffffff
-  label.color=0xffffffff
-  icon.padding_left=4
-  icon.padding_right=4
-  label.padding_left=4
-  label.padding_right=4
+##### Defaults #####
+sketchybar --default \
+  padding_left=5                           \
+  padding_right=5                          \
+  icon.font="Hack Nerd Font:Bold:17.0"     \
+  icon.color=$ICON_COLOR                   \
+  icon.padding_left=4                      \
+  icon.padding_right=4                     \
+  label.font="SF Pro:Semibold:15.0"        \
+  label.color=$LABEL_COLOR                 \
+  label.padding_left=4                     \
+  label.padding_right=4                    \
+  popup.background.color=$POPUP_BACKGROUND_COLOR       \
+  popup.background.border_color=$POPUP_BORDER_COLOR    \
+  popup.background.border_width=2          \
+  popup.background.corner_radius=8         \
   updates=on
-)
-sketchybar --default "${default[@]}"
 
 ##### Aerospace workspace items #####
 
-# Register the aerospace_workspace_change event (triggered by aerospace.toml exec-on-workspace-change)
 sketchybar --add event aerospace_workspace_change
 
-# Add a workspace button per monitor
-# Workspaces 1-5 on main display, 6-7 on secondary display
 for monitor in $(aerospace list-monitors --format "%{monitor-appkit-nsscreen-screens-id}"); do
   for sid in $(aerospace list-workspaces --monitor "$monitor"); do
     display_id="1"
@@ -42,26 +45,25 @@ for monitor in $(aerospace list-monitors --format "%{monitor-appkit-nsscreen-scr
       --set space.$sid display="$display_id" \
       --subscribe space.$sid aerospace_workspace_change \
       --set space.$sid \
-      drawing=on \
-      background.color=0x44ffffff \
-      background.corner_radius=5 \
-      background.drawing=on \
-      background.border_color=0xAAFFFFFF \
-      background.border_width=0 \
-      background.height=25 \
-      icon="$sid" \
-      icon.padding_left=10 \
-      icon.shadow.distance=4 \
-      icon.shadow.color=0xA0000000 \
-      label.font="sketchybar-app-font:Regular:16.0" \
-      label.padding_right=20 \
-      label.padding_left=0 \
-      label.y_offset=-1 \
-      label.shadow.drawing=off \
-      label.shadow.color=0xA0000000 \
-      label.shadow.distance=4 \
-      click_script="aerospace workspace $sid" \
-      script="$PLUGIN_DIR/aerospace.sh $sid"
+        drawing=on                              \
+        background.color=$WS_INACTIVE_BG        \
+        background.corner_radius=5              \
+        background.drawing=on                   \
+        background.border_color=$TRANSPARENT    \
+        background.border_width=0               \
+        background.height=25                    \
+        icon="$sid"                             \
+        icon.color=$WS_INACTIVE_ICON            \
+        icon.padding_left=10                    \
+        icon.shadow.drawing=off                 \
+        label.font="sketchybar-app-font:Regular:16.0" \
+        label.color=$LABEL_COLOR                \
+        label.padding_right=20                  \
+        label.padding_left=0                    \
+        label.y_offset=-1                       \
+        label.shadow.drawing=off                \
+        click_script="aerospace workspace $sid" \
+        script="$PLUGIN_DIR/aerospace.sh $sid"
   done
 done
 
@@ -84,18 +86,29 @@ for monitor in $(aerospace list-monitors); do
   done
 done
 
-##### Front app item #####
+##### Front app #####
 source "$ITEM_DIR/front_app.sh"
 
 ##### Right side items #####
-# https://felixkratz.github.io/SketchyBar/config/events
-sketchybar --add item clock right \
-  --set clock update_freq=10 script="$PLUGIN_DIR/clock.sh" \
+sketchybar \
+  --add item clock right \
+  --set clock            \
+    update_freq=10       \
+    icon=""             \
+    icon.color=$MOCHA_BLUE \
+    label.color=$MOCHA_SUBTEXT1 \
+    script="$PLUGIN_DIR/clock.sh" \
+  \
   --add item volume right \
-  --set volume script="$PLUGIN_DIR/volume.sh" \
+  --set volume            \
+    icon.color=$MOCHA_TEAL  \
+    script="$PLUGIN_DIR/volume.sh" \
   --subscribe volume volume_change \
+  \
   --add item battery right \
-  --set battery update_freq=120 script="$PLUGIN_DIR/battery.sh" \
+  --set battery            \
+    update_freq=120        \
+    script="$PLUGIN_DIR/battery.sh" \
   --subscribe battery system_woke power_source_change
 
 ##### Force all scripts to run the first time #####
