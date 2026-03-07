@@ -1,38 +1,105 @@
-# DRACULA
+# Catppuccin Mocha — Mauve
 theme:
   activeBorderColor:
-    - "#FF79C6"
+    - "#cba6f7"
     - bold
   inactiveBorderColor:
-    - "#BD93F9"
-
+    - "#a6adc8"
   searchingActiveBorderColor:
-    - "#8BE9FD"
+    - "#f9e2af"
     - bold
-
   optionsTextColor:
-    - "#6272A4"
-
+    - "#89b4fa"
   selectedLineBgColor:
-    - "#6272A4"
-
+    - "#313244"
   inactiveViewSelectedLineBgColor:
-    - bold
-
-  cherryPickedCommitFgColor:
-    - "#6272A4"
-
+    - "#1e1e2e"
   cherryPickedCommitBgColor:
-    - "#8BE9FD"
-
-  markedBaseCommitFgColor:
-    - "#8BE9FD"
-
+    - "#45475a"
+  cherryPickedCommitFgColor:
+    - "#cba6f7"
   markedBaseCommitBgColor:
-    - "#F1FA8C"
-
+    - "#f9e2af"
+  markedBaseCommitFgColor:
+    - "#1e1e2e"
   unstagedChangesColor:
-    - "#FF5555"
-
+    - "#f38ba8"
   defaultFgColor:
-    - "#F8F8F2"
+    - "#cdd6f4"
+
+authorColors:
+  "*": "#b4befe"
+
+# Git
+git:
+  paging:
+    colorArg: always
+    pager: delta --dark --paging=never
+  commit:
+    signOff: false
+  merging:
+    manualCommit: false
+  log:
+    order: topo-order
+    showGraph: whenMaximised
+  branchLogCmd: "git log --graph --color=always --abbrev-commit --decorate --date=relative --pretty=medium {{branchName}} --"
+
+# UI
+gui:
+  nerdFontsVersion: "3"
+  border: rounded
+  showRandomTip: false
+  showCommandLog: false
+  showBottomLine: true
+  expandFocusedSidePanel: false
+  mainPanelSplitMode: flexible
+  language: "auto"
+  mouseEvents: true
+  scrollHeight: 5
+  scrollPastBottom: true
+  sidePanelWidth: 0.25
+  commitLength:
+    show: true
+  skipDiscardChangeWarning: false
+  skipStashWarning: false
+
+# Keybindings
+keybinding:
+  universal:
+    quit: "q"
+    quit-alt1: "<c-c>"
+    togglePanel: "<tab>"
+    prevItem: "<up>"
+    nextItem: "<down>"
+    prevBlock: "<left>"
+    nextBlock: "<right>"
+    optionMenu: "?"
+    select: "<space>"
+    goInto: "<enter>"
+    remove: "d"
+    new: "n"
+    edit: "e"
+    openFile: "o"
+    scrollUpMain: "<pgup>"
+    scrollDownMain: "<pgdn>"
+    scrollUpMain-alt1: "K"
+    scrollDownMain-alt1: "J"
+    copyToClipboard: "<c-o>"
+    submitEditorInfo: "<enter>"
+    extrasMenu: "@"
+  commits:
+    squashDown: "s"
+    rewordCommit: "r"
+    renameCommit: "R"
+    viewResetOptions: "g"
+    markAsBaseCommit: "B"
+    cherryPickCopy: "C"
+    pasteCommits: "V"
+    createFixupCommit: "f"
+    squashAboveCommits: "F"
+
+# Misc
+notARepository: "prompt"
+promptToReturnFromSubprocess: false
+update:
+  method: never
