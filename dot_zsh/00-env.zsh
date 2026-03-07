@@ -127,3 +127,10 @@ fi
 # Bat theme
 # ============================================================================
 export BAT_THEME="Catppuccin Mocha"
+
+# ============================================================================
+# GitHub token (for Claude Code MCP + tools)
+# ============================================================================
+if command -v gh &>/dev/null; then
+  export GITHUB_TOKEN="$(gh auth token 2>/dev/null)"
+fi

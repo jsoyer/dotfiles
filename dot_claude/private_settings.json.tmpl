@@ -1,4 +1,53 @@
 {
+  "permissions": {
+    "allow": [
+      "Read",
+      "Write",
+      "Edit",
+      "MultiEdit",
+      "Glob",
+      "Grep",
+      "WebFetch",
+      "WebSearch",
+      "Bash(git *)",
+      "Bash(rtk *)",
+      "Bash(chezmoi *)",
+      "Bash(brew *)",
+      "Bash(sketchybar *)",
+      "Bash(aerospace *)",
+      "Bash(cargo *)",
+      "Bash(go *)",
+      "Bash(npm *)",
+      "Bash(pnpm *)",
+      "Bash(npx *)",
+      "Bash(node *)",
+      "Bash(python3 *)",
+      "Bash(uv *)",
+      "Bash(uvx *)",
+      "Bash(gh *)",
+      "Bash(jq *)",
+      "Bash(ls *)",
+      "Bash(mkdir *)",
+      "Bash(cp *)",
+      "Bash(mv *)",
+      "Bash(cat *)",
+      "Bash(echo *)",
+      "Bash(which *)",
+      "Bash(where *)",
+      "Bash(type *)",
+      "Bash(date *)",
+      "Bash(pwd)",
+      "Bash(env)",
+      "Bash(base64 *)"
+    ],
+    "deny": [
+      "Bash(rm -rf /*)",
+      "Bash(sudo rm -rf *)",
+      "Bash(dd *)",
+      "Bash(mkfs *)",
+      "Bash(:(){ :|:& };:)"
+    ]
+  },
   "hooks": {
     "Notification": [
       {
@@ -102,6 +151,14 @@
             "command": "python3 ~/.claude/hooks/claude-island-state.py"
           }
         ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "afplay /System/Library/Sounds/Glass.aiff 2>/dev/null || true"
+          }
+        ]
       }
     ],
     "SubagentStop": [
@@ -124,6 +181,26 @@
         ]
       }
     ]
+  },
+  "mcpServers": {
+    "context7": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@upstash/context7-mcp"]
+    },
+    "fetch": {
+      "type": "stdio",
+      "command": "uvx",
+      "args": ["mcp-server-fetch"]
+    },
+    "github": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-github"],
+      "env": {
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_TOKEN}"
+      }
+    }
   },
   "enabledPlugins": {
     "lua-lsp@claude-plugins-official": true,
