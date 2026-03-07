@@ -22,4 +22,22 @@ if [[ "$CHARGING" != "" ]]; then
   COLOR=$MOCHA_TEAL
 fi
 
-sketchybar --set "$NAME" icon="$ICON" icon.color="$COLOR" label="${PERCENTAGE}%"
+case "$SENDER" in
+  "mouse.clicked")
+    sketchybar --set "$NAME" popup.drawing=toggle
+    TIME="$(pmset -g batt | grep -o '[0-9]\+:[0-9]\+ remaining' | head -1)"
+    if [ -n "$TIME" ]; then
+      sketchybar --set battery.time label="$TIME left"
+    elif [[ "$CHARGING" != "" ]]; then
+      sketchybar --set battery.time label="Charging..."
+    else
+      sketchybar --set battery.time label="Estimating..."
+    fi
+    ;;
+  "mouse.exited.global")
+    sketchybar --set "$NAME" popup.drawing=off
+    ;;
+  *)
+    sketchybar --set "$NAME" icon="$ICON" icon.color="$COLOR" label="${PERCENTAGE}%"
+    ;;
+esac

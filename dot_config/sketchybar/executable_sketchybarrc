@@ -15,7 +15,6 @@ sketchybar --bar         \
   padding_right=8
 
 ##### Defaults #####
-# Right-side items get a pill background by default (overridden per-item if needed)
 sketchybar --default                                \
   padding_left=4                                    \
   padding_right=4                                   \
@@ -36,7 +35,7 @@ sketchybar --default                                \
   popup.background.corner_radius=8                  \
   updates=on
 
-##### Aerospace workspace items #####
+##### Left — Aerospace workspaces #####
 
 sketchybar --add event aerospace_workspace_change
 
@@ -79,9 +78,7 @@ done
 for monitor in $(aerospace list-monitors); do
   for sid in $(aerospace list-workspaces --monitor "$monitor" --empty no); do
     apps=$(aerospace list-windows --workspace "$sid" | awk -F'|' '{gsub(/^ *| *$/, "", $2); print $2}')
-
     sketchybar --set space.$sid drawing=on
-
     icon_strip=" "
     if [ "${apps}" != "" ]; then
       while read -r app; do
@@ -94,7 +91,7 @@ for monitor in $(aerospace list-monitors); do
   done
 done
 
-##### Separator (workspaces → front app) #####
+##### Left — Separator › front app › timer #####
 sketchybar --add item separator left                \
            --set separator                          \
              icon="›"                              \
@@ -106,35 +103,24 @@ sketchybar --add item separator left                \
              background.drawing=off                 \
              click_script=false
 
-##### Front app #####
 source "$ITEM_DIR/front_app.sh"
+source "$ITEM_DIR/timer.sh"
 
-##### Media (center, hidden when nothing plays) #####
+##### Center — Media (hidden when nothing plays) #####
 source "$ITEM_DIR/media.sh"
 
-##### Right side items #####
-source "$ITEM_DIR/cpu.sh"
+##### Right — System stats #####
+# Order added = rightmost first
+# Result (left→right): mic | github | cpu | ram | wifi | volume | battery | calendar
 
-sketchybar \
-  --add item calendar right                         \
-  --set calendar                                    \
-    icon=""                                        \
-    icon.color=$MOCHA_LAVENDER                      \
-    label.color=$MOCHA_SUBTEXT1                     \
-    update_freq=30                                  \
-    script="$PLUGIN_DIR/clock.sh"                   \
-  \
-  --add item volume right                           \
-  --set volume                                      \
-    icon.color=$MOCHA_TEAL                          \
-    script="$PLUGIN_DIR/volume.sh"                  \
-  --subscribe volume volume_change                  \
-  \
-  --add item battery right                          \
-  --set battery                                     \
-    update_freq=120                                 \
-    script="$PLUGIN_DIR/battery.sh"                 \
-  --subscribe battery system_woke power_source_change
+source "$ITEM_DIR/calendar.sh"
+source "$ITEM_DIR/battery.sh"
+source "$ITEM_DIR/volume.sh"
+source "$ITEM_DIR/wifi.sh"
+source "$ITEM_DIR/ram.sh"
+source "$ITEM_DIR/cpu.sh"
+source "$ITEM_DIR/github.sh"
+source "$ITEM_DIR/mic.sh"
 
 ##### Force all scripts to run the first time #####
 sketchybar --update
