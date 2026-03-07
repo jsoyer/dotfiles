@@ -6,28 +6,34 @@ PLUGIN_DIR="$CONFIG_DIR/plugins"
 ITEM_DIR="$CONFIG_DIR/items"
 
 ##### Bar Appearance #####
-sketchybar --bar \
-  position=top    \
-  height=40       \
-  blur_radius=50  \
-  color=$BAR_COLOR
+sketchybar --bar         \
+  position=top           \
+  height=35              \
+  blur_radius=50         \
+  color=$BAR_COLOR       \
+  padding_left=8         \
+  padding_right=8
 
 ##### Defaults #####
-sketchybar --default \
-  padding_left=5                           \
-  padding_right=5                          \
-  icon.font="Hack Nerd Font:Bold:17.0"     \
-  icon.color=$ICON_COLOR                   \
-  icon.padding_left=4                      \
-  icon.padding_right=4                     \
-  label.font="SF Pro:Semibold:15.0"        \
-  label.color=$LABEL_COLOR                 \
-  label.padding_left=4                     \
-  label.padding_right=4                    \
-  popup.background.color=$POPUP_BACKGROUND_COLOR       \
-  popup.background.border_color=$POPUP_BORDER_COLOR    \
-  popup.background.border_width=2          \
-  popup.background.corner_radius=8         \
+# Right-side items get a pill background by default (overridden per-item if needed)
+sketchybar --default                                \
+  padding_left=4                                    \
+  padding_right=4                                   \
+  icon.font="Hack Nerd Font:Bold:14.0"              \
+  icon.color=$ICON_COLOR                            \
+  icon.padding_left=6                               \
+  icon.padding_right=4                              \
+  label.font="SF Pro:Semibold:13.0"                 \
+  label.color=$LABEL_COLOR                          \
+  label.padding_left=4                              \
+  label.padding_right=8                             \
+  background.color=$ITEM_BG_COLOR                   \
+  background.corner_radius=6                        \
+  background.height=26                              \
+  popup.background.color=$POPUP_BACKGROUND_COLOR    \
+  popup.background.border_color=$POPUP_BORDER_COLOR \
+  popup.background.border_width=2                   \
+  popup.background.corner_radius=8                  \
   updates=on
 
 ##### Aerospace workspace items #####
@@ -41,28 +47,30 @@ for monitor in $(aerospace list-monitors --format "%{monitor-appkit-nsscreen-scr
       display_id="2"
     fi
 
-    sketchybar --add item space.$sid left \
-      --set space.$sid display="$display_id" \
+    sketchybar --add item space.$sid left           \
+      --set space.$sid display="$display_id"        \
       --subscribe space.$sid aerospace_workspace_change \
-      --set space.$sid \
-        drawing=on                              \
-        background.color=$WS_INACTIVE_BG        \
-        background.corner_radius=5              \
-        background.drawing=on                   \
-        background.border_color=$TRANSPARENT    \
-        background.border_width=0               \
-        background.height=25                    \
-        icon="$sid"                             \
-        icon.color=$WS_INACTIVE_ICON            \
-        icon.padding_left=10                    \
-        icon.shadow.drawing=off                 \
-        label.font="sketchybar-app-font:Regular:16.0" \
-        label.color=$LABEL_COLOR                \
-        label.padding_right=20                  \
-        label.padding_left=0                    \
-        label.y_offset=-1                       \
-        label.shadow.drawing=off                \
-        click_script="aerospace workspace $sid" \
+      --set space.$sid                              \
+        background.color=$WS_INACTIVE_BG            \
+        background.corner_radius=5                  \
+        background.border_color=$TRANSPARENT        \
+        background.border_width=0                   \
+        background.height=26                        \
+        background.drawing=on                       \
+        icon="$sid"                                 \
+        icon.color=$WS_INACTIVE_ICON                \
+        icon.font="SF Pro:Bold:13.0"                \
+        icon.padding_left=8                         \
+        icon.padding_right=2                        \
+        icon.shadow.drawing=off                     \
+        label.font="sketchybar-app-font:Regular:14.0" \
+        label.color=$LABEL_COLOR                    \
+        label.padding_left=2                        \
+        label.padding_right=8                       \
+        label.y_offset=-1                           \
+        label.shadow.drawing=off                    \
+        drawing=on                                  \
+        click_script="aerospace workspace $sid"     \
         script="$PLUGIN_DIR/aerospace.sh $sid"
   done
 done
@@ -86,29 +94,46 @@ for monitor in $(aerospace list-monitors); do
   done
 done
 
+##### Separator (workspaces → front app) #####
+sketchybar --add item separator left                \
+           --set separator                          \
+             icon="›"                              \
+             icon.font="SF Pro:Bold:16.0"           \
+             icon.color=$ACCENT_COLOR               \
+             icon.padding_left=6                    \
+             icon.padding_right=6                   \
+             label.drawing=off                      \
+             background.drawing=off                 \
+             click_script=false
+
 ##### Front app #####
 source "$ITEM_DIR/front_app.sh"
 
+##### Media (center, hidden when nothing plays) #####
+source "$ITEM_DIR/media.sh"
+
 ##### Right side items #####
+source "$ITEM_DIR/cpu.sh"
+
 sketchybar \
-  --add item clock right \
-  --set clock            \
-    update_freq=10       \
-    icon=""             \
-    icon.color=$MOCHA_BLUE \
-    label.color=$MOCHA_SUBTEXT1 \
-    script="$PLUGIN_DIR/clock.sh" \
+  --add item calendar right                         \
+  --set calendar                                    \
+    icon=""                                        \
+    icon.color=$MOCHA_LAVENDER                      \
+    label.color=$MOCHA_SUBTEXT1                     \
+    update_freq=30                                  \
+    script="$PLUGIN_DIR/clock.sh"                   \
   \
-  --add item volume right \
-  --set volume            \
-    icon.color=$MOCHA_TEAL  \
-    script="$PLUGIN_DIR/volume.sh" \
-  --subscribe volume volume_change \
+  --add item volume right                           \
+  --set volume                                      \
+    icon.color=$MOCHA_TEAL                          \
+    script="$PLUGIN_DIR/volume.sh"                  \
+  --subscribe volume volume_change                  \
   \
-  --add item battery right \
-  --set battery            \
-    update_freq=120        \
-    script="$PLUGIN_DIR/battery.sh" \
+  --add item battery right                          \
+  --set battery                                     \
+    update_freq=120                                 \
+    script="$PLUGIN_DIR/battery.sh"                 \
   --subscribe battery system_woke power_source_change
 
 ##### Force all scripts to run the first time #####

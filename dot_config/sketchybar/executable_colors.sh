@@ -31,6 +31,12 @@ MOCHA_CRUST=0xff11111b
 
 TRANSPARENT=0x00000000
 
+# Semantic accent (used for separator, highlights)
+ACCENT_COLOR=$MOCHA_MAUVE
+
+# Item pill backgrounds (right-side items)
+ITEM_BG_COLOR=0xff313244      # Surface0 solid
+
 # Bar
 BAR_COLOR=0xCC1e1e2e         # Base 80% opaque
 
