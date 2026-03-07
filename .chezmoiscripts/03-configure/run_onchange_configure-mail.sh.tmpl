@@ -3,7 +3,7 @@
 # Managed by chezmoi — reruns automatically when mail configs change
 
 # Config hashes (trigger rerun on changes):
-# mbsync:   {{ include "dot_config/private_isyncrc.tmpl" | sha256sum }}
+# mbsync:   {{ include "dot_config/isync/private_mbsyncrc.tmpl" | sha256sum }}
 # notmuch:  {{ include "dot_notmuch-config.tmpl" | sha256sum }}
 
 set -euo pipefail
