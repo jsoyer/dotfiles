@@ -17,14 +17,37 @@
 	rebase = true
 
 [core]
-  # Pour utiliser nvim comme éditeur par défaut pour les messages de commit, etc.
   editor = nvim
-  # Gère les fins de ligne automatiquement pour éviter les problèmes entre Windows, Mac et Linux.
   autocrlf = input
+  excludesfile = {{ .chezmoi.homeDir }}/.gitignore_global
+{{- if lookPath "delta" }}
+  pager = delta
+{{- end }}
 
 [init]
-    # Nomme la branche par défaut "main" pour tout nouveau dépôt.
   defaultBranch = main
+
+[push]
+  default = current
+  autoSetupRemote = true
+
+[fetch]
+  prune = true
+  prunetags = true
+
+[rerere]
+  enabled = true
+
+[rebase]
+  autosquash = true
+  autostash = true
+
+[merge]
+  conflictstyle = zdiff3
+
+[diff]
+  algorithm = histogram
+  colorMoved = default
 
 {{- if lookPath "op" }}
 
@@ -39,21 +62,59 @@
 {{- end }}
 
 [alias]
-  # -- Alias de base --
-  st = status
+  st = status -sb
   co = checkout
   br = branch
   cm = commit -m
+  ca = commit --amend --no-edit
+  cp = cherry-pick
+  sw = switch
+  swc = switch -c
 
-  # -- Alias utiles --
-  # Affiche un log graphique et coloré, très lisible.
   lg = log --color --graph --pretty=format:'%Cred%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%cr) %C(bold blue)<%an>%Creset' --abbrev-commit
+  ll = log --oneline --graph --decorate --all
+  last = log -1 HEAD --stat
 
-  # Affiche la liste de tous vos alias git.
-  aliases = config --get-regexp ^alias\\.
-
-  # Annule le dernier commit sans perdre les changements.
   uncommit = reset --soft HEAD~1
+  unstage = restore --staged
+  discard = restore
+
+  aliases = config --get-regexp ^alias\\.
+  whoami = config user.email
+
+  # Show stash list
+  sl = stash list
+  # Stash including untracked
+  su = stash -u
+
+  # List branches sorted by last commit
+  recent = branch --sort=-committerdate --format='%(committerdate:short) %(refname:short)'
+
+  # Delete merged branches
+  sweep = "!git branch --merged | grep -v '\\*\\|main\\|master\\|develop' | xargs -n 1 git branch -d"
+
+{{- if lookPath "delta" }}
+
+[delta]
+  navigate = true
+  light = false
+  side-by-side = false
+  line-numbers = true
+  syntax-theme = Catppuccin Mocha
+  file-style = bold yellow
+  file-decoration-style = yellow ul
+  hunk-header-style = file line-number syntax
+  hunk-header-decoration-style = blue box
+  plus-style = syntax "#1e3a2f"
+  minus-style = syntax "#3b1e1e"
+  plus-emph-style = syntax "#2d5a3d"
+  minus-emph-style = syntax "#5a2d2d"
+  blame-format = "{author:<15} {commit:<8} {timestamp:<15} "
+  blame-timestamp-format = "%Y-%m-%d %H:%M"
+
+[interactive]
+  diffFilter = delta --color-only
+{{- end }}
 
 {{- if lookPath "gh" }}
 

@@ -1,0 +1,40 @@
+# macOS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+.AppleDouble
+.LSOverride
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.nvim.lua
+
+# Env & secrets
+.env
+.env.local
+.env.*.local
+
+# Node
+node_modules/
+.npm
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+*.egg-info/
+
+# Rust
+/target/
+
+# Go
+/vendor/
+
+# Logs
+*.log
