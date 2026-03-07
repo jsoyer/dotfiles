@@ -142,3 +142,6 @@ fi
 # export SLACK_TEAM_ID=""     # Slack workspace ID (from URL or api.slack.com)
 # export BRAVE_API_KEY=""     # api.search.brave.com (free tier: 2000 req/month)
 # export LINEAR_API_KEY=""    # Linear → Settings → API → Personal API keys
+# export DISCORD_TOKEN=""     # discord.com/developers → Bot → Token
+# export OBSIDIAN_API_KEY=""  # Obsidian → Community plugins → Local REST API → Copy key
+# export NOTION_API_KEY=""    # notion.so/my-integrations → New integration → Secret
