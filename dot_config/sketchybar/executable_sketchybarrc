@@ -122,5 +122,12 @@ source "$ITEM_DIR/cpu.sh"
 source "$ITEM_DIR/github.sh"
 source "$ITEM_DIR/mic.sh"
 
+##### Hidden poller — keeps focused workspace icons current #####
+sketchybar --add item workspace_poller left    \
+           --set workspace_poller              \
+             update_freq=5                    \
+             drawing=off                      \
+             script="$PLUGIN_DIR/workspace_poll.sh"
+
 ##### Force all scripts to run the first time #####
 sketchybar --update
