@@ -134,3 +134,11 @@ export BAT_THEME="Catppuccin Mocha"
 if command -v gh &>/dev/null; then
   export GITHUB_TOKEN="$(gh auth token 2>/dev/null)"
 fi
+
+# ============================================================================
+# MCP API keys (Claude Code integrations)
+# ============================================================================
+# export SLACK_BOT_TOKEN=""   # api.slack.com → Your apps → OAuth tokens
+# export SLACK_TEAM_ID=""     # Slack workspace ID (from URL or api.slack.com)
+# export BRAVE_API_KEY=""     # api.search.brave.com (free tier: 2000 req/month)
+# export LINEAR_API_KEY=""    # Linear → Settings → API → Personal API keys
