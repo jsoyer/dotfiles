@@ -31,6 +31,26 @@ if (which carapace | is-not-empty) {
 }
 
 # ============================================================================
+# Atuin - Magical shell history (generate cache, sourced in config.nu)
+# ============================================================================
+mkdir ~/.cache/atuin
+if (which atuin | is-not-empty) {
+    atuin init nu | save --force ~/.cache/atuin/init.nu
+} else {
+    "" | save --force ~/.cache/atuin/init.nu
+}
+
+# ============================================================================
+# Direnv - Environment switcher (generate cache, sourced in config.nu)
+# ============================================================================
+mkdir ~/.cache/direnv
+if (which direnv | is-not-empty) {
+    direnv hook nushell | save --force ~/.cache/direnv/init.nu
+} else {
+    "" | save --force ~/.cache/direnv/init.nu
+}
+
+# ============================================================================
 # Machine Profile Detection
 # ============================================================================
 $env.MACHINE_PROFILE = if (sys host).hostname == "jsoyer-macOS" { "mac-pro" } else { "mac-personal" }

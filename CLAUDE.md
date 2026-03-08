@@ -100,7 +100,7 @@ Configuration adapts based on:
 - `dot_ssh/` - SSH config with 1Password integration (templated)
 
 ### AI Tools (`dot_claude/`)
-- `agents/` - 162 specialized sub-agents (131 VoltAgent/awesome-claude-code-subagents + 22 msitarzewski/agency-agents + 9 custom)
+- `agents/` - 165 specialized sub-agents (131 VoltAgent/awesome-claude-code-subagents + 22 msitarzewski/agency-agents + 9 custom + 3 cloud)
 - `skills/` - 84 skills (from jeffallan/claude-skills + awesome-llm-apps)
 - `hooks/` - `rtk-rewrite.sh` (token optimization), `claude-island-state.py` (state tracking)
 - `private_settings.json.tmpl` - Permissions, hooks, MCP servers (15 configured)

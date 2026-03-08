@@ -273,17 +273,7 @@ $env.config = {
     }
 
     hooks: {
-        pre_prompt: [{||
-            if (which direnv | is-empty) {
-                return
-            }
-            try {
-                direnv export json | from json | default {} | load-env
-                if 'PATH' in $env {
-                    $env.PATH = ($env.PATH | split row (char esep))
-                }
-            } catch {}
-        }]
+        pre_prompt: [{ null }]
         pre_execution: [{ null }] # run before the repl input is run
         env_change: {
             PWD: [{|before, after| null }] # run if the PWD environment is different since the last repl input
@@ -998,13 +988,13 @@ alias kcns = kubectl config set-context --current --namespace
 # Security & Pentesting tools (not on mac-pro)
 # ============================================================================
 if $env.MACHINE_PROFILE != "mac-pro" {
-    alias gobust = gobuster dir --wordlist ~/security/wordlists/diccnoext.txt --wildcard --url
-    alias dirsearch = python dirsearch.py -w db/dicc.txt -b -u
-    alias massdns = ~/hacking/tools/massdns/bin/massdns -r ~/hacking/tools/massdns/lists/resolvers.txt -t A -o S bf-targets.txt -w livehosts.txt -s 4000
+    if (which gobuster | is-not-empty) { alias gobust = gobuster dir --wordlist ~/security/wordlists/diccnoext.txt --wildcard --url }
+    if (which dirsearch | is-not-empty) { alias dirsearch = python dirsearch.py -w db/dicc.txt -b -u }
+    if (($nu.home-path | path join "hacking/tools/massdns/bin/massdns") | path exists) { alias massdns = ~/hacking/tools/massdns/bin/massdns -r ~/hacking/tools/massdns/lists/resolvers.txt -t A -o S bf-targets.txt -w livehosts.txt -s 4000 }
     alias server = python -m http.server 4445
-    alias tunnel = ngrok http 4445
-    alias fuzz = ffuf -w ~/hacking/SecLists/content_discovery_all.txt -mc all -u
-    alias nm = nmap -sC -sV -oN nmap
+    if (which ngrok | is-not-empty) { alias tunnel = ngrok http 4445 }
+    if (which ffuf | is-not-empty) { alias fuzz = ffuf -w ~/hacking/SecLists/content_discovery_all.txt -mc all -u }
+    if (which nmap | is-not-empty) { alias nm = nmap -sC -sV -oN nmap }
 }
 
 # ============================================================================
@@ -1143,6 +1133,19 @@ alias jp = jj git push
 alias jf = jj git fetch
 
 # ============================================================================
+# Jujutsu (jj)
+# ============================================================================
+alias j = jj
+alias js = jj st
+alias jl = jj log -r 'all()'
+alias jd = jj diff
+alias jn = jj new
+alias jui = jjui
+alias jundo = jj undo
+alias jp = jj git push
+alias jf = jj git fetch
+
+# ============================================================================
 # Tmux
 # ============================================================================
 alias t = tmux
@@ -1258,7 +1261,6 @@ $env.GEM_PATH = $gem_home
 if ($gem_bin | path exists) {
   $env.PATH = ($env.PATH | prepend $gem_bin)
 }
-$env.DIRENV_LOG_FORMAT = ""
 
 # ============================================================================
 # Integrations (sourced from cache generated in env.nu)
@@ -1266,3 +1268,5 @@ $env.DIRENV_LOG_FORMAT = ""
 source ~/.cache/starship/init.nu
 source ~/.cache/zoxide/init.nu
 source ~/.cache/carapace/init.nu
+source ~/.cache/atuin/init.nu
+source ~/.cache/direnv/init.nu

@@ -39,6 +39,20 @@ alias bcask='brew cask'
 # Toolbox - enter with zsh instead of bash
 alias tbx='/usr/bin/toolbox run zsh'
 
+# Toolbox shortcuts (Fedora Atomic host only, not inside a toolbox)
+if command -v rpm-ostree &>/dev/null && [[ ! -f /.toolboxenv ]] && [[ -z "$TOOLBOX_PATH" ]]; then
+    _tbx_enter() {
+        local name="$1"
+        if toolbox run --container "$name" sh -c 'command -v zsh' &>/dev/null 2>&1; then
+            toolbox run --container "$name" zsh
+        else
+            toolbox enter "$name"
+        fi
+    }
+    fedora() { _tbx_enter "fedora-$(rpm -E %fedora)"; }
+    arch() { _tbx_enter arch-rolling; }
+fi
+
 # ============================================================================
 # Navigation
 # ============================================================================
@@ -117,23 +131,40 @@ alias kcns='kubectl config set-context --current --namespace'
 # Security & Pentesting tools (not on mac-pro)
 # ============================================================================
 if [[ "$MACHINE_PROFILE" != "mac-pro" ]]; then
-alias gobust='gobuster dir --wordlist ~/security/wordlists/diccnoext.txt --wildcard --url'
-alias dirsearch='python dirsearch.py -w db/dicc.txt -b -u'
-alias massdns='~/hacking/tools/massdns/bin/massdns -r ~/hacking/tools/massdns/lists/resolvers.txt -t A -o S bf-targets.txt -w livehosts.txt -s 4000'
-alias server='python -m http.server 4445'
-alias tunnel='ngrok http 4445'
-alias fuzz='ffuf -w ~/hacking/SecLists/content_discovery_all.txt -mc all -u'
-alias nm='nmap -sC -sV -oN nmap'
+  command -v gobuster &>/dev/null && alias gobust='gobuster dir --wordlist ~/security/wordlists/diccnoext.txt --wildcard --url'
+  command -v dirsearch &>/dev/null && alias dirsearch='python dirsearch.py -w db/dicc.txt -b -u'
+  [[ -x ~/hacking/tools/massdns/bin/massdns ]] && alias massdns='~/hacking/tools/massdns/bin/massdns -r ~/hacking/tools/massdns/lists/resolvers.txt -t A -o S bf-targets.txt -w livehosts.txt -s 4000'
+  alias server='python -m http.server 4445'
+  command -v ngrok &>/dev/null && alias tunnel='ngrok http 4445'
+  command -v ffuf &>/dev/null && alias fuzz='ffuf -w ~/hacking/SecLists/content_discovery_all.txt -mc all -u'
+  command -v nmap &>/dev/null && alias nm='nmap -sC -sV -oN nmap'
 fi
 
 # ============================================================================
-# SSH wrapper for Kitty kitten ssh
+# SSH wrapper for tmux window naming + Kitty kitten ssh
 # ============================================================================
 ssh() {
-  if [[ "$TERM" == "xterm-kitty" ]]; then
-    kitten ssh "$@"
+  local ssh_cmd=(command ssh)
+  [[ "$TERM" == "xterm-kitty" ]] && ssh_cmd=(kitten ssh)
+
+  local host=""
+  for arg in "$@"; do
+    [[ "$arg" == -* ]] && continue
+    if [[ "$arg" == *@* ]]; then
+      host="${arg##*@}"
+    else
+      host="$arg"
+    fi
+    break
+  done
+  host="${host%%.*}"
+
+  if [[ -n "$TMUX" ]] && [[ -n "$host" ]]; then
+    tmux rename-window "$host"
+    "${ssh_cmd[@]}" "$@"
+    tmux rename-window "bash"
   else
-    command ssh "$@"
+    "${ssh_cmd[@]}" "$@"
   fi
 }
 
@@ -267,7 +298,6 @@ mkd() {
 cup() {
   cu "$@"
 
-  local script_dir="{{ .chezmoi.sourceDir }}/.chezmoiscripts/04-update"
   local os="{{ .chezmoi.os }}"
 
   case "$os" in

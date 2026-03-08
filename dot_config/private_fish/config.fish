@@ -251,13 +251,13 @@ alias kcns='kubectl config set-context --current --namespace'
 # Security & Pentesting tools (not on mac-pro)
 # ============================================================================
 if test "$MACHINE_PROFILE" != "mac-pro"
-    alias gobust='gobuster dir --wordlist ~/security/wordlists/diccnoext.txt --wildcard --url'
-    alias dirsearch='python dirsearch.py -w db/dicc.txt -b -u'
-    alias massdns='~/hacking/tools/massdns/bin/massdns -r ~/hacking/tools/massdns/lists/resolvers.txt -t A -o S bf-targets.txt -w livehosts.txt -s 4000'
+    command -q gobuster; and alias gobust='gobuster dir --wordlist ~/security/wordlists/diccnoext.txt --wildcard --url'
+    command -q dirsearch; and alias dirsearch='python dirsearch.py -w db/dicc.txt -b -u'
+    test -x ~/hacking/tools/massdns/bin/massdns; and alias massdns='~/hacking/tools/massdns/bin/massdns -r ~/hacking/tools/massdns/lists/resolvers.txt -t A -o S bf-targets.txt -w livehosts.txt -s 4000'
     alias server='python -m http.server 4445'
-    alias tunnel='ngrok http 4445'
-    alias fuzz='ffuf -w ~/hacking/SecLists/content_discovery_all.txt -mc all -u'
-    alias nm='nmap -sC -sV -oN nmap'
+    command -q ngrok; and alias tunnel='ngrok http 4445'
+    command -q ffuf; and alias fuzz='ffuf -w ~/hacking/SecLists/content_discovery_all.txt -mc all -u'
+    command -q nmap; and alias nm='nmap -sC -sV -oN nmap'
 end
 
 # ============================================================================
@@ -518,4 +518,36 @@ end
 # ============================================================================
 if command -q zoxide
     zoxide init --cmd cd fish | source
+end
+
+# ============================================================================
+# Atuin - Magical shell history
+# ============================================================================
+if command -q atuin
+    atuin init fish | source
+end
+
+# ============================================================================
+# Direnv - Environment switcher
+# ============================================================================
+if command -q direnv
+    direnv hook fish | source
+end
+
+# ============================================================================
+# Thefuck - Command correction (lazy-loaded)
+# ============================================================================
+if command -q thefuck
+    function fuck
+        functions -e fuck
+        thefuck --alias | source
+        fuck $argv
+    end
+end
+
+# ============================================================================
+# OrbStack - Docker/Kubernetes alternative (macOS only)
+# ============================================================================
+if test -f ~/.orbstack/shell/init.fish
+    source ~/.orbstack/shell/init.fish 2>/dev/null
 end
