@@ -541,6 +541,12 @@ function f --description 'Copy file path to clipboard via FZF'
     end
 end
 
+if command -q aerospace
+    function ff --description 'Aerospace window picker via FZF'
+        aerospace list-windows --all | fzf --bind 'enter:execute(bash -c "aerospace focus --window-id {1}")+abort'
+    end
+end
+
 function fv --description 'Open file in nvim via FZF'
     set -l file (fd --type f --hidden --exclude .git | fzf)
     if test -n "$file"

@@ -48,3 +48,10 @@ fv() {
     nvim "${file}"
   fi
 }
+
+# Aerospace window picker via FZF (macOS only)
+if command -v aerospace &>/dev/null; then
+  ff() {
+    aerospace list-windows --all | fzf --bind 'enter:execute(bash -c "aerospace focus --window-id {1}")+abort'
+  }
+fi

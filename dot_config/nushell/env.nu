@@ -11,13 +11,21 @@ $env.PATH = ($env.PATH | split row (char esep) | prepend '/opt/homebrew/bin' | p
 # ============================================================================
 $env.STARSHIP_CONFIG = ($env.HOME | path join ".config" "starship" "starship-nushell.toml")
 mkdir ~/.cache/starship
-starship init nu | save -f ~/.cache/starship/init.nu
+if (which starship | is-not-empty) {
+    starship init nu | save -f ~/.cache/starship/init.nu
+} else {
+    "" | save --force ~/.cache/starship/init.nu
+}
 
 # ============================================================================
 # Zoxide Integration (generate cache, sourced in config.nu)
 # ============================================================================
 mkdir ~/.cache/zoxide
-zoxide init nushell --cmd cd | save -f ~/.cache/zoxide/init.nu
+if (which zoxide | is-not-empty) {
+    zoxide init nushell --cmd cd | save -f ~/.cache/zoxide/init.nu
+} else {
+    "" | save --force ~/.cache/zoxide/init.nu
+}
 
 # ============================================================================
 # Carapace Integration (generate cache, sourced in config.nu)
@@ -69,4 +77,6 @@ $env.FZF_DEFAULT_OPTS = "--color=bg+:#313244,bg:#1e1e2e,spinner:#f5e0dc,hl:#f38b
 # ============================================================================
 # LS_COLORS with vivid (Catppuccin Mocha)
 # ============================================================================
-$env.LS_COLORS = (vivid generate catppuccin-mocha)
+if (which vivid | is-not-empty) {
+    $env.LS_COLORS = (vivid generate catppuccin-mocha)
+}

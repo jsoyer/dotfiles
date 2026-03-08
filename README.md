@@ -79,7 +79,7 @@ This setup uses `chezmoi`'s templating capabilities to apply different configura
 - **notmuch** - Email indexing and search
 
 ### AI Tools
-- **Claude Code** - AI coding assistant (100 agents, 84 skills, 15 MCP servers)
+- **Claude Code** - AI coding assistant (165 agents, 84 skills, 15 MCP servers)
 - **OpenCode** - Alternative AI coding CLI (shared MCP config)
 - **RTK** - Token optimization proxy for Claude Code
 
