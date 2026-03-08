@@ -376,13 +376,6 @@ function cup
         $CONTAINER_RUNTIME image prune -a -f
         echo "✨ Container maintenance complete!"
     end
-                end
-            end
-            
-            docker image prune -a -f
-            echo "✨ Docker maintenance complete!"
-        end
-    end
 
     echo "✅ Update complete!"
 end
@@ -399,6 +392,126 @@ alias jui='jjui'
 alias jundo='jj undo'
 alias jp='jj git push'
 alias jf='jj git fetch'
+
+# ============================================================================
+# Tmux
+# ============================================================================
+alias t='tmux'
+alias ta='tmux attach -t'
+alias tl='tmux list-sessions'
+alias tk='tmux kill-session -t'
+alias tns='tmux new-session -s'
+
+# ============================================================================
+# lazygit / lazydocker
+# ============================================================================
+alias lg='lazygit'
+alias ld='lazydocker'
+
+# ============================================================================
+# Disk / System
+# ============================================================================
+if command -q dust
+    alias du='dust'
+end
+if command -q duf
+    alias df='duf'
+end
+if command -q btop
+    alias top='btop'
+end
+if command -q procs
+    alias ps='procs'
+end
+alias ports='lsof -iTCP -sTCP:LISTEN -n -P'
+function myip
+    curl -s ifconfig.me; and echo
+end
+function path
+    string join \n $PATH
+end
+
+# ============================================================================
+# Markdown (glow)
+# ============================================================================
+if command -q glow
+    alias md='glow'
+end
+
+# ============================================================================
+# Search (ripgrep / fd)
+# ============================================================================
+alias rgf='rg --files-with-matches'
+alias rgi='rg --ignore-case'
+alias fdf='fd --type f'
+alias fdd='fd --type d'
+
+# ============================================================================
+# Python (uv / poetry / venv)
+# ============================================================================
+# uv
+alias uvi='uv init'
+alias uva='uv add'
+alias uvr='uv run'
+alias uvs='uv sync'
+alias uvp='uv pip'
+alias uvpi='uv pip install'
+alias uvvenv='uv venv'
+
+# poetry
+alias po='poetry'
+alias poi='poetry install'
+alias poa='poetry add'
+alias por='poetry run'
+alias pos='poetry shell'
+alias pou='poetry update'
+alias pol='poetry lock'
+
+# venv shortcuts
+function venv
+    set -l dir (test (count $argv) -gt 0; and echo $argv[1]; or echo ".venv")
+    uv venv $dir
+end
+function activate
+    set -l dir (test (count $argv) -gt 0; and echo $argv[1]; or echo ".venv")
+    if test -f "$dir/bin/activate.fish"
+        source "$dir/bin/activate.fish"
+    else
+        echo "No virtualenv found at $dir/bin/activate.fish"
+        return 1
+    end
+end
+
+# ============================================================================
+# Misc
+# ============================================================================
+function mkd
+    mkdir -p $argv; and cd $argv[-1]
+end
+
+# ============================================================================
+# Claude Code
+# ============================================================================
+alias cco='claude --model opus'
+alias ccs='claude --model sonnet'
+alias cch='claude --model haiku'
+
+# ============================================================================
+# fdupes (duplicate file finder)
+# ============================================================================
+alias dup='fdupes -r'
+alias dupsize='fdupes -rS'
+alias dupsum='fdupes -rm'
+function dupdel
+    set -l target (test (count $argv) -gt 0; and echo $argv; or echo ".")
+    echo "WARNING: this will DELETE duplicate files (keeping one copy) in: $target"
+    read -P "Continue? (y/N) " reply
+    if string match -qi 'y' $reply
+        fdupes -rdN $argv
+    else
+        echo "Aborted."
+    end
+end
 
 # ============================================================================
 # Zoxide (smart cd)

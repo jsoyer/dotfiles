@@ -1143,6 +1143,96 @@ alias jp = jj git push
 alias jf = jj git fetch
 
 # ============================================================================
+# Tmux
+# ============================================================================
+alias t = tmux
+alias ta = tmux attach -t
+alias tl = tmux list-sessions
+alias tk = tmux kill-session -t
+alias tns = tmux new-session -s
+
+# ============================================================================
+# lazygit / lazydocker
+# ============================================================================
+alias lg = lazygit
+alias ld = lazydocker
+
+# ============================================================================
+# Disk / System
+# ============================================================================
+alias ports = lsof -iTCP -sTCP:LISTEN -n -P
+def myip [] { ^curl -s ifconfig.me }
+def path [] { $env.PATH }
+
+# ============================================================================
+# Markdown (glow)
+# ============================================================================
+alias md = glow
+
+# ============================================================================
+# Search (ripgrep / fd)
+# ============================================================================
+alias rgf = rg --files-with-matches
+alias rgi = rg --ignore-case
+alias fdf = fd --type f
+alias fdd = fd --type d
+
+# ============================================================================
+# Python (uv / poetry / venv)
+# ============================================================================
+# uv
+alias uvi = uv init
+alias uva = uv add
+alias uvr = uv run
+alias uvs = uv sync
+alias uvp = uv pip
+alias uvpi = uv pip install
+alias uvvenv = uv venv
+
+# poetry
+alias po = poetry
+alias poi = poetry install
+alias poa = poetry add
+alias por = poetry run
+alias pos = poetry shell
+alias pou = poetry update
+alias pol = poetry lock
+
+# venv shortcuts
+def venv [dir: string = ".venv"] { ^uv venv $dir }
+def --env activate [dir: string = ".venv"] {
+    let bin_path = ($dir | path join "bin" | path expand)
+    if ($bin_path | path exists) {
+        $env.PATH = ($env.PATH | prepend $bin_path)
+        $env.VIRTUAL_ENV = ($dir | path expand)
+    } else {
+        print $"No virtualenv found at ($dir)/bin"
+    }
+}
+
+# ============================================================================
+# Misc
+# ============================================================================
+def --env mkd [...args: string] {
+    mkdir ...$args
+    cd ($args | last)
+}
+
+# ============================================================================
+# Claude Code
+# ============================================================================
+alias cco = claude --model opus
+alias ccs = claude --model sonnet
+alias cch = claude --model haiku
+
+# ============================================================================
+# fdupes (duplicate file finder)
+# ============================================================================
+alias dup = fdupes -r
+alias dupsize = fdupes -rS
+alias dupsum = fdupes -rm
+
+# ============================================================================
 # SSH wrapper for Kitty kitten ssh
 # ============================================================================
 def --wrapped ssh [...args: string] {
