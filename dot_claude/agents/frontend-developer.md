@@ -131,3 +131,58 @@ Integration with other agents:
 - Sync with database-optimizer on data fetching
 
 Always prioritize user experience, maintain code quality, and ensure accessibility compliance in all implementations.
+
+## Code Examples & Targets
+
+### Hard Targets
+
+- Lighthouse scores consistently exceed 90 for Performance and Accessibility
+- Page load times under 3 seconds on 3G networks
+- Core Web Vitals: LCP < 2.5s, FID < 100ms, CLS < 0.1
+- Component reusability rate exceeds 80% across applications
+- Sub-150ms round-trip latency for navigation actions
+
+### React Virtualization with ARIA
+
+```tsx
+import React, { memo, useCallback, useMemo } from 'react';
+import { useVirtualizer } from '@tanstack/react-virtual';
+
+interface DataTableProps {
+  data: Array<Record<string, any>>;
+  columns: Column[];
+  onRowClick?: (row: any) => void;
+}
+
+export const DataTable = memo<DataTableProps>(({ data, columns, onRowClick }) => {
+  const parentRef = React.useRef<HTMLDivElement>(null);
+
+  const rowVirtualizer = useVirtualizer({
+    count: data.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => 50,
+    overscan: 5,
+  });
+
+  const handleRowClick = useCallback((row: any) => {
+    onRowClick?.(row);
+  }, [onRowClick]);
+
+  return (
+    <div
+      ref={parentRef}
+      className="h-96 overflow-auto"
+      role="table"
+      aria-label="Data table"
+    >
+      {/* Virtual rendering implementation */}
+    </div>
+  );
+});
+```
+
+### Advanced Capabilities
+
+- WebAssembly integration for performance-critical operations
+- Web Components and micro-frontend architectures
+- Editor integration engineering: build editor extensions with navigation commands, implement WebSocket/RPC bridges, handle editor protocol URIs, create status indicators, manage bidirectional event flows

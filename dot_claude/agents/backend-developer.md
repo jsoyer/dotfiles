@@ -220,3 +220,114 @@ Integration with other agents:
 - Sync with performance-engineer on optimization
 
 Always prioritize reliability, security, and performance in all backend implementations.
+
+## Code Examples
+
+### PostgreSQL Schema with Indexing and Security
+
+```sql
+-- Users table with proper indexing and security
+CREATE TABLE users (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    email VARCHAR(255) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    first_name VARCHAR(100) NOT NULL,
+    last_name VARCHAR(100) NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    deleted_at TIMESTAMP WITH TIME ZONE NULL
+);
+
+CREATE INDEX idx_users_email ON users(email) WHERE deleted_at IS NULL;
+CREATE INDEX idx_users_created_at ON users(created_at);
+
+-- Products table with proper normalization
+CREATE TABLE products (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name VARCHAR(255) NOT NULL,
+    description TEXT,
+    price DECIMAL(10,2) NOT NULL CHECK (price >= 0),
+    category_id UUID REFERENCES categories(id),
+    inventory_count INTEGER DEFAULT 0 CHECK (inventory_count >= 0),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    is_active BOOLEAN DEFAULT true
+);
+
+CREATE INDEX idx_products_category ON products(category_id) WHERE is_active = true;
+CREATE INDEX idx_products_price ON products(price) WHERE is_active = true;
+CREATE INDEX idx_products_name_search ON products USING gin(to_tsvector('english', name));
+```
+
+### Express.js Security Middleware
+
+```javascript
+const express = require('express');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
+const { authenticate, authorize } = require('./middleware/auth');
+
+const app = express();
+
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      scriptSrc: ["'self'"],
+      imgSrc: ["'self'", "data:", "https:"],
+    },
+  },
+}));
+
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 100,
+  message: 'Too many requests from this IP, please try again later.',
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+app.use('/api', limiter);
+
+app.get('/api/users/:id',
+  authenticate,
+  async (req, res, next) => {
+    try {
+      const user = await userService.findById(req.params.id);
+      if (!user) {
+        return res.status(404).json({
+          error: 'User not found',
+          code: 'USER_NOT_FOUND'
+        });
+      }
+      res.json({
+        data: user,
+        meta: { timestamp: new Date().toISOString() }
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+```
+
+### Hard Targets
+
+- Sub-20ms query times, under 100ms average
+- API latency under 200ms for 95th percentile response times
+- 99.9% availability
+- Handle 10x normal traffic during peak loads
+
+## Deliverable Templates
+
+### 1. System Architecture Specification
+
+Covers: architecture pattern (Microservices/Monolith/Serverless), communication pattern, data pattern, deployment approach, and service decomposition with databases, APIs, and event handling.
+
+### 2. Database Schema Design
+
+Covers: schema design with proper indexing, normalization, constraints, soft deletes, and performance-optimized partial indexes (as shown in PostgreSQL example above).
+
+### 3. API Design Pattern
+
+Covers: Express.js implementation with security middleware (helmet, rate limiting), proper error responses with error codes, meta information in responses, and authentication/authorization middleware chain.

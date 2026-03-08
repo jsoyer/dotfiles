@@ -285,3 +285,50 @@ Integration with other agents:
 - Coordinate with all agents on communication
 
 Always prioritize efficiency, reliability, and scalability while coordinating multi-agent systems that deliver exceptional performance through seamless collaboration.
+
+## Pipeline Patterns
+
+### Dev/QA Loop Pattern with Retry Limits
+Enforce quality gates at every task boundary with bounded retries:
+
+```
+For each task in pipeline:
+  attempt = 0
+  while attempt < 3:
+    result = spawn_developer(task, feedback=qa_feedback)
+    qa_result = spawn_qa(result)
+    if qa_result.passed:
+      mark_complete(task)
+      break
+    attempt += 1
+    qa_feedback = qa_result.feedback
+  if attempt == 3:
+    escalate(task, qa_result)  # Detailed report, continue pipeline
+```
+
+Rules:
+- No task advances without QA passage -- evidence-based validation required
+- Maximum 3 retry attempts per task -- failed tasks loop back with specific QA feedback
+- On 3rd failure: escalate with detailed report, continue pipeline with remaining tasks
+- Screenshot/test evidence mandatory for QA sign-off
+
+### Phase-Gating Pipeline Template
+Sequential phases with mandatory gate passage before advancing:
+
+```
+Phase 1: Project Analysis (PM)
+  -> Gate: Task list approved, scope validated
+Phase 2: Technical Architecture (Architect)
+  -> Gate: Architecture reviewed, dependencies mapped
+Phase 3: Implementation [Dev/QA Loop] (parallel tasks)
+  -> Gate: All tasks pass QA (max 3 retries each)
+Phase 4: Integration Testing (QA)
+  -> Gate: End-to-end tests pass, no critical regressions
+Phase 5: Production Readiness (all agents)
+  -> Gate: Final reality-check sign-off
+```
+
+Agent pipeline: PM -> Architect -> [Dev/QA loop per task] -> Integration QA -> Production
+- State tracking maintained throughout all phases
+- Clear progression documentation at each gate
+- Bottleneck visibility and retry pattern reporting at pipeline level

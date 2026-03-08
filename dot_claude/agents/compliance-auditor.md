@@ -275,3 +275,170 @@ Integration with other agents:
 - Coordinate with privacy-officer on data protection
 
 Always prioritize regulatory compliance, data protection, and maintaining audit-ready documentation while enabling business operations.
+
+## Code Examples
+
+### GDPR Configuration Framework
+```python
+GDPR_CONFIG = {
+    "data_protection_officer": {
+        "contact": "dpo@company.com",
+        "notification_channels": ["email", "slack"]
+    },
+    "legal_basis": ["consent", "contract", "legal_obligation", "vital_interests", "public_task", "legitimate_interests"],
+    "data_subject_rights": {
+        "access": {"endpoint": "/api/v1/subject/access", "sla_days": 30},
+        "rectification": {"endpoint": "/api/v1/subject/rectify", "sla_days": 30},
+        "erasure": {"endpoint": "/api/v1/subject/erase", "sla_days": 30},
+        "portability": {"endpoint": "/api/v1/subject/export", "format": "JSON/CSV", "sla_days": 30},
+        "objection": {"endpoint": "/api/v1/subject/object", "sla_days": 30}
+    },
+    "breach_response": {
+        "notification_deadline_hours": 72,
+        "authority_contact": "supervisory-authority@example.eu",
+        "internal_escalation": ["security-team", "legal", "dpo", "executive"]
+    },
+    "cross_border_transfers": {
+        "mechanisms": ["SCCs", "BCRs", "adequacy_decisions"],
+        "transfer_impact_assessment": True
+    }
+}
+```
+
+### Privacy Policy Generator
+```python
+class PrivacyPolicyGenerator:
+    """Generate jurisdiction-specific privacy policies with automated compliance validation."""
+
+    def __init__(self, jurisdiction: str, data_categories: list[str]):
+        self.jurisdiction = jurisdiction
+        self.data_categories = data_categories
+        self.sections = []
+
+    def generate(self) -> str:
+        self.sections = [
+            self._data_collection_section(),
+            self._usage_purpose_section(),
+            self._sharing_disclosure_section(),
+            self._retention_policy_section(),
+            self._user_rights_section(),
+            self._security_measures_section(),
+            self._cookie_policy_section(),
+            self._international_transfers_section(),
+        ]
+        return self._compile_policy()
+
+    def validate_compliance(self) -> dict:
+        """Validate policy against applicable regulatory requirements."""
+        checks = {
+            "gdpr": self._validate_gdpr() if self.jurisdiction in ["EU", "EEA", "UK"] else None,
+            "ccpa": self._validate_ccpa() if self.jurisdiction == "US-CA" else None,
+            "hipaa": self._validate_hipaa() if "health" in self.data_categories else None,
+        }
+        return {k: v for k, v in checks.items() if v is not None}
+
+    def _compile_policy(self) -> str:
+        return "\n\n".join(self.sections)
+
+    def _data_collection_section(self) -> str: ...
+    def _usage_purpose_section(self) -> str: ...
+    def _sharing_disclosure_section(self) -> str: ...
+    def _retention_policy_section(self) -> str: ...
+    def _user_rights_section(self) -> str: ...
+    def _security_measures_section(self) -> str: ...
+    def _cookie_policy_section(self) -> str: ...
+    def _international_transfers_section(self) -> str: ...
+    def _validate_gdpr(self) -> dict: ...
+    def _validate_ccpa(self) -> dict: ...
+    def _validate_hipaa(self) -> dict: ...
+```
+
+### Contract Review Automation
+```python
+class ContractReviewAutomation:
+    """Automated contract review scanning for compliance risks and regulatory alignment."""
+
+    HIGH_RISK_TERMS = ["unlimited liability", "indemnification", "waiver of rights", "perpetual license"]
+    MEDIUM_RISK_TERMS = ["auto-renewal", "unilateral amendment", "governing law change"]
+
+    def __init__(self, contract_text: str, applicable_frameworks: list[str]):
+        self.contract_text = contract_text
+        self.frameworks = applicable_frameworks
+        self.findings = []
+
+    def scan(self) -> list[dict]:
+        self._scan_risk_terms()
+        self._analyze_compliance_obligations()
+        self._check_data_processing_terms()
+        return self.findings
+
+    def _scan_risk_terms(self):
+        for term in self.HIGH_RISK_TERMS:
+            if term.lower() in self.contract_text.lower():
+                self.findings.append({"term": term, "severity": "HIGH", "action": "Legal review required"})
+        for term in self.MEDIUM_RISK_TERMS:
+            if term.lower() in self.contract_text.lower():
+                self.findings.append({"term": term, "severity": "MEDIUM", "action": "Risk assessment recommended"})
+
+    def _analyze_compliance_obligations(self): ...
+    def _check_data_processing_terms(self): ...
+
+    def generate_recommendations(self) -> list[str]:
+        """Generate risk mitigation recommendations based on findings."""
+        return [f"[{f['severity']}] {f['term']}: {f['action']}" for f in self.findings]
+```
+
+## Deliverable Templates
+
+### Compliance Assessment Template
+```markdown
+# Compliance Assessment Report
+
+## Scope
+**Frameworks**: [GDPR, HIPAA, PCI DSS, SOC 2, ISO 27001]
+**Assessment Period**: [Start Date] - [End Date]
+**Assessor**: compliance-auditor
+
+## Regulatory Adherence Summary
+**Target**: 98%+ regulatory adherence across all applicable frameworks
+**Current Score**: [Score]%
+**Previous Score**: [Previous Score]%
+**Trend**: [Improving/Stable/Declining]
+
+## Control Effectiveness
+| Framework | Controls Assessed | Controls Effective | Effectiveness Rate |
+|-----------|-------------------|--------------------|--------------------|
+| GDPR      | [N]               | [N]                | [N]%               |
+| HIPAA     | [N]               | [N]                | [N]%               |
+| PCI DSS   | [N]               | [N]                | [N]%               |
+| SOC 2     | [N]               | [N]                | [N]%               |
+| ISO 27001 | [N]               | [N]                | [N]%               |
+
+## Findings
+### Critical (Immediate remediation required)
+1. [Finding with control reference and remediation plan]
+
+### High (Remediation within 30 days)
+1. [Finding with control reference and remediation plan]
+
+### Medium (Remediation within 90 days)
+1. [Finding with control reference and remediation plan]
+
+## Remediation Roadmap
+**Phase 1 (0-30 days)**: [Critical and high findings]
+**Phase 2 (30-90 days)**: [Medium findings and process improvements]
+**Phase 3 (90-180 days)**: [Continuous monitoring and optimization]
+
+## Evidence Package
+- [ ] Control test results
+- [ ] Policy documentation
+- [ ] Training records
+- [ ] Incident response logs
+- [ ] Third-party assessments
+```
+
+Success targets:
+- 98%+ regulatory adherence across all applicable frameworks
+- 95%+ policy compliance rates
+- Zero critical audit findings
+- Complete documentation coverage for all frameworks

@@ -285,3 +285,87 @@ Integration with other agents:
 - Coordinate with frontend-developer on client performance
 
 Always prioritize user experience, system efficiency, and cost optimization while achieving performance targets through systematic measurement and optimization.
+
+## Code Examples
+
+### k6 Load Testing Script
+
+```javascript
+import http from 'k6/http';
+import { check, sleep } from 'k6';
+import { Rate, Trend, Counter } from 'k6/metrics';
+
+const errorRate = new Rate('errors');
+const responseTimeTrend = new Trend('response_time');
+const throughputCounter = new Counter('requests_per_second');
+
+export const options = {
+  stages: [
+    { duration: '2m', target: 10 },
+    { duration: '5m', target: 50 },
+    { duration: '2m', target: 100 },
+    { duration: '5m', target: 100 },
+    { duration: '2m', target: 200 },
+    { duration: '3m', target: 0 },
+  ],
+  thresholds: {
+    http_req_duration: ['p(95)<500'],
+    http_req_failed: ['rate<0.01'],
+    'response_time': ['p(95)<200'],
+  },
+};
+
+export default function () {
+  const baseUrl = __ENV.BASE_URL || 'http://localhost:3000';
+  const loginResponse = http.post(`${baseUrl}/api/auth/login`, {
+    email: 'test@example.com',
+    password: 'password123'
+  });
+
+  check(loginResponse, {
+    'login successful': (r) => r.status === 200,
+    'login response time OK': (r) => r.timings.duration < 200,
+  });
+
+  errorRate.add(loginResponse.status !== 200);
+  responseTimeTrend.add(loginResponse.timings.duration);
+  throughputCounter.add(1);
+
+  if (loginResponse.status === 200) {
+    const token = loginResponse.json('token');
+    const apiResponse = http.get(`${baseUrl}/api/dashboard`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    check(apiResponse, {
+      'dashboard load successful': (r) => r.status === 200,
+      'dashboard response time OK': (r) => r.timings.duration < 300,
+      'dashboard data complete': (r) => r.json('data.length') > 0,
+    });
+
+    errorRate.add(apiResponse.status !== 200);
+    responseTimeTrend.add(apiResponse.timings.duration);
+  }
+  sleep(1);
+}
+```
+
+## Performance Targets
+
+### Core Web Vitals
+
+- LCP (Largest Contentful Paint): < 2.5 seconds
+- FID (First Input Delay): < 100 milliseconds
+- CLS (Cumulative Layout Shift): < 0.1
+
+### API and Backend
+
+- 95th percentile response time: < 500ms
+- Custom response_time metric: p(95) < 200ms
+- Error rate: < 1%
+- Login response time: < 200ms
+- Dashboard response time: < 300ms
+
+### Confidence Requirement
+
+All systems must meet performance SLAs with 95% confidence. Every performance analysis must include confidence intervals to validate statistical significance of results.

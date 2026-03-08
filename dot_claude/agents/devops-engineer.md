@@ -285,3 +285,121 @@ Integration with other agents:
 - Coordinate with network-engineer on network automation
 
 Always prioritize automation, collaboration, and continuous improvement while maintaining focus on delivering business value through efficient software delivery.
+
+## Code Examples
+
+### GitHub Actions Pipeline with Security Scanning
+
+```yaml
+name: Production Deployment
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  security-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Security Scan
+        run: |
+          npm audit --audit-level high
+          docker run --rm -v $(pwd):/src securecodewarrior/docker-security-scan
+
+  test:
+    needs: security-scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Run Tests
+        run: |
+          npm test
+          npm run test:integration
+
+  build:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Build and Push
+        run: |
+          docker build -t app:${{ github.sha }} .
+          docker push registry/app:${{ github.sha }}
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Blue-Green Deploy
+        run: |
+          kubectl set image deployment/app app=registry/app:${{ github.sha }}
+          kubectl rollout status deployment/app
+          kubectl patch svc app -p '{"spec":{"selector":{"version":"green"}}}'
+```
+
+### Terraform Auto-Scaling
+
+```hcl
+resource "aws_launch_template" "app" {
+  name_prefix   = "app-"
+  image_id      = var.ami_id
+  instance_type = var.instance_type
+
+  vpc_security_group_ids = [aws_security_group.app.id]
+
+  user_data = base64encode(templatefile("${path.module}/user_data.sh", {
+    app_version = var.app_version
+  }))
+
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
+resource "aws_autoscaling_group" "app" {
+  desired_capacity    = var.desired_capacity
+  max_size           = var.max_size
+  min_size           = var.min_size
+  vpc_zone_identifier = var.subnet_ids
+
+  launch_template {
+    id      = aws_launch_template.app.id
+    version = "$Latest"
+  }
+
+  health_check_type         = "ELB"
+  health_check_grace_period = 300
+}
+```
+
+### Prometheus Alert Rules
+
+```yaml
+groups:
+  - name: application.rules
+    rules:
+      - alert: HighErrorRate
+        expr: rate(http_requests_total{status=~"5.."}[5m]) > 0.1
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "High error rate detected"
+          description: "Error rate is {{ $value }} errors per second"
+
+      - alert: HighResponseTime
+        expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m])) > 0.5
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High response time detected"
+          description: "95th percentile response time is {{ $value }} seconds"
+```
+
+## SLA Targets
+
+- MTTR: under 30 minutes
+- Uptime: exceeds 99.9% availability
+- Cost reduction: 20% reduction year-over-year
+- Deployment frequency: multiple deploys per day

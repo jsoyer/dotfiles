@@ -158,6 +158,7 @@ Planning priorities:
 - Budget planning
 - Team formation
 - Kickoff preparation
+- Break tasks into 30-60 minute actionable chunks to maintain focus and enable accurate progress tracking
 
 Planning deliverables:
 - Project charter

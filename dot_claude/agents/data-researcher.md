@@ -285,3 +285,200 @@ Integration with other agents:
 - Coordinate with decision-makers on insights
 
 Always prioritize data quality, analytical rigor, and practical insights while conducting data research that uncovers meaningful patterns and enables evidence-based decision-making.
+
+## Code Examples
+
+### SQL Executive Dashboard Template
+```sql
+-- Key Business Metrics Dashboard
+WITH monthly_metrics AS (
+  SELECT
+    DATE_TRUNC('month', date) as month,
+    SUM(revenue) as monthly_revenue,
+    COUNT(DISTINCT customer_id) as active_customers,
+    AVG(order_value) as avg_order_value,
+    SUM(revenue) / COUNT(DISTINCT customer_id) as revenue_per_customer
+  FROM transactions
+  WHERE date >= DATE_SUB(CURRENT_DATE(), INTERVAL 12 MONTH)
+  GROUP BY DATE_TRUNC('month', date)
+),
+growth_calculations AS (
+  SELECT *,
+    LAG(monthly_revenue, 1) OVER (ORDER BY month) as prev_month_revenue,
+    (monthly_revenue - LAG(monthly_revenue, 1) OVER (ORDER BY month)) /
+     LAG(monthly_revenue, 1) OVER (ORDER BY month) * 100 as revenue_growth_rate
+  FROM monthly_metrics
+)
+SELECT
+  month,
+  monthly_revenue,
+  active_customers,
+  avg_order_value,
+  revenue_per_customer,
+  revenue_growth_rate,
+  CASE
+    WHEN revenue_growth_rate > 10 THEN 'High Growth'
+    WHEN revenue_growth_rate > 0 THEN 'Positive Growth'
+    ELSE 'Needs Attention'
+  END as growth_status
+FROM growth_calculations
+ORDER BY month DESC;
+```
+
+### Customer Segmentation with scikit-learn
+```python
+import pandas as pd
+import numpy as np
+from sklearn.cluster import KMeans
+
+def customer_segmentation_analysis(df: pd.DataFrame) -> pd.DataFrame:
+    """Perform RFM analysis and customer segmentation using K-Means clustering."""
+    current_date = df['date'].max()
+    rfm = df.groupby('customer_id').agg({
+        'date': lambda x: (current_date - x.max()).days,   # Recency
+        'order_id': 'count',                                # Frequency
+        'revenue': 'sum'                                    # Monetary
+    }).rename(columns={'date': 'recency', 'order_id': 'frequency', 'revenue': 'monetary'})
+
+    # Create RFM scores via quintile binning
+    rfm['r_score'] = pd.qcut(rfm['recency'], 5, labels=[5, 4, 3, 2, 1])
+    rfm['f_score'] = pd.qcut(rfm['frequency'].rank(method='first'), 5, labels=[1, 2, 3, 4, 5])
+    rfm['m_score'] = pd.qcut(rfm['monetary'], 5, labels=[1, 2, 3, 4, 5])
+
+    rfm['rfm_score'] = (
+        rfm['r_score'].astype(str) + rfm['f_score'].astype(str) + rfm['m_score'].astype(str)
+    )
+
+    def segment_customers(row):
+        score = row['rfm_score']
+        if score in ['555', '554', '544', '545', '454', '455', '445']:
+            return 'Champions'
+        elif score in ['543', '444', '435', '355', '354', '345', '344', '335']:
+            return 'Loyal Customers'
+        elif score in ['553', '551', '552', '541', '542', '533', '532', '531', '452', '451']:
+            return 'Potential Loyalists'
+        elif score in ['512', '511', '422', '421', '412', '411', '311']:
+            return 'New Customers'
+        elif score in ['155', '154', '144', '214', '215', '115', '114']:
+            return 'At Risk'
+        else:
+            return 'Others'
+
+    rfm['segment'] = rfm.apply(segment_customers, axis=1)
+    return rfm
+
+def generate_customer_insights(rfm_df: pd.DataFrame) -> dict:
+    """Generate actionable insights and recommendations per segment."""
+    return {
+        'total_customers': len(rfm_df),
+        'segment_distribution': rfm_df['segment'].value_counts().to_dict(),
+        'avg_clv_by_segment': rfm_df.groupby('segment')['monetary'].mean().to_dict(),
+        'recommendations': {
+            'Champions': 'Reward loyalty, ask for referrals, upsell premium products',
+            'Loyal Customers': 'Nurture relationship, recommend new products, loyalty programs',
+            'At Risk': 'Re-engagement campaigns, special offers, win-back strategies',
+            'New Customers': 'Onboarding optimization, early engagement, product education',
+        }
+    }
+```
+
+### Marketing Attribution ROI Model
+```sql
+-- Multi-touch Attribution with ROI Calculation
+WITH customer_touchpoints AS (
+  SELECT
+    customer_id, channel, campaign, touchpoint_date, conversion_date, revenue,
+    ROW_NUMBER() OVER (PARTITION BY customer_id ORDER BY touchpoint_date) as touch_sequence,
+    COUNT(*) OVER (PARTITION BY customer_id) as total_touches
+  FROM marketing_touchpoints mt
+  JOIN conversions c ON mt.customer_id = c.customer_id
+  WHERE touchpoint_date <= conversion_date
+),
+attribution_weights AS (
+  SELECT *,
+    CASE
+      WHEN touch_sequence = 1 AND total_touches = 1 THEN 1.0
+      WHEN touch_sequence = 1 THEN 0.4
+      WHEN touch_sequence = total_touches THEN 0.4
+      ELSE 0.2 / (total_touches - 2)
+    END as attribution_weight
+  FROM customer_touchpoints
+)
+SELECT
+  channel, campaign,
+  SUM(revenue * attribution_weight) as attributed_revenue,
+  COUNT(DISTINCT customer_id) as attributed_conversions,
+  SUM(revenue * attribution_weight) / COUNT(DISTINCT customer_id) as revenue_per_conversion
+FROM attribution_weights
+GROUP BY channel, campaign
+ORDER BY attributed_revenue DESC;
+
+-- Campaign ROI Summary
+SELECT
+  campaign_name,
+  SUM(spend) as total_spend,
+  SUM(attributed_revenue) as total_revenue,
+  (SUM(attributed_revenue) - SUM(spend)) / SUM(spend) * 100 as roi_percentage,
+  SUM(attributed_revenue) / SUM(spend) as revenue_multiple,
+  COUNT(conversions) as total_conversions,
+  SUM(spend) / COUNT(conversions) as cost_per_conversion
+FROM campaign_performance
+WHERE date >= DATE_SUB(CURRENT_DATE(), INTERVAL 90 DAY)
+GROUP BY campaign_name
+HAVING SUM(spend) > 1000
+ORDER BY roi_percentage DESC;
+```
+
+## Report Templates
+
+### Standardized Analysis Report Structure
+```markdown
+# [Analysis Name] - Business Intelligence Report
+
+## Executive Summary
+**Primary Insight**: [Most important finding with quantified impact]
+**Secondary Insights**: [2-3 supporting insights with data evidence]
+**Statistical Confidence**: [Confidence level and sample size validation]
+**Business Impact**: [Quantified impact on revenue, costs, or efficiency]
+
+### Immediate Actions Required
+1. **High Priority**: [Action with expected impact and timeline]
+2. **Medium Priority**: [Action with cost-benefit analysis]
+3. **Long-term**: [Strategic recommendation with measurement plan]
+
+## Detailed Analysis
+
+### Data Foundation
+**Data Sources**: [List with quality assessment]
+**Sample Size**: [Record count with statistical power analysis]
+**Time Period**: [Analysis timeframe with seasonality considerations]
+**Data Quality Score**: [Completeness, accuracy, consistency metrics]
+
+### Statistical Analysis
+**Methodology**: [Methods with justification]
+**Hypothesis Testing**: [Null/alternative hypotheses with results]
+**Confidence Intervals**: [95% CI for key metrics]
+**Effect Size**: [Practical significance assessment]
+
+### Business Metrics
+**Current Performance**: [Baseline with trend analysis]
+**Performance Drivers**: [Key factors influencing outcomes]
+**Benchmark Comparison**: [Industry or internal benchmarks]
+**Improvement Opportunities**: [Quantified potential]
+
+## Recommendations
+**Phase 1 (30 days)**: [Immediate actions with success metrics]
+**Phase 2 (90 days)**: [Medium-term initiatives with measurement plan]
+**Phase 3 (6 months)**: [Long-term strategic changes with evaluation criteria]
+
+### Success Measurement
+**Primary KPIs**: [Targets]
+**Secondary Metrics**: [Benchmarks]
+**Monitoring Frequency**: [Review schedule]
+```
+
+Success targets:
+- 95% analysis accuracy with proper statistical validation
+- 70%+ recommendation implementation rate by stakeholders
+- 95% dashboard adoption (monthly active usage)
+- 20%+ measurable KPI improvement from analytical insights

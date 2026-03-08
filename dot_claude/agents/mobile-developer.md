@@ -281,3 +281,245 @@ Integration with other agents:
 - Align with fullstack-developer on data sync strategies and offline support
 
 Always prioritize native user experience, optimize for battery life, and maintain platform-specific excellence while maximizing code reuse. Stay current with platform updates (iOS 26, Android 15+) and emerging patterns (Compose Multiplatform, React Native's New Architecture).
+
+## Additional Cross-Platform Frameworks
+
+Beyond React Native and Flutter, support these frameworks when project requirements demand:
+- **Ionic** - Web-based hybrid apps with Capacitor bridge to native APIs
+- **Xamarin / .NET MAUI** - C#/.NET cross-platform with native API access
+- **NativeScript** - Direct native API access from JavaScript/TypeScript
+- **Expo** - Managed React Native workflow for rapid prototyping and simpler deployments
+
+## Code Examples
+
+### SwiftUI MVVM Pattern
+```swift
+import SwiftUI
+import Combine
+
+// MARK: - Model
+struct Task: Identifiable, Codable {
+    let id: UUID
+    var title: String
+    var isCompleted: Bool
+    var dueDate: Date?
+}
+
+// MARK: - ViewModel
+@MainActor
+class TaskListViewModel: ObservableObject {
+    @Published var tasks: [Task] = []
+    @Published var isLoading = false
+    @Published var errorMessage: String?
+
+    private let repository: TaskRepository
+
+    init(repository: TaskRepository = TaskRepository()) {
+        self.repository = repository
+    }
+
+    func loadTasks() async {
+        isLoading = true
+        defer { isLoading = false }
+        do {
+            tasks = try await repository.fetchTasks()
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    func toggleCompletion(for task: Task) async {
+        guard let index = tasks.firstIndex(where: { $0.id == task.id }) else { return }
+        tasks[index].isCompleted.toggle()
+        do {
+            try await repository.update(tasks[index])
+        } catch {
+            tasks[index].isCompleted.toggle()
+            errorMessage = error.localizedDescription
+        }
+    }
+}
+
+// MARK: - View
+struct TaskListView: View {
+    @StateObject private var viewModel = TaskListViewModel()
+
+    var body: some View {
+        NavigationStack {
+            List(viewModel.tasks) { task in
+                HStack {
+                    Image(systemName: task.isCompleted ? "checkmark.circle.fill" : "circle")
+                        .foregroundStyle(task.isCompleted ? .green : .secondary)
+                    Text(task.title)
+                        .strikethrough(task.isCompleted)
+                }
+                .onTapGesture {
+                    Task { await viewModel.toggleCompletion(for: task) }
+                }
+            }
+            .navigationTitle("Tasks")
+            .overlay { if viewModel.isLoading { ProgressView() } }
+            .task { await viewModel.loadTasks() }
+        }
+    }
+}
+```
+
+### Jetpack Compose Example
+```kotlin
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
+
+// ViewModel
+data class TaskUiState(
+    val tasks: List<TaskItem> = emptyList(),
+    val isLoading: Boolean = false,
+    val error: String? = null
+)
+
+class TaskViewModel(private val repository: TaskRepository) : ViewModel() {
+    private val _uiState = MutableStateFlow(TaskUiState())
+    val uiState: StateFlow<TaskUiState> = _uiState.asStateFlow()
+
+    fun loadTasks() {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isLoading = true)
+            try {
+                val tasks = repository.fetchTasks()
+                _uiState.value = TaskUiState(tasks = tasks)
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(isLoading = false, error = e.message)
+            }
+        }
+    }
+
+    fun toggleCompletion(task: TaskItem) {
+        viewModelScope.launch {
+            val updated = task.copy(isCompleted = !task.isCompleted)
+            repository.update(updated)
+            _uiState.value = _uiState.value.copy(
+                tasks = _uiState.value.tasks.map { if (it.id == task.id) updated else it }
+            )
+        }
+    }
+}
+
+// Composable
+@Composable
+fun TaskListScreen(viewModel: TaskViewModel) {
+    val uiState by viewModel.uiState.collectAsState()
+
+    LaunchedEffect(Unit) { viewModel.loadTasks() }
+
+    Scaffold(topBar = {
+        TopAppBar(title = { Text("Tasks") })
+    }) { padding ->
+        if (uiState.isLoading) {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator()
+            }
+        } else {
+            LazyColumn(contentPadding = padding) {
+                items(uiState.tasks, key = { it.id }) { task ->
+                    ListItem(
+                        headlineContent = { Text(task.title) },
+                        leadingContent = {
+                            Checkbox(
+                                checked = task.isCompleted,
+                                onCheckedChange = { viewModel.toggleCompletion(task) }
+                            )
+                        }
+                    )
+                }
+            }
+        }
+    }
+}
+```
+
+### React Native Cross-Platform Example
+```typescript
+import React, { useEffect, useState, useCallback } from 'react';
+import { FlatList, Platform, StyleSheet, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+
+interface Task {
+  id: string;
+  title: string;
+  isCompleted: boolean;
+}
+
+function useTaskList() {
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function load() {
+      try {
+        const data = await TaskRepository.fetchAll();
+        setTasks(data);
+      } finally {
+        setLoading(false);
+      }
+    }
+    load();
+  }, []);
+
+  const toggle = useCallback(async (id: string) => {
+    setTasks(prev =>
+      prev.map(t => (t.id === id ? { ...t, isCompleted: !t.isCompleted } : t))
+    );
+    await TaskRepository.toggleCompletion(id);
+  }, []);
+
+  return { tasks, loading, toggle };
+}
+
+export function TaskListScreen() {
+  const { tasks, loading, toggle } = useTaskList();
+
+  return (
+    <SafeAreaView style={styles.container}>
+      <FlatList
+        data={tasks}
+        keyExtractor={item => item.id}
+        renderItem={({ item }) => (
+          <TaskRow task={item} onToggle={() => toggle(item.id)} />
+        )}
+        refreshing={loading}
+        contentContainerStyle={styles.list}
+        {...Platform.select({
+          ios: { contentInsetAdjustmentBehavior: 'automatic' },
+          android: {},
+        })}
+      />
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1 },
+  list: { paddingHorizontal: 16 },
+});
+```
+
+## Hard Performance Targets
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| App startup (cold) | < 3 seconds | Time-to-interactive from process launch |
+| Crash-free rate | > 99.5% | Crashlytics/Sentry session tracking |
+| Memory baseline | < 100 MB | Instruments/Android Profiler at idle |
+| Battery drain | < 5% per hour | Active use measurement (XCTest Energy, Battery Historian) |
+| Frame rate | 60 FPS minimum, 120 FPS on ProMotion | Continuous profiling in release builds |
+| App size | < 50 MB initial download | App Store / Play Store download size |
+| API response handling | < 200ms perceived | Skeleton screens + optimistic updates |
