@@ -89,6 +89,10 @@
       "environment": {
         "OPENAPI_MCP_HEADERS": "{\"Authorization\": \"Bearer ${NOTION_API_KEY}\", \"Notion-Version\": \"2022-06-28\"}"
       }
+    },
+    "drawio": {
+      "type": "local",
+      "command": ["npx", "-y", "drawio-mcp-server", "--editor"]
     }
   }
 }

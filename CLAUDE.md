@@ -58,7 +58,7 @@ Templates use Go text/template with chezmoi data. Common patterns:
 {{- end }}
 ```
 
-Available data in templates: `.chezmoi.os`, `.chezmoi.arch`, `.chezmoi.hostname`, `.chezmoi.homeDir`, plus custom data from `chezmoi.toml` (`.github_user`, `.name`, `.email`).
+Available data in templates: `.chezmoi.os`, `.chezmoi.arch`, `.chezmoi.hostname`, `.chezmoi.homeDir`, plus custom data from `chezmoi.toml` (`.github_user`, `.name`, `.email`, `.work_email`, `.xdgDataDir`, `.xdgConfigDir`, `.xdgCacheDir`, `.xdgStateDir`).
 
 ## Architecture
 
@@ -92,16 +92,42 @@ Configuration adapts based on:
 - **Windows** (`eq .chezmoi.os "windows"`): Scoop packages, minimal config (git, tmux, bash)
 
 ### Key Directories
-- `dot_config/` - XDG config files (nvim, starship, tmux, wezterm, etc.)
+- `dot_config/` - XDG config files (nvim, starship, tmux, wezterm, aerospace, sketchybar, etc.)
+- `dot_claude/` - Claude Code config (agents, skills, hooks, settings)
+- `dot_config/opencode/` - OpenCode config (MCP servers mirror Claude)
 - `dot_private/` - Brewfiles (`Brewfile_pro`, `Brewfile_personal`, `Brewfile_common`)
-- `dot_local/bin/` - Custom scripts (e.g., `breww` - Homebrew wrapper with auto-sync)
+- `dot_local/bin/` - Custom scripts (`breww`, `update-claude-agents`, `claude-init`)
 - `dot_ssh/` - SSH config with 1Password integration (templated)
+
+### AI Tools (`dot_claude/`)
+- `agents/` - 100+ specialized sub-agents (from VoltAgent/awesome-claude-code-subagents)
+- `skills/` - 84 skills (from jeffallan/claude-skills + awesome-llm-apps)
+- `hooks/` - `rtk-rewrite.sh` (token optimization), `claude-island-state.py` (state tracking)
+- `private_settings.json.tmpl` - Permissions, hooks, MCP servers (15 configured)
+
+### macOS Desktop (`dot_config/aerospace/`, `dot_config/sketchybar/`)
+- Aerospace tiling WM config at `~/.config/aerospace/aerospace.toml`
+- Sketchybar status bar with Catppuccin Mocha pill-style items
+- Workspace icons updated via polling script
+
+### Mail (`dot_config/isync/`, `dot_config/msmtp/`, `dot_config/neomutt/`)
+- mbsync (isync) for IMAP sync, msmtp for SMTP
+- neomutt as mail client
+- Passwords via 1Password CLI (`op read`)
 
 ### Shell Aliases
 - `ca` - chezmoi apply -v
 - `cu` - chezmoi update -v
 - `cup` - chezmoi update + package updates (all platforms)
 - `c` - chezmoi (shortcut)
+
+## Security Notes
+
+- Secrets are managed via 1Password CLI (`op`) or environment variables -- never hardcoded
+- Files with `private_` prefix get 0600 permissions
+- SSH config is pulled from 1Password document (conditional on `op` being available)
+- MCP server tokens use `${ENV_VAR}` references resolved at runtime
+- `secrets.zsh` is excluded from chezmoi tracking via `.chezmoiignore.tmpl`
 
 ## Lua Diagnostics Note
 

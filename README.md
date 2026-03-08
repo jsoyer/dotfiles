@@ -44,6 +44,7 @@ This setup uses `chezmoi`'s templating capabilities to apply different configura
 
 ### Terminal Emulators
 - **WezTerm** - Primary (GPU-accelerated, Lua config)
+- **Ghostty** - Fast, native alternative
 - **Alacritty** - Lightweight alternative
 - **Kitty** - Feature-rich option
 
@@ -67,13 +68,27 @@ This setup uses `chezmoi`'s templating capabilities to apply different configura
 | `grep` | `ripgrep` | Faster searching |
 | `vim` | `neovim` | Hyperextensible Vim |
 
+### macOS Desktop
+- **Aerospace** - Tiling window manager (i3-like, vim keybindings)
+- **Sketchybar** - Custom status bar (Catppuccin Mocha, pill-style)
+
+### Email
+- **NeoMutt** - Terminal email client
+- **mbsync (isync)** - IMAP synchronization
+- **msmtp** - SMTP relay
+- **notmuch** - Email indexing and search
+
+### AI Tools
+- **Claude Code** - AI coding assistant (100 agents, 84 skills, 15 MCP servers)
+- **OpenCode** - Alternative AI coding CLI (shared MCP config)
+- **RTK** - Token optimization proxy for Claude Code
+
 ### Other Tools
 - **FZF** - Fuzzy finder
 - **Vivid** - LS_COLORS generator
 - **TheFuck** - Command corrector
+- **LazyGit** - Terminal Git UI
 - **Git, Jujutsu, Brew, Chezmoi** - Version control and system management with extensive custom aliases.
-
----
 
 ---
 
@@ -216,7 +231,6 @@ brew install \
 ### Fonts
 
 ```bash
-brew tap homebrew/cask-fonts
 brew install --cask \
   font-jetbrains-mono-nerd-font \
   font-fira-code-nerd-font \
@@ -363,77 +377,62 @@ chezmoi update  # Pull + apply automatically
 
 ```
 ~/.local/share/chezmoi/
-├── .chezmoiscripts/
-│   ├── 01-setup/                    # System prerequisites
-│   │   ├── run_once_setup-macos.sh
-│   │   └── run_once_setup-linux.sh
-│   ├── 02-install/                 # Package installation
-│   │   ├── run_once_install-linux-packages.sh
-│   │   ├── run_once_install-linux-flatpak.sh
-│   │   ├── run_once_install-1password.sh
-│   │   ├── run_once_install-windows-packages.ps1
-│   │   └── run_onchange_after_brew-bundle.sh
-│   ├── 03-configure/               # Post-install configuration
-│   │   ├── run_once_configure-linux.sh
-│   │   ├── run_once_configure-macos.sh
-│   │   └── run_once_configure-gpg.sh
-│   ├── 04-update/                  # Package updates
-│   │   ├── run_onchange_update-homebrew.sh
-│   │   ├── run_onchange_update-linux.sh
-│   │   ├── run_onchange_update-appstore.sh
-│   │   └── run_onchange_update-windows.ps1
-│   └── 05-maintenance/              # Maintenance
-│       └── run_onchange_always_maintenance-container.sh
+├── .chezmoiscripts/                    # Lifecycle scripts (numbered phases)
+│   ├── 01-setup/                       # System prerequisites (Xcode, Homebrew)
+│   ├── 02-install/                     # Package installation (1Password, brew, dnf)
+│   ├── 03-configure/                   # Post-install config (GPG, mail)
+│   ├── 04-update/                      # Package updates (Homebrew, App Store, dnf)
+│   └── 05-maintenance/                 # Container maintenance
+├── dot_claude/                         # Claude Code AI assistant
+│   ├── agents/                         # 100+ specialized sub-agents
+│   ├── skills/                         # 84 skills (slash commands)
+│   ├── hooks/                          # Event hooks (RTK, state tracking)
+│   └── private_settings.json.tmpl      # Permissions, MCP servers
 ├── dot_config/
-│   ├── alacritty/
-│   │   └── alacritty.toml
-│   ├── atuin/
-│   │   └── config.toml
-│   ├── bat/
-│   │   └── config
-│   ├── fish/
-│   │   └── config.fish
-│   ├── kitty/
-│   │   └── kitty.conf
-│   ├── nushell/
-│   │   ├── config.nu
-│   │   └── env.nu
-│   ├── nvim/
-│   │   └── (neovim config)
-│   ├── starship/
-│   │   ├── starship.toml
-│   │   └── starship-nushell.toml
-│   ├── tmux/
-│   │   └── tmux.conf
-│   ├── wezterm/
-│   │   └── wezterm.lua
-│   └── zellij/
-│       └── config.kdl
-├── dot_zsh/
-│   ├── 00-env.zsh
-│   ├── 01-path.zsh
-│   ├── 02-completions.zsh
-│   ├── 10-aliases.zsh
-│   ├── 20-functions.zsh
-│   ├── 30-keybindings.zsh
-│   ├── 99-integrations.zsh
-│   ├── README.md
-│   └── secrets.zsh
-├── dot_bash/
-│   ├── 00-env.bash
-│   ├── 01-path.bash
-│   ├── 10-aliases.bash
-│   ├── 20-functions.bash
-│   ├── 99-integrations.bash
-│   └── README.md
-├── dot_bashrc
-├── dot_zshrc
-├── dot_zshenv
-├── dot_zprofile
+│   ├── aerospace/                      # Tiling window manager (macOS)
+│   ├── alacritty/                      # Terminal emulator
+│   ├── atuin/                          # Shell history sync
+│   ├── bat/                            # Syntax-highlighted cat
+│   ├── ghostty/                        # Terminal emulator
+│   ├── isync/                          # IMAP sync (mbsync)
+│   ├── kitty/                          # Terminal emulator
+│   ├── lazygit/                        # Terminal Git UI
+│   ├── msmtp/                          # SMTP relay
+│   ├── neomutt/                        # Email client
+│   ├── nushell/                        # Structured data shell
+│   ├── nvim/                           # Neovim editor (LazyVim)
+│   ├── opencode/                       # OpenCode AI assistant
+│   ├── private_fish/                   # Fish shell (restricted)
+│   ├── sketchybar/                     # macOS status bar
+│   ├── starship/                       # Cross-shell prompt
+│   ├── tmux/                           # Terminal multiplexer
+│   ├── wezterm/                        # Terminal emulator (primary)
+│   ├── zed/                            # Zed editor
+│   ├── zellij/                         # Rust multiplexer
+│   └── CONFIGURATION_INDEX.md          # Tool index documentation
+├── dot_zsh/                            # Modular Zsh configuration
+│   ├── 00-env.zsh                      # Environment variables
+│   ├── 01-path.zsh                     # PATH management
+│   ├── 02-completions.zsh              # Completion system
+│   ├── 10-aliases.zsh                  # Command aliases
+│   ├── 20-functions.zsh                # Custom functions
+│   ├── 30-keybindings.zsh              # Vim-style keybindings
+│   ├── 99-integrations.zsh             # FZF, Atuin, plugins
+│   └── README.md                       # Zsh documentation
+├── dot_bash/                           # Bash fallback configuration
+├── dot_private/                        # Brewfiles (restricted 0600)
+├── dot_ssh/                            # SSH config (1Password-integrated)
+├── dot_local/bin/                      # Custom scripts
+│   ├── executable_breww                # Homebrew wrapper with auto-sync
+│   ├── executable_update-claude-agents # Agent updater
+│   └── executable_claude-init          # CLAUDE.md generator for new projects
 ├── scripts/
 │   ├── bootstrap.sh                    # Multiplatform bootstrap (macOS/Linux)
 │   └── bootstrap.ps1                   # Windows bootstrap (PowerShell/Scoop)
 ├── .chezmoi.toml.tmpl                  # Chezmoi configuration template
+├── .chezmoiignore.tmpl                 # Platform-specific file exclusions
+├── .chezmoiexternal.toml.tmpl          # External git repos (Oh-My-Zsh, TPM)
+├── CLAUDE.md                           # Claude Code instructions
 └── README.md                           # This file
 ```
 
@@ -464,19 +463,47 @@ This means when you use `chezmoi re-add`, it automatically:
 
 ---
 
-## 🔐 Managing Secrets
+## 🔐 Security & Secrets
 
-For sensitive files like API keys or tokens:
+### Secret Management Strategy
 
-```bash
-# Add encrypted file
-chezmoi add --encrypt ~/.zsh/secrets.zsh
+| Method | Used For |
+|--------|----------|
+| **1Password CLI (`op`)** | SSH keys, mail passwords, GPG signing |
+| **Environment variables** | API tokens (GitHub, Slack, etc.) |
+| **chezmoi templates** | Machine-specific emails, hostnames |
+| **`private_` prefix** | Files requiring 0600 permissions |
+| **`secrets.zsh`** | Local-only tokens (excluded from git) |
 
-# Chezmoi will prompt for a passphrase
-# File will be encrypted in the repo
+### 1Password Integration
+
+SSH config, git signing, and mail passwords are fetched from 1Password at apply time:
+
+```go
+// SSH config pulled from 1Password document
+{{ onepasswordDocument "wf34z662n2u3kn5jhrmrmo3o4u" }}
+
+// Mail password at runtime
+passwordeval "op read 'op://Private/Gmail NeoMutt/password'"
 ```
 
-On new machines, chezmoi will decrypt automatically (with your passphrase).
+Files depending on `op` are conditionally ignored when the CLI is unavailable.
+
+### MCP Server Tokens
+
+Claude Code and OpenCode MCP servers reference environment variables -- never hardcoded:
+
+```json
+"GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_TOKEN}"
+```
+
+Required env vars: `GITHUB_TOKEN`, `SLACK_BOT_TOKEN`, `SLACK_TEAM_ID`, `BRAVE_API_KEY`, `LINEAR_API_KEY`, `DISCORD_TOKEN`, `OBSIDIAN_API_KEY`, `NOTION_API_KEY`.
+
+### Adding Encrypted Files
+
+```bash
+chezmoi add --encrypt ~/.zsh/secrets.zsh
+```
 
 ---
 
@@ -676,7 +703,7 @@ These dotfiles are based on various open-source projects and personal customizat
 
 ---
 
-**Last Updated:** 2025-12-30  
+**Last Updated:** 2026-03-08
 **Maintained by:** Jerome Soyer (@jsoyer)
 
 ---
@@ -704,7 +731,7 @@ chezmoi status
 chezmoi managed
 ```
 
-Happy configuring! 🎉
+Happy configuring!
 
 ---
 

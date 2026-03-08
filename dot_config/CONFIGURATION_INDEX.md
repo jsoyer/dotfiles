@@ -18,9 +18,9 @@ This document provides an overview of all configured tools in your development e
 
 ## Overview
 
-**Total Configured Tools**: 15+
+**Total Configured Tools**: 25+
 **Theme**: Catppuccin Mocha across all tools
-**Configuration Location**: `~/.config/`
+**Configuration Location**: `~/.config/`, `~/.claude/`
 **Dotfiles Manager**: Chezmoi with GitHub sync
 
 ### Theme Philosophy
@@ -395,6 +395,93 @@ zi         # Interactive selection
 
 ---
 
+## macOS Desktop
+
+### 1. Aerospace (Tiling WM)
+**Location**: `~/.config/aerospace/`
+
+**Features**:
+- i3-like tiling window manager for macOS
+- Vim-style navigation (alt+h/j/k/l)
+- App shortcuts (alt+b Brave, alt+i Ghostty, alt+s Slack, etc.)
+- Workspace-to-monitor assignment (1-5 main, 6-7 secondary)
+- Floating rules for Finder, Calculator, System Settings
+- Sketchybar integration (workspace change events)
+
+**Key Bindings**:
+```
+alt+h/j/k/l        Focus left/down/up/right
+alt+shift+h/j/k/l  Move window
+alt+1-7             Switch workspace
+alt+shift+1-7       Move window to workspace
+alt+e               Toggle tiles layout
+alt+f               Fullscreen
+alt+shift+;         Service mode (r=reset, f=float toggle)
+```
+
+### 2. Sketchybar (Status Bar)
+**Location**: `~/.config/sketchybar/`
+
+**Features**:
+- Catppuccin Mocha pill-style items
+- Height 35px, blur radius 30
+- Workspace icons updated via polling (5s)
+- Media: album artwork display
+- Items: workspace, front_app, media, battery, clock
+
+**Reload**: `sketchybar --reload`
+
+---
+
+## Email
+
+### NeoMutt + mbsync + msmtp
+**Location**: `~/.config/neomutt/`, `~/.config/isync/`, `~/.config/msmtp/`
+
+**Features**:
+- Gmail IMAP sync via mbsync (isync)
+- SMTP via msmtp
+- Passwords from 1Password CLI (`op read`)
+- notmuch for full-text search and indexing
+
+**Workflow**:
+```bash
+mbsync -a          # Sync all mail
+notmuch new        # Index new messages
+neomutt            # Open mail client
+```
+
+---
+
+## AI Tools
+
+### 1. Claude Code
+**Location**: `~/.claude/`
+
+**Features**:
+- 100+ specialized sub-agents for different domains
+- 84 skills (slash commands for expertise areas)
+- 15 MCP servers (GitHub, Notion, Slack, DrawIO, etc.)
+- RTK hook for token optimization (60-90% savings)
+- State tracking hook (claude-island-state.py)
+
+**Key Components**:
+```
+~/.claude/
+├── agents/                 # 100+ domain-specific agents
+├── skills/                 # 84 expertise skills
+├── hooks/                  # Event hooks
+├── settings.json           # Permissions + MCP servers
+├── CLAUDE.md               # Global instructions
+└── RTK.md                  # Token optimization guide
+```
+
+### 2. OpenCode
+**Location**: `~/.config/opencode/`
+Mirrors Claude Code MCP server configuration.
+
+---
+
 ## Other Applications
 
 ### OBS Studio
@@ -448,6 +535,11 @@ All tools use **Catppuccin Mocha**:
 | Bat           | CLI Tool     | `~/.config/bat/`             | ✅     |
 | Vivid         | CLI Tool     | Zsh config                   | ✅     |
 | FZF           | CLI Tool     | Zsh config                   | ✅     |
+| Ghostty       | Terminal     | `~/.config/ghostty/`         | ✅     |
+| Aerospace     | Window Mgr   | `~/.config/aerospace/`       | ✅     |
+| Sketchybar    | Status Bar   | `~/.config/sketchybar/`      | ✅     |
+| NeoMutt       | Email        | `~/.config/neomutt/`         | ✅     |
+| LazyGit       | Git UI       | `~/.config/lazygit/`         | ✅     |
 | OBS Studio    | Streaming    | `~/Library/.../obs-studio/`  | ✅     |
 
 ### Catppuccin Mocha Color Reference
@@ -631,25 +723,27 @@ grep -r "#1e1e2e" ~/.config/  # Base color
 
 ## Summary Statistics
 
-**Total Configured Tools**: 15+
-**Total Documentation**: ~5,000+ lines
-**Configuration Files**: 50+ files
+**Total Configured Tools**: 25+
+**Total Documentation**: ~6,000+ lines
+**Configuration Files**: 60+ files
 **Theme**: Catppuccin Mocha (100% consistent)
 **Dotfiles Manager**: Chezmoi with GitHub sync
 
-### Recent Updates (2025-12-30)
-- ✅ Added Vivid for LS_COLORS generation
-- ✅ Enhanced Bat with italic text & mouse scroll
-- ✅ Updated Atuin with vim keybindings & fuzzy search
-- ✅ Improved Alacritty with Nushell integration
-- ✅ Added comprehensive README for dotfiles repo
+### Recent Updates (2026-03-08)
+- Added Aerospace tiling WM + Sketchybar status bar
+- Added Ghostty terminal emulator
+- Added email stack (NeoMutt + mbsync + msmtp)
+- Added Claude Code (100 agents, 84 skills, 15 MCP servers)
+- Added OpenCode with shared MCP config
+- Added DrawIO MCP server for diagram generation
+- Aerospace config moved to XDG path (`~/.config/aerospace/`)
 
 ---
 
-**Last Updated**: 2025-12-30
+**Last Updated**: 2026-03-08
 **Theme**: Catppuccin Mocha
-**Configured Tools**: 15+
-**Status**: ✅ All documented, themed, and synced
+**Configured Tools**: 25+
+**Status**: All documented, themed, and synced
 
 ---
 
@@ -662,4 +756,4 @@ All terminals, shells, and tools share:
 - **Same prompt**: Starship with consistent format
 - **Same keybindings**: Vim-first approach everywhere
 
-This creates a seamless, beautiful development environment! 🎨✨
+This creates a seamless, beautiful development environment.
