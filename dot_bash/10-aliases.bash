@@ -267,3 +267,10 @@ alias jui='jjui'
 alias jundo='jj undo'
 alias jp='jj git push'
 alias jf='jj git fetch'
+
+# ============================================================================
+# Claude Code
+# ============================================================================
+alias cco='claude --model opus'
+alias ccs='claude --model sonnet'
+alias cch='claude --model haiku'

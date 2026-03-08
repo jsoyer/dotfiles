@@ -213,6 +213,13 @@ cu() {
   chezmoi update -v "$@"
 }
 
+# ============================================================================
+# Claude Code
+# ============================================================================
+alias cco='claude --model opus'
+alias ccs='claude --model sonnet'
+alias cch='claude --model haiku'
+
 # Chezmoi update + package updates
 cup() {
   cu "$@"
