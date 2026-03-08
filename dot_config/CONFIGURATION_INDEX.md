@@ -125,7 +125,26 @@ cat='bat'                                  # Bat with syntax highlighting
 http='xh'                                  # Modern HTTP client
 ```
 
-### 2. Fish
+### 2. Bash
+**Location**: `~/.bash/` and `~/.bashrc`
+
+**Features**:
+- Modular configuration (numbered files like zsh)
+- Starship prompt
+- Same aliases as zsh (git, docker, k8s, chezmoi, python, etc.)
+- Cross-platform clipboard in FZF functions
+
+**Configuration Files**:
+```
+~/.bash/
+├── 00-env.bash           # Environment variables
+├── 01-path.bash          # PATH management
+├── 10-aliases.bash       # Aliases (eza, bat, nvim, etc.)
+├── 20-functions.bash     # Custom FZF functions
+└── 99-integrations.bash  # External integrations
+```
+
+### 3. Fish
 **Location**: `~/.config/fish/`
 **Documentation**: [README.md](fish/README.md)
 
@@ -431,6 +450,29 @@ alt+shift+;         Service mode (r=reset, f=float toggle)
 
 **Reload**: `sketchybar --reload`
 
+### 3. Komorebi (Windows Tiling WM)
+**Location**: `~/.config/komorebi/`
+
+**Features**:
+- Tiling window manager for Windows (BSP layout)
+- Catppuccin Mocha border colors
+- 7 workspaces (5 main + 2 secondary monitor)
+- Keybindings mirror Aerospace (alt+hjkl, alt+1-7)
+- Float rules for Calculator, System Settings, 1Password
+
+**Key Files**:
+- `komorebi.json` — Main config with border colors and workspace layout
+- `whkdrc` — Hotkey bindings (whkd daemon)
+
+**Keybindings** (matches Aerospace):
+```
+alt+h/j/k/l        Focus left/down/up/right
+alt+shift+h/j/k/l  Move window
+alt+1-7             Switch workspace
+alt+f               Toggle monocle (fullscreen)
+alt+shift+r         Reload config
+```
+
 ---
 
 ## Email
@@ -459,7 +501,7 @@ neomutt            # Open mail client
 **Location**: `~/.claude/`
 
 **Features**:
-- 100+ specialized sub-agents for different domains
+- 165 specialized sub-agents for different domains
 - 84 skills (slash commands for expertise areas)
 - 15 MCP servers (GitHub, Notion, Slack, DrawIO, etc.)
 - RTK hook for token optimization (60-90% savings)
@@ -468,7 +510,7 @@ neomutt            # Open mail client
 **Key Components**:
 ```
 ~/.claude/
-├── agents/                 # 100+ domain-specific agents
+├── agents/                 # 165 domain-specific agents
 ├── skills/                 # 84 expertise skills
 ├── hooks/                  # Event hooks
 ├── settings.json           # Permissions + MCP servers
@@ -508,10 +550,10 @@ Style: Mocha
 | Platform | Bootstrap | Package Manager | Configs Applied |
 |----------|-----------|-----------------|-----------------|
 | **macOS** | `bootstrap.sh` | Homebrew | All (shells, terminals, editors, CLI tools) |
-| **Fedora Standard** | `bootstrap.sh` | dnf + COPR | All except Homebrew-specific |
+| **Fedora Standard** | `bootstrap.sh` | dnf + Linuxbrew | All except Homebrew-specific |
 | **Fedora Atomic** | `bootstrap.sh` | rpm-ostree + Flatpak | All except Homebrew-specific |
-| **Raspberry Pi** | `bootstrap.sh` | apt | All with Gruvbox Dark theme |
-| **Windows** | `bootstrap.ps1` | Scoop | Minimal (git, tmux, bash) |
+| **Raspberry Pi** | `bootstrap.sh` | apt + Linuxbrew | All with Gruvbox Dark theme |
+| **Windows** | `bootstrap.ps1` | Scoop | Minimal (git, tmux, bash, komorebi, whkd) |
 
 ---
 
@@ -540,6 +582,7 @@ All tools use **Catppuccin Mocha**:
 | Sketchybar    | Status Bar   | `~/.config/sketchybar/`      | ✅     |
 | NeoMutt       | Email        | `~/.config/neomutt/`         | ✅     |
 | LazyGit       | Git UI       | `~/.config/lazygit/`         | ✅     |
+| Komorebi      | Window Mgr   | `~/.config/komorebi/`        | ✅     |
 | OBS Studio    | Streaming    | `~/Library/.../obs-studio/`  | ✅     |
 
 ### Catppuccin Mocha Color Reference
@@ -603,6 +646,9 @@ All tools use **Catppuccin Mocha**:
 │   └── themes/Catppuccin Mocha.theme
 ├── kitty/
 │   └── kitty.conf
+├── komorebi/
+│   ├── komorebi.json
+│   └── whkdrc
 ├── nvim/
 │   └── lua/plugins/core/colorscheme.lua
 ├── nushell/
@@ -730,13 +776,17 @@ grep -r "#1e1e2e" ~/.config/  # Base color
 **Dotfiles Manager**: Chezmoi with GitHub sync
 
 ### Recent Updates (2026-03-08)
+- Added Komorebi tiling WM for Windows (mirrors Aerospace keybindings)
+- Claude Code agents: 165 (131 VoltAgent + 22 agency + 9 custom + 3 cloud)
+- Homebrew on Linux (Linuxbrew) with profile-based Brewfiles
+- Age encryption with 1Password integration
+- Shell aliases synced across all 4 shells (zsh, bash, fish, nushell)
+- FZF functions (cx, fcd, f, fv) in all 4 shells with fd + cross-platform clipboard
+- Shell integrations (Atuin, Direnv, TheFuck) added to fish and nushell
 - Added Aerospace tiling WM + Sketchybar status bar
 - Added Ghostty terminal emulator
 - Added email stack (NeoMutt + mbsync + msmtp)
-- Added Claude Code (100 agents, 84 skills, 15 MCP servers)
 - Added OpenCode with shared MCP config
-- Added DrawIO MCP server for diagram generation
-- Aerospace config moved to XDG path (`~/.config/aerospace/`)
 
 ---
 

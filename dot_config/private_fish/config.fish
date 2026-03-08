@@ -514,6 +514,41 @@ function dupdel
 end
 
 # ============================================================================
+# Custom functions (FZF-powered)
+# ============================================================================
+function cx --description 'cd and list'
+    cd $argv; and l
+end
+
+function fcd --description 'FZF directory navigation'
+    set -l dir (fd --type d --hidden --exclude .git | fzf)
+    if test -n "$dir"
+        cd $dir; and l
+    end
+end
+
+function f --description 'Copy file path to clipboard via FZF'
+    set -l file (fd --type f --hidden --exclude .git | fzf)
+    if test -n "$file"
+        if command -q pbcopy
+            echo -n $file | pbcopy
+        else if command -q wl-copy
+            echo -n $file | wl-copy
+        else if command -q xclip
+            echo -n $file | xclip -selection clipboard
+        end
+        echo "Copied to clipboard: $file"
+    end
+end
+
+function fv --description 'Open file in nvim via FZF'
+    set -l file (fd --type f --hidden --exclude .git | fzf)
+    if test -n "$file"
+        nvim $file
+    end
+end
+
+# ============================================================================
 # Zoxide (smart cd)
 # ============================================================================
 if command -q zoxide

@@ -2,39 +2,49 @@
 # shellcheck shell=bash
 # Custom functions
 
+# Cross-platform clipboard helper
+_clip() {
+  if command -v pbcopy &>/dev/null; then
+    pbcopy
+  elif command -v wl-copy &>/dev/null; then
+    wl-copy
+  elif command -v xclip &>/dev/null; then
+    xclip -selection clipboard
+  else
+    echo "(clipboard not available)" >&2
+    cat >/dev/null
+  fi
+}
+
 # Navigation with automatic listing
-# Usage: cx /path/to/dir
 cx() {
   cd "$@" && l
 }
 
 # FZF-powered directory navigation
-# Usage: fcd (then select from fuzzy finder)
 fcd() {
   local dir
-  dir=$(find . -type d -not -path '*/.*' | fzf)
-  if [[ -n ${dir} ]]; then
+  dir=$(fd --type d --hidden --exclude .git | fzf)
+  if [[ -n "${dir}" ]]; then
     cd "${dir}" && l
   fi
 }
 
 # Copy file path to clipboard using FZF
-# Usage: f (then select from fuzzy finder)
 f() {
   local file
-  file=$(find . -type f -not -path '*/.*' | fzf)
-  if [[ -n ${file} ]]; then
-    echo "${file}" | pbcopy
+  file=$(fd --type f --hidden --exclude .git | fzf)
+  if [[ -n "${file}" ]]; then
+    echo -n "${file}" | _clip
     echo "Copied to clipboard: ${file}"
   fi
 }
 
 # Open file in nvim via FZF
-# Usage: fv (then select from fuzzy finder)
 fv() {
   local file
-  file=$(find . -type f -not -path '*/.*' | fzf)
-    if [[ -n ${file} ]]; then
-      nvim "${file}"
-    fi
-  }
+  file=$(fd --type f --hidden --exclude .git | fzf)
+  if [[ -n "${file}" ]]; then
+    nvim "${file}"
+  fi
+}

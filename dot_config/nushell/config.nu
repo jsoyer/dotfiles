@@ -895,6 +895,29 @@ def --env cx [arg] {
     ls -l
 }
 
+def --env fcd [] {
+    let dir = (fd --type d --hidden --exclude .git | fzf)
+    if ($dir | is-not-empty) {
+        cd $dir
+        ls -l
+    }
+}
+
+def f [] {
+    let file = (fd --type f --hidden --exclude .git | fzf)
+    if ($file | is-not-empty) {
+        $file | pbcopy
+        print $"Copied to clipboard: ($file)"
+    }
+}
+
+def fv [] {
+    let file = (fd --type f --hidden --exclude .git | fzf)
+    if ($file | is-not-empty) {
+        ^nvim $file
+    }
+}
+
 def ff [] {
     aerospace list-windows --all | fzf --bind 'enter:execute(bash -c "aerospace focus --window-id {1}")+abort'
 }
