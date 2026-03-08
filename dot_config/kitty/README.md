@@ -1,238 +1,238 @@
-# 🐱 Configuration Kitty
+# Kitty Configuration
 
-Configuration personnalisée de Kitty basée sur Ghostty, WezTerm et Alacritty.
+Customized Kitty configuration based on Ghostty, WezTerm and Alacritty.
 
-## 🎨 Thème
+## Theme
 
-**Catppuccin Mocha** - Un thème sombre et apaisant avec des couleurs pastel.
+**Catppuccin Mocha** - A dark and soothing theme with pastel colors.
 
-## 🔤 Police
+## Font
 
-- **Famille:** JetBrainsMono Nerd Font
-- **Taille:** 12px
-- **Ligatures:** Activées
+- **Family:** JetBrainsMono Nerd Font
+- **Size:** 12px
+- **Ligatures:** Enabled
 
-## 🐚 Shell
+## Shell
 
-Par défaut, Nushell (nu) est configuré comme shell.
+By default, Nushell (nu) is configured as the shell.
 
 ```conf
 shell /opt/homebrew/bin/nu
 ```
 
-**Note importante:** Assurez-vous que le PATH de Homebrew est configuré dans votre `env.nu` avant l'initialisation de Starship et autres outils.
+**Important note:** Make sure the Homebrew PATH is configured in your `env.nu` before initializing Starship and other tools.
 
-## ✨ Apparence
+## Appearance
 
-### 🪟 Fenêtre
-- **Padding:** 12px de chaque côté
-- **Décorations:** Barre de titre masquée (titlebar-only)
-- **Opacité:** 0.9 (90%)
-- **Blur:** Activé avec intensité de 30
+### Window
+- **Padding:** 12px on each side
+- **Decorations:** Title bar hidden (titlebar-only)
+- **Opacity:** 0.9 (90%)
+- **Blur:** Enabled with intensity of 30
 
-### 💫 Curseur
-- **Forme:** Block (bloc)
-- **Clignotement:** Désactivé
+### Cursor
+- **Shape:** Block
+- **Blinking:** Disabled
 
-### 📑 Barre d'onglets
-- **Position:** En haut
-- **Style:** Powerline avec effet slanted
-- **Affichage:** Toujours visible
+### Tab Bar
+- **Position:** Top
+- **Style:** Powerline with slanted effect
+- **Display:** Always visible
 
-## ⚙️ Fonctionnalités
+## Features
 
-### 📋 Sélection
-- **Copy on select:** Activé - Le texte sélectionné est automatiquement copié dans le presse-papiers
+### Selection
+- **Copy on select:** Enabled - Selected text is automatically copied to clipboard
 
-### 📜 Scrollback
-- **Historique:** 10 000 lignes
-- **Multiplicateur de défilement:** 5x
+### Scrollback
+- **History:** 10,000 lines
+- **Scroll multiplier:** 5x
 
-### 💻 Terminal
+### Terminal
 - **TERM:** xterm-256color
 
-### 🔔 Cloche
-- **Audio:** Désactivée
-- **Visuel:** Désactivée
+### Bell
+- **Audio:** Disabled
+- **Visual:** Disabled
 
-## ⌨️ Raccourcis clavier
+## Keyboard Shortcuts
 
-### 📋 Copier/Coller
-- `Cmd+C` / `Ctrl+Shift+C` - Copier
-- `Cmd+V` / `Ctrl+Shift+V` - Coller
+### Copy/Paste
+- `Cmd+C` / `Ctrl+Shift+C` - Copy
+- `Cmd+V` / `Ctrl+Shift+V` - Paste
 
-### 🔍 Recherche
-- `Cmd+F` / `Ctrl+Shift+F` - Recherche avec fzf
+### Search
+- `Cmd+F` / `Ctrl+Shift+F` - Search with fzf
 
-### 🔠 Taille de police
-- `Cmd+=` / `Ctrl+=` - Augmenter la taille
-- `Cmd+-` / `Ctrl+-` - Diminuer la taille
-- `Cmd+0` / `Ctrl+0` - Réinitialiser la taille
+### Font Size
+- `Cmd+=` / `Ctrl+=` - Increase size
+- `Cmd+-` / `Ctrl+-` - Decrease size
+- `Cmd+0` / `Ctrl+0` - Reset size
 
-### 🧭 Navigation
-- `Shift+PageUp` - Défiler vers le haut
-- `Shift+PageDown` - Défiler vers le bas
-- `Cmd+Home` - Aller au début
-- `Cmd+End` - Aller à la fin
+### Navigation
+- `Shift+PageUp` - Scroll up
+- `Shift+PageDown` - Scroll down
+- `Cmd+Home` - Go to beginning
+- `Cmd+End` - Go to end
 
-### 🪟 Gestion des fenêtres
-- `Cmd+N` / `Ctrl+Shift+N` - Nouvelle fenêtre
-- `Cmd+W` / `Ctrl+Shift+W` - Fermer la fenêtre
+### Window Management
+- `Cmd+N` / `Ctrl+Shift+N` - New window
+- `Cmd+W` / `Ctrl+Shift+W` - Close window
 
-### 📑 Gestion des onglets
-- `Cmd+T` / `Ctrl+Shift+T` - Nouvel onglet
-- `Cmd+W` / `Ctrl+Shift+X` - Fermer l'onglet
-- `Cmd+]` / `Ctrl+Shift+]` - Onglet suivant
-- `Cmd+[` / `Ctrl+Shift+[` - Onglet précédent
-- `Cmd+Shift+]` - Déplacer l'onglet vers l'avant
-- `Cmd+Shift+[` - Déplacer l'onglet vers l'arrière
-- `Cmd+1` à `Cmd+9` - Aller à l'onglet 1-9
+### Tab Management
+- `Cmd+T` / `Ctrl+Shift+T` - New tab
+- `Cmd+W` / `Ctrl+Shift+X` - Close tab
+- `Cmd+]` / `Ctrl+Shift+]` - Next tab
+- `Cmd+[` / `Ctrl+Shift+[` - Previous tab
+- `Cmd+Shift+]` - Move tab forward
+- `Cmd+Shift+[` - Move tab backward
+- `Cmd+1` to `Cmd+9` - Go to tab 1-9
 
-### 🔄 Configuration
-- `Cmd+Shift+R` / `Ctrl+Shift+R` - Recharger la configuration
+### Configuration
+- `Cmd+Shift+R` / `Ctrl+Shift+R` - Reload configuration
 
-## 🖱️ Souris
+## Mouse
 
-- **Masquage:** Le curseur n'est jamais masqué
-- **URLs:** Style souligné avec effet curly
-- **Ouverture:** Cmd+clic pour ouvrir les liens
+- **Hiding:** Cursor is never hidden
+- **URLs:** Underline style with curly effect
+- **Opening:** Cmd+click to open links
 
-## 🎨 Palette de couleurs Catppuccin Mocha
+## Catppuccin Mocha Color Palette
 
-### 🌈 Couleurs normales
-- ⬛ Noir (0): `#45475a`
-- 🔴 Rouge (1): `#f38ba8`
-- 🟢 Vert (2): `#a6e3a1`
-- 🟡 Jaune (3): `#f9e2af`
-- 🔵 Bleu (4): `#89b4fa`
-- 🟣 Magenta (5): `#f5c2e7`
-- 🩵 Cyan (6): `#94e2d5`
-- ⬜ Blanc (7): `#bac2de`
+### Normal Colors
+- Black (0): `#45475a`
+- Red (1): `#f38ba8`
+- Green (2): `#a6e3a1`
+- Yellow (3): `#f9e2af`
+- Blue (4): `#89b4fa`
+- Magenta (5): `#f5c2e7`
+- Cyan (6): `#94e2d5`
+- White (7): `#bac2de`
 
-### ✨ Couleurs vives
-- ⬛ Noir (8): `#585b70`
-- 🔴 Rouge (9): `#f38ba8`
-- 🟢 Vert (10): `#a6e3a1`
-- 🟡 Jaune (11): `#f9e2af`
-- 🔵 Bleu (12): `#89b4fa`
-- 🟣 Magenta (13): `#f5c2e7`
-- 🩵 Cyan (14): `#94e2d5`
-- ⬜ Blanc (15): `#a6adc8`
+### Bright Colors
+- Black (8): `#585b70`
+- Red (9): `#f38ba8`
+- Green (10): `#a6e3a1`
+- Yellow (11): `#f9e2af`
+- Blue (12): `#89b4fa`
+- Magenta (13): `#f5c2e7`
+- Cyan (14): `#94e2d5`
+- White (15): `#a6adc8`
 
-### 🎯 Couleurs principales
-- 🌑 Arrière-plan: `#1e1e2e`
-- 📄 Texte: `#cdd6f4`
-- 🖱️ Sélection (bg): `#f5e0dc`
-- 🖱️ Sélection (fg): `#1e1e2e`
-- 💫 Curseur: `#f5e0dc`
+### Primary Colors
+- Background: `#1e1e2e`
+- Text: `#cdd6f4`
+- Selection (bg): `#f5e0dc`
+- Selection (fg): `#1e1e2e`
+- Cursor: `#f5e0dc`
 
-### 📑 Couleurs des onglets
-- 🔵 Onglet actif (bg): `#89b4fa`
-- ⬛ Onglet actif (fg): `#1e1e2e`
-- 🌑 Onglet inactif (bg): `#313244`
-- 📄 Onglet inactif (fg): `#cdd6f4`
+### Tab Colors
+- Active tab (bg): `#89b4fa`
+- Active tab (fg): `#1e1e2e`
+- Inactive tab (bg): `#313244`
+- Inactive tab (fg): `#cdd6f4`
 
-## 🛠️ Personnalisation
+## Customization
 
-Pour modifier la configuration, éditez le fichier:
+To modify the configuration, edit the file:
 ```bash
 ~/.config/kitty/kitty.conf
 ```
 
-### 🔄 Changer de shell
+### Change shell
 
-Pour Fish:
+For Fish:
 ```conf
 shell /opt/homebrew/bin/fish
 ```
 
-Pour Zsh:
+For Zsh:
 ```conf
 shell /bin/zsh
 ```
 
-### 👁️ Changer l'opacité
+### Change opacity
 
 ```conf
-background_opacity 1.0  # Complètement opaque
-# ou
-background_opacity 0.8  # Plus transparent
+background_opacity 1.0  # Completely opaque
+# or
+background_opacity 0.8  # More transparent
 ```
 
-### 📏 Changer la taille de police
+### Change font size
 
 ```conf
-font_size 14.0  # Plus grande
-# ou
-font_size 10.0  # Plus petite
+font_size 14.0  # Larger
+# or
+font_size 10.0  # Smaller
 ```
 
-### 🎨 Changer le style de la barre d'onglets
+### Change tab bar style
 
 ```conf
-tab_bar_style fade      # Style fade
-# ou
-tab_bar_style separator # Style séparateur
-# ou
-tab_bar_style hidden    # Masquer la barre
+tab_bar_style fade      # Fade style
+# or
+tab_bar_style separator # Separator style
+# or
+tab_bar_style hidden    # Hide bar
 ```
 
-## 📦 Installation
+## Installation
 
-1. Installer Kitty:
+1. Install Kitty:
 ```bash
 brew install --cask kitty
 ```
 
-2. Installer la police JetBrains Mono Nerd Font:
+2. Install JetBrains Mono Nerd Font:
 ```bash
 brew tap homebrew/cask-fonts
 brew install --cask font-jetbrains-mono-nerd-font
 ```
 
-3. (Optionnel) Installer fzf pour la recherche:
+3. (Optional) Install fzf for search:
 ```bash
 brew install fzf
 ```
 
-4. La configuration est déjà en place dans `~/.config/kitty/kitty.conf`
+4. Configuration is already in place at `~/.config/kitty/kitty.conf`
 
-## 🚀 Fonctionnalités avancées de Kitty
+## Advanced Kitty Features
 
-### 🖼️ Support des images
-Kitty supporte l'affichage d'images directement dans le terminal avec le protocole Kitty graphics.
+### Image Support
+Kitty supports displaying images directly in the terminal with the Kitty graphics protocol.
 
-### 🔗 Hints (détection de liens)
-Kitty peut détecter et ouvrir automatiquement les URLs, chemins de fichiers, etc.
+### Hints (Link Detection)
+Kitty can detect and automatically open URLs, file paths, etc.
 
-### 📐 Layouts
-Kitty supporte plusieurs layouts pour organiser vos fenêtres (splits, stack, etc.)
+### Layouts
+Kitty supports multiple layouts to organize your windows (splits, stack, etc.)
 
-### 🎯 Marks
-Vous pouvez marquer du texte dans le terminal pour y revenir facilement.
+### Marks
+You can mark text in the terminal to return to it easily.
 
-## 🐚 Configuration Nushell
+## Nushell Configuration
 
-Si vous utilisez Nushell, assurez-vous que votre `env.nu` configure le PATH avant d'initialiser Starship:
+If you use Nushell, make sure your `env.nu` configures the PATH before initializing Starship:
 
 ```nu
-# Dans ~/Library/Application Support/nushell/env.nu
+# In ~/Library/Application Support/nushell/env.nu
 $env.PATH = ($env.PATH | split row (char esep) | prepend '/opt/homebrew/bin')
 ```
 
-Cela évite les erreurs "starship command not found" au démarrage.
+This avoids "starship command not found" errors on startup.
 
-## 📚 Ressources
+## Resources
 
-- 📖 [Documentation Kitty](https://sw.kovidgoyal.net/kitty/)
-- 🎨 [Catppuccin](https://github.com/catppuccin/catppuccin)
-- 🔤 [JetBrains Mono](https://www.jetbrains.com/lp/mono/)
-- 🐚 [Nushell](https://www.nushell.sh/)
-- 🔍 [fzf](https://github.com/junegunn/fzf)
+- [Kitty Documentation](https://sw.kovidgoyal.net/kitty/)
+- [Catppuccin](https://github.com/catppuccin/catppuccin)
+- [JetBrains Mono](https://www.jetbrains.com/lp/mono/)
+- [Nushell](https://www.nushell.sh/)
+- [fzf](https://github.com/junegunn/fzf)
 
-## 💡 Astuces
+## Tips
 
-- Utilisez `Cmd+Shift+R` pour recharger la config sans redémarrer Kitty
-- Les ligatures de la police sont activées pour un meilleur rendu du code
-- La recherche avec fzf permet de naviguer rapidement dans le scrollback
-- Kitty est GPU-accéléré pour des performances optimales
+- Use `Cmd+Shift+R` to reload the config without restarting Kitty
+- Font ligatures are enabled for better code rendering
+- Search with fzf allows quick navigation through scrollback
+- Kitty is GPU-accelerated for optimal performance

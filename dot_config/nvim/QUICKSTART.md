@@ -1,208 +1,208 @@
-# 🚀 Quickstart Guide
+# Quick Start Guide
 
-Guide de démarrage rapide pour votre configuration Neovim.
+Quick start guide for your Neovim configuration.
 
-## 📥 Premier lancement
+## First Launch
 
-1. **Lancer Neovim**
+1. **Launch Neovim**
    ```bash
    nvim
    ```
 
-2. **Installation automatique**
-   - Lazy.nvim installera tous les plugins automatiquement
-   - Attendez que tous les plugins soient installés
-   - Redémarrez Neovim après l'installation
+2. **Automatic installation**
+   - Lazy.nvim will install all plugins automatically
+   - Wait for all plugins to install
+   - Restart Neovim after installation
 
-3. **Vérifier la santé**
+3. **Check health**
    ```vim
    :checkhealth
    ```
 
-## 🔧 Commandes essentielles
+## Essential Commands
 
-### Gestion des plugins
+### Plugin Management
 ```vim
-:Lazy              " Ouvrir le gestionnaire de plugins
-:Lazy sync         " Installer/mettre à jour les plugins
-:Lazy clean        " Supprimer les plugins inutilisés
-:Lazy update       " Mettre à jour tous les plugins
+:Lazy              " Open plugin manager
+:Lazy sync         " Install/update plugins
+:Lazy clean        " Remove unused plugins
+:Lazy update       " Update all plugins
 ```
 
-### Gestion LSP
+### LSP Management
 ```vim
-:Mason             " Ouvrir le gestionnaire LSP
-:LspInfo           " Info sur les LSP actifs
-:LspRestart        " Redémarrer le LSP
+:Mason             " Open LSP manager
+:LspInfo           " Info about active LSP
+:LspRestart        " Restart LSP
 ```
 
 ### Treesitter
 ```vim
-:TSUpdate          " Mettre à jour les parsers
-:TSInstallInfo     " Voir les parsers installés
+:TSUpdate          " Update parsers
+:TSInstallInfo     " View installed parsers
 ```
 
-## 🎯 Workflow recommandé
+## Recommended Workflow
 
-### 1. Ouvrir un projet
+### 1. Open a project
 ```bash
-cd ~/mon-projet
+cd ~/my-project
 nvim .
 ```
 
-### 2. Navigation rapide
-- `<leader>sf` - Rechercher un fichier
-- `<leader>sg` - Rechercher du texte
-- `ff` - Toggle l'explorateur de fichiers
-- `<leader>sh` - Harpoon (fichiers favoris)
+### 2. Quick navigation
+- `<leader>sf` - Search file
+- `<leader>sg` - Search text
+- `ff` - Toggle file explorer
+- `<leader>sh` - Harpoon (favorite files)
 
-### 3. Édition
-- `gcc` - Commenter/décommenter une ligne
-- `gc` (visual) - Commenter une sélection
-- Leader + `ca` - Actions de code
-- Leader + `rn` - Renommer
+### 3. Editing
+- `gcc` - Comment/uncomment line
+- `gc` (visual) - Comment selection
+- Leader + `ca` - Code actions
+- Leader + `rn` - Rename
 
 ### 4. Git workflow
-- Leader + `gs` - Ouvrir Neogit
+- Leader + `gs` - Open Neogit
 - Leader + `gc` - Commit
 - Leader + `gp` - Pull
 - Leader + `gP` - Push
-- `]c` / `[c` - Naviguer entre les hunks
+- `]c` / `[c` - Navigate between hunks
 
 ### 5. Debugging
 - Leader + `db` - Toggle breakpoint
 - Leader + `dc` - Start/Continue debugging
 - Leader + `dt` - Toggle DAP UI
 
-## 📦 Plugins principaux
+## Main Plugins
 
-### Édition
-- **Telescope** - Recherche fuzzy (`<leader>sf`, `<leader>sg`)
-- **Harpoon** - Navigation rapide (`<leader>m`, `<leader>ht`)
-- **nvim-tree** - Explorateur de fichiers (`ff`)
-- **Flash** - Navigation rapide (`s`)
+### Editing
+- **Telescope** - Fuzzy search (`<leader>sf`, `<leader>sg`)
+- **Harpoon** - Quick navigation (`<leader>m`, `<leader>ht`)
+- **nvim-tree** - File explorer (`ff`)
+- **Flash** - Quick navigation (`s`)
 
 ### Git
-- **Neogit** - Interface Git (`<leader>gs`)
-- **Gitsigns** - Décorations Git
-- **Diffview** - Vues de diff
+- **Neogit** - Git interface (`<leader>gs`)
+- **Gitsigns** - Git decorations
+- **Diffview** - Diff views
 
 ### Code
-- **LSP** - Autocomplétion, diagnostics
+- **LSP** - Autocompletion, diagnostics
 - **Treesitter** - Syntax highlighting
-- **nvim-cmp** - Complétion
+- **nvim-cmp** - Completion
 - **DAP** - Debugging
 
-### IA
-- **Codeium** - Suggestions IA (`Ctrl-e` en insert)
-- **Gen.nvim** - LLM local (`<leader>ai`)
+### AI
+- **Codeium** - AI suggestions (`Ctrl-e` in insert)
+- **Gen.nvim** - Local LLM (`<leader>ai`)
 
 ### UI
-- **Lualine** - Barre de statut
-- **Noice** - UI améliorée
-- **WhichKey** - Aide aux raccourcis
+- **Lualine** - Status bar
+- **Noice** - Enhanced UI
+- **WhichKey** - Shortcut help
 
 ### Writing
 - **Obsidian** - Notes
-- **Zen Mode** - Mode focus (`<leader>z`)
-- **Markdown Preview** - Prévisualisation
+- **Zen Mode** - Focus mode (`<leader>z`)
+- **Markdown Preview** - Preview
 
-## ⚡ Tips de productivité
+## Productivity Tips
 
-### 1. Utiliser WhichKey
-Appuyez sur `<leader>` et attendez → WhichKey affiche tous les raccourcis disponibles
+### 1. Use WhichKey
+Press `<leader>` and wait → WhichKey shows all available shortcuts
 
-### 2. Recherche fuzzy
-- `<leader>sf` - Fichiers
-- `<leader>sg` - Contenu (grep)
-- `<leader>sb` - Buffers ouverts
+### 2. Fuzzy search
+- `<leader>sf` - Files
+- `<leader>sg` - Content (grep)
+- `<leader>sb` - Open buffers
 - `<leader>sd` - Diagnostics
 
-### 3. Harpoon pour navigation rapide
-1. `<leader>m` pour marquer un fichier important
-2. `<leader>ht` pour voir vos favoris
-3. Naviguez rapidement entre vos fichiers principaux
+### 3. Harpoon for quick navigation
+1. `<leader>m` to mark an important file
+2. `<leader>ht` to see your favorites
+3. Navigate quickly between main files
 
 ### 4. Code actions
-- `K` sur une fonction/variable → Documentation
-- `gd` → Aller à la définition
-- `gr` → Voir les références
-- `<leader>ca` → Actions de code disponibles
+- `K` on a function/variable → Documentation
+- `gd` → Go to definition
+- `gr` → View references
+- `<leader>ca` → Available code actions
 
-### 5. Git intégré
-- `<leader>gs` → Neogit (interface complète)
-- `]c` → Prochain changement
-- `<leader>hp` → Prévisualiser le changement
-- `<leader>hs` → Stage le changement
+### 5. Integrated Git
+- `<leader>gs` → Neogit (full interface)
+- `]c` → Next change
+- `<leader>hp` → Preview change
+- `<leader>hs` → Stage change
 
-## 🐛 Dépannage
+## Troubleshooting
 
-### Les plugins ne se chargent pas
+### Plugins don't load
 ```vim
 :Lazy sync
 ```
-Puis redémarrer Neovim
+Then restart Neovim
 
-### LSP ne fonctionne pas
-1. Vérifier que le serveur est installé :
+### LSP not working
+1. Check that the server is installed:
    ```vim
    :Mason
    ```
-2. Vérifier l'état du LSP :
+2. Check LSP status:
    ```vim
    :LspInfo
    ```
-3. Redémarrer le LSP :
+3. Restart LSP:
    ```vim
    :LspRestart
    ```
 
-### Treesitter ne colore pas
+### Treesitter not coloring
 ```vim
 :TSUpdate all
 ```
 
-### Performance lente
-1. Vérifier les plugins chargés :
+### Slow performance
+1. Check loaded plugins:
    ```vim
    :Lazy profile
    ```
-2. Désactiver les plugins inutiles dans `lua/plugins/`
+2. Disable unused plugins in `lua/plugins/`
 
-## 📚 Ressources
+## Resources
 
-- **Documentation Neovim** : `:help`
-- **LazyVim docs** : https://www.lazyvim.org
-- **Keybindings** : Voir `KEYBINDINGS.md`
-- **Plugins** : Voir `PLUGINS.md`
+- **Neovim Documentation**: `:help`
+- **LazyVim docs**: https://www.lazyvim.org
+- **Keybindings**: See `KEYBINDINGS.md`
+- **Plugins**: See `PLUGINS.md`
 
-## 🎓 Prochaines étapes
+## Next Steps
 
-1. **Personnaliser le colorscheme**
-   - Éditer `lua/plugins/colorscheme.lua`
+1. **Customize the colorscheme**
+   - Edit `lua/plugins/colorscheme.lua`
 
-2. **Ajouter des langages**
-   - Éditer `lua/config/lazy.lua` pour ajouter des extras LazyVim
-   - Exemple : `{ import = "lazyvim.plugins.extras.lang.python" }`
+2. **Add languages**
+   - Edit `lua/config/lazy.lua` to add LazyVim extras
+   - Example: `{ import = "lazyvim.plugins.extras.lang.python" }`
 
-3. **Créer vos propres keymaps**
-   - Éditer `lua/config/keymaps.lua`
+3. **Create your own keymaps**
+   - Edit `lua/config/keymaps.lua`
 
-4. **Ajouter des plugins**
-   - Créer un fichier dans `lua/plugins/`
-   - Utiliser la structure LazyVim
+4. **Add plugins**
+   - Create a file in `lua/plugins/`
+   - Use the LazyVim structure
 
-## 💡 Commandes utiles
+## Useful Commands
 
 ```vim
-:Telescope keymaps              " Voir tous les raccourcis
-:Telescope commands             " Voir toutes les commandes
-:Telescope help_tags            " Chercher dans l'aide
-:checkhealth                    " Vérifier la configuration
-:Lazy                          " Gestionnaire de plugins
-:Mason                         " Gestionnaire LSP/DAP/Linters
-:LspInfo                       " Info LSP
-:TSInstallInfo                 " Info Treesitter
+:Telescope keymaps              " View all shortcuts
+:Telescope commands             " View all commands
+:Telescope help_tags            " Search in help
+:checkhealth                    " Check configuration
+:Lazy                          " Plugin manager
+:Mason                         " LSP/DAP/Linters manager
+:LspInfo                       " LSP info
+:TSInstallInfo                 " Treesitter info
 ```
 
-Bon coding ! 🎉
+Happy coding!

@@ -1,10 +1,10 @@
-# Fichier Brewfile principal
-# Assemble les listes de paquets en fonction du profil de la machine.
+# Main Brewfile
+# Assembles package lists based on the machine profile.
 
-# 1. Inclure les paquets communs à tous les Macs
+# 1. Common packages for all Macs
 {{ include "dot_private/Brewfile_common" | trim }}
 
-# 2. Inclure les paquets spécifiques au profil
+# 2. Profile-specific packages
 {{ if eq .machine.profile "mac-pro" -}}
 {{ include "dot_private/Brewfile_pro" | trim }}
 {{ else -}}

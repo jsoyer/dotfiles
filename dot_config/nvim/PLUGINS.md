@@ -1,109 +1,109 @@
 # Neovim Configuration - Plugin Organization
 
-Cette configuration Neovim utilise LazyVim et organise les plugins de manière modulaire.
+This Neovim configuration uses LazyVim and organizes plugins in a modular structure.
 
-## 📁 Structure
+## Structure
 
 ```
 lua/plugins/
-├── ai.lua          # Assistants IA (Codeium, Gen.nvim)
-├── cmp.lua         # Complétion (nvim-cmp)
-├── coding.lua      # Outils de code (DAP, autopairs, comment, codesnap)
-├── colorscheme.lua # Thèmes (Catppuccin, Dracula)
-├── editor.lua      # Outils d'édition (Harpoon, nvim-tree, Trouble, Todo)
+├── ai.lua          # AI assistants (Codeium, Gen.nvim)
+├── cmp.lua         # Completion (nvim-cmp)
+├── coding.lua      # Coding tools (DAP, autopairs, comment, codesnap)
+├── colorscheme.lua # Themes (Catppuccin, Dracula)
+├── editor.lua      # Editing tools (Harpoon, nvim-tree, Trouble, Todo)
 ├── git.lua         # Git (Neogit, Gitsigns, Fugitive, Worktree, Diffview)
-├── go.lua          # Développement Go
-├── lsp.lua         # Configuration LSP
-├── telescope.lua   # Recherche fuzzy (Telescope)
-├── treesitter.lua  # Parsing de syntaxe
+├── go.lua          # Go development
+├── lsp.lua         # LSP configuration
+├── telescope.lua   # Fuzzy search (Telescope)
+├── treesitter.lua  # Syntax parsing
 ├── ui.lua          # Interface (Lualine, Noice, Notify, Indent guides)
-└── writing.lua     # Écriture (Obsidian, Markdown, Zen mode, Twilight)
+└── writing.lua     # Writing (Obsidian, Markdown, Zen mode, Twilight)
 ```
 
-## 🎯 Catégories de plugins
+## Plugin Categories
 
 ### AI (ai.lua)
-- **Gen.nvim** : LLM local (Ollama/Llama)
-- **Codeium** : Suggestions de code IA
+- **Gen.nvim** - Local LLM (Ollama/Llama)
+- **Codeium** - AI code suggestions
 
-### Complétion (cmp.lua)
-- **nvim-cmp** : Moteur de complétion
+### Completion (cmp.lua)
+- **nvim-cmp** - Completion engine
 
 ### Coding (coding.lua)
-- **nvim-autopairs** : Auto-fermeture des paires
-- **Comment.nvim** : Commentaires intelligents
-- **nvim-dap** : Débogage avec DAP
-- **codesnap** : Captures d'écran de code
+- **nvim-autopairs** - Auto-close pairs
+- **Comment.nvim** - Smart commenting
+- **nvim-dap** - Debug Adapter Protocol
+- **codesnap** - Code screenshots
 
 ### Git (git.lua)
-- **Neogit** : Interface Git Magit-like
-- **Gitsigns** : Décorations Git dans la gouttière
-- **Fugitive** : Commandes Git
-- **git-worktree** : Gestion des worktrees
-- **Diffview** : Vues de diff améliorées
+- **Neogit** - Magit-like Git interface
+- **Gitsigns** - Git gutter decorations
+- **Fugitive** - Git commands
+- **git-worktree** - Worktree management
+- **Diffview** - Enhanced diff views
 
 ### Editor (editor.lua)
-- **Harpoon** : Navigation rapide entre fichiers
-- **nvim-tree** : Explorateur de fichiers
-- **goto-preview** : Prévisualisation LSP
-- **Trouble** : Liste de diagnostics
-- **todo-comments** : Mise en évidence des TODOs
-- **vim-surround** : Manipulation de surrounds
-- **nvim-transparent** : Toggle transparence
+- **Harpoon** - Quick file navigation
+- **nvim-tree** - File explorer
+- **goto-preview** - LSP preview
+- **Trouble** - Diagnostics list
+- **todo-comments** - TODO highlighting
+- **vim-surround** - Surround manipulation
+- **nvim-transparent** - Transparency toggle
 
 ### Go (go.lua)
-- **go.nvim** : Outils Go
-- **nvim-dap-go** : Débogage Go
+- **go.nvim** - Go tooling
+- **nvim-dap-go** - Go debugging
 
 ### LSP (lsp.lua)
-- **Mason** : Gestionnaire LSP
-- **nvim-lspconfig** : Configuration LSP
-- **Fidget** : Progression LSP
+- **Mason** - LSP manager
+- **nvim-lspconfig** - LSP configuration
+- **Fidget** - LSP progress
 
 ### Telescope (telescope.lua)
-- **Telescope** : Recherche fuzzy
-- **telescope-fzf-native** : Extension FZF
-- **telescope-symbols** : Symboles
+- **Telescope** - Fuzzy finder
+- **telescope-fzf-native** - FZF extension
+- **telescope-symbols** - Symbol search
 
 ### Treesitter (treesitter.lua)
-- **nvim-treesitter** : Parsing de syntaxe
-- **nvim-treesitter-textobjects** : Objets texte
+- **nvim-treesitter** - Syntax parsing
+- **nvim-treesitter-textobjects** - Text objects
 
 ### UI (ui.lua)
-- **Lualine** : Barre de statut
-- **indent-blankline** : Guides d'indentation
-- **nvim-notify** : Notifications
-- **Noice** : UI améliorée pour messages/cmdline
-- **nvim-web-devicons** : Icônes
+- **Lualine** - Status bar
+- **indent-blankline** - Indentation guides
+- **nvim-notify** - Notifications
+- **Noice** - Enhanced messages/cmdline UI
+- **nvim-web-devicons** - Icons
 
 ### Writing (writing.lua)
-- **Obsidian.nvim** : Intégration Obsidian
-- **render-markdown** : Rendu Markdown
-- **markdown-preview** : Prévisualisation Markdown
-- **vim-pencil** : Aide à l'écriture
-- **zen-mode** : Mode focus
-- **Twilight** : Assombrit le code inactif
+- **Obsidian.nvim** - Obsidian integration
+- **render-markdown** - Markdown rendering
+- **markdown-preview** - Markdown preview
+- **vim-pencil** - Writing aid
+- **zen-mode** - Focus mode
+- **Twilight** - Dims inactive code
 
-## ⚡ Optimisations
+## Optimizations
 
-- **Lazy-loading** : La plupart des plugins se chargent à la demande
-- **Event-based loading** : Chargement basé sur les événements (InsertEnter, LazyFile, etc.)
-- **Command-based loading** : Chargement au premier appel de commande
-- **Keymap-based loading** : Chargement lors du premier appel de raccourci
+- **Lazy-loading** - Most plugins load on demand
+- **Event-based loading** - Loads on events (InsertEnter, LazyFile, etc.)
+- **Command-based loading** - Loads on first command call
+- **Keymap-based loading** - Loads on first keybinding use
 
-## 🔧 Personnalisation
+## Customization
 
-Pour ajouter un plugin :
+To add a plugin:
 
-1. Choisissez le fichier approprié dans `lua/plugins/`
-2. Ajoutez votre spec LazyVim
-3. Utilisez le lazy-loading approprié
+1. Choose the appropriate file in `lua/plugins/`
+2. Add your LazyVim spec
+3. Use appropriate lazy-loading
 
-Exemple :
+Example:
 ```lua
 {
   "author/plugin-name",
-  event = "LazyFile",  -- ou cmd, keys, ft, etc.
+  event = "LazyFile",  -- or cmd, keys, ft, etc.
   opts = {},
   config = function(_, opts)
     require("plugin-name").setup(opts)
@@ -111,23 +111,23 @@ Exemple :
 }
 ```
 
-## 📦 Installation
+## Installation
 
-Après modification, relancez Neovim :
+After changes, restart Neovim:
 ```
 nvim
 ```
 
-Lazy.nvim installera automatiquement les nouveaux plugins.
+Lazy.nvim will automatically install new plugins.
 
-## 🎨 Formatage
+## Formatting
 
-Tous les fichiers sont formatés avec Stylua :
+All files are formatted with Stylua:
 ```bash
 stylua .
 ```
 
-Configuration dans `stylua.toml` :
-- Indentation : 2 espaces
-- Largeur : 120 colonnes
+Configuration in `stylua.toml`:
+- Indentation: 2 spaces
+- Width: 120 columns
 - Double quotes

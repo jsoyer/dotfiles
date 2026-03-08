@@ -1,160 +1,160 @@
-# 🚀 Configuration Alacritty
+# Alacritty Configuration
 
-Configuration personnalisée d'Alacritty basée sur Ghostty et WezTerm.
+Customized Alacritty configuration based on Ghostty and WezTerm.
 
-## 🎨 Thème
+## Theme
 
-**Catppuccin Mocha** - Un thème sombre et apaisant avec des couleurs pastel.
+**Catppuccin Mocha** - A dark and soothing theme with pastel colors.
 
-## 🔤 Police
+## Font
 
-- **Famille:** JetBrainsMono Nerd Font
-- **Taille:** 12px
+- **Family:** JetBrainsMono Nerd Font
+- **Size:** 12px
 - **Styles:** Regular, Bold, Italic, Bold Italic
 
-## 🐚 Shell
+## Shell
 
-Par défaut, Nushell (nu) est configuré comme shell.
+By default, Nushell (nu) is configured as the shell.
 
 ```toml
 [terminal.shell]
 program = "/opt/homebrew/bin/nu"
 ```
 
-**Note:** La configuration utilise `terminal.shell` (nouvelle syntaxe) au lieu de `shell` (dépréciée).
+**Note:** The configuration uses `terminal.shell` (new syntax) instead of `shell` (deprecated).
 
-## ✨ Apparence
+## Appearance
 
-### 🪟 Fenêtre
-- **Padding:** 12px de chaque côté (équilibré)
-- **Décorations:** Buttonless (sans boutons)
-- **Opacité:** 0.9 (90%)
-- **Blur:** Activé (effet de flou sur macOS)
+### Window
+- **Padding:** 12px on each side (balanced)
+- **Decorations:** Buttonless (no buttons)
+- **Opacity:** 0.9 (90%)
+- **Blur:** Enabled (blur effect on macOS)
 
-### 💫 Curseur
-- **Forme:** Block (bloc)
-- **Clignotement:** Désactivé
+### Cursor
+- **Shape:** Block
+- **Blinking:** Disabled
 
-## ⚙️ Fonctionnalités
+## Features
 
-### 📋 Sélection
-- **Copy on select:** Activé - Le texte sélectionné est automatiquement copié dans le presse-papiers
+### Selection
+- **Copy on select:** Enabled - Selected text is automatically copied to clipboard
 
-### 📜 Scrollback
-- **Historique:** 10 000 lignes
+### Scrollback
+- **History:** 10,000 lines
 
-### 💻 Terminal
+### Terminal
 - **TERM:** xterm-256color
 
-## ⌨️ Raccourcis clavier
+## Keyboard Shortcuts
 
-### 📋 Copier/Coller
-- `Ctrl+Shift+C` - Copier
-- `Ctrl+Shift+V` - Coller
+### Copy/Paste
+- `Ctrl+Shift+C` - Copy
+- `Ctrl+Shift+V` - Paste
 
-### 🔍 Recherche
-- `Ctrl+Shift+F` - Recherche en avant
+### Search
+- `Ctrl+Shift+F` - Forward search
 
-### 🔠 Taille de police
-- `Ctrl+=` - Augmenter la taille
-- `Ctrl+-` - Diminuer la taille
-- `Ctrl+0` - Réinitialiser la taille
+### Font Size
+- `Ctrl+=` - Increase size
+- `Ctrl+-` - Decrease size
+- `Ctrl+0` - Reset size
 
-### 🧭 Navigation
-- `Shift+PageUp` - Défiler vers le haut
-- `Shift+PageDown` - Défiler vers le bas
+### Navigation
+- `Shift+PageUp` - Scroll up
+- `Shift+PageDown` - Scroll down
 
-### 🪟 Fenêtre
-- `Ctrl+Shift+N` - Nouvelle fenêtre
+### Window
+- `Ctrl+Shift+N` - New window
 
-## 🖱️ Souris
+## Mouse
 
-- **Clic droit:** Coller depuis la sélection
-- **Masquage:** Le curseur n'est pas masqué lors de la frappe
+- **Right click:** Paste from selection
+- **Hiding:** Cursor is not hidden when typing
 
-## 🎨 Palette de couleurs Catppuccin Mocha
+## Catppuccin Mocha Color Palette
 
-### 🌈 Couleurs normales
-- ⬛ Noir: `#45475a`
-- 🔴 Rouge: `#f38ba8`
-- 🟢 Vert: `#a6e3a1`
-- 🟡 Jaune: `#f9e2af`
-- 🔵 Bleu: `#89b4fa`
-- 🟣 Magenta: `#f5c2e7`
-- 🩵 Cyan: `#94e2d5`
-- ⬜ Blanc: `#bac2de`
+### Normal Colors
+- Black: `#45475a`
+- Red: `#f38ba8`
+- Green: `#a6e3a1`
+- Yellow: `#f9e2af`
+- Blue: `#89b4fa`
+- Magenta: `#f5c2e7`
+- Cyan: `#94e2d5`
+- White: `#bac2de`
 
-### ✨ Couleurs vives
-- ⬛ Noir: `#585b70`
-- 🔴 Rouge: `#f38ba8`
-- 🟢 Vert: `#a6e3a1`
-- 🟡 Jaune: `#f9e2af`
-- 🔵 Bleu: `#89b4fa`
-- 🟣 Magenta: `#f5c2e7`
-- 🩵 Cyan: `#94e2d5`
-- ⬜ Blanc: `#a6adc8`
+### Bright Colors
+- Black: `#585b70`
+- Red: `#f38ba8`
+- Green: `#a6e3a1`
+- Yellow: `#f9e2af`
+- Blue: `#89b4fa`
+- Magenta: `#f5c2e7`
+- Cyan: `#94e2d5`
+- White: `#a6adc8`
 
-### 🎯 Couleurs primaires
-- 🌑 Arrière-plan: `#1e1e2e`
-- 📄 Texte: `#cdd6f4`
+### Primary Colors
+- Background: `#1e1e2e`
+- Text: `#cdd6f4`
 
-## 🛠️ Personnalisation
+## Customization
 
-Pour modifier la configuration, éditez le fichier:
+To modify the configuration, edit the file:
 ```bash
 ~/.config/alacritty/alacritty.toml
 ```
 
-### 🔄 Changer de shell
+### Change shell
 
-Pour Fish:
+For Fish:
 ```toml
 [terminal.shell]
 program = "/opt/homebrew/bin/fish"
 ```
 
-Pour Zsh:
+For Zsh:
 ```toml
 [terminal.shell]
 program = "/bin/zsh"
 ```
 
-### 👁️ Changer l'opacité
+### Change opacity
 
 ```toml
 [window]
-opacity = 1.0  # Complètement opaque
-# ou
-opacity = 0.8  # Plus transparent
+opacity = 1.0  # Completely opaque
+# or
+opacity = 0.8  # More transparent
 ```
 
-### 📏 Changer la taille de police
+### Change font size
 
 ```toml
 [font]
-size = 14.0  # Plus grande
-# ou
-size = 10.0  # Plus petite
+size = 14.0  # Larger
+# or
+size = 10.0  # Smaller
 ```
 
-## 📦 Installation
+## Installation
 
-1. Installer Alacritty:
+1. Install Alacritty:
 ```bash
 brew install --cask alacritty
 ```
 
-2. Installer la police JetBrains Mono Nerd Font:
+2. Install JetBrains Mono Nerd Font:
 ```bash
 brew tap homebrew/cask-fonts
 brew install --cask font-jetbrains-mono-nerd-font
 ```
 
-3. La configuration est déjà en place dans `~/.config/alacritty/alacritty.toml`
+3. Configuration is already in place at `~/.config/alacritty/alacritty.toml`
 
-## 📚 Ressources
+## Resources
 
-- 📖 [Documentation Alacritty](https://alacritty.org/)
-- 🎨 [Catppuccin](https://github.com/catppuccin/catppuccin)
-- 🔤 [JetBrains Mono](https://www.jetbrains.com/lp/mono/)
-- 🐚 [Nushell](https://www.nushell.sh/)
+- [Alacritty Documentation](https://alacritty.org/)
+- [Catppuccin](https://github.com/catppuccin/catppuccin)
+- [JetBrains Mono](https://www.jetbrains.com/lp/mono/)
+- [Nushell](https://www.nushell.sh/)

@@ -1,168 +1,168 @@
-# 🔷 Configuration Zellij
+# Zellij Configuration
 
-Configuration personnalisée de Zellij - Un multiplexeur de terminal moderne écrit en Rust.
+Customized Zellij configuration - A modern terminal multiplexer written in Rust.
 
-## 🎨 Thème
+## Theme
 
-**Catppuccin Mocha** - Un thème sombre et apaisant avec des couleurs pastel.
+**Catppuccin Mocha** - A dark and soothing theme with pastel colors.
 
-## 🐚 Shell
+## Shell
 
-Par défaut, Nushell (nu) est configuré comme shell.
+By default, Nushell (nu) is configured as the shell.
 
 ```kdl
 default_shell "nu"
 ```
 
-## ✨ Apparence
+## Appearance
 
-### 🪟 Interface
-- **UI simplifiée:** Activée (sans glyphes de flèches)
-- **Frames des panes:** Désactivés
-- **Nom de session:** Visible dans les frames
+### Interface
+- **Simplified UI:** Enabled (no arrow glyphs)
+- **Pane frames:** Disabled
+- **Session name:** Visible in frames
 
-### 🔔 Tips au démarrage
-- **Tips:** Désactivés (`session_serialization false`)
-- Plus de messages de bienvenue ou d'astuces au lancement
+### Tips on startup
+- **Tips:** Disabled (`session_serialization false`)
+- No welcome messages or tips on launch
 
-## ⚙️ Fonctionnalités
+## Features
 
-### 📋 Copier/Coller
-- **Commande de copie:** `pbcopy` (macOS)
-- **Copy on select:** Activé par défaut
+### Copy/Paste
+- **Copy command:** `pbcopy` (macOS)
+- **Copy on select:** Enabled by default
 
-### 📜 Scrollback
-- **Buffer:** 10 000 lignes (par défaut)
+### Scrollback
+- **Buffer:** 10,000 lines (default)
 
-### 🎯 Comportement
-- **Force close:** `detach` - Se détache au lieu de quitter
-- **Editor:** Défini par `$EDITOR` ou `$VISUAL`
+### Behavior
+- **Force close:** `detach` - Detaches instead of quitting
+- **Editor:** Set by `$EDITOR` or `$VISUAL`
 
-## ⌨️ Raccourcis clavier
+## Keyboard Shortcuts
 
-### 🔑 Modes principaux
-Zellij utilise des modes modaux (comme Vim). Voici les raccourcis pour changer de mode:
+### Main Modes
+Zellij uses modal modes (like Vim). Here are the shortcuts to change modes:
 
-- `Ctrl+G` - Mode verrouillé (locked)
-- `Ctrl+A` - Mode pane
-- `Ctrl+N` - Mode resize
-- `Ctrl+S` - Mode scroll
-- `Ctrl+T` - Mode tab
-- `Ctrl+X` - Mode session
-- `Ctrl+B` - Mode tmux
+- `Ctrl+G` - Locked mode
+- `Ctrl+A` - Pane mode
+- `Ctrl+N` - Resize mode
+- `Ctrl+S` - Scroll mode
+- `Ctrl+T` - Tab mode
+- `Ctrl+X` - Session mode
+- `Ctrl+B` - Tmux mode
 
-### 📐 Mode Pane (Ctrl+A)
-- `h/j/k/l` ou flèches - Déplacer le focus
-- `n` - Nouveau pane
-- `d` - Nouveau pane en bas
-- `r` - Nouveau pane à droite
-- `x` - Fermer le pane
+### Pane Mode (Ctrl+A)
+- `h/j/k/l` or arrows - Move focus
+- `n` - New pane
+- `d` - New pane below
+- `r` - New pane right
+- `x` - Close pane
 - `z` - Toggle fullscreen
 - `f` - Toggle frames
 - `w` - Toggle floating panes
 - `e` - Toggle embed/floating
-- `R` - Renommer le pane
-- `S` - Prochain swap layout
+- `R` - Rename pane
+- `S` - Next swap layout
 
-### 📑 Mode Tab (Ctrl+T)
-- `n` - Nouvel onglet
-- `x` - Fermer l'onglet
-- `h/l` ou flèches - Naviguer entre onglets
-- `r` - Renommer l'onglet
+### Tab Mode (Ctrl+T)
+- `n` - New tab
+- `x` - Close tab
+- `h/l` or arrows - Navigate between tabs
+- `r` - Rename tab
 - `s` - Toggle sync tab
-- `b` - Break pane (déplacer vers nouvel onglet)
-- `[` - Break pane à gauche
-- `]` - Break pane à droite
-- `1-9` - Aller à l'onglet 1-9
-- `a` - Toggle onglet précédent
+- `b` - Break pane (move to new tab)
+- `[` - Break pane left
+- `]` - Break pane right
+- `1-9` - Go to tab 1-9
+- `a` - Toggle previous tab
 
-### 📏 Mode Resize (Ctrl+N)
-- `h/j/k/l` ou flèches - Redimensionner
-- `H/J/K/L` - Redimensionner (décroître)
-- `=` ou `+` - Augmenter
-- `-` - Diminuer
+### Resize Mode (Ctrl+N)
+- `h/j/k/l` or arrows - Resize
+- `H/J/K/L` - Resize (decrease)
+- `=` or `+` - Increase
+- `-` - Decrease
 
-### 📜 Mode Scroll (Ctrl+S)
-- `j/k` ou flèches - Défiler ligne par ligne
-- `Ctrl+F` / `PageDown` - Page suivante
-- `Ctrl+B` / `PageUp` - Page précédente
-- `d` - Demi-page bas
-- `u` - Demi-page haut
-- `G` - Aller à la fin
-- `s` - Mode recherche
-- `e` - Éditer le scrollback
+### Scroll Mode (Ctrl+S)
+- `j/k` or arrows - Scroll line by line
+- `Ctrl+F` / `PageDown` - Next page
+- `Ctrl+B` / `PageUp` - Previous page
+- `d` - Half page down
+- `u` - Half page up
+- `G` - Go to end
+- `s` - Search mode
+- `e` - Edit scrollback
 
-### 🔍 Mode Search (Ctrl+/)
-- `n` - Résultat suivant
-- `p` - Résultat précédent
+### Search Mode (Ctrl+/)
+- `n` - Next result
+- `p` - Previous result
 - `c` - Toggle case sensitivity
 - `w` - Toggle whole word
 - `o` - Toggle wrap
 
-### 🎮 Mode Session (Ctrl+X)
-- `d` - Se détacher de la session
-- `w` - Gestionnaire de sessions
+### Session Mode (Ctrl+X)
+- `d` - Detach from session
+- `w` - Session manager
 
-### 🔗 Mode Tmux (Ctrl+B)
-Compatible avec les raccourcis tmux classiques:
-- `[` - Mode scroll
+### Tmux Mode (Ctrl+B)
+Compatible with classic tmux shortcuts:
+- `[` - Scroll mode
 - `"` - Split horizontal
 - `%` - Split vertical
 - `z` - Toggle fullscreen
-- `c` - Nouvel onglet
-- `n/p` - Onglet suivant/précédent
-- `x` - Fermer pane
-- `d` - Se détacher
+- `c` - New tab
+- `n/p` - Next/previous tab
+- `x` - Close pane
+- `d` - Detach
 
-### ⚡ Raccourcis globaux (tous modes sauf locked)
-- `Alt+N` - Nouveau pane
-- `Alt+H/L` ou `Alt+Left/Right` - Naviguer focus ou tab
-- `Alt+J/K` ou `Alt+Up/Down` - Naviguer focus
-- `Alt+=` ou `Alt++` - Augmenter taille
-- `Alt+-` - Diminuer taille
-- `Alt+[` - Layout précédent
-- `Alt+]` - Layout suivant
-- `Alt+R` - Renommer tab
+### Global Shortcuts (all modes except locked)
+- `Alt+N` - New pane
+- `Alt+H/L` or `Alt+Left/Right` - Navigate focus or tab
+- `Alt+J/K` or `Alt+Up/Down` - Navigate focus
+- `Alt+=` or `Alt++` - Increase size
+- `Alt+-` - Decrease size
+- `Alt+[` - Previous layout
+- `Alt+]` - Next layout
+- `Alt+R` - Rename tab
 
-## 🎨 Thèmes disponibles
+## Available Themes
 
-Votre configuration inclut:
-- **Catppuccin Mocha** (actif) - `~/.config/zellij/themes/catppuccin.kdl`
+Your configuration includes:
+- **Catppuccin Mocha** (active) - `~/.config/zellij/themes/catppuccin.kdl`
 - **Dracula** - `~/.config/zellij/themes/dracula.kdl`
 
-Pour changer de thème, modifiez la ligne dans `config.kdl`:
+To change theme, modify the line in `config.kdl`:
 ```kdl
 theme "catppuccin-mocha"
-// ou
+// or
 theme "dracula"
 ```
 
-## 🔌 Plugins
+## Plugins
 
-### Plugins par défaut
-- `tab-bar` - Barre d'onglets
-- `status-bar` - Barre de status
-- `strider` - Navigateur de fichiers
-- `compact-bar` - Barre compacte
+### Default Plugins
+- `tab-bar` - Tab bar
+- `status-bar` - Status bar
+- `strider` - File browser
+- `compact-bar` - Compact bar
 
-### Plugins personnalisés disponibles
-- `zjstatus` - Barre de status hautement personnalisable
-- `zellij-sessionizer` - Navigation rapide entre sessions
+### Available Custom Plugins
+- `zjstatus` - Highly customizable status bar
+- `zellij-sessionizer` - Quick navigation between sessions
 
-**Note:** Les plugins WASM doivent être téléchargés et placés dans `~/.config/zellij/plugins/`
+**Note:** WASM plugins must be downloaded and placed in `~/.config/zellij/plugins/`
 
-## 📁 Layouts
+## Layouts
 
-Layouts disponibles dans `~/.config/zellij/layouts/`:
-- `default.kdl` - Layout par défaut
-- `datetime.kdl` - Layout avec date/heure
+Layouts available in `~/.config/zellij/layouts/`:
+- `default.kdl` - Default layout
+- `datetime.kdl` - Layout with date/time
 
-## 🛠️ Personnalisation
+## Customization
 
-### 📂 Structure des fichiers
+### Directory Structure
 ```
 ~/.config/zellij/
-├── config.kdl              # Configuration principale
+├── config.kdl              # Main configuration
 ├── layouts/
 │   ├── default.kdl
 │   └── datetime.kdl
@@ -174,95 +174,95 @@ Layouts disponibles dans `~/.config/zellij/layouts/`:
     └── zellij-datetime.wasm
 ```
 
-### 🔄 Changer de shell
+### Change shell
 
-Pour Fish:
+For Fish:
 ```kdl
 default_shell "fish"
 ```
 
-Pour Zsh:
+For Zsh:
 ```kdl
 default_shell "zsh"
 ```
 
-### 🎨 Activer/Désactiver les frames
+### Enable/Disable frames
 
 ```kdl
-pane_frames true   # Avec frames
-# ou
-pane_frames false  # Sans frames
+pane_frames true   # With frames
+# or
+pane_frames false  # Without frames
 ```
 
-### 📊 Activer les tips
+### Enable tips
 
-Si vous souhaitez réactiver les tips:
+If you want to re-enable tips:
 ```kdl
 session_serialization true
 ```
 
-## 📦 Installation
+## Installation
 
-1. Installer Zellij:
+1. Install Zellij:
 ```bash
 brew install zellij
 ```
 
-2. La configuration est déjà en place dans `~/.config/zellij/`
+2. Configuration is already in place at `~/.config/zellij/`
 
-## 🚀 Utilisation
+## Usage
 
-### Démarrer Zellij
+### Start Zellij
 ```bash
 zellij
 ```
 
-### Sessions nommées
+### Named sessions
 ```bash
-zellij -s ma-session          # Créer/attacher session
-zellij attach ma-session      # Attacher à session existante
-zellij list-sessions          # Lister les sessions
-zellij delete-session ma-session  # Supprimer session
+zellij -s my-session          # Create/attach session
+zellij attach my-session      # Attach to existing session
+zellij list-sessions          # List sessions
+zellij delete-session my-session  # Delete session
 ```
 
 ### Layouts
 ```bash
-zellij --layout default       # Utiliser un layout
-zellij --layout datetime      # Layout avec datetime
+zellij --layout default       # Use a layout
+zellij --layout datetime      # Layout with datetime
 ```
 
-### Se détacher
-Dans Zellij: `Ctrl+X` puis `d`
+### Detach
+In Zellij: `Ctrl+X` then `d`
 
-## 🎯 Workflows recommandés
+## Recommended Workflows
 
-### Navigation rapide
-1. `Ctrl+T` + `1-9` pour switcher entre onglets
-2. `Alt+H/L` pour naviguer entre panes/tabs
-3. `Ctrl+A` + `z` pour fullscreen un pane
+### Quick navigation
+1. `Ctrl+T` + `1-9` to switch between tabs
+2. `Alt+H/L` to navigate between panes/tabs
+3. `Ctrl+A` + `z` to fullscreen a pane
 
-### Organisation
-1. `Ctrl+T` + `n` pour créer des onglets thématiques
-2. `Ctrl+A` + `d/r` pour splitter horizontalement/verticalement
-3. `Ctrl+A` + `S` pour changer de layout
+### Organization
+1. `Ctrl+T` + `n` to create thematic tabs
+2. `Ctrl+A` + `d/r` to split horizontally/vertically
+3. `Ctrl+A` + `S` to change layout
 
-### Productivité
-1. `Ctrl+T` + `s` pour synchroniser les commandes sur tous les panes
-2. `Ctrl+S` pour consulter l'historique
-3. `Ctrl+X` + `w` pour switcher entre projets
+### Productivity
+1. `Ctrl+T` + `s` to synchronize commands on all panes
+2. `Ctrl+S` to view history
+3. `Ctrl+X` + `w` to switch between projects
 
-## 📚 Ressources
+## Resources
 
-- 📖 [Documentation Zellij](https://zellij.dev/)
-- 🎨 [Catppuccin](https://github.com/catppuccin/catppuccin)
-- 🐚 [Nushell](https://www.nushell.sh/)
-- 🔌 [zjstatus](https://github.com/dj95/zjstatus)
-- 🔌 [zellij-sessionizer](https://github.com/laperlej/zellij-sessionizer)
+- [Zellij Documentation](https://zellij.dev/)
+- [Catppuccin](https://github.com/catppuccin/catppuccin)
+- [Nushell](https://www.nushell.sh/)
+- [zjstatus](https://github.com/dj95/zjstatus)
+- [zellij-sessionizer](https://github.com/laperlej/zellij-sessionizer)
 
-## 💡 Astuces
+## Tips
 
-- Les keybindings sont entièrement personnalisés avec `clear-defaults=true`
-- Mode tmux disponible pour une transition facile depuis tmux
-- Les raccourcis Alt fonctionnent dans tous les modes (sauf locked)
-- `Ctrl+G` pour verrouiller l'interface et utiliser les raccourcis natifs
-- Les sessions persistent après fermeture du terminal (avec `detach`)
+- Keybindings are fully customized with `clear-defaults=true`
+- Tmux mode available for easy transition from tmux
+- Alt shortcuts work in all modes (except locked)
+- `Ctrl+G` to lock the interface and use native shortcuts
+- Sessions persist after closing terminal (with `detach`)

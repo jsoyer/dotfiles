@@ -1,218 +1,218 @@
-# 🚀 Ma configuration Neovim
+# My Neovim Configuration
 
-Configuration Neovim moderne et optimisée basée sur LazyVim.
+Modern and optimized Neovim configuration based on LazyVim.
 
-## ✨ Caractéristiques
+## Features
 
-- ⚡ **Rapide** : Lazy-loading intelligent, démarrage < 50ms
-- 🎨 **Moderne** : UI améliorée avec Noice, Lualine, Telescope
-- 🤖 **IA intégrée** : Codeium + Gen.nvim (Ollama)
-- 🌿 **Git puissant** : Neogit, Gitsigns, Fugitive, Worktree
-- 🐛 **Debugging** : Support DAP complet
-- 📝 **Writing** : Obsidian, Markdown, Zen mode
-- 🔧 **LSP** : Autocomplétion, diagnostics, formatting
-- 🎯 **Navigation** : Harpoon, Flash, Telescope
-- 🌳 **Treesitter** : Syntax highlighting avancé
+- **Fast**: Intelligent lazy-loading, startup < 50ms
+- **Modern**: Enhanced UI with Noice, Lualine, Telescope
+- **Integrated AI**: Codeium + Gen.nvim (Ollama)
+- **Powerful Git**: Neogit, Gitsigns, Fugitive, Worktree
+- **Debugging**: Full DAP support
+- **Writing**: Obsidian, Markdown, Zen mode
+- **LSP**: Autocompletion, diagnostics, formatting
+- **Navigation**: Harpoon, Flash, Telescope
+- **Treesitter**: Advanced syntax highlighting
 
-## 📦 Stack technique
+## Technical Stack
 
-- **Package manager** : Lazy.nvim
-- **Base** : LazyVim
-- **LSP** : Mason + nvim-lspconfig
-- **Complétion** : nvim-cmp + Codeium
-- **Git** : Neogit + Gitsigns
-- **Fuzzy finder** : Telescope
-- **File explorer** : nvim-tree
-- **Statusline** : Lualine
-- **Debugging** : nvim-dap
-- **AI** : Codeium + Gen.nvim
+- **Package manager**: Lazy.nvim
+- **Base**: LazyVim
+- **LSP**: Mason + nvim-lspconfig
+- **Completion**: nvim-cmp + Codeium
+- **Git**: Neogit + Gitsigns
+- **Fuzzy finder**: Telescope
+- **File explorer**: nvim-tree
+- **Statusline**: Lualine
+- **Debugging**: nvim-dap
+- **AI**: Codeium + Gen.nvim
 
-## 🗂️ Structure
+## Directory Structure
 
 ```
 ~/.config/nvim/
-├── init.lua                    # Point d'entrée
+├── init.lua                    # Entry point
 ├── lua/
-│   ├── config/                 # Configuration de base
-│   │   ├── autocmds.lua       # Auto-commandes
-│   │   ├── keymaps.lua        # Raccourcis clavier
-│   │   ├── lazy.lua           # Configuration Lazy.nvim
-│   │   └── options.lua        # Options Neovim
-│   └── plugins/                # Plugins organisés par catégorie
-│       ├── ai.lua             # IA (Codeium, Gen.nvim)
-│       ├── cmp.lua            # Complétion
-│       ├── coding.lua         # Outils de dev (DAP, autopairs)
-│       ├── colorscheme.lua    # Thèmes
-│       ├── editor.lua         # Outils d'édition
-│       ├── extras.lua         # Plugins supplémentaires
-│       ├── git.lua            # Intégration Git
-│       ├── go.lua             # Développement Go
-│       ├── lsp.lua            # Configuration LSP
-│       ├── performance.lua    # Optimisations
-│       ├── telescope.lua      # Recherche fuzzy
-│       ├── treesitter.lua     # Parsing syntaxe
-│       ├── ui.lua             # Interface utilisateur
+│   ├── config/                 # Base configuration
+│   │   ├── autocmds.lua       # Auto-commands
+│   │   ├── keymaps.lua        # Keyboard shortcuts
+│   │   ├── lazy.lua           # Lazy.nvim configuration
+│   │   └── options.lua        # Neovim options
+│   └── plugins/                # Plugins organized by category
+│       ├── ai.lua             # AI (Codeium, Gen.nvim)
+│       ├── cmp.lua            # Completion
+│       ├── coding.lua         # Dev tools (DAP, autopairs)
+│       ├── colorscheme.lua    # Themes
+│       ├── editor.lua         # Editing tools
+│       ├── extras.lua         # Extra plugins
+│       ├── git.lua            # Git integration
+│       ├── go.lua             # Go development
+│       ├── lsp.lua            # LSP configuration
+│       ├── performance.lua    # Optimizations
+│       ├── telescope.lua      # Fuzzy search
+│       ├── treesitter.lua     # Syntax parsing
+│       ├── ui.lua             # User interface
 │       └── writing.lua        # Markdown & Obsidian
-├── KEYBINDINGS.md             # Cheatsheet des raccourcis
-├── PLUGINS.md                 # Documentation des plugins
-├── QUICKSTART.md              # Guide de démarrage rapide
-└── stylua.toml                # Configuration du formateur
+├── KEYBINDINGS.md             # Keyboard shortcuts cheatsheet
+├── PLUGINS.md                 # Plugin documentation
+├── QUICKSTART.md              # Quick start guide
+└── stylua.toml                # Formatter configuration
 ```
 
-## 🚀 Installation
+## Installation
 
-### Prérequis
+### Prerequisites
 
 ```bash
 # macOS
 brew install neovim ripgrep fd lazygit
 brew install --cask font-jetbrains-mono-nerd-font
 
-# Optionnel : Pour Gen.nvim (IA local)
+# Optional: For Gen.nvim (local AI)
 brew install ollama
 ollama pull llama3
 ```
 
-### Installation de la config
+### Configuration Installation
 
 ```bash
-# Backup de l'ancienne config (si elle existe)
+# Backup old config (if it exists)
 mv ~/.config/nvim ~/.config/nvim.backup
 
-# Clone de cette config
-git clone <votre-repo> ~/.config/nvim
+# Clone this config
+git clone <your-repo> ~/.config/nvim
 
-# Premier lancement
+# First launch
 nvim
 ```
 
-Au premier lancement :
-1. Lazy.nvim s'installe automatiquement
-2. Tous les plugins sont installés
-3. Redémarrer Neovim après installation
+On first launch:
+1. Lazy.nvim installs automatically
+2. All plugins are installed
+3. Restart Neovim after installation
 
 ### Post-installation
 
 ```vim
-:checkhealth           " Vérifier la configuration
-:Mason                 " Installer les LSP servers
-:TSUpdate              " Installer les parsers Treesitter
+:checkhealth           " Check configuration
+:Mason                 " Install LSP servers
+:TSUpdate              " Install Treesitter parsers
 ```
 
-## ⚡ Démarrage rapide
+## Quick Start
 
-### Raccourcis essentiels
+### Essential shortcuts
 
-| Action | Raccourci |
-|--------|-----------|
-| Rechercher fichier | `<leader>sf` |
-| Rechercher texte | `<leader>sg` |
-| Explorateur fichiers | `ff` |
+| Action | Shortcut |
+|--------|----------|
+| Search files | `<leader>sf` |
+| Search text | `<leader>sg` |
+| File explorer | `ff` |
 | Git status | `<leader>gs` |
 | Code action | `<leader>ca` |
 | Toggle Harpoon | `<leader>ht` |
-| Aide raccourcis | `<leader>` (puis attendre) |
+| Help shortcuts | `<leader>` (then wait) |
 
 **Leader key** = `<Space>`
 
-Voir [KEYBINDINGS.md](KEYBINDINGS.md) pour la liste complète.
+See [KEYBINDINGS.md](KEYBINDINGS.md) for the complete list.
 
-## 📚 Documentation
+## Documentation
 
-- **[QUICKSTART.md](QUICKSTART.md)** - Guide de démarrage rapide
-- **[KEYBINDINGS.md](KEYBINDINGS.md)** - Tous les raccourcis clavier
-- **[PLUGINS.md](PLUGINS.md)** - Documentation des plugins
+- **[QUICKSTART.md](QUICKSTART.md)** - Quick start guide
+- **[KEYBINDINGS.md](KEYBINDINGS.md)** - All keyboard shortcuts
+- **[PLUGINS.md](PLUGINS.md)** - Plugin documentation
 
-## 🎨 Thèmes
+## Themes
 
-Par défaut : **Catppuccin Mocha**
+Default: **Catppuccin Mocha**
 
-Changer de thème :
+Change theme:
 ```lua
--- Dans lua/plugins/colorscheme.lua
+-- In lua/plugins/colorscheme.lua
 opts = {
-  colorscheme = "catppuccin",  -- ou "dracula"
+  colorscheme = "catppuccin",  -- or "dracula"
 }
 ```
 
-## 🔧 Personnalisation
+## Customization
 
-### Ajouter un plugin
+### Add a plugin
 
-Créer un fichier dans `lua/plugins/` :
+Create a file in `lua/plugins/`:
 
 ```lua
--- lua/plugins/mon-plugin.lua
+-- lua/plugins/my-plugin.lua
 return {
   {
-    "auteur/mon-plugin",
+    "author/my-plugin",
     event = "LazyFile",  -- Lazy loading
     opts = {},
     config = function(_, opts)
-      require("mon-plugin").setup(opts)
+      require("my-plugin").setup(opts)
     end,
   },
 }
 ```
 
-### Modifier les options
+### Modify options
 
-Éditer `lua/config/options.lua` :
-
-```lua
-vim.opt.tabstop = 4  -- Exemple
-```
-
-### Ajouter des raccourcis
-
-Éditer `lua/config/keymaps.lua` :
+Edit `lua/config/options.lua`:
 
 ```lua
-vim.keymap.set("n", "<leader>x", ":MonCommande<CR>", { desc = "Ma commande" })
+vim.opt.tabstop = 4  -- Example
 ```
 
-## 🐛 Dépannage
+### Add shortcuts
 
-### Plugin ne se charge pas
+Edit `lua/config/keymaps.lua`:
+
+```lua
+vim.keymap.set("n", "<leader>x", ":MyCommand<CR>", { desc = "My command" })
+```
+
+## Troubleshooting
+
+### Plugin not loading
 ```vim
 :Lazy sync
 :Lazy clean
 ```
 
-### LSP ne fonctionne pas
+### LSP not working
 ```vim
-:LspInfo      " Voir les LSP actifs
-:LspRestart   " Redémarrer
-:Mason        " Installer les serveurs
+:LspInfo      " View active LSP
+:LspRestart   " Restart
+:Mason        " Install servers
 ```
 
-### Performance lente
+### Slow performance
 ```vim
-:Lazy profile  " Voir les temps de chargement
+:Lazy profile  " View load times
 ```
 
-### Réinitialiser la config
+### Reset configuration
 ```bash
 rm -rf ~/.local/share/nvim
 rm -rf ~/.local/state/nvim
 rm -rf ~/.cache/nvim
-nvim  # Réinstaller
+nvim  # Reinstall
 ```
 
-## 📊 Statistiques
+## Statistics
 
-- **Plugins** : 50+ plugins
-- **Lignes de config** : ~1500 lignes
-- **Temps de démarrage** : ~40-50ms
-- **Languages supportés** : Go, Lua, Python, Rust, TypeScript, etc.
+- **Plugins**: 50+ plugins
+- **Config lines**: ~1500 lines
+- **Startup time**: ~40-50ms
+- **Supported languages**: Go, Lua, Python, Rust, TypeScript, etc.
 
-## 🎯 Workflows
+## Workflows
 
-### Développement
+### Development
 
-1. `nvim .` - Ouvrir le projet
-2. `<leader>sf` - Trouver un fichier
-3. `<leader>m` - Marquer les fichiers importants (Harpoon)
+1. `nvim .` - Open project
+2. `<leader>sf` - Find file
+3. `<leader>m` - Mark important files (Harpoon)
 4. `<leader>ca` - Code actions
 5. `<leader>gs` - Git status
 
@@ -220,8 +220,8 @@ nvim  # Réinstaller
 
 1. `nvim note.md`
 2. `<leader>z` - Zen mode
-3. `gf` - Suivre les liens Obsidian
-4. `:MarkdownPreview` - Prévisualiser
+3. `gf` - Follow Obsidian links
+4. `:MarkdownPreview` - Preview
 
 ### Debugging
 
@@ -230,23 +230,23 @@ nvim  # Réinstaller
 3. `<leader>dt` - Toggle DAP UI
 4. `<leader>dso` - Step over
 
-## 🤝 Contributeurs
+## Contributors
 
-- Configuration initiale : [Votre nom]
-- Refonte complète : Assistant IA
-- Base : [LazyVim](https://www.lazyvim.org)
+- Initial configuration: [Your name]
+- Complete refactor: AI Assistant
+- Base: [LazyVim](https://www.lazyvim.org)
 
-## 📝 License
+## License
 
-MIT License - Voir [LICENSE](LICENSE)
+MIT License - See [LICENSE](LICENSE)
 
-## 🙏 Remerciements
+## Acknowledgments
 
-- [LazyVim](https://github.com/LazyVim/LazyVim) - Base de la config
-- [folke](https://github.com/folke) - Créateur de nombreux plugins
-- Tous les mainteneurs de plugins utilisés
+- [LazyVim](https://github.com/LazyVim/LazyVim) - Configuration base
+- [folke](https://github.com/folke) - Creator of many plugins
+- All plugin maintainers used
 
-## 🔗 Liens utiles
+## Useful Links
 
 - [Neovim Docs](https://neovim.io/doc/)
 - [LazyVim Docs](https://www.lazyvim.org)
@@ -254,4 +254,4 @@ MIT License - Voir [LICENSE](LICENSE)
 
 ---
 
-**Enjoy coding! 🎉**
+**Enjoy coding!**
