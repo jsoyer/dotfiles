@@ -1,0 +1,16 @@
+# Homebrew packages for Linux (Fedora, Debian, Ubuntu)
+# CLI-only — no casks or mas apps on Linux
+
+brew "age"
+brew "atuin"
+brew "dust"
+brew "glow"
+brew "go"
+brew "htop"
+brew "lazygit"
+brew "lua-language-server"
+brew "node"
+brew "procs"
+brew "stylua"
+brew "tree"
+brew "yq"

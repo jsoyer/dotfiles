@@ -19,6 +19,13 @@ path=(
   "${path[@]}"
 )
 
+# Linuxbrew PATH (Homebrew on Linux)
+if [[ -d "/home/linuxbrew/.linuxbrew" ]]; then
+  eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+elif [[ -d "${HOME}/.linuxbrew" ]]; then
+  eval "$(${HOME}/.linuxbrew/bin/brew shellenv)"
+fi
+
 # macOS-specific paths
 if [[ "${IS_MACOS}" == "true" ]]; then
   path=(

@@ -1,12 +1,20 @@
 # Main Brewfile
-# Assembles package lists based on the machine profile.
+# Assembles package lists based on OS and hostname.
 
-# 1. Common packages for all Macs
+# 1. Common packages for all machines
 {{ include "dot_private/Brewfile_common" | trim }}
 
 # 2. Profile-specific packages
-{{ if eq .machine.profile "mac-pro" -}}
+{{- if eq .chezmoi.os "darwin" }}
+{{-   if eq .chezmoi.hostname "jsoyer-macOS" }}
 {{ include "dot_private/Brewfile_pro" | trim }}
-{{ else -}}
+{{-   else }}
 {{ include "dot_private/Brewfile_personal" | trim }}
-{{ end -}}
+{{-   end }}
+{{- else if eq .chezmoi.os "linux" }}
+{{-   if or (hasPrefix "bbh-network" .chezmoi.hostname) (hasPrefix "omv-" .chezmoi.hostname) }}
+{{ include "dot_private/Brewfile_rpi" | trim }}
+{{-   else }}
+{{ include "dot_private/Brewfile_linux" | trim }}
+{{-   end }}
+{{- end }}

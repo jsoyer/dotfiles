@@ -1,0 +1,7 @@
+# Homebrew packages for Raspberry Pi
+# Lightweight subset — ARM-friendly, low resource usage
+
+brew "htop"
+brew "lazygit"
+brew "tree"
+brew "yq"

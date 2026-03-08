@@ -1,21 +1,36 @@
-{{- if eq .chezmoi.os "darwin" -}}
+{{- if lookPath "brew" -}}
 #!/bin/bash
 
-# Brewfile hashes – chezmoi reruns this script when any Brewfile changes
+# Brewfile hashes -- chezmoi reruns this script when any Brewfile changes
 # common:   {{ include "dot_private/Brewfile_common" | sha256sum }}
+{{- if eq .chezmoi.os "darwin" }}
 # personal: {{ include "dot_private/Brewfile_personal" | sha256sum }}
 # pro:      {{ include "dot_private/Brewfile_pro" | sha256sum }}
+{{- else if eq .chezmoi.os "linux" }}
+# linux:    {{ include "dot_private/Brewfile_linux" | sha256sum }}
+# rpi:      {{ include "dot_private/Brewfile_rpi" | sha256sum }}
+{{- end }}
 
 set -euo pipefail
 eval "$(brew shellenv)"
 
 BREWFILE_DIR="{{ .chezmoi.sourceDir }}/dot_private"
 
-{{- if eq .chezmoi.hostname "jsoyer-macOS" }}
-echo "🍺 brew bundle install (pro profile)"
+{{- if eq .chezmoi.os "darwin" }}
+{{-   if eq .chezmoi.hostname "jsoyer-macOS" }}
+echo "brew bundle install (mac-pro profile)"
 cat "$BREWFILE_DIR/Brewfile_common" "$BREWFILE_DIR/Brewfile_pro" | brew bundle install --file=-
-{{- else }}
-echo "🍺 brew bundle install (personal profile)"
+{{-   else }}
+echo "brew bundle install (mac-personal profile)"
 cat "$BREWFILE_DIR/Brewfile_common" "$BREWFILE_DIR/Brewfile_personal" | brew bundle install --file=-
+{{-   end }}
+{{- else if eq .chezmoi.os "linux" }}
+{{-   if or (hasPrefix "bbh-network" .chezmoi.hostname) (hasPrefix "omv-" .chezmoi.hostname) }}
+echo "brew bundle install (rpi profile)"
+cat "$BREWFILE_DIR/Brewfile_common" "$BREWFILE_DIR/Brewfile_rpi" | brew bundle install --file=-
+{{-   else }}
+echo "brew bundle install (linux profile)"
+cat "$BREWFILE_DIR/Brewfile_common" "$BREWFILE_DIR/Brewfile_linux" | brew bundle install --file=-
+{{-   end }}
 {{- end }}
 {{ end -}}

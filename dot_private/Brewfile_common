@@ -1,4 +1,4 @@
-# Paquets Homebrew communs à toutes les machines macOS
+# Common Homebrew packages for all machines (macOS + Linux)
 
 tap "homebrew/bundle"
 brew "bat"

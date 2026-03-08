@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Wrapper intelligent pour Homebrew qui maintient automatiquement le Brewfile
-spécifique au profil à jour et le synchronise avec Git.
+Smart Homebrew wrapper that automatically keeps the profile-specific
+Brewfile up to date and syncs changes to Git.
 """
 
 import os
@@ -10,13 +10,12 @@ import sys
 from pathlib import Path
 
 # --- Configuration ---
-# Le chemin vers le dossier source de chezmoi
 CHEZMOI_SOURCE_PATH = Path(
     os.environ.get("CHEZMOI_SOURCE_PATH", Path.home() / ".local" / "share" / "chezmoi")
 )
 BREWFILE_DIR = CHEZMOI_SOURCE_PATH / "dot_private"
 
-# --- Couleurs ---
+# --- Colors ---
 BLUE = "\033[0;34m"
 GREEN = "\033[0;32m"
 YELLOW = "\033[1;33m"
@@ -24,52 +23,53 @@ NC = "\033[0m"
 
 
 def get_target_brewfile():
-    """Détermine le Brewfile cible en fonction du profil de la machine."""
+    """Determine the target Brewfile based on machine profile."""
     profile = os.environ.get("MACHINE_PROFILE")
     if profile == "mac-pro":
         return BREWFILE_DIR / "Brewfile_pro"
     elif profile == "mac-personal":
         return BREWFILE_DIR / "Brewfile_personal"
+    elif profile == "linux-standard":
+        return BREWFILE_DIR / "Brewfile_linux"
+    elif profile == "rpi":
+        return BREWFILE_DIR / "Brewfile_rpi"
     else:
-        # Comportement par défaut ou erreur si non macOS
         return None
 
 
 def run_brew_command(args):
-    """Exécute la commande brew."""
+    """Execute the brew command."""
     cmd = ["brew"] + args
-    print(f"{BLUE}🍺 Exécution: {' '.join(cmd)}{NC}")
+    print(f"{BLUE}Running: {' '.join(cmd)}{NC}")
     result = subprocess.run(cmd)
     return result.returncode
 
 
 def update_brewfile(target_brewfile):
-    """Met à jour le Brewfile spécifié avec 'brew bundle dump'."""
-    print(f"\n{YELLOW}📝 Mise à jour du Brewfile: {target_brewfile.name}{NC}")
+    """Update the specified Brewfile with 'brew bundle dump'."""
+    print(f"\n{YELLOW}Updating Brewfile: {target_brewfile.name}{NC}")
     cmd = ["brew", "bundle", "dump", "--file", str(target_brewfile), "--force"]
     result = subprocess.run(cmd, capture_output=True, text=True)
 
     if result.returncode == 0:
-        print(f"{GREEN}✅ Brewfile mis à jour avec succès.{NC}")
+        print(f"{GREEN}Brewfile updated successfully.{NC}")
     else:
-        print(f"⚠️  Erreur lors de la mise à jour du Brewfile: {result.stderr}")
+        print(f"Warning: failed to update Brewfile: {result.stderr}")
 
 
 def sync_to_git():
-    """Commite et pousse les changements dans le dépôt chezmoi."""
-    print(f"\n{BLUE}🔄 Synchronisation avec Git...{NC}")
+    """Commit and push changes in the chezmoi repository."""
+    print(f"\n{BLUE}Syncing with Git...{NC}")
     try:
-        # 'cwd' est l'équivalent de 'cd'
         subprocess.run(["git", "add", "."], cwd=CHEZMOI_SOURCE_PATH, check=True)
-        # Le '|| true' du shell est géré par le 'check=False' ici
         subprocess.run(
             ["git", "commit", "-m", "style(brew): update brewfiles via breww"],
             cwd=CHEZMOI_SOURCE_PATH,
         )
         subprocess.run(["git", "push"], cwd=CHEZMOI_SOURCE_PATH, check=True)
-        print(f"{GREEN}✅ Poussé sur le dépôt distant !{NC}")
+        print(f"{GREEN}Pushed to remote.{NC}")
     except subprocess.CalledProcessError as e:
-        print(f"⚠️  Erreur lors de la synchronisation Git: {e}")
+        print(f"Warning: Git sync failed: {e}")
 
 
 def main():
@@ -79,19 +79,19 @@ def main():
         subprocess.run(["brew", "--help"])
         return
 
-    # Détermine le Brewfile cible avant toute chose
+    # Determine the target Brewfile
     target_brewfile = get_target_brewfile()
     if not target_brewfile:
         print(
-            "⚠️  Profil de machine non reconnu ou non-macOS. Exécution de brew sans mise à jour du Brewfile."
+            "Warning: unrecognized machine profile. Running brew without Brewfile sync."
         )
         run_brew_command(args)
         return
 
-    # Exécute la commande brew
+    # Run the brew command
     returncode = run_brew_command(args)
 
-    # Si la commande a réussi et que c'est une commande d'installation/modification
+    # If command succeeded and modified packages, update the Brewfile
     if returncode == 0 and any(
         cmd in args for cmd in ["install", "uninstall", "tap", "untap"]
     ):

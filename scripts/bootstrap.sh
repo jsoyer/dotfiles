@@ -265,6 +265,37 @@ install_macos() {
     fi
 }
 
+install_linuxbrew() {
+    if command -v brew &>/dev/null; then
+        log_warn "🍺 Homebrew (Linuxbrew) already installed"
+        return
+    fi
+
+    log_info "Installing Homebrew (Linuxbrew)..."
+
+    # Prerequisites
+    case "$PLATFORM" in
+        fedora|toolbox)
+            sudo dnf groupinstall -y "Development Tools"
+            sudo dnf install -y procps-ng curl file gcc
+            ;;
+        rpi|debian)
+            sudo apt install -y build-essential procps curl file gcc
+            ;;
+    esac
+
+    /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+
+    # Set up PATH for current session
+    if [[ -d "/home/linuxbrew/.linuxbrew" ]]; then
+        eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+    elif [[ -d "$HOME/.linuxbrew" ]]; then
+        eval "$("$HOME/.linuxbrew/bin/brew" shellenv)"
+    fi
+
+    log_success "🍺 Homebrew (Linuxbrew) installed"
+}
+
 install_fedora() {
     log_info "Installing git and chezmoi via dnf..."
 
@@ -287,7 +318,10 @@ install_fedora() {
         export PATH="$HOME/.local/bin:$PATH"
     fi
 
-    log_success "🐧 git and chezmoi installed"
+    # Install Linuxbrew
+    install_linuxbrew
+
+    log_success "🐧 git, chezmoi, and Homebrew installed"
 }
 
 install_fedora_atomic() {
@@ -341,7 +375,10 @@ install_toolbox() {
         export PATH="$HOME/.local/bin:$PATH"
     fi
 
-    log_success "📦 git and chezmoi installed"
+    # Install Linuxbrew
+    install_linuxbrew
+
+    log_success "📦 git, chezmoi, and Homebrew installed"
 }
 
 install_debian() {
@@ -367,7 +404,10 @@ install_debian() {
         export PATH="$HOME/.local/bin:$PATH"
     fi
 
-    log_success "🐍 git and chezmoi installed"
+    # Install Linuxbrew
+    install_linuxbrew
+
+    log_success "🐍 git, chezmoi, and Homebrew installed"
 }
 
 install_rpi() {
@@ -393,7 +433,10 @@ install_rpi() {
         export PATH="$HOME/.local/bin:$PATH"
     fi
 
-    log_success "🍓 git and chezmoi installed"
+    # Install Linuxbrew
+    install_linuxbrew
+
+    log_success "🍓 git, chezmoi, and Homebrew installed"
 }
 
 case "$PLATFORM" in
