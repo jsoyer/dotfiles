@@ -127,7 +127,7 @@ sh -c "$(curl -fsLS get.chezmoi.io)" -- init --apply jsoyer
 | Feature | macOS | Fedora | Raspberry Pi | Windows |
 |---------|-------|--------|-------------|---------|
 | **Theme** | Catppuccin Mocha | Catppuccin Mocha | Gruvbox Dark | N/A |
-| **Package Manager** | Homebrew | dnf / rpm-ostree | apt | Scoop |
+| **Package Manager** | Homebrew | Linuxbrew + dnf / rpm-ostree | Linuxbrew + apt | Scoop |
 | **Prompt** | `~/path ➜` | `~/path ➜` | `🍓 host:~/path ❯` | N/A |
 | **Tmux Bar** | Top | Top | Bottom | Top |
 | **Tmux Prefix** | `Ctrl+A` | `Ctrl+A` | `Ctrl+B` | `Ctrl+A` |
@@ -316,12 +316,21 @@ chezmoi edit ~/.config/tool/config
 chezmoi apply
 ```
 
-### Updating Homebrew Packages (macOS)
+### Updating Homebrew Packages (macOS + Linux)
 
 A custom `breww` script wraps the `brew` command. When you install a package with `breww install <package>`, it automatically:
 1. Installs the package via Homebrew.
-2. Dumps the machine's current list of packages into the correct profile-specific `Brewfile` (`_pro` or `_personal`).
+2. Dumps the machine's current list of packages into the correct profile-specific Brewfile.
 3. Commits and pushes the change to GitHub.
+
+**Brewfile profiles:**
+
+| Profile | Brewfile | Content |
+|---------|----------|---------|
+| `mac-pro` | `Brewfile_common` + `Brewfile_pro` | Full workstation (casks, mas, go) |
+| `mac-personal` | `Brewfile_common` + `Brewfile_personal` | Personal Mac (casks, mas) |
+| `linux-standard` | `Brewfile_common` + `Brewfile_linux` | Linux CLI tools |
+| `rpi` | `Brewfile_common` + `Brewfile_rpi` | Minimal RPi subset |
 
 **Usage:**
 ```bash
@@ -420,7 +429,7 @@ chezmoi update  # Pull + apply automatically
 │   ├── 99-integrations.zsh             # FZF, Atuin, plugins
 │   └── README.md                       # Zsh documentation
 ├── dot_bash/                           # Bash fallback configuration
-├── dot_private/                        # Brewfiles (restricted 0600)
+├── dot_private/                        # Brewfiles: common, pro, personal, linux, rpi (0600)
 ├── dot_ssh/                            # SSH config (1Password-integrated)
 ├── dot_local/bin/                      # Custom scripts
 │   ├── executable_breww                # Homebrew wrapper with auto-sync
