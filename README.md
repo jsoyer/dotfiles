@@ -393,7 +393,7 @@ chezmoi update  # Pull + apply automatically
 │   ├── 04-update/                      # Package updates (Homebrew, App Store, dnf)
 │   └── 05-maintenance/                 # Container maintenance
 ├── dot_claude/                         # Claude Code AI assistant
-│   ├── agents/                         # 100+ specialized sub-agents
+│   ├── agents/                         # 165 specialized sub-agents
 │   ├── skills/                         # 84 skills (slash commands)
 │   ├── hooks/                          # Event hooks (RTK, state tracking)
 │   └── private_settings.json.tmpl      # Permissions, MCP servers

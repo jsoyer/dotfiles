@@ -906,7 +906,13 @@ def --env fcd [] {
 def f [] {
     let file = (fd --type f --hidden --exclude .git | fzf)
     if ($file | is-not-empty) {
-        $file | pbcopy
+        if (which pbcopy | is-not-empty) {
+            $file | pbcopy
+        } else if (which wl-copy | is-not-empty) {
+            $file | wl-copy
+        } else if (which xclip | is-not-empty) {
+            $file | xclip -selection clipboard
+        }
         print $"Copied to clipboard: ($file)"
     }
 }
