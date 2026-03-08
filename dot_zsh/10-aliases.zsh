@@ -237,6 +237,97 @@ dupdel() {
   fi
 }
 
+# ============================================================================
+# Tmux
+# ============================================================================
+alias t='tmux'
+alias ta='tmux attach -t'
+alias tl='tmux list-sessions'
+alias tk='tmux kill-session -t'
+alias tns='tmux new-session -s'
+
+# ============================================================================
+# lazygit / lazydocker
+# ============================================================================
+alias lg='lazygit'
+alias ld='lazydocker'
+
+# ============================================================================
+# Disk / System
+# ============================================================================
+if command -v dust &>/dev/null; then
+  alias du='dust'
+fi
+if command -v duf &>/dev/null; then
+  alias df='duf'
+fi
+if command -v btop &>/dev/null; then
+  alias top='btop'
+fi
+if command -v procs &>/dev/null; then
+  alias ps='procs'
+fi
+alias ports='lsof -iTCP -sTCP:LISTEN -n -P'
+alias myip='curl -s ifconfig.me && echo'
+alias path='echo "$PATH" | tr ":" "\n"'
+
+# ============================================================================
+# Markdown (glow)
+# ============================================================================
+if command -v glow &>/dev/null; then
+  alias md='glow'
+fi
+
+# ============================================================================
+# Search (ripgrep / fd)
+# ============================================================================
+alias rgf='rg --files-with-matches'
+alias rgi='rg --ignore-case'
+alias fdf='fd --type f'
+alias fdd='fd --type d'
+
+# ============================================================================
+# Python (uv / poetry / venv)
+# ============================================================================
+# uv
+alias uvi='uv init'
+alias uva='uv add'
+alias uvr='uv run'
+alias uvs='uv sync'
+alias uvp='uv pip'
+alias uvpi='uv pip install'
+alias uvvenv='uv venv'
+
+# poetry
+alias po='poetry'
+alias poi='poetry install'
+alias poa='poetry add'
+alias por='poetry run'
+alias pos='poetry shell'
+alias pou='poetry update'
+alias pol='poetry lock'
+
+# venv shortcuts
+venv() {
+  uv venv "${1:-.venv}"
+}
+activate() {
+  local dir="${1:-.venv}"
+  if [[ -f "$dir/bin/activate" ]]; then
+    source "$dir/bin/activate"
+  else
+    echo "No virtualenv found at $dir/bin/activate"
+    return 1
+  fi
+}
+
+# ============================================================================
+# Misc
+# ============================================================================
+mkd() {
+  mkdir -p "$@" && cd "${@: -1}" || return
+}
+
 # Chezmoi update + package updates
 cup() {
   cu "$@"
