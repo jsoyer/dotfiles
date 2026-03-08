@@ -1,3 +1,7 @@
+{{- if lookPath "age" }}
+encryption = "age"
+{{- end }}
+
 [git]
     autoAdd = true
     autoCommit = true
@@ -15,7 +19,6 @@
     work_email = "jsoyer@varonis.com"
 
 {{- if lookPath "age" }}
-encryption = "age"
 
 [age]
     identity = "{{ .chezmoi.homeDir }}/.config/chezmoi/key.txt"
