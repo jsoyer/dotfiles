@@ -15,6 +15,8 @@
     work_email = "jsoyer@varonis.com"
 
 {{- if lookPath "age" }}
+encryption = "age"
+
 [age]
     identity = "{{ .chezmoi.homeDir }}/.config/chezmoi/key.txt"
     recipient = "{{ promptStringOnce . "age_recipient" "age public key (age1...)" }}"
