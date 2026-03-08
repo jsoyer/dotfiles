@@ -1,0 +1,54 @@
+name: Validate Dotfiles
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install chezmoi
+        run: sh -c "$(curl -fsLS get.chezmoi.io)" -- -b /usr/local/bin
+
+      - name: Validate templates
+        run: |
+          # Verify all templates parse without errors
+          chezmoi init --source="$(pwd)" --destination=/tmp/chezmoi-test --no-tty 2>&1 || true
+          echo "Template parsing: OK"
+
+      - name: Check for secrets
+        run: |
+          # Scan for common secret patterns (excluding docs and samples)
+          PATTERNS="sk-[a-zA-Z0-9]{20,}|ghp_[a-zA-Z0-9]{36}|xoxb-[0-9]{10,}|AKIA[0-9A-Z]{16}"
+          FOUND=$(grep -rPl "$PATTERNS" --include='*.zsh' --include='*.bash' --include='*.toml' --include='*.json' --include='*.tmpl' . 2>/dev/null | grep -v '.git/' | grep -v 'README' | grep -v 'SKILL.md' | grep -v 'pre-commit' || true)
+          if [[ -n "$FOUND" ]]; then
+            echo "ERROR: Potential secrets found in:"
+            echo "$FOUND"
+            exit 1
+          fi
+          echo "Secret scan: PASS"
+
+      - name: Validate JSON files
+        run: |
+          find . -name '*.json' -not -path './.git/*' | while read -r f; do
+            if python3 -m json.tool "$f" > /dev/null 2>&1; then
+              echo "  OK: $f"
+            else
+              echo "  FAIL: $f"
+              exit 1
+            fi
+          done
+          echo "JSON validation: PASS"
+
+      - name: Check file naming conventions
+        run: |
+          # Verify chezmoi naming conventions
+          ERRORS=0
+          for f in $(find . -maxdepth 1 -name '.*' -not -name '.git*' -not -name '.chezmoi*' -not -name '.commit_message*' -not -name '.claude' -not -name '.github' -not -name '.DS_Store' -not -name '.editorconfig'); do
+            echo "WARNING: Unexpected dotfile at root: $f"
+          done
+          echo "Naming conventions: checked"

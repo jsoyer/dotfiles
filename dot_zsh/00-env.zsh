@@ -136,12 +136,29 @@ if command -v gh &>/dev/null; then
 fi
 
 # ============================================================================
-# MCP API keys (Claude Code integrations)
+# MCP API keys (Claude Code + OpenCode integrations)
 # ============================================================================
-# export SLACK_BOT_TOKEN=""   # api.slack.com → Your apps → OAuth tokens
-# export SLACK_TEAM_ID=""     # Slack workspace ID (from URL or api.slack.com)
-# export BRAVE_API_KEY=""     # api.search.brave.com (free tier: 2000 req/month)
-# export LINEAR_API_KEY=""    # Linear → Settings → API → Personal API keys
-# export DISCORD_TOKEN=""     # discord.com/developers → Bot → Token
-# export OBSIDIAN_API_KEY=""  # Obsidian → Community plugins → Local REST API → Copy key
-# export NOTION_API_KEY=""    # notion.so/my-integrations → New integration → Secret
+# These environment variables are required by MCP servers configured in:
+#   ~/.claude/settings.json
+#   ~/.config/opencode/opencode.json
+#
+# To activate a server, uncomment its line and add your key.
+# Keys should ideally be stored in ~/.zsh/secrets.zsh (gitignored).
+#
+# Server            Variable              Where to get it
+# -------           --------              ---------------
+# slack             SLACK_BOT_TOKEN       api.slack.com → Your apps → OAuth tokens
+# slack             SLACK_TEAM_ID         Slack workspace ID (from URL or api.slack.com)
+# brave-search      BRAVE_API_KEY         api.search.brave.com (free tier: 2000 req/month)
+# linear            LINEAR_API_KEY        Linear → Settings → API → Personal API keys
+# discord           DISCORD_TOKEN         discord.com/developers → Bot → Token
+# obsidian          OBSIDIAN_API_KEY      Obsidian → Community plugins → Local REST API → Copy key
+# notion            NOTION_API_KEY        notion.so/my-integrations → New integration → Secret
+#
+# export SLACK_BOT_TOKEN=""
+# export SLACK_TEAM_ID=""
+# export BRAVE_API_KEY=""
+# export LINEAR_API_KEY=""
+# export DISCORD_TOKEN=""
+# export OBSIDIAN_API_KEY=""
+# export NOTION_API_KEY=""

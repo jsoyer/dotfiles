@@ -275,11 +275,12 @@ Ctrl+j  # Next command
 
 **Example contents:**
 ```bash
-export HOMEBREW_GITHUB_API_TOKEN="ghp_..."
-export OPENAI_API_KEY="sk-..."
+export SLACK_BOT_TOKEN="xoxb-..."
+export NOTION_API_KEY="ntn_..."
 ```
 
-⚠️ **Never commit this file to Git!**
+This file is excluded from chezmoi tracking via `.chezmoiignore.tmpl`.
+Never commit this file to Git.
 
 ## ⚡ Performance Optimizations
 

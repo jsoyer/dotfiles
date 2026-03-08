@@ -14,6 +14,12 @@
     email = "jeromesoyer@gmail.com"
     work_email = "jsoyer@varonis.com"
 
+{{- if lookPath "age" }}
+[age]
+    identity = "{{ .chezmoi.homeDir }}/.config/chezmoi/key.txt"
+    recipient = "{{ promptStringOnce . "age_recipient" "age public key (age1...)" }}"
+{{- end }}
+
 [edit]
     command = "nvim"
 

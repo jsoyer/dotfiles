@@ -21,8 +21,9 @@ CLAUDE.md
 .ssh/config
 {{- end }}
 
-{{/* Scripts directory is only for bootstrap - never apply to $HOME */}}
+{{/* Scripts and CI directories - never apply to $HOME */}}
 scripts/
+.github/
 
 {{/* Ignore COSMIC DE config on non-Fedora systems */}}
 {{- if not (and (eq .chezmoi.os "linux") (or (lookPath "dnf") (lookPath "rpm-ostree"))) }}

@@ -1,0 +1,112 @@
+#!/usr/bin/env bash
+# update-claude-skills — re-downloads all Claude Code skills from multiple sources
+# Usage: update-claude-skills [--dry-run]
+
+set -euo pipefail
+
+SKILLS_DIR="$HOME/.claude/skills"
+CHEZMOI_DIR="$HOME/.local/share/chezmoi/dot_claude/skills"
+DRY_RUN=0
+
+[[ "${1:-}" == "--dry-run" ]] && DRY_RUN=1
+
+# Source 1: Jeffallan/claude-skills
+JEFF_SKILLS=(
+  angular-architect api-designer architecture-designer atlassian-mcp chaos-engineer
+  cli-developer cloud-architect code-documenter code-reviewer cpp-pro csharp-developer
+  database-optimizer debugging-wizard devops-engineer django-expert dotnet-core-expert
+  embedded-systems fastapi-expert feature-forge fine-tuning-expert flutter-expert
+  fullstack-guardian game-developer golang-pro graphql-architect java-architect
+  javascript-pro kotlin-specialist kubernetes-specialist laravel-specialist
+  legacy-modernizer mcp-developer microservices-architect ml-pipeline monitoring-expert
+  nestjs-expert nextjs-developer pandas-pro php-pro playwright-expert postgres-pro
+  prompt-engineer python-pro rag-architect rails-expert react-expert react-native-expert
+  rust-engineer salesforce-developer secure-code-guardian security-reviewer shopify-expert
+  spark-engineer spec-miner spring-boot-engineer sql-pro sre-engineer swift-expert
+  terraform-engineer test-master the-fool typescript-pro vue-expert-js vue-expert
+  websocket-engineer wordpress-pro
+)
+
+# Source 2: Shubhamsaboo/awesome-llm-apps
+AWESOME_SKILLS=(
+  academic-researcher content-creator data-analyst debugger decision-helper deep-research
+  editor email-drafter fact-checker fullstack-developer meeting-notes project-planner
+  python-expert sprint-planner strategy-advisor technical-writer ux-designer
+  visualization-expert
+)
+
+updated=0
+failed=0
+
+echo "Updating Claude Code skills..."
+echo ""
+
+# Fetch from Jeffallan/claude-skills
+echo "--- Jeffallan/claude-skills (${#JEFF_SKILLS[@]} skills) ---"
+for skill in "${JEFF_SKILLS[@]}"; do
+  dest_dir="$SKILLS_DIR/$skill"
+  url="https://raw.githubusercontent.com/Jeffallan/claude-skills/main/skills/$skill/SKILL.md"
+
+  if [[ $DRY_RUN -eq 1 ]]; then
+    echo "  would update: $skill"
+    continue
+  fi
+
+  mkdir -p "$dest_dir"
+  if curl -sS --fail "$url" -o "$dest_dir/SKILL.md" 2>/dev/null; then
+    ((updated++))
+  else
+    # Try subdirectories (skills are organized in categories)
+    found=0
+    for category in language backend frontend infrastructure api-architecture quality workflow data-ml; do
+      alt_url="https://raw.githubusercontent.com/Jeffallan/claude-skills/main/skills/$category/$skill/SKILL.md"
+      if curl -sS --fail "$alt_url" -o "$dest_dir/SKILL.md" 2>/dev/null; then
+        ((updated++))
+        found=1
+        break
+      fi
+    done
+    if [[ $found -eq 0 ]]; then
+      echo "  x failed: $skill"
+      ((failed++))
+    fi
+  fi
+done
+
+echo ""
+echo "--- Shubhamsaboo/awesome-llm-apps (${#AWESOME_SKILLS[@]} skills) ---"
+for skill in "${AWESOME_SKILLS[@]}"; do
+  dest_dir="$SKILLS_DIR/$skill"
+  url="https://raw.githubusercontent.com/Shubhamsaboo/awesome-llm-apps/main/awesome_agent_skills/$skill/SKILL.md"
+
+  if [[ $DRY_RUN -eq 1 ]]; then
+    echo "  would update: $skill"
+    continue
+  fi
+
+  mkdir -p "$dest_dir"
+  if curl -sS --fail "$url" -o "$dest_dir/SKILL.md" 2>/dev/null; then
+    ((updated++))
+  else
+    echo "  x failed: $skill"
+    ((failed++))
+  fi
+done
+
+if [[ $DRY_RUN -eq 0 ]]; then
+  echo ""
+  echo "  $updated skills updated, $failed failed"
+
+  # Sync to chezmoi
+  if [[ -d "$CHEZMOI_DIR" ]]; then
+    for skill_dir in "$SKILLS_DIR"/*/; do
+      skill_name=$(basename "$skill_dir")
+      mkdir -p "$CHEZMOI_DIR/$skill_name"
+      cp "$skill_dir"SKILL.md "$CHEZMOI_DIR/$skill_name/" 2>/dev/null || true
+    done
+    echo "  synced to chezmoi"
+  fi
+else
+  echo ""
+  echo "Dry run complete. ${#JEFF_SKILLS[@]} + ${#AWESOME_SKILLS[@]} skills would be updated."
+fi
