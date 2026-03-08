@@ -274,3 +274,20 @@ alias jf='jj git fetch'
 alias cco='claude --model opus'
 alias ccs='claude --model sonnet'
 alias cch='claude --model haiku'
+
+# ============================================================================
+# fdupes (duplicate file finder)
+# ============================================================================
+alias dup='fdupes -r'
+alias dupsize='fdupes -rS'
+alias dupsum='fdupes -rm'
+dupdel() {
+  echo "WARNING: this will DELETE duplicate files (keeping one copy) in: ${*:-.}"
+  echo -n "Continue? (y/N) "
+  read -r reply
+  if [[ "$reply" =~ ^[Yy]$ ]]; then
+    fdupes -rdN "$@"
+  else
+    echo "Aborted."
+  fi
+}
