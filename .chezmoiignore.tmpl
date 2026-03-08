@@ -30,6 +30,11 @@ scripts/
 .config/cosmic/
 {{- end }}
 
+{{/* Ignore Windows-only configs on non-Windows */}}
+{{- if ne .chezmoi.os "windows" }}
+.config/komorebi/
+{{- end }}
+
 {{/* Ignore Unix-only configs on Windows */}}
 {{- if eq .chezmoi.os "windows" }}
 .zsh/
