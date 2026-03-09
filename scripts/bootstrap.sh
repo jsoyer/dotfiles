@@ -323,10 +323,16 @@ install_fedora() {
     # Install gh CLI via official dnf repo
     install_gh_dnf
 
+    # Install 1Password CLI
+    install_op_dnf
+
+    # Install uv (for uvx / MCP servers using Python)
+    install_uv
+
     # Install Linuxbrew
     install_linuxbrew
 
-    log_success "🐧 git, chezmoi, gh, and Homebrew installed"
+    log_success "🐧 git, chezmoi, gh, op, uv, and Homebrew installed"
 }
 
 install_fedora_atomic() {
@@ -383,10 +389,70 @@ install_toolbox() {
     # Install gh CLI via official dnf repo
     install_gh_dnf
 
+    # Install 1Password CLI
+    install_op_dnf
+
+    # Install uv (for uvx / MCP servers using Python)
+    install_uv
+
     # Install Linuxbrew
     install_linuxbrew
 
-    log_success "📦 git, chezmoi, gh, and Homebrew installed"
+    log_success "📦 git, chezmoi, gh, op, uv, and Homebrew installed"
+}
+
+install_op_apt() {
+    if command -v op &>/dev/null; then
+        log_warn "op (1Password CLI) already installed"
+        return
+    fi
+
+    log_info "Installing op (1Password CLI) via official apt repo..."
+
+    local keyring_dir="/usr/share/keyrings"
+    local sources_dir="/etc/apt/sources.list.d"
+    local tmp_key
+    tmp_key="$(mktemp)"
+
+    sudo mkdir -p -m 755 "$keyring_dir" "$sources_dir"
+    curl -sS https://downloads.1password.com/linux/keys/1password.asc -o "$tmp_key"
+    sudo gpg --dearmor < "$tmp_key" | sudo tee "$keyring_dir/1password-archive-keyring.gpg" > /dev/null
+    rm -f "$tmp_key"
+
+    echo "deb [arch=$(dpkg --print-architecture) signed-by=${keyring_dir}/1password-archive-keyring.gpg] https://downloads.1password.com/linux/debian/$(dpkg --print-architecture) stable main" \
+        | sudo tee "$sources_dir/1password.list" > /dev/null
+
+    sudo apt update
+    sudo apt install -y 1password-cli
+
+    log_success "op installed ($(op --version))"
+}
+
+install_op_dnf() {
+    if command -v op &>/dev/null; then
+        log_warn "op (1Password CLI) already installed"
+        return
+    fi
+
+    log_info "Installing op (1Password CLI) via official rpm repo..."
+    sudo rpm --import https://downloads.1password.com/linux/keys/1password.asc
+    sudo sh -c 'echo -e "[1password]\nname=1Password Stable Channel\nbaseurl=https://downloads.1password.com/linux/rpm/stable/\$basearch\nenabled=1\ngpgcheck=1\nrepo_gpgcheck=1\ngpgkey=https://downloads.1password.com/linux/keys/1password.asc" > /etc/yum.repos.d/1password.repo'
+    sudo dnf install -y 1password-cli
+
+    log_success "op installed ($(op --version))"
+}
+
+install_uv() {
+    if command -v uv &>/dev/null; then
+        log_warn "uv already installed"
+        return
+    fi
+
+    log_info "Installing uv (Python package runner / uvx)..."
+    curl -LsSf https://astral.sh/uv/install.sh | sh
+    export PATH="$HOME/.local/bin:$PATH"
+
+    log_success "uv installed ($(uv --version))"
 }
 
 install_gh_dnf() {
@@ -462,10 +528,16 @@ install_apt() {
     # Install gh CLI via official apt repo
     install_gh_apt
 
+    # Install 1Password CLI
+    install_op_apt
+
+    # Install uv (for uvx / MCP servers using Python)
+    install_uv
+
     # Install Linuxbrew
     install_linuxbrew
 
-    log_success "$EMOJI git, chezmoi, gh, and Homebrew installed"
+    log_success "$EMOJI git, chezmoi, gh, op, uv, and Homebrew installed"
 }
 
 install_debian() { install_apt; }
