@@ -26,9 +26,9 @@ plugins=(
 
 
 # ============================================================================
-# Load Oh-My-Zsh
+# Load Oh-My-Zsh (not available on Fedora Atomic host — externals excluded)
 # ============================================================================
-source $ZSH/oh-my-zsh.sh
+[[ -f "$ZSH/oh-my-zsh.sh" ]] && source "$ZSH/oh-my-zsh.sh"
 
 # ============================================================================
 # Cache helper for eval-based tool init (avoids fork on every shell start)
