@@ -15,7 +15,9 @@ if ! [ -f "/Library/Developer/CommandLineTools/usr/bin/git" ]; then
     | sed -e 's/^ *Label: //' -e 's/^ *//' \
     | sort -V \
     | tail -n1)
-  sudo softwareupdate --install "$CLT_PACKAGE"
+  if [[ -n "$CLT_PACKAGE" ]]; then
+    sudo softwareupdate --install "$CLT_PACKAGE"
+  fi
 
   xcode-select --install
 fi

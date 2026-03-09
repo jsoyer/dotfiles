@@ -77,10 +77,10 @@ case "${1:-}" in
         ;;
     --clean)
         echo "🗑️  Removing tbx-generated .desktop files..."
-        grep -rl '^X-Toolbox=true' "$DEST" 2>/dev/null | while read -r f; do
+        while IFS= read -r f; do
             echo "  rm $f"
             rm -f "$f"
-        done
+        done < <(grep -rl '^X-Toolbox=true' "$DEST" 2>/dev/null || true)
         update-desktop-database "$DEST" 2>/dev/null || true
         echo "✅ Done"
         exit 0
