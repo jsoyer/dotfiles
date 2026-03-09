@@ -36,7 +36,6 @@ alias zl='eza -lagX --icons --color=always'
 # System
 # ============================================================================
 alias cl='clear'
-alias bcask='brew cask'
 
 # Toolbox - enter with zsh instead of bash
 alias tbx='/usr/bin/toolbox run zsh'
