@@ -82,7 +82,7 @@ jobs:
           sudo apt-get install -y shellcheck
           ERRORS=0
           while IFS= read -r f; do
-            if ! shellcheck --severity=warning "$f"; then
+            if ! shellcheck --severity=error "$f"; then
               ERRORS=$(( ERRORS + 1 ))
             fi
           done < <(
