@@ -46,7 +46,7 @@ require("lazy").setup({
   install = { colorscheme = { "catppuccin", "tokyonight", "habamax" } },
   checker = {
     enabled = true,
-    notify = false, -- Pas de spam de notifications
+    notify = false, -- suppress update notifications
   },
   performance = {
     rtp = {

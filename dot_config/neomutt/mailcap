@@ -1,10 +1,10 @@
 # mailcap — NeoMutt MIME handlers
 
-# HTML : rendu inline via w3m (copiousoutput = affiché dans le pager NeoMutt)
+# HTML: inline rendering via w3m (copiousoutput = displayed in NeoMutt pager)
 text/html; w3m -dump -I %{charset} -T text/html %s; copiousoutput; nametemplate=%s.html
-# HTML : ouvrir dans le navigateur (touche V)
+# HTML: open in browser (key V)
 text/html; open %s; test=test "$(uname)" = "Darwin"; needsterminal
 text/html; xdg-open %s; needsterminal
 
-# Images : affichage inline via chafa (Kitty/Sixel — WezTerm + Ghostty)
+# Images: inline display via chafa (Kitty/Sixel — WezTerm + Ghostty)
 image/*; chafa --format auto --size 80x24 %s; copiousoutput

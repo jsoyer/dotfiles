@@ -9,6 +9,7 @@
 # =============================================================================
 
 #Requires -Version 5.1
+param([string]$GitHubUser = "jsoyer")
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 
@@ -66,7 +67,7 @@ if (Test-Path $chezmoiDir) {
     Write-Host "[bootstrap] chezmoi already initialized, updating..." -ForegroundColor Yellow
     chezmoi update
 } else {
-    chezmoi init --apply jsoyer
+    chezmoi init --apply $GitHubUser
 }
 
 # =============================================================================
