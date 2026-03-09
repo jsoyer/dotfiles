@@ -320,10 +320,13 @@ install_fedora() {
         export PATH="$HOME/.local/bin:$PATH"
     fi
 
+    # Install gh CLI via official dnf repo
+    install_gh_dnf
+
     # Install Linuxbrew
     install_linuxbrew
 
-    log_success "🐧 git, chezmoi, and Homebrew installed"
+    log_success "🐧 git, chezmoi, gh, and Homebrew installed"
 }
 
 install_fedora_atomic() {
@@ -377,10 +380,27 @@ install_toolbox() {
         export PATH="$HOME/.local/bin:$PATH"
     fi
 
+    # Install gh CLI via official dnf repo
+    install_gh_dnf
+
     # Install Linuxbrew
     install_linuxbrew
 
-    log_success "📦 git, chezmoi, and Homebrew installed"
+    log_success "📦 git, chezmoi, gh, and Homebrew installed"
+}
+
+install_gh_dnf() {
+    if command -v gh &>/dev/null; then
+        log_warn "gh already installed"
+        return
+    fi
+
+    log_info "Installing gh (GitHub CLI) via official dnf repo..."
+    sudo dnf install -y dnf5-plugins
+    sudo dnf config-manager addrepo --from-repofile=https://cli.github.com/packages/rpm/gh-cli.repo
+    sudo dnf install -y gh --repo gh-cli
+
+    log_success "gh installed"
 }
 
 install_gh_apt() {
