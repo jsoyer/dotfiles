@@ -88,6 +88,7 @@ This setup uses `chezmoi`'s templating capabilities to apply different configura
 - **Vivid** - LS_COLORS generator
 - **TheFuck** - Command corrector
 - **LazyGit** - Terminal Git UI
+- **gh** - GitHub CLI
 - **Git, Jujutsu, Brew, Chezmoi** - Version control and system management with extensive custom aliases.
 
 ---
@@ -112,7 +113,8 @@ The bootstrap script will:
 1. Detect your platform (macOS, Fedora, Debian/RPi, Windows)
 2. Install prerequisites (git, package manager)
 3. Install chezmoi
-4. Apply all dotfiles and run platform-specific setup scripts
+4. Install gh (GitHub CLI) via official repo (Debian/RPi/Fedora/Toolbox)
+5. Apply all dotfiles and run platform-specific setup scripts
 
 ### Alternative: Manual Chezmoi Install
 
@@ -126,7 +128,7 @@ sh -c "$(curl -fsLS get.chezmoi.io)" -- init --apply jsoyer
 
 | Feature | macOS | Fedora | Raspberry Pi | Windows |
 |---------|-------|--------|-------------|---------|
-| **Theme** | Catppuccin Mocha | Catppuccin Mocha | Gruvbox Dark | N/A |
+| **Theme** | Catppuccin Mocha | Catppuccin Mocha | Snazzy | N/A |
 | **Package Manager** | Homebrew | Linuxbrew + dnf / rpm-ostree | Linuxbrew + apt | Scoop |
 | **Prompt** | `~/path ➜` | `~/path ➜` | `🍓 host:~/path ❯` | N/A |
 | **Tmux Bar** | Top | Top | Bottom | Top |
@@ -712,7 +714,7 @@ These dotfiles are based on various open-source projects and personal customizat
 
 ---
 
-**Last Updated:** 2026-03-08
+**Last Updated:** 2026-03-09
 **Maintained by:** Jerome Soyer (@jsoyer)
 
 ---

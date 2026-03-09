@@ -2,7 +2,7 @@
 # =============================================================================
 # Multiplatform Bootstrap Script
 # =============================================================================
-# Installs git + chezmoi on any platform, then applies dotfiles.
+# Installs git, chezmoi, and gh (GitHub CLI) on any platform, then applies dotfiles.
 #
 # Usage:
 #   curl -sL https://raw.githubusercontent.com/jsoyer/dotfiles/main/scripts/bootstrap.sh | bash
