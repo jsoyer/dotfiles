@@ -20,12 +20,15 @@ fi
 
 echo ""
 echo "Atuin shell history sync — login to sync history across machines."
-echo "Skip with Ctrl+C if you want to set up later (run: atuin login)"
-echo ""
+echo -n "Do you want to authenticate with Atuin now? (y/N) "
 
-# Only attempt login in an interactive terminal
 if [[ -t 0 ]]; then
-    atuin login || echo "Atuin login skipped or failed — run 'atuin login' manually"
+    read -r answer
+    if [[ "$answer" =~ ^[Yy]$ ]]; then
+        atuin login || echo "Atuin login failed — run 'atuin login' manually"
+    else
+        echo "Skipped — run 'atuin login' manually when ready"
+    fi
 else
     echo "Non-interactive session — run 'atuin login' manually to enable sync"
 fi
