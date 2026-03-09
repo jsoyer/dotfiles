@@ -19,8 +19,8 @@ alias v='nvim'
 alias la='tree'
 alias cat='bat'
 alias http='xh'
-alias as='aerospace'
 alias asr='atuin scripts run'
+[[ "${IS_MACOS:-false}" == "true" ]] && alias as='aerospace'
 
 # Eza (modern ls replacement)
 alias ls='eza --color=always --icons'
@@ -34,7 +34,6 @@ alias zl='eza -lagX --icons --color=always'
 # System
 # ============================================================================
 alias cl='clear'
-alias bcask='brew cask'
 
 # Toolbox - enter with zsh instead of bash
 alias tbx='/usr/bin/toolbox run zsh'
@@ -360,14 +359,14 @@ cup() {
     echo "$EMOJI Running container maintenance..."
     $CONTAINER_RUNTIME ps
     
-    find "$HOME" -name "docker-compose.yml" -not -path "*/.*" 2>/dev/null | while read -r compose_file; do
+    while IFS= read -r compose_file; do
       project_dir=$(dirname "$compose_file")
       project_name=$(basename "$project_dir")
-      
+
       if $CONTAINER_RUNTIME compose -f "$compose_file" ps --services --filter "status=running" 2>/dev/null | grep -q .; then
         echo "  → Updating $project_name"
         pull_output=$($CONTAINER_RUNTIME compose -f "$compose_file" pull 2>&1)
-        
+
         if echo "$pull_output" | grep -qE "(Pulling|Downloading|Extracting|Status: Downloaded)"; then
           echo "  🔄 New images found, restarting containers..."
           $CONTAINER_RUNTIME compose -f "$compose_file" up -d
@@ -375,7 +374,7 @@ cup() {
           echo "  ✅ No new images, containers up to date"
         fi
       fi
-    done
+    done < <(find "$HOME" -name "docker-compose.yml" -not -path "*/.*" 2>/dev/null || true)
     
     $CONTAINER_RUNTIME image prune -a -f
     echo "✨ Container maintenance complete!"
