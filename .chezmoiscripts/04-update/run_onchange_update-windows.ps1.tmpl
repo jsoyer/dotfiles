@@ -1,6 +1,13 @@
 {{- if eq .chezmoi.os "windows" -}}
 #Requires -Version 5.1
+$ErrorActionPreference = 'Stop'
+Set-StrictMode -Version Latest
+
 # Update Scoop packages
+if (-not (Get-Command scoop -ErrorAction SilentlyContinue)) {
+    Write-Error "Scoop is not installed. Run the install script first."
+    exit 1
+}
 
 Write-Host "Updating Scoop..." -ForegroundColor Cyan
 scoop update

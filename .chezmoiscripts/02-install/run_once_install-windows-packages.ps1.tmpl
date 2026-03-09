@@ -2,6 +2,8 @@
 # Installs packages via Scoop on Windows machines.
 
 #Requires -Version 5.1
+$ErrorActionPreference = 'Stop'
+Set-StrictMode -Version Latest
 
 # =============================================================================
 # Install Scoop if not present
@@ -27,11 +29,14 @@ if (-not (scoop bucket list | Select-String -Quiet 'java'))          { scoop buc
 # =============================================================================
 # Install packages
 # =============================================================================
+$scoopPath = if ($env:SCOOP) { $env:SCOOP } else { Join-Path $env:USERPROFILE 'scoop' }
+
 function Install-ScoopPackages {
     param([string[]]$Packages)
-    $missing = $Packages | Where-Object { -not (Test-Path "$env:SCOOP\apps\$_\current") }
+    $missing = $Packages | Where-Object { -not (Test-Path "$scoopPath\apps\$_\current") }
     if ($missing) {
-        scoop install $missing
+        scoop install @missing
+        if ($LASTEXITCODE -ne 0) { throw "scoop install failed for: $($missing -join ', ')" }
     }
 }
 
