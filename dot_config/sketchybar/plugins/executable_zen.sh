@@ -1,6 +1,6 @@
 #!/bin/sh
 
-if [ $1 = "on" ]; then
+if [ "$1" = "on" ]; then
   sketchybar --set github.bell drawing=off \
              --set apple.logo drawing=off \
              --set '/cpu.*/' drawing=off \
