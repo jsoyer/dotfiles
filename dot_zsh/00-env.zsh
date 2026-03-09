@@ -69,6 +69,11 @@ case "$(uname -s)" in
     ;;
 esac
 
+# Convenience boolean flags (compatible with bash env)
+[[ "$(uname -s)" == "Darwin" ]] && export IS_MACOS=true || export IS_MACOS=false
+[[ "$MACHINE_PROFILE" == "rpi" ]] && export IS_RPI=true || export IS_RPI=false
+[[ "$(uname -s)" == "Linux" ]] && export IS_LINUX=true || export IS_LINUX=false
+
 # ============================================================================
 # Locale and language
 # ============================================================================

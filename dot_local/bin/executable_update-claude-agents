@@ -115,7 +115,6 @@ declare -A AGENT_CATEGORIES=(
   [workflow-orchestrator]="09-meta-orchestration"
   # 10 - Research & Analysis
   [competitive-analyst]="10-research-analysis"
-  [context-manager]="09-meta-orchestration"
   [data-researcher]="10-research-analysis"
   [market-researcher]="10-research-analysis"
   [research-analyst]="10-research-analysis"
