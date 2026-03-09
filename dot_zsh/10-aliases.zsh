@@ -354,7 +354,7 @@ cup() {
       fi
       ;;
     linux)
-      if [[ "$(uname -m)" == *"rpi"* ]] || grep -qi rpi /proc/version 2>/dev/null; then
+      if grep -qi rpi /proc/version 2>/dev/null; then
         echo "🐍 Updating apt packages..."
         sudo apt update && sudo apt dist-upgrade -y && sudo apt autoremove -y
       elif command -v dnf &>/dev/null; then
@@ -375,6 +375,8 @@ cup() {
   esac
 
   # Docker/Podman maintenance
+  local CONTAINER_RUNTIME=""
+  local EMOJI=""
   if command -v docker &>/dev/null && docker info &>/dev/null 2>&1; then
     CONTAINER_RUNTIME="docker"
     EMOJI="🐳"

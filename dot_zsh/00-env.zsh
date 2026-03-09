@@ -140,6 +140,16 @@ fi
 export BAT_THEME="Catppuccin Mocha"
 
 # ============================================================================
+# LS_COLORS via vivid (matches theme per platform)
+# ============================================================================
+if (( $+commands[vivid] )); then
+  case "${MACHINE_PROFILE:-}" in
+    rpi|linux*) export LS_COLORS="$(vivid generate snazzy)" ;;
+    *)          export LS_COLORS="$(vivid generate catppuccin-mocha)" ;;
+  esac
+fi
+
+# ============================================================================
 # GitHub token (for Claude Code MCP + tools)
 # ============================================================================
 # GITHUB_TOKEN: set in ~/.zsh/secrets.zsh (gitignored) or export on demand via: gh auth token

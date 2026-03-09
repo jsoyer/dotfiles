@@ -71,7 +71,7 @@ $(find . -maxdepth 2 -type d -not -path '*/.*' -not -path '*/node_modules/*' -no
 
 ## Dev Commands
 \`\`\`bash
-$(printf "$DEV_COMMANDS")
+$(printf '%s' "$DEV_COMMANDS")
 \`\`\`
 
 ## Code Style

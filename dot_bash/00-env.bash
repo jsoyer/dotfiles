@@ -40,7 +40,8 @@ case "$(uname -s)" in
     if [[ -f /proc/device-tree/model ]] && grep -q "Raspberry Pi" /proc/device-tree/model 2>/dev/null; then
       export IS_RPI=true
       export PLATFORM="rpi"
-      export RPI_MODEL=$(cat /proc/device-tree/model 2>/dev/null | tr -d '\0')
+      RPI_MODEL=$(cat /proc/device-tree/model 2>/dev/null | tr -d '\0')
+      export RPI_MODEL
     else
       export PLATFORM="linux"
     fi
