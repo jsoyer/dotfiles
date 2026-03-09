@@ -342,11 +342,12 @@ cup() {
     windows)
       echo "🪣 Updating Scoop packages..."
       scoop update
-      scoop update --all
+      scoop upgrade --all
       ;;
   esac
 
   # Docker/Podman maintenance
+  local CONTAINER_RUNTIME="" EMOJI=""
   if command -v docker &>/dev/null && docker info &>/dev/null 2>&1; then
     CONTAINER_RUNTIME="docker"
     EMOJI="🐳"

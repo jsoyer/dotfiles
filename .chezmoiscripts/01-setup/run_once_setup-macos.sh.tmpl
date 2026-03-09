@@ -3,6 +3,7 @@
 # =============================================================================
 # macOS Setup - Xcode Command Line Tools + Homebrew
 # =============================================================================
+set -euo pipefail
 
 # Install the Xcode Command Line Tools.
 if ! [ -f "/Library/Developer/CommandLineTools/usr/bin/git" ]; then
@@ -25,8 +26,6 @@ if /usr/bin/xcrun clang 2>&1 | grep -q license; then
 fi
 
 # Install Homebrew
-set -eo pipefail
-
 if ! command -v brew &> /dev/null; then
   echo "🍺 Installing Homebrew (may prompt for password)..."
 

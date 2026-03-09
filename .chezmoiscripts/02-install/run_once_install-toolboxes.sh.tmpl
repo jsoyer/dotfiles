@@ -5,7 +5,7 @@
 # Creates a Fedora toolbox (latest = host version) and an Arch Linux toolbox
 # =============================================================================
 
-set -e
+set -euo pipefail
 
 if ! command -v toolbox &>/dev/null; then
     echo "⚠️  toolbox not found, skipping"

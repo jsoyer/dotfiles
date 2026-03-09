@@ -13,14 +13,10 @@ end
 # ============================================================================
 # Homebrew Configuration
 # ============================================================================
-# Initialize Homebrew environment (equivalent to 'brew shellenv')
-set -gx HOMEBREW_PREFIX "/opt/homebrew"
-set -gx HOMEBREW_CELLAR "/opt/homebrew/Cellar"
-set -gx HOMEBREW_REPOSITORY "/opt/homebrew"
-fish_add_path -g /opt/homebrew/bin
-fish_add_path -g /opt/homebrew/sbin
-set -gx MANPATH "/opt/homebrew/share/man" $MANPATH
-set -gx INFOPATH "/opt/homebrew/share/info" $INFOPATH
+# Initialize Homebrew environment (works on Intel /usr/local and Apple Silicon /opt/homebrew)
+if command -q brew
+    eval (brew shellenv)
+end
 
 # PATH Configuration
 # ============================================================================
