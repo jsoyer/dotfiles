@@ -95,8 +95,8 @@ open -a Kitty
 **Documentation**: [README.md](.zsh/README.md)
 
 **Features**:
-- 48 Oh-My-Zsh plugins
-- Modular configuration (9 files)
+- 8 Oh-My-Zsh plugins (colored-man-pages, copybuffer, copyfile, extract, encode64, sudo, ssh-agent + kubectl/helm on macOS)
+- Modular configuration (7 files)
 - Catppuccin Mocha colors via Vivid
 - Starship prompt
 - Modern CLI tools integration
@@ -550,9 +550,9 @@ Style: Mocha
 | Platform | Bootstrap | Package Manager | Configs Applied |
 |----------|-----------|-----------------|-----------------|
 | **macOS** | `bootstrap.sh` | Homebrew | All (shells, terminals, editors, CLI tools) |
-| **Fedora Standard** | `bootstrap.sh` | dnf + Linuxbrew | All except Homebrew-specific |
-| **Fedora Atomic** | `bootstrap.sh` | rpm-ostree + Flatpak | All except Homebrew-specific |
-| **Raspberry Pi** | `bootstrap.sh` | apt + Linuxbrew | All with Gruvbox Dark theme |
+| **Fedora Standard** | `bootstrap.sh` | dnf | All except Homebrew-specific |
+| **Fedora Atomic** | `bootstrap.sh` | rpm-ostree + Toolbox | All except Homebrew-specific |
+| **Raspberry Pi** | `bootstrap.sh` | apt | All with Snazzy theme |
 | **Windows** | `bootstrap.ps1` | Scoop | Minimal (git, tmux, bash, komorebi, whkd) |
 
 ---
@@ -775,22 +775,23 @@ grep -r "#1e1e2e" ~/.config/  # Base color
 **Theme**: Catppuccin Mocha (100% consistent)
 **Dotfiles Manager**: Chezmoi with GitHub sync
 
-### Recent Updates (2026-03-08)
+### Recent Updates (2026-03-09)
+- MCP servers: GitHub, Notion, Linear via 1Password CLI (all platforms)
+- 1Password CLI installed on all Linux platforms (apt, dnf, RPi)
+- OpenCode MCP config synced with Claude Code (linear-mcp fix)
+- Shell hardening: #!/usr/bin/env bash in all scripts, find|while → process substitution
+- Neovim: lazyvim.json cleaned (luasnip→mini-snippets, mini-files→snacks_explorer, none-ls removed)
+- CI: shellcheck covers *.bash + executable_* scripts, fails on errors
 - Added Komorebi tiling WM for Windows (mirrors Aerospace keybindings)
 - Claude Code agents: 165 (131 VoltAgent + 22 agency + 9 custom + 3 cloud)
-- Homebrew on Linux (Linuxbrew) with profile-based Brewfiles
-- Age encryption with 1Password integration
 - Shell aliases synced across all 4 shells (zsh, bash, fish, nushell)
-- FZF functions (cx, fcd, f, fv) in all 4 shells with fd + cross-platform clipboard
-- Shell integrations (Atuin, Direnv, TheFuck) added to fish and nushell
 - Added Aerospace tiling WM + Sketchybar status bar
 - Added Ghostty terminal emulator
 - Added email stack (NeoMutt + mbsync + msmtp)
-- Added OpenCode with shared MCP config
 
 ---
 
-**Last Updated**: 2026-03-08
+**Last Updated**: 2026-03-09
 **Theme**: Catppuccin Mocha
 **Configured Tools**: 25+
 **Status**: All documented, themed, and synced

@@ -1,5 +1,5 @@
 {{- if and (ne .chezmoi.os "windows") (lookPath "gpg") (stat "/Applications/1Password.app") -}}
-#!/bin/bash
+#!/usr/bin/env bash
 # =============================================================================
 # GPG Key Import from 1Password
 # =============================================================================
