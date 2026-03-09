@@ -396,7 +396,7 @@ complete -C terraform terraform
 | Feature | Zsh | Bash |
 |---------|-----|------|
 | Framework | Oh-My-Zsh | None (manual) |
-| Plugins | 48 OMZ plugins | bash-completion |
+| Plugins | 8 OMZ plugins | bash-completion |
 | Autosuggestions | zsh-autosuggestions | N/A (use atuin) |
 | Syntax highlighting | zsh-syntax-highlighting | N/A |
 | Prompt | Starship | Starship ✅ |
@@ -546,5 +546,5 @@ brew install xh thefuck
 
 ---
 
-**Last updated:** 2025-01-24  
+**Last updated:** 2026-03-09
 **Maintained by:** Jerome Soyer (@jsoyer)
