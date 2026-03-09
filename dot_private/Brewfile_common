@@ -1,6 +1,5 @@
 # Common Homebrew packages for all machines (macOS + Linux)
 
-tap "homebrew/bundle"
 brew "bat"
 brew "chezmoi"
 brew "curl"
