@@ -10,6 +10,7 @@ if [ -n "$TOOLBOX_PATH" ] || case "$(hostname)" in *toolbx*) true;; *) false;; e
     # Fedora Toolbox
     export STARSHIP_ICON=""
     export STARSHIP_ICON_COLOR="blue"
+    export STARSHIP_CONFIG="${HOME}/.config/starship/starship.toml"
 elif [ -f /proc/device-tree/model ] && grep -q "Raspberry Pi" /proc/device-tree/model 2>/dev/null; then
     # Raspberry Pi
     export STARSHIP_ICON_COLOR="red"
@@ -18,12 +19,16 @@ elif [ -f /proc/device-tree/model ] && grep -q "Raspberry Pi" /proc/device-tree/
         omv-*)        export STARSHIP_ICON="🐟" ;;
         *)            export STARSHIP_ICON="🍓" ;;
     esac
+    export STARSHIP_CONFIG="${HOME}/.config/starship/starship-rpi.toml"
 else
     # Other Linux (Fedora)
     export STARSHIP_ICON=""
     export STARSHIP_ICON_COLOR="blue"
+    export STARSHIP_CONFIG="${HOME}/.config/starship/starship.toml"
 fi
 {{- end }}
 
+{{- if eq .chezmoi.os "darwin" }}
 # Starship config
-export STARSHIP_CONFIG="${HOME}/.config/starship/starship{{ if eq .chezmoi.os "linux" }}-rpi{{ end }}.toml"
+export STARSHIP_CONFIG="${HOME}/.config/starship/starship.toml"
+{{- end }}

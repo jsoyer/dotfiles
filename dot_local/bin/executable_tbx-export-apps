@@ -60,7 +60,7 @@ _export_from_container() {
           printf 'X-Toolbox-Container=%s\n' "${container}"
         } > "$output"
         echo "  ✅ ${display_name} → ${basename}-${container}.desktop"
-        (( count++ )) || true
+        count=$(( count + 1 ))
 
     done <<< "$desktop_files"
 

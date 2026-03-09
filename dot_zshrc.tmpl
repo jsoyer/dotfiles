@@ -37,11 +37,11 @@ source $ZSH/oh-my-zsh.sh
 _cache_eval() {
   local name="$1" cmd="$2"
   local cache="${HOME}/.cache/${name}/init.zsh"
-  if [[ ! -f "$cache" ]] || [[ ! -s "$cache" ]]; then
+  if [[ ! -f "$cache" ]] || [[ ! -s "$cache" ]] || [[ -n "$(find "$cache" -mtime +1 2>/dev/null)" ]]; then
     mkdir -p "${cache:h}"
-    eval "$cmd" > "$cache" 2>/dev/null
+    eval "$cmd" > "$cache" 2>/dev/null || { rm -f "$cache"; eval "$cmd"; return; }
   fi
-  source "$cache"
+  source "$cache" 2>/dev/null || eval "$cmd"
 }
 
 # ============================================================================

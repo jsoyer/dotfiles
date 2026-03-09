@@ -600,7 +600,6 @@ if [[ -d "$HOME/.local/share/chezmoi" ]]; then
     git fetch origin
 
     # Merge or reset to remote HEAD
-    local current_branch
     current_branch="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo main)"
     if git rev-parse --verify "origin/${current_branch}" &>/dev/null 2>&1; then
         git branch --set-upstream-to="origin/${current_branch}" "${current_branch}" 2>/dev/null || true
