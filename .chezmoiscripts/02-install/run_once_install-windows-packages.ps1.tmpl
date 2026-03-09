@@ -25,51 +25,34 @@ if (-not (scoop bucket list | Select-String -Quiet 'nonportable'))   { scoop buc
 if (-not (scoop bucket list | Select-String -Quiet 'java'))          { scoop bucket add java }
 
 # =============================================================================
-# Install packages (main bucket)
+# Install packages
 # =============================================================================
+function Install-ScoopPackages {
+    param([string[]]$Packages)
+    $installed = scoop list 2>$null | Select-Object -ExpandProperty Name
+    $missing = $Packages | Where-Object { $_ -notin $installed }
+    if ($missing) {
+        scoop install $missing
+    }
+}
+
 Write-Host "Installing Scoop packages (main)..." -ForegroundColor Cyan
-scoop install `
-    1password-cli `
-    7zip `
-    chezmoi `
-    claude-code `
-    codex `
-    dark `
-    docker `
-    git `
-    innounp `
-    neovim `
-    opencode `
-    uv
+Install-ScoopPackages @(
+    '1password-cli', '7zip', 'chezmoi', 'claude-code', 'codex',
+    'dark', 'docker', 'git', 'innounp', 'neovim', 'opencode', 'uv'
+)
 
-# =============================================================================
-# Install packages (extras bucket)
-# =============================================================================
 Write-Host "Installing Scoop packages (extras)..." -ForegroundColor Cyan
-scoop install `
-    brave `
-    chatgpt `
-    discord `
-    googlechrome `
-    komorebi `
-    powertoys `
-    sysinternals `
-    tor-browser `
-    vscode `
-    whkd `
-    zed
+Install-ScoopPackages @(
+    'brave', 'chatgpt', 'discord', 'googlechrome', 'komorebi',
+    'powertoys', 'sysinternals', 'tor-browser', 'vscode', 'whkd', 'zed'
+)
 
-# =============================================================================
-# Install packages (versions bucket)
-# =============================================================================
 Write-Host "Installing Scoop packages (versions)..." -ForegroundColor Cyan
-scoop install versions/jdownloader
+Install-ScoopPackages @('jdownloader')
 
-# =============================================================================
-# Install packages (java bucket)
-# =============================================================================
 Write-Host "Installing Scoop packages (java)..." -ForegroundColor Cyan
-scoop install java/temurin25-jre
+Install-ScoopPackages @('temurin25-jre')
 
 Write-Host "Scoop setup complete." -ForegroundColor Green
 {{ end -}}
