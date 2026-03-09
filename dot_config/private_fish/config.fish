@@ -24,12 +24,13 @@ end
 fish_add_path -g $HOME/.antigravity/antigravity/bin
 fish_add_path -g $HOME/.local/bin
 fish_add_path -g $HOME/.jenv/bin
-fish_add_path -g /opt/homebrew/opt/ruby/bin
 fish_add_path -g $HOME/.rbenv/shims
 fish_add_path -g $HOME/.tmuxifier/bin
 
-# Additional tool-specific paths
-fish_add_path -g /usr/local/opt/rbenv/shims
+# Tool-specific paths (use $HOMEBREW_PREFIX set by brew shellenv above)
+if set -q HOMEBREW_PREFIX
+    fish_add_path -g $HOMEBREW_PREFIX/opt/ruby/bin
+end
 
 # X11 and TeX
 fish_add_path -g /opt/X11/bin

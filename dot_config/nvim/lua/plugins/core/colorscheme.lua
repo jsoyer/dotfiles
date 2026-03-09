@@ -1,7 +1,6 @@
--- Platform detection
-local is_rpi = vim.fn.filereadable("/proc/device-tree/model") == 1
-  and vim.fn.system("grep -q 'Raspberry Pi' /proc/device-tree/model 2>/dev/null && echo 1 || echo 0"):gsub("%s+", "") == "1"
-
+-- Platform detection (vim.uv.os_uname() is in-memory, no subprocess)
+local machine = vim.uv.os_uname().machine
+local is_rpi = machine:match("aarch64") ~= nil
 local is_linux = vim.fn.has("unix") == 1 and vim.fn.has("mac") == 0
 
 return {
