@@ -16,8 +16,8 @@ CLAUDE.md
 .bash/
 {{- end }}
 
-{{/* Ignore 1Password-dependent files when 1Password app is not installed */}}
-{{- if not (stat "/Applications/1Password.app") }}
+{{/* Ignore SSH config on macOS when 1Password app is not installed */}}
+{{- if and (eq .chezmoi.os "darwin") (not (stat "/Applications/1Password.app")) }}
 .ssh/config
 {{- end }}
 

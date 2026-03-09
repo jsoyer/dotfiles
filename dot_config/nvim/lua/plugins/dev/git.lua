@@ -30,8 +30,8 @@ return {
       { "<leader>gc", ":Neogit commit<CR>", desc = "Neogit commit" },
       { "<leader>gp", ":Neogit pull<CR>", desc = "Neogit pull" },
       { "<leader>gP", ":Neogit push<CR>", desc = "Neogit push" },
-      { "<leader>gb", ":Telescope git_branches<CR>", desc = "Git branches" },
-      { "<leader>gB", ":G blame<CR>", desc = "Git blame" },
+      { "<leader>gL", ":Telescope git_branches<CR>", desc = "Git branches" },
+      { "<leader>gB", ":G blame<CR>", desc = "Git blame (fugitive)" },
     },
     opts = {
       integrations = {

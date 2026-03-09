@@ -46,17 +46,19 @@ fi
 
 OUTPUT="$DEST/${APP}-${CONTAINER}.desktop"
 
-cat > "$OUTPUT" << EOF
+cat > "$OUTPUT" << 'DESKTOP_EOF'
 [Desktop Entry]
-Name=${display_name} (${CONTAINER})
-Exec=toolbox run --container ${CONTAINER} ${exec_line}
-Type=Application
-Icon=${icon}
-Categories=${categories:-Utility;}
-Terminal=false
-X-Toolbox=true
-X-Toolbox-Container=${CONTAINER}
-EOF
+DESKTOP_EOF
+{
+  printf 'Name=%s (%s)\n' "${display_name}" "${CONTAINER}"
+  printf 'Exec=toolbox run --container %s %s\n' "${CONTAINER}" "${exec_line}"
+  printf 'Type=Application\n'
+  printf 'Icon=%s\n' "${icon}"
+  printf 'Categories=%s\n' "${categories:-Utility;}"
+  printf 'Terminal=false\n'
+  printf 'X-Toolbox=true\n'
+  printf 'X-Toolbox-Container=%s\n' "${CONTAINER}"
+} >> "$OUTPUT"
 
 update-desktop-database "$DEST" 2>/dev/null || true
 

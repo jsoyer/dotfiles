@@ -113,9 +113,7 @@ end, { desc = "Toggle relative number" })
 vim.keymap.set("n", "<leader>tt", ":TransparentToggle<CR>", { desc = "Toggle transparency" })
 vim.keymap.set("n", "<leader>tW", ":Twilight<CR>", { desc = "Toggle Twilight" })
 
--- Split windows
-vim.keymap.set("n", "<leader>-", ":split<CR>", { desc = "Split horizontal" })
-vim.keymap.set("n", "<leader>|", ":vsplit<CR>", { desc = "Split vertical" })
+-- Split windows (see Enhanced Split Management section below)
 
 -- Terminal mappings
 vim.keymap.set("t", "<Esc><Esc>", "<C-\\><C-n>", { desc = "Exit terminal mode" })
@@ -165,9 +163,6 @@ vim.keymap.set("n", "<S-Tab>", ":bprev<CR>", { desc = "Previous buffer" })
 vim.keymap.set("n", "<C-Tab>", ":bnext<CR>", { desc = "Next buffer" })
 vim.keymap.set("n", "<C-S-Tab>", ":bprev<CR>", { desc = "Previous buffer" })
 
--- Buffer management shortcuts
-vim.keymap.set("n", "<leader>x", ":bdelete<CR>", { desc = "Close buffer" })
-vim.keymap.set("n", "<leader>X", ":bdelete!<CR>", { desc = "Force close buffer" })
 vim.keymap.set("n", "<leader>bn", ":enew<CR>", { desc = "New buffer" })
 
 -- Close all buffers except current

@@ -102,7 +102,7 @@ if [[ $DRY_RUN -eq 0 ]]; then
     for skill_dir in "$SKILLS_DIR"/*/; do
       skill_name=$(basename "$skill_dir")
       mkdir -p "$CHEZMOI_DIR/$skill_name"
-      cp "$skill_dir"SKILL.md "$CHEZMOI_DIR/$skill_name/" 2>/dev/null || true
+      cp "$skill_dir/SKILL.md" "$CHEZMOI_DIR/$skill_name/" 2>/dev/null || true
     done
     echo "  synced to chezmoi"
   fi

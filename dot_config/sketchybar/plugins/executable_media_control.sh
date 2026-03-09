@@ -3,6 +3,12 @@
 ACTION="$1"
 APP="$(cat /tmp/sketchybar_media_app 2>/dev/null || echo 'Music')"
 
+# Whitelist allowed app names to prevent osascript injection
+case "$APP" in
+  Music|Spotify|Tidal|Deezer|Podcasts|"Apple Music") ;;
+  *) APP="Music" ;;
+esac
+
 case "$ACTION" in
   previous)
     osascript -e "tell application \"$APP\" to previous track" 2>/dev/null

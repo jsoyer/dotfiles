@@ -34,8 +34,6 @@ return {
     "Exafunction/codeium.vim",
     event = "InsertEnter",
     config = function()
-      vim.g.codeium_platform_override = "mac-arm64"
-
       -- Keymaps
       vim.keymap.set("i", "<C-e>", function()
         return vim.fn["codeium#Accept"]()

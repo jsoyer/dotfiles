@@ -2,6 +2,21 @@
 # Environment variables configuration
 
 # ============================================================================
+# Cache helper — caches shell-init command output for 24h (like zsh _cache_eval)
+# ============================================================================
+_cache_eval() {
+  local name="$1"
+  shift
+  local cache_dir="${XDG_CACHE_HOME:-$HOME/.cache}/shell"
+  local cache_file="$cache_dir/${name}.bash"
+  mkdir -p "$cache_dir"
+  if [[ ! -f "$cache_file" ]] || [[ -n "$(find "$cache_file" -mtime +1 2>/dev/null)" ]]; then
+    eval "$@" > "$cache_file" 2>/dev/null || { rm -f "$cache_file"; eval "$@"; return; }
+  fi
+  source "$cache_file" 2>/dev/null || eval "$@"
+}
+
+# ============================================================================
 # Platform detection
 # ============================================================================
 export IS_MACOS=false

@@ -9,7 +9,7 @@ case "$SENDER" in
     sketchybar --set "$NAME" popup.drawing=toggle
     ;;
   *)
-    if [ ! -f "$TIMER_FILE" ]; then
+    if [ ! -f "$TIMER_FILE" ] || [ -L "$TIMER_FILE" ]; then
       sketchybar --set "$NAME" \
         label=""               \
         icon.color=$MOCHA_SUBTEXT0

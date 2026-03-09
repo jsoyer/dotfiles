@@ -48,17 +48,17 @@ _export_from_container() {
         basename=$(basename "$desktop_file" .desktop)
         output="$DEST/${basename}-${container}.desktop"
 
-        cat > "$output" << EOF
-[Desktop Entry]
-Name=${display_name} (${container})
-Exec=toolbox run --container ${container} ${exec_line}
-Type=Application
-Icon=${icon}
-Categories=${categories:-Utility;}
-Terminal=false
-X-Toolbox=true
-X-Toolbox-Container=${container}
-EOF
+        {
+          printf '[Desktop Entry]\n'
+          printf 'Name=%s (%s)\n' "${display_name}" "${container}"
+          printf 'Exec=toolbox run --container %s %s\n' "${container}" "${exec_line}"
+          printf 'Type=Application\n'
+          printf 'Icon=%s\n' "${icon}"
+          printf 'Categories=%s\n' "${categories:-Utility;}"
+          printf 'Terminal=false\n'
+          printf 'X-Toolbox=true\n'
+          printf 'X-Toolbox-Container=%s\n' "${container}"
+        } > "$output"
         echo "  ✅ ${display_name} → ${basename}-${container}.desktop"
         (( count++ )) || true
 
