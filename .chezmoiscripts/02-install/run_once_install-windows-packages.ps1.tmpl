@@ -16,9 +16,13 @@ if (-not (Get-Command scoop -ErrorAction SilentlyContinue)) {
 # Add buckets
 # =============================================================================
 Write-Host "Adding Scoop buckets..." -ForegroundColor Cyan
-if (-not (scoop bucket list | Select-String -Quiet 'extras'))   { scoop bucket add extras }
-if (-not (scoop bucket list | Select-String -Quiet 'versions')) { scoop bucket add versions }
-if (-not (scoop bucket list | Select-String -Quiet 'java'))     { scoop bucket add java }
+if (-not (scoop bucket list | Select-String -Quiet 'extras'))        { scoop bucket add extras }
+if (-not (scoop bucket list | Select-String -Quiet 'versions'))      { scoop bucket add versions }
+if (-not (scoop bucket list | Select-String -Quiet 'nirsoft'))       { scoop bucket add nirsoft }
+if (-not (scoop bucket list | Select-String -Quiet 'sysinternals'))  { scoop bucket add sysinternals https://github.com/niheaven/scoop-sysinternals }
+if (-not (scoop bucket list | Select-String -Quiet 'nerd-fonts'))    { scoop bucket add nerd-fonts https://github.com/matthewjberger/scoop-nerd-fonts }
+if (-not (scoop bucket list | Select-String -Quiet 'nonportable'))   { scoop bucket add nonportable }
+if (-not (scoop bucket list | Select-String -Quiet 'java'))          { scoop bucket add java }
 
 # =============================================================================
 # Install packages (main bucket)
