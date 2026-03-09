@@ -3,6 +3,12 @@ README.md
 CLAUDE.md
 .private/Brewfile
 .zsh/secrets.zsh
+# Never track secret files even if accidentally added
+.env
+.envrc
+*.key
+*.pem
+*.p12
 
 {{/* Ignore full bash configuration on Fedora Atomic host, but allow minimal .bashrc */}}
 {{- if lookPath "rpm-ostree" }}

@@ -5,6 +5,7 @@
 {{- if eq .chezmoi.os "darwin" }}
 export STARSHIP_ICON=""
 export STARSHIP_ICON_COLOR="mauve"
+export STARSHIP_CONFIG="${HOME}/.config/starship/starship.toml"
 {{- else if eq .chezmoi.os "linux" }}
 if [ -n "$TOOLBOX_PATH" ] || case "$(hostname)" in *toolbx*) true;; *) false;; esac; then
     # Fedora Toolbox
@@ -28,7 +29,3 @@ else
 fi
 {{- end }}
 
-{{- if eq .chezmoi.os "darwin" }}
-# Starship config
-export STARSHIP_CONFIG="${HOME}/.config/starship/starship.toml"
-{{- end }}
