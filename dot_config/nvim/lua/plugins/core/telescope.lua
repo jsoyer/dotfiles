@@ -81,7 +81,6 @@ return {
 
       -- Load extensions
       pcall(telescope.load_extension, "fzf")
-      pcall(telescope.load_extension, "notify")
     end,
   },
 }

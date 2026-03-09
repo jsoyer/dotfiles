@@ -35,17 +35,7 @@ return {
     },
   },
 
-  -- Markdown rendering
-  {
-    "MeanderingProgrammer/markdown.nvim",
-    name = "render-markdown",
-    ft = "markdown",
-    dependencies = {
-      "nvim-treesitter/nvim-treesitter",
-      "nvim-tree/nvim-web-devicons",
-    },
-    opts = {},
-  },
+  -- render-markdown is managed by lazyvim.plugins.extras.lang.markdown extra
 
   -- Markdown preview
   {

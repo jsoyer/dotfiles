@@ -52,41 +52,11 @@ return {
     end,
   },
 
-  -- File explorer
-  {
-    "nvim-tree/nvim-tree.lua",
-    cmd = { "NvimTreeToggle", "NvimTreeFindFile" },
-    keys = {
-      { "<leader>e", "<cmd>NvimTreeToggle<CR>", desc = "Toggle file explorer" },
-      { "<leader>E", "<cmd>NvimTreeFindFile<CR>", desc = "Find file in explorer" },
-    },
-    dependencies = { "nvim-tree/nvim-web-devicons" },
-    opts = {
-      sync_root_with_cwd = true,
-      respect_buf_cwd = true,
-      update_focused_file = {
-        enable = true,
-        update_root = true,
-      },
-      view = {
-        width = 30,
-      },
-      renderer = {
-        group_empty = true,
-        icons = {
-          git_placement = "after",
-        },
-      },
-      filters = {
-        dotfiles = false,
-      },
-    },
-  },
+  -- File explorer: snacks_explorer (via lazyvim.json extra) handles <leader>e
 
   -- Goto preview for LSP
   {
     "rmagatti/goto-preview",
-    event = "LazyFile",
     keys = {
       { "gpd", "<cmd>lua require('goto-preview').goto_preview_definition()<CR>", desc = "Preview definition" },
       {

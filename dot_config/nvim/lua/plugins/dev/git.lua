@@ -2,7 +2,9 @@
 return {
   -- Git worktree management
   {
-    "ThePrimeagen/git-worktree.nvim",
+    "brandoncc/git-worktree.nvim",
+    branch = "stable",
+    event = "VeryLazy",
     dependencies = { "nvim-telescope/telescope.nvim" },
     config = function()
       require("git-worktree").setup()

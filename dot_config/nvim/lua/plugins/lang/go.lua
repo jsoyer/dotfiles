@@ -11,14 +11,12 @@ return {
     build = ':lua require("go.install").update_all_sync()',
     config = function()
       require("go").setup({
-        -- Auto format and import on save
-        lsp_cfg = true,
-        lsp_gofumpt = true,
-        lsp_on_attach = true,
-        dap_debug = true,
+        -- LazyVim lang.go extra owns gopls, on_attach and DAP — disable here to avoid double clients
+        lsp_cfg = false,
+        lsp_on_attach = false,
+        dap_debug = false,
+        lsp_gofumpt = true, -- still tell gofumpt to run via go.nvim
       })
-
-      -- Note: goimport on save is handled by go.nvim via lsp_on_attach = true
     end,
   },
 

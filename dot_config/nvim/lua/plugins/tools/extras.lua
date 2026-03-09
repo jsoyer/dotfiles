@@ -103,31 +103,6 @@ return {
     },
   },
 
-  -- Better UI for vim.ui.select and vim.ui.input
-  {
-    "stevearc/dressing.nvim",
-    lazy = true,
-    init = function()
-      vim.ui.select = function(...)
-        require("lazy").load({ plugins = { "dressing.nvim" } })
-        return vim.ui.select(...)
-      end
-      vim.ui.input = function(...)
-        require("lazy").load({ plugins = { "dressing.nvim" } })
-        return vim.ui.input(...)
-      end
-    end,
-  },
-
-  -- Better code action menu
-  {
-    "weilbith/nvim-code-action-menu",
-    cmd = "CodeActionMenu",
-    keys = {
-      { "<leader>ca", "<cmd>CodeActionMenu<cr>", desc = "Code Action Menu" },
-    },
-  },
-
   -- Smooth scrolling (disabled on ARM/RPi — too slow)
   {
     "karb94/neoscroll.nvim",
@@ -175,7 +150,7 @@ return {
 
   -- Colorizer for hex colors
   {
-    "norcalli/nvim-colorizer.lua",
+    "NvChad/nvim-colorizer.lua",
     event = "LazyFile",
     cmd = { "ColorizerToggle", "ColorizerAttachToBuffer" },
     keys = {
@@ -241,32 +216,19 @@ return {
     opts = {},
   },
 
-  -- Mini.nvim suite (replaces some vim-* plugins)
+  -- Mini.surround — override LazyVim default gz* mappings to gs* prefix
   {
-    "nvim-mini/mini.nvim",
-    event = "VeryLazy",
-    config = function()
-      -- Mini.ai for better text objects
-      require("mini.ai").setup()
-
-      -- Mini.bufremove for better buffer closing
-      require("mini.bufremove").setup()
-
-      -- Mini.surround (replaces vim-surround)
-      require("mini.surround").setup({
-        mappings = {
-          add = "gsa", -- Add surrounding
-          delete = "gsd", -- Delete surrounding
-          find = "gsf", -- Find surrounding
-          find_left = "gsF", -- Find surrounding (to the left)
-          highlight = "gsh", -- Highlight surrounding
-          replace = "gsr", -- Replace surrounding
-          update_n_lines = "gsn", -- Update `n_lines`
-        },
-      })
-
-      -- Mini.move for moving lines/selections
-      require("mini.move").setup()
-    end,
+    "echasnovski/mini.surround",
+    opts = {
+      mappings = {
+        add = "gsa",
+        delete = "gsd",
+        find = "gsf",
+        find_left = "gsF",
+        highlight = "gsh",
+        replace = "gsr",
+        update_n_lines = "gsn",
+      },
+    },
   },
 }
