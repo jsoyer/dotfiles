@@ -1,0 +1,32 @@
+{{- if ne .chezmoi.os "windows" -}}
+#!/usr/bin/env bash
+# =============================================================================
+# Atuin - Shell history sync setup
+# Prompts for login on first apply if not already authenticated
+# =============================================================================
+
+set -euo pipefail
+
+if ! command -v atuin &>/dev/null; then
+    echo "atuin not installed, skipping"
+    exit 0
+fi
+
+# Check if already logged in (atuin account info exits 0 when authenticated)
+if atuin account info &>/dev/null 2>&1; then
+    echo "Atuin already authenticated, skipping"
+    exit 0
+fi
+
+echo ""
+echo "Atuin shell history sync — login to sync history across machines."
+echo "Skip with Ctrl+C if you want to set up later (run: atuin login)"
+echo ""
+
+# Only attempt login in an interactive terminal
+if [[ -t 0 ]]; then
+    atuin login || echo "Atuin login skipped or failed — run 'atuin login' manually"
+else
+    echo "Non-interactive session — run 'atuin login' manually to enable sync"
+fi
+{{- end -}}
