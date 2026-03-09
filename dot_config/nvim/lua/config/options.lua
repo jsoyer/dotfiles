@@ -63,9 +63,13 @@ vim.opt.mouse = ""
 -- Concealer (for markdown, etc.)
 vim.opt.conceallevel = 2
 
--- Fold settings
-vim.opt.foldmethod = "expr"
-vim.opt.foldexpr = "nvim_treesitter#foldexpr()"
+-- Fold settings — treesitter foldexpr is expensive on ARM/RPi
+if vim.uv.os_uname().machine:match("aarch64") then
+  vim.opt.foldmethod = "indent"
+else
+  vim.opt.foldmethod = "expr"
+  vim.opt.foldexpr = "nvim_treesitter#foldexpr()"
+end
 vim.opt.foldenable = false
 vim.opt.foldlevel = 99
 

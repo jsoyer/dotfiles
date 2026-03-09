@@ -1,5 +1,8 @@
+-- Detect ARM/RPi early for performance guards
+local is_arm = vim.uv.os_uname().machine:match("aarch64") ~= nil
+
 local lazypath = vim.fn.stdpath("data") .. "/lazy/lazy.nvim"
-if not (vim.uv or vim.loop).fs_stat(lazypath) then
+if not vim.uv.fs_stat(lazypath) then
   local lazyrepo = "https://github.com/folke/lazy.nvim.git"
   local out = vim.fn.system({ "git", "clone", "--filter=blob:none", "--branch=stable", lazyrepo, lazypath })
   if vim.v.shell_error ~= 0 then
@@ -26,7 +29,8 @@ require("lazy").setup({
     { import = "lazyvim.plugins.extras.lang.docker" },
     { import = "lazyvim.plugins.extras.formatting.prettier" },
     { import = "lazyvim.plugins.extras.linting.eslint" },
-    { import = "lazyvim.plugins.extras.ui.mini-animate" },
+    -- mini-animate disabled on ARM/RPi (too slow)
+    not is_arm and { import = "lazyvim.plugins.extras.ui.mini-animate" } or nil,
 
     -- Import your custom plugins from subdirectories
     { import = "plugins.core" },

@@ -128,9 +128,10 @@ return {
     },
   },
 
-  -- Smooth scrolling
+  -- Smooth scrolling (disabled on ARM/RPi — too slow)
   {
     "karb94/neoscroll.nvim",
+    enabled = not vim.uv.os_uname().machine:match("aarch64"),
     event = "VeryLazy",
     opts = {
       mappings = { "<C-u>", "<C-d>", "<C-b>", "<C-f>", "<C-y>", "<C-e>", "zt", "zz", "zb" },

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # tbx-export-apps - Export all GUI apps from a toolbox as .desktop wrappers
 #
 # Usage:
