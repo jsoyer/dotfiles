@@ -17,12 +17,7 @@ end
 -- Shell Configuration
 -- ============================================================================
 
--- Launch Fish as default shell
-{{ if eq .chezmoi.os "darwin" -}}
-config.default_prog = { "/opt/homebrew/bin/fish" }
-{{ else -}}
-config.default_prog = { "/usr/bin/fish" }
-{{ end -}}
+-- default_prog not set — WezTerm uses the login shell (zsh)
 
 -- ============================================================================
 -- Appearance

@@ -88,7 +88,7 @@ Configuration adapts based on:
 - **Fedora** (`linux` + `lookPath "dnf"`): DNF packages, Flatpak
 - **Fedora Atomic** (`lookPath "rpm-ostree"`): Minimal bash, container-focused
 - **Toolbox** (`env "TOOLBOX_PATH"`): Container environment, zsh-only
-- **Raspberry Pi** (kernel detection): APT packages, Gruvbox theme
+- **Raspberry Pi** (kernel detection): APT packages, Snazzy theme
 - **Windows** (`eq .chezmoi.os "windows"`): Scoop packages, minimal config (git, tmux, bash)
 
 ### Key Directories

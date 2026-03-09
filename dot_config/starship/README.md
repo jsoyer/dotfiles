@@ -6,7 +6,7 @@ Starship is a fast, customizable, and cross-shell prompt. This configuration inc
 
 - **Prompt**: Starship
 - **macOS Theme**: Catppuccin Mocha
-- **RPi/Linux Theme**: Gruvbox Dark
+- **RPi/Linux Theme**: Snazzy
 - **Shells**: Zsh, Fish, Nushell, Bash
 - **Location**: `~/.config/starship/`
 
@@ -15,7 +15,7 @@ Starship is a fast, customizable, and cross-shell prompt. This configuration inc
 ```
 ~/.config/starship/
 ├── starship.toml         # Main config (macOS - Catppuccin Mocha)
-├── starship-rpi.toml     # RPi/Linux config (Gruvbox Dark)
+├── starship-rpi.toml     # RPi/Linux config (Snazzy)
 ├── starship-nushell.toml # Nushell-specific config
 └── README.md             # This file
 ```
@@ -27,7 +27,7 @@ The correct configuration is automatically selected based on platform detection 
 | Platform | Config File | Theme | Prompt Style |
 |----------|-------------|-------|--------------|
 | macOS | `starship.toml` | Catppuccin Mocha | `~/path ➜` |
-| RPi/Linux | `starship-rpi.toml` | Gruvbox Dark | `🍓 hostname:~/path ❯` |
+| RPi/Linux | `starship-rpi.toml` | Snazzy | `🍓 hostname:~/path ❯` |
 
 ### How It Works
 
@@ -51,7 +51,7 @@ Features:
 - Purple/pink color scheme
 - Full module set (AWS, K8s, etc.)
 
-### RPi/Linux (Gruvbox Dark)
+### RPi/Linux (Snazzy)
 
 ```
 🍓 rpi-nas:~/projects main ❯
@@ -77,7 +77,7 @@ Features:
 | Mauve      | `#cba6f7` | Git branch           |
 | Pink       | `#f5c2e7` | Special indicators   |
 
-### Gruvbox Dark (RPi/Linux)
+### Snazzy (RPi/Linux)
 
 | Color      | Hex       | Usage                |
 |------------|-----------|----------------------|
@@ -231,9 +231,9 @@ STARSHIP_CONFIG=~/.config/starship/starship-rpi.toml zsh
 
 - **Starship Documentation**: https://starship.rs/
 - **Catppuccin Starship**: https://github.com/catppuccin/starship
-- **Gruvbox Colors**: https://github.com/morhetz/gruvbox
+- **Snazzy Colors**: https://github.com/nicowillis/snazzy
 
 ---
 
 **Last Updated**: 2025-01-17
-**Themes**: Catppuccin Mocha (macOS) / Gruvbox Dark (RPi)
+**Themes**: Catppuccin Mocha (macOS) / Snazzy (RPi)
