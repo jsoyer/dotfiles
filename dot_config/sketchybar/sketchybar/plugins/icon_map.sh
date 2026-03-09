@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 case "$1" in
 "Brave Browser")
   icon_result=":brave_browser:"
