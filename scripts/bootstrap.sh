@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # =============================================================================
 # Multiplatform Bootstrap Script
 # =============================================================================
@@ -383,12 +383,12 @@ install_toolbox() {
     log_success "📦 git, chezmoi, and Homebrew installed"
 }
 
-install_debian() {
+install_apt() {
     log_info "Installing git and chezmoi via apt..."
 
     # Check if git is available first
     if command -v git &>/dev/null; then
-        log_warn "🐍 Git already installed"
+        log_warn "$EMOJI Git already installed"
     else
         sudo apt update
         sudo apt install -y git curl
@@ -409,37 +409,11 @@ install_debian() {
     # Install Linuxbrew
     install_linuxbrew
 
-    log_success "🐍 git, chezmoi, and Homebrew installed"
+    log_success "$EMOJI git, chezmoi, and Homebrew installed"
 }
 
-install_rpi() {
-    log_info "Installing git and chezmoi via apt..."
-
-    # Check if git is available first
-    if command -v git &>/dev/null; then
-        log_warn "🍓 Git already installed"
-    else
-        sudo apt update
-        sudo apt install -y git curl
-    fi
-
-    # Install chezmoi - prefer apt package, fallback to official script
-    if command -v chezmoi &>/dev/null; then
-        log_warn "chezmoi already installed"
-    elif apt-cache show chezmoi &>/dev/null 2>&1; then
-        log_info "Installing chezmoi via apt..."
-        sudo apt install -y chezmoi
-    else
-        log_info "chezmoi not in apt repos, installing via official script..."
-        sh -c "$(curl -fsLS get.chezmoi.io)" -- -b "$HOME/.local/bin"
-        export PATH="$HOME/.local/bin:$PATH"
-    fi
-
-    # Install Linuxbrew
-    install_linuxbrew
-
-    log_success "🍓 git, chezmoi, and Homebrew installed"
-}
+install_debian() { install_apt; }
+install_rpi()    { install_apt; }
 
 case "$PLATFORM" in
     macos)          install_macos ;;
