@@ -7,7 +7,7 @@
 [user]
 	name = Jerome Soyer
 	email = jeromesoyer@gmail.com
-{{- if lookPath "op" }}
+{{- if stat "/Applications/1Password.app" }}
   signingkey = {{ .chezmoi.homeDir }}/.ssh/id_ed25519-github.pub
 {{- end }}
 
@@ -48,7 +48,7 @@
   algorithm = histogram
   colorMoved = default
 
-{{- if lookPath "op" }}
+{{- if stat "/Applications/1Password.app" }}
 
 [gpg]
   format = ssh
