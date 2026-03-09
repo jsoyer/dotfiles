@@ -383,8 +383,41 @@ install_toolbox() {
     log_success "📦 git, chezmoi, and Homebrew installed"
 }
 
+install_gh_apt() {
+    if command -v gh &>/dev/null; then
+        log_warn "gh already installed"
+        return
+    fi
+
+    log_info "Installing gh (GitHub CLI) via official apt repo..."
+
+    # Ensure wget is available
+    if ! type -p wget &>/dev/null; then
+        sudo apt update
+        sudo apt install -y wget
+    fi
+
+    local keyring_dir="/etc/apt/keyrings"
+    local sources_dir="/etc/apt/sources.list.d"
+    local tmp_key
+    tmp_key="$(mktemp)"
+
+    sudo mkdir -p -m 755 "$keyring_dir" "$sources_dir"
+    wget -nv -O "$tmp_key" https://cli.github.com/packages/githubcli-archive-keyring.gpg
+    sudo install -m 644 "$tmp_key" "$keyring_dir/githubcli-archive-keyring.gpg"
+    rm -f "$tmp_key"
+
+    echo "deb [arch=$(dpkg --print-architecture) signed-by=${keyring_dir}/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" \
+        | sudo tee "$sources_dir/github-cli.list" > /dev/null
+
+    sudo apt update
+    sudo apt install -y gh
+
+    log_success "gh installed"
+}
+
 install_apt() {
-    log_info "Installing git and chezmoi via apt..."
+    log_info "Installing git, chezmoi, and gh via apt..."
 
     # Check if git is available first
     if command -v git &>/dev/null; then
@@ -406,10 +439,13 @@ install_apt() {
         export PATH="$HOME/.local/bin:$PATH"
     fi
 
+    # Install gh CLI via official apt repo
+    install_gh_apt
+
     # Install Linuxbrew
     install_linuxbrew
 
-    log_success "$EMOJI git, chezmoi, and Homebrew installed"
+    log_success "$EMOJI git, chezmoi, gh, and Homebrew installed"
 }
 
 install_debian() { install_apt; }
