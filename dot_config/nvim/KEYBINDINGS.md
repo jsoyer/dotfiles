@@ -148,9 +148,7 @@ L           " Next buffer ⚡ FAST
 
 ### Save
 ```vim
-<leader>w   " Save current file
-<leader>W   " Force save (override readonly)
-<leader>fs  " Save file (alternative)
+<leader>fs  " Save file
 <leader>fS  " Save all files
 ```
 
@@ -353,7 +351,7 @@ Tab/S-Tab       " Navigate buffers (EASIEST)
 <leader>sv/sh   " Create splits (MNEMONICS)
 <C-h/j/k/l>     " Navigate splits (STANDARD)
 <leader>x       " Close buffer
-<leader>w       " Save file
+<leader>fs      " Save file
 ```
 
 **Editing:**
@@ -449,6 +447,6 @@ This Neovim configuration uses **Catppuccin Mocha** theme, matching:
 
 ---
 
-**Last updated:** 2025-12-26
+**Last updated:** 2026-03-09
 **Configuration:** LazyVim with custom keybindings
 **Theme:** Catppuccin Mocha

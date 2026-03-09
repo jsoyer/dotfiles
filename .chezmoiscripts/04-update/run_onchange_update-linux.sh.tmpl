@@ -1,5 +1,5 @@
 {{- if eq .chezmoi.os "linux" -}}
-#!/bin/bash
+#!/usr/bin/env bash
 # Update Linux packages
 
 set -euo pipefail
@@ -9,6 +9,11 @@ echo "🐍 Updating Raspberry Pi packages..."
 sudo apt update
 sudo apt dist-upgrade -y
 sudo apt autoremove -y
+
+if command -v uv &>/dev/null; then
+    echo "🐍 Updating uv..."
+    uv self update
+fi
 {{- end }}
 
 {{- if and (lookPath "dnf") (not (lookPath "rpm-ostree")) (not (stat "/.toolboxenv")) }}

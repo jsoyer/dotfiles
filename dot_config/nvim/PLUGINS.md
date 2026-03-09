@@ -10,7 +10,7 @@ lua/plugins/
 ├── cmp.lua         # Completion (nvim-cmp)
 ├── coding.lua      # Coding tools (DAP, autopairs, comment, codesnap)
 ├── colorscheme.lua # Themes (Catppuccin, Dracula)
-├── editor.lua      # Editing tools (Harpoon, nvim-tree, Trouble, Todo)
+├── editor.lua      # Editing tools (Harpoon, snacks_explorer, Trouble, Todo)
 ├── git.lua         # Git (Neogit, Gitsigns, Fugitive, Worktree, Diffview)
 ├── go.lua          # Go development
 ├── lsp.lua         # LSP configuration
@@ -44,7 +44,7 @@ lua/plugins/
 
 ### Editor (editor.lua)
 - **Harpoon** - Quick file navigation
-- **nvim-tree** - File explorer
+- **snacks_explorer** - File explorer (via lazyvim.json extra)
 - **goto-preview** - LSP preview
 - **Trouble** - Diagnostics list
 - **todo-comments** - TODO highlighting
@@ -80,8 +80,6 @@ lua/plugins/
 - **Obsidian.nvim** - Obsidian integration
 - **render-markdown** - Markdown rendering
 - **markdown-preview** - Markdown preview
-- **vim-pencil** - Writing aid
-- **zen-mode** - Focus mode
 - **Twilight** - Dims inactive code
 
 ## Optimizations
