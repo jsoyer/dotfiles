@@ -2,7 +2,6 @@
 # Ignore macOS-only options on Linux
 IgnoreUnknown UseKeychain
 {{ end -}}
-{{- $opConfigFile := joinPath .chezmoi.homeDir ".config" "op" "config" -}}
-{{- if and (lookPath "op") (stat $opConfigFile) -}}
+{{- if stat "/Applications/1Password.app" -}}
 {{- onepasswordDocument "wf34z662n2u3kn5jhrmrmo3o4u" -}}
 {{- end -}}
