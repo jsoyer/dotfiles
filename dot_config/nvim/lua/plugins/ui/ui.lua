@@ -27,13 +27,6 @@ return {
           "filetype",
         },
       },
-      tabline = {
-        lualine_a = {
-          {
-            "buffers",
-          },
-        },
-      },
     },
   },
 
@@ -88,13 +81,8 @@ return {
       max_width = function()
         return math.floor(vim.o.columns * 0.75)
       end,
-      background_colour = "#000000",
       enabled = true,
     },
-    config = function(_, opts)
-      require("notify").setup(opts)
-      vim.notify = require("notify")
-    end,
   },
 
   -- Noice UI

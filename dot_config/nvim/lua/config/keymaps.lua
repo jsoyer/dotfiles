@@ -6,12 +6,6 @@
 vim.keymap.set("i", "jj", "<Esc>", { desc = "Exit insert mode" })
 vim.keymap.set("i", "jk", "<Esc>", { desc = "Exit insert mode" })
 
--- Better window navigation
-vim.keymap.set("n", "<C-h>", "<C-w>h", { desc = "Go to left window" })
-vim.keymap.set("n", "<C-j>", "<C-w>j", { desc = "Go to lower window" })
-vim.keymap.set("n", "<C-k>", "<C-w>k", { desc = "Go to upper window" })
-vim.keymap.set("n", "<C-l>", "<C-w>l", { desc = "Go to right window" })
-
 -- Resize windows
 vim.keymap.set("n", "<C-Up>", ":resize +2<CR>", { desc = "Increase window height" })
 vim.keymap.set("n", "<C-Down>", ":resize -2<CR>", { desc = "Decrease window height" })
@@ -33,10 +27,6 @@ vim.keymap.set("n", "<leader>ba", ":%bd|e#<CR>", { desc = "Delete all buffers ex
 vim.keymap.set("n", "H", ":bprev<CR>", { desc = "Previous buffer" })
 vim.keymap.set("n", "L", ":bnext<CR>", { desc = "Next buffer" })
 
--- Quick save/quit
-vim.keymap.set("n", "<leader>w", ":w<CR>", { desc = "Save" })
-vim.keymap.set("n", "<leader>W", ":w!<CR>", { desc = "Force save" })
-
 -- Navigation shortcuts
 vim.keymap.set("n", "E", "$", { desc = "End of line" })
 vim.keymap.set("n", "B", "^", { desc = "Beginning of line" })
@@ -47,18 +37,11 @@ vim.keymap.set("v", "B", "^", { desc = "Beginning of line" })
 vim.keymap.set("v", "<", "<gv", { desc = "Indent left" })
 vim.keymap.set("v", ">", ">gv", { desc = "Indent right" })
 
--- Move lines up/down
-vim.keymap.set("n", "<A-j>", ":m .+1<CR>==", { desc = "Move line down" })
-vim.keymap.set("n", "<A-k>", ":m .-2<CR>==", { desc = "Move line up" })
-vim.keymap.set("v", "<A-j>", ":m '>+1<CR>gv=gv", { desc = "Move selection down" })
-vim.keymap.set("v", "<A-k>", ":m '<-2<CR>gv=gv", { desc = "Move selection up" })
-
 -- Better paste
 vim.keymap.set("v", "p", '"_dP', { desc = "Paste without yanking" })
 
 -- Clear search highlight
-vim.keymap.set("n", "<Esc>", ":noh<CR>", { desc = "Clear search highlight" })
-vim.keymap.set("n", "<leader><space>", ":noh<CR>", { desc = "Clear search highlight" })
+vim.keymap.set("n", "<Esc>", "<cmd>nohlsearch<cr>", { desc = "Clear search highlight" })
 
 -- Better search (keep cursor centered)
 vim.keymap.set("n", "n", "nzzzv", { desc = "Next search result" })
@@ -127,8 +110,13 @@ vim.keymap.set("n", "<leader>fn", ":enew<CR>", { desc = "New file" })
 vim.keymap.set("n", "<leader>fs", ":w<CR>", { desc = "Save file" })
 vim.keymap.set("n", "<leader>fS", ":wa<CR>", { desc = "Save all files" })
 
--- Go specific
-vim.keymap.set("n", "<leader>ge", "<cmd>GoIfErr<cr>", { silent = true, desc = "Add if err (Go)" })
+-- Go specific (scoped to Go buffers)
+vim.api.nvim_create_autocmd("FileType", {
+  pattern = "go",
+  callback = function(ev)
+    vim.keymap.set("n", "<leader>ge", "<cmd>GoIfErr<cr>", { silent = true, desc = "Add if err (Go)", buffer = ev.buf })
+  end,
+})
 
 -- Disable default space behavior
 vim.keymap.set({ "n", "v" }, "<Space>", "<Nop>", { silent = true })
@@ -167,11 +155,4 @@ vim.keymap.set("n", "<leader>bn", ":enew<CR>", { desc = "New buffer" })
 
 -- Close all buffers except current
 vim.keymap.set("n", "<leader>bo", ":%bd|e#|bd#<CR>", { desc = "Close other buffers" })
-
--- Switch to specific buffer by number
-for i = 1, 9 do
-  vim.keymap.set("n", "<leader>" .. i, function()
-    vim.cmd("buffer " .. i)
-  end, { desc = "Go to buffer " .. i })
-end
 
