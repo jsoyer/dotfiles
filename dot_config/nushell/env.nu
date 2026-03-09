@@ -49,14 +49,14 @@ if (which atuin | is-not-empty) {
 }
 
 # ============================================================================
-# Direnv - Environment switcher (generate cache, sourced in config.nu)
+# Direnv - Environment switcher (PWD hook, no `direnv hook nushell` needed)
 # ============================================================================
-mkdir ~/.cache/direnv
-if (which direnv | is-not-empty) {
-    direnv hook nushell | save --force ~/.cache/direnv/init.nu
-} else {
-    "" | save --force ~/.cache/direnv/init.nu
-}
+$env.config.hooks.env_change.PWD = $env.config.hooks.env_change.PWD? | default []
+$env.config.hooks.env_change.PWD ++= [{||
+    if (which direnv | is-empty) { return }
+    direnv export json | from json | default {} | load-env
+    $env.PATH = do (env-conversions).path.from_string $env.PATH
+}]
 
 # ============================================================================
 # Machine Profile Detection

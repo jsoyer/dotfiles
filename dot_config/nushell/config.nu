@@ -1016,10 +1016,10 @@ alias kcns = kubectl config set-context --current --namespace
 # ============================================================================
 # Security & Pentesting tools (not on mac-pro)
 # ============================================================================
-if $env.MACHINE_PROFILE != "mac-pro" {
+if ($env.MACHINE_PROFILE? | default "") != "mac-pro" {
     if (which gobuster | is-not-empty) { alias gobust = gobuster dir --wordlist ~/security/wordlists/diccnoext.txt --wildcard --url }
     if (which dirsearch | is-not-empty) { alias dirsearch = python dirsearch.py -w db/dicc.txt -b -u }
-    if (($nu.home-path | path join "hacking/tools/massdns/bin/massdns") | path exists) { alias massdns = ~/hacking/tools/massdns/bin/massdns -r ~/hacking/tools/massdns/lists/resolvers.txt -t A -o S bf-targets.txt -w livehosts.txt -s 4000 }
+    if (($env.HOME | path join "hacking/tools/massdns/bin/massdns") | path exists) { alias massdns = ~/hacking/tools/massdns/bin/massdns -r ~/hacking/tools/massdns/lists/resolvers.txt -t A -o S bf-targets.txt -w livehosts.txt -s 4000 }
     alias server = python -m http.server 4445
     if (which ngrok | is-not-empty) { alias tunnel = ngrok http 4445 }
     if (which ffuf | is-not-empty) { alias fuzz = ffuf -w ~/hacking/SecLists/content_discovery_all.txt -mc all -u }
@@ -1070,7 +1070,7 @@ def cup [...args: string] {
     match $os {
         "darwin" => {
             print "🍺 Updating Homebrew packages..."
-            if $env.MACHINE_PROFILE == "mac-pro" {
+            if ($env.MACHINE_PROFILE? | default "") == "mac-pro" {
                 ^brew upgrade
             } else {
                 ^brew upgrade --greedy
@@ -1298,4 +1298,3 @@ source ~/.cache/starship/init.nu
 source ~/.cache/zoxide/init.nu
 source ~/.cache/carapace/init.nu
 source ~/.cache/atuin/init.nu
-source ~/.cache/direnv/init.nu
