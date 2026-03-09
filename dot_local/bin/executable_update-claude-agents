@@ -154,7 +154,7 @@ if [[ $DRY_RUN -eq 0 ]]; then
 
   # Sync to chezmoi
   if [[ -d "$CHEZMOI_DIR" ]]; then
-    local -a md_files=("$AGENTS_DIR"/*.md)
+    md_files=("$AGENTS_DIR"/*.md)
     if [[ -e "${md_files[0]}" ]]; then
       cp "${md_files[@]}" "$CHEZMOI_DIR/"
       echo "  ✓ synced to chezmoi"

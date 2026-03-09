@@ -44,12 +44,7 @@ return {
     ft = "markdown",
     build = "cd app && npx --yes yarn install",
     keys = {
-      {
-        "<leader>cp",
-        ft = "markdown",
-        "<cmd>MarkdownPreviewToggle<cr>",
-        desc = "Markdown Preview",
-      },
+      { "<leader>cp", "<cmd>MarkdownPreviewToggle<cr>", desc = "Markdown Preview" },
     },
     config = function()
       vim.cmd([[do FileType]])

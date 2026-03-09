@@ -378,4 +378,4 @@ case "$1" in
   icon_result=":default:"
   ;;
 esac
-echo $icon_result
+echo "$icon_result"
