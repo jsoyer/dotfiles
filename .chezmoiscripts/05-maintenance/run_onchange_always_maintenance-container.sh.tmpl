@@ -28,7 +28,7 @@ echo ""
 echo "📦 Updating compose projects..."
 
 # Find all docker-compose.yml files in home directory and update them
-find "$HOME" -name "docker-compose.yml" -not -path "*/.*" 2>/dev/null | while read -r compose_file; do
+while IFS= read -r compose_file; do
     project_dir=$(dirname "$compose_file")
     project_name=$(basename "$project_dir")
     
@@ -49,7 +49,7 @@ find "$HOME" -name "docker-compose.yml" -not -path "*/.*" 2>/dev/null | while re
     else
         echo "    ⏭️  Skipping (no running containers)"
     fi
-done
+done < <(find "$HOME" -name "docker-compose.yml" -not -path "*/.*" 2>/dev/null || true)
 
 echo ""
 echo "🗑️ Cleaning up unused images..."
