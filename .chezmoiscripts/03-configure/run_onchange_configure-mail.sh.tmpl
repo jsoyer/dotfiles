@@ -1,3 +1,4 @@
+{{- if ne .chezmoi.os "windows" -}}
 #!/bin/bash
 # Mail setup — create Maildir structure and initialize notmuch
 # Managed by chezmoi — reruns automatically when mail configs change
@@ -30,3 +31,4 @@ echo "   Next steps:"
 echo "   1. Run: mbsync -a   (first IMAP sync)"
 echo "   2. Run: notmuch new (index emails)"
 echo "   3. Run: neomutt     (open mail client)"
+{{- end -}}
