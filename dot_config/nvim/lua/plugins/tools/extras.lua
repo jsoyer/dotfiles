@@ -243,7 +243,7 @@ return {
 
   -- Mini.nvim suite (replaces some vim-* plugins)
   {
-    "echasnovski/mini.nvim",
+    "nvim-mini/mini.nvim",
     event = "VeryLazy",
     config = function()
       -- Mini.ai for better text objects
