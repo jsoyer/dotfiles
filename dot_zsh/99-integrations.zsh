@@ -47,21 +47,21 @@ unset _zsh_syntax_path _brew_prefix
 # ============================================================================
 # Zoxide - Smarter cd command (cached init)
 # ============================================================================
-if command -v zoxide >/dev/null 2>&1; then
+if (( $+commands[zoxide] )); then
   _cache_eval zoxide 'zoxide init --cmd cd zsh'
 fi
 
 # ============================================================================
 # Atuin - Magical shell history (cached init)
 # ============================================================================
-if command -v atuin >/dev/null 2>&1; then
+if (( $+commands[atuin] )); then
   _cache_eval atuin 'atuin init zsh'
 fi
 
 # ============================================================================
 # Direnv - Environment switcher (cached init)
 # ============================================================================
-if command -v direnv >/dev/null 2>&1; then
+if (( $+commands[direnv] )); then
   _cache_eval direnv 'direnv hook zsh'
 fi
 
@@ -82,7 +82,7 @@ fi
 # ============================================================================
 # Thefuck - Command correction (lazy-loaded on first 'fuck' call)
 # ============================================================================
-if command -v thefuck >/dev/null 2>&1; then
+if (( $+commands[thefuck] )); then
   fuck() {
     unfunction fuck
     eval "$(thefuck --alias)"

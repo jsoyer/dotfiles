@@ -19,11 +19,11 @@ path=(
   "${path[@]}"
 )
 
-# Linuxbrew PATH (Homebrew on Linux)
+# Linuxbrew PATH (Homebrew on Linux) — cached to avoid forking brew on every shell start
 if [[ -d "/home/linuxbrew/.linuxbrew" ]]; then
-  eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+  _cache_eval linuxbrew '/home/linuxbrew/.linuxbrew/bin/brew shellenv'
 elif [[ -d "${HOME}/.linuxbrew" ]]; then
-  eval "$(${HOME}/.linuxbrew/bin/brew shellenv)"
+  _cache_eval linuxbrew "${HOME}/.linuxbrew/bin/brew shellenv"
 fi
 
 # macOS-specific paths
@@ -43,7 +43,7 @@ if [[ "${IS_MACOS}" == "true" ]]; then
   )
 
   # Lazy load pyenv for faster startup (macOS only)
-  if command -v pyenv >/dev/null 2>&1; then
+  if (( $+commands[pyenv] )); then
     pyenv() {
       unfunction pyenv
       eval "$(command pyenv init -)"
@@ -52,7 +52,7 @@ if [[ "${IS_MACOS}" == "true" ]]; then
   fi
 
   # Lazy load jenv for faster startup (macOS only)
-  if command -v jenv >/dev/null 2>&1; then
+  if (( $+commands[jenv] )); then
     jenv() {
       unfunction jenv
       eval "$(command jenv init -)"

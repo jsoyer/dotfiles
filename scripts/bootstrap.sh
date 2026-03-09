@@ -18,7 +18,7 @@
 #   irm https://raw.githubusercontent.com/jsoyer/dotfiles/main/scripts/bootstrap.ps1 | iex
 # =============================================================================
 
-set -e
+set -euo pipefail
 
 # Colors
 RED='\033[0;31m'
@@ -62,7 +62,9 @@ case "$OS" in
             log_success "Detected: $EMOJI Fedora Standard"
         elif command -v apt &>/dev/null; then
             # Check for Raspberry Pi
-            if [[ "$ARCH" == "aarch64" ]] || [[ "$ARCH" == "arm64" ]] || grep -qi "rpi\|raspberry" /proc/device-tree/model 2>/dev/null || [[ -f "/sys/firmware/devicetree/base/model" ]] && grep -qi "rpi" /sys/firmware/devicetree/base/model 2>/dev/null; then
+            if [[ "$ARCH" == "aarch64" ]] || [[ "$ARCH" == "arm64" ]] || \
+               grep -qi "rpi\|raspberry" /proc/device-tree/model 2>/dev/null || \
+               { [[ -f "/sys/firmware/devicetree/base/model" ]] && grep -qi "rpi\|raspberry" /sys/firmware/devicetree/base/model 2>/dev/null; }; then
                 PLATFORM="rpi"
                 EMOJI="🍓"
                 log_success "Detected: $EMOJI Raspberry Pi"
@@ -483,20 +485,18 @@ EOF
     
     # Verify packages are in base layer (rpm-ostree.conf), add if missing
     log_info "Verifying base layer packages..."
-    BASE_PACKAGES="git openssh-server curl wget chezmoi"
-    for pkg in $BASE_PACKAGES; do
-        if ! grep -q "^${pkg}$" /etc/rpm-ostree.conf 2>/dev/null; then
-            if ! grep -q "${pkg}" /etc/rpm-ostree.conf 2>/dev/null; then
-                log_info "Adding $pkg to base layer..."
-                echo "$pkg" | sudo tee -a /etc/rpm-ostree.conf > /dev/null
-            fi
+    local -a BASE_PACKAGES=( git openssh-server curl wget chezmoi )
+    for pkg in "${BASE_PACKAGES[@]}"; do
+        if ! grep -qx "${pkg}" /etc/rpm-ostree.conf 2>/dev/null; then
+            log_info "Adding $pkg to base layer..."
+            echo "$pkg" | sudo tee -a /etc/rpm-ostree.conf > /dev/null
         fi
     done
-    
+
     # Install packages that aren't installed yet (will apply on next boot)
-    # Skip wget - provided by wget2 on Fedora
-    BASE_PACKAGES_CLEAN=$(echo $BASE_PACKAGES | sed 's/wget//')
-    for pkg in $BASE_PACKAGES_CLEAN; do
+    # Skip wget — provided by wget2 on Fedora
+    local -a BASE_PACKAGES_CLEAN=( git openssh-server curl chezmoi )
+    for pkg in "${BASE_PACKAGES_CLEAN[@]}"; do
         if ! rpm -q "$pkg" &>/dev/null; then
             log_info "Installing $pkg to base layer..."
             sudo rpm-ostree install "$pkg" 2>/dev/null || log_warn "Could not install $pkg"
@@ -521,7 +521,7 @@ check_ssh() {
     log_info "Checking SSH server..."
     
     # Check if sshd is installed (various methods, sshd might not be in PATH)
-    if [[ -f "/usr/sbin/sshd" ]] || [[ -f "/usr/sbin/sshd" ]] || dpkg -l 2>/dev/null | grep -q "openssh-server" || rpm -q openssh-server &>/dev/null 2>&1; then
+    if [[ -f "/usr/sbin/sshd" ]] || [[ -f "/usr/bin/sshd" ]] || dpkg -l 2>/dev/null | grep -q "openssh-server" || rpm -q openssh-server &>/dev/null 2>&1; then
         log_info "🔐 SSH server already installed"
         
         # Check if service is enabled/running
@@ -595,19 +595,20 @@ if [[ -d "$HOME/.local/share/chezmoi" ]]; then
         git remote add origin https://github.com/jsoyer/dotfiles.git
     fi
     
-    # Fetch latest changes
+    # Fetch and merge latest changes
     log_info "Fetching latest dotfiles..."
     git fetch origin
-    
-    # Try to set upstream for main or master
-    if git rev-parse --verify origin/main &>/dev/null 2>&1; then
-        git branch --set-upstream-to=origin/main main 2>/dev/null || true
+
+    # Merge or reset to remote HEAD
+    local current_branch
+    current_branch="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo main)"
+    if git rev-parse --verify "origin/${current_branch}" &>/dev/null 2>&1; then
+        git branch --set-upstream-to="origin/${current_branch}" "${current_branch}" 2>/dev/null || true
+        git merge --ff-only "origin/${current_branch}" 2>/dev/null || \
+            git reset --hard "origin/${current_branch}"
     fi
-    if git rev-parse --verify origin/master &>/dev/null 2>&1; then
-        git branch --set-upstream-to=origin/master master 2>/dev/null || true
-    fi
-    
-    # Now run chezmoi apply (faster than update, we already fetched)
+
+    # Apply dotfiles (we already have latest source)
     export PATH="$HOME/.local/bin:$PATH"
     chezmoi apply
 else

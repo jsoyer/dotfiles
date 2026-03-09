@@ -54,7 +54,7 @@ done
 # ============================================================================
 # Starship prompt (must be last to override oh-my-zsh theme)
 # ============================================================================
-if command -v starship >/dev/null 2>&1; then
+if (( $+commands[starship] )); then
   _cache_eval starship 'starship init zsh'
 fi
 

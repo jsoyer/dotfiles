@@ -42,7 +42,7 @@ alias bcask='brew cask'
 alias tbx='/usr/bin/toolbox run zsh'
 
 # Toolbox shortcuts (Fedora Atomic host only, not inside a toolbox)
-if command -v rpm-ostree &>/dev/null && [[ ! -f /.toolboxenv ]] && [[ -z "$TOOLBOX_PATH" ]]; then
+if (( $+commands[rpm-ostree] )) && [[ ! -f /.toolboxenv ]] && [[ -z "$TOOLBOX_PATH" ]]; then
     _tbx_enter() {
         local name="$1"
         if toolbox run --container "$name" sh -c 'command -v zsh' &>/dev/null 2>&1; then
@@ -123,13 +123,13 @@ alias kcns='kubectl config set-context --current --namespace'
 # Security & Pentesting tools (not on mac-pro)
 # ============================================================================
 if [[ "$MACHINE_PROFILE" != "mac-pro" ]]; then
-  command -v gobuster &>/dev/null && alias gobust='gobuster dir --wordlist ~/security/wordlists/diccnoext.txt --wildcard --url'
-  command -v dirsearch &>/dev/null && alias dirsearch='python dirsearch.py -w db/dicc.txt -b -u'
+  (( $+commands[gobuster] )) && alias gobust='gobuster dir --wordlist ~/security/wordlists/diccnoext.txt --wildcard --url'
+  (( $+commands[dirsearch] )) && alias dirsearch='python dirsearch.py -w db/dicc.txt -b -u'
   [[ -x ~/hacking/tools/massdns/bin/massdns ]] && alias massdns='~/hacking/tools/massdns/bin/massdns -r ~/hacking/tools/massdns/lists/resolvers.txt -t A -o S bf-targets.txt -w livehosts.txt -s 4000'
   alias server='python -m http.server 4445'
-  command -v ngrok &>/dev/null && alias tunnel='ngrok http 4445'
-  command -v ffuf &>/dev/null && alias fuzz='ffuf -w ~/hacking/SecLists/content_discovery_all.txt -mc all -u'
-  command -v nmap &>/dev/null && alias nm='nmap -sC -sV -oN nmap'
+  (( $+commands[ngrok] )) && alias tunnel='ngrok http 4445'
+  (( $+commands[ffuf] )) && alias fuzz='ffuf -w ~/hacking/SecLists/content_discovery_all.txt -mc all -u'
+  (( $+commands[nmap] )) && alias nm='nmap -sC -sV -oN nmap'
 fi
 
 # ============================================================================
@@ -255,16 +255,16 @@ alias ld='lazydocker'
 # ============================================================================
 # Disk / System
 # ============================================================================
-if command -v dust &>/dev/null; then
+if (( $+commands[dust] )); then
   alias du='dust'
 fi
-if command -v duf &>/dev/null; then
+if (( $+commands[duf] )); then
   alias df='duf'
 fi
-if command -v btop &>/dev/null; then
+if (( $+commands[btop] )); then
   alias top='btop'
 fi
-if command -v procs &>/dev/null; then
+if (( $+commands[procs] )); then
   alias ps='procs'
 fi
 alias ports='lsof -iTCP -sTCP:LISTEN -n -P'
@@ -274,7 +274,7 @@ alias path='echo "$PATH" | tr ":" "\n"'
 # ============================================================================
 # Markdown (glow)
 # ============================================================================
-if command -v glow &>/dev/null; then
+if (( $+commands[glow] )); then
   alias md='glow'
 fi
 
@@ -337,19 +337,20 @@ cup() {
   case "$os" in
     darwin)
       eval "$(brew shellenv)"
-      echo "🍺 Updating Homebrew packages..."
+      echo "Updating Homebrew..."
+      brew update
+      echo "Upgrading packages..."
       if [[ "$MACHINE_PROFILE" == "mac-pro" ]]; then
         brew upgrade
       else
         brew upgrade --greedy
       fi
       brew cleanup
-      brew update
       echo "📱 Updating App Store apps..."
-      if command -v mas &> /dev/null; then
+      if (( $+commands[mas] )); then
         mas upgrade
       else
-        echo "⚠️  mas-cli not installed (run: brew install mas)"
+        echo "  mas-cli not installed (run: brew install mas)"
       fi
       ;;
     linux)

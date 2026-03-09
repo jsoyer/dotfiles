@@ -5,7 +5,10 @@
 set -euo pipefail
 eval "$(brew shellenv)"
 
-echo "Updating Homebrew packages..."
+echo "Updating Homebrew..."
+brew update
+
+echo "Upgrading packages..."
 {{- if eq .chezmoi.hostname "jsoyer-macOS" }}
 brew upgrade
 {{- else }}
@@ -14,9 +17,6 @@ brew upgrade --greedy
 
 echo "Cleaning up old versions..."
 brew cleanup
-
-echo "Updating Homebrew itself..."
-brew update
 
 echo "Upgrade complete!"
 {{- end -}}

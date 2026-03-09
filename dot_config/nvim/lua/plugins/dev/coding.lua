@@ -14,13 +14,6 @@ return {
     },
   },
 
-  -- Comment plugin
-  {
-    "numToStr/Comment.nvim",
-    event = "LazyFile",
-    opts = {},
-  },
-
   -- LSP kind icons
   {
     "onsails/lspkind.nvim",

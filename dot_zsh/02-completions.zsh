@@ -9,18 +9,19 @@ zstyle ':completion:*' matcher-list 'm:{a-z}={A-Za-z}'
 # Load and cache completions
 autoload -Uz compinit
 
-# Only check compinit cache once per day for faster startup
-for dump in "${HOME}"/.zcompdump(N.mh+24); do
+# Only rebuild completion dump when it's older than 24h
+typeset -a _stale_dumps
+_stale_dumps=( "${HOME}"/.zcompdump(N.mh+24) )
+if (( ${#_stale_dumps} )); then
   compinit
-done
-compinit -C  # Skip security check for faster startup
+else
+  compinit -C
+fi
+unset _stale_dumps
 
-autoload -Uz bashcompinit
-bashcompinit
-
-# Tool-specific completions
-# Note: kubectl completion is already loaded by oh-my-zsh kubectl plugin
-
-if command -v aws_completer >/dev/null 2>&1; then
-  complete -C '/usr/local/bin/aws_completer' aws
+# Load bashcompinit only when aws_completer is present (avoids 30ms overhead otherwise)
+if (( $+commands[aws_completer] )); then
+  autoload -Uz bashcompinit
+  bashcompinit
+  complete -C aws_completer aws
 fi

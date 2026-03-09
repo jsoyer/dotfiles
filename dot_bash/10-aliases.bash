@@ -303,19 +303,20 @@ cup() {
   case "$os" in
     darwin)
       eval "$(brew shellenv)"
-      echo "🍺 Updating Homebrew packages..."
+      echo "Updating Homebrew..."
+      brew update
+      echo "Upgrading packages..."
       if [[ "$MACHINE_PROFILE" == "mac-pro" ]]; then
         brew upgrade
       else
         brew upgrade --greedy
       fi
       brew cleanup
-      brew update
-      echo "📱 Updating App Store apps..."
+      echo "Updating App Store apps..."
       if command -v mas &> /dev/null; then
         mas upgrade
       else
-        echo "⚠️  mas-cli not installed (run: brew install mas)"
+        echo "  mas-cli not installed (run: brew install mas)"
       fi
       ;;
     linux)

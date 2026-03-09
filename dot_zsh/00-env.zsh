@@ -8,13 +8,17 @@
 # Default values
 export STARSHIP_CONFIG="${HOME}/.config/starship/starship.toml"
 
+# Cache OS and hostname — avoids forking uname/hostname on every shell start
+_OS="${OSTYPE}"
+_HOST="${HOST%%.*}"
+
 # Determine OS and apply specific logic
-case "$(uname -s)" in
-  Darwin)
+case "${_OS}" in
+  darwin*)
     # --- macOS ---
     export STARSHIP_ICON_COLOR="mauve"
-    export STARSHIP_ICON=""
-    if [[ "$(hostname)" == "jsoyer-macOS" ]]; then
+    export STARSHIP_ICON=""
+    if [[ "${_HOST}" == "jsoyer-macOS" ]]; then
       export MACHINE_PROFILE="mac-pro"
       # Mac Pro: install casks in $HOME/Applications
       export HOMEBREW_CASK_OPTS="--appdir=${HOME}/Applications"
@@ -23,20 +27,20 @@ case "$(uname -s)" in
     fi
     ;;
 
-  Linux)
+  linux*)
     # --- Linux ---
     export STARSHIP_CONFIG="${HOME}/.config/starship/starship-rpi.toml"
 
     if [[ -n "$TOOLBOX_PATH" ]] || [[ "$HOSTNAME" == *toolbx* ]]; then
       # Fedora Toolbox container
       export STARSHIP_ICON_COLOR="blue"
-      export STARSHIP_ICON=""
+      export STARSHIP_ICON=""
       export MACHINE_PROFILE="toolbox"
 
     elif [[ -f /proc/device-tree/model ]] && grep -q "Raspberry Pi" /proc/device-tree/model 2>/dev/null; then
       # Raspberry Pi devices
       export STARSHIP_ICON_COLOR="red"
-      case "$(hostname)" in
+      case "${_HOST}" in
         bbh-network*)
           export STARSHIP_ICON="🌐"
           ;;
@@ -52,16 +56,16 @@ case "$(uname -s)" in
     else
       # Other Linux devices (Fedora)
       export STARSHIP_ICON_COLOR="blue"
-      export STARSHIP_ICON=""
-      if [[ "$(hostname)" == "fedora" ]]; then
+      export STARSHIP_ICON=""
+      if [[ "${_HOST}" == "fedora" ]]; then
         export MACHINE_PROFILE="linux-standard"
-      elif [[ "$(hostname)" == "fedora-atomic" ]]; then
+      elif [[ "${_HOST}" == "fedora-atomic" ]]; then
         export MACHINE_PROFILE="linux-atomic"
       fi
     fi
     ;;
 
-  CYGWIN*|MINGW32*|MSYS*|MINGW*)
+  cygwin*|msys*|mingw*)
     # --- Windows ---
     export STARSHIP_ICON_COLOR="cyan"
     export STARSHIP_ICON=""
@@ -69,10 +73,12 @@ case "$(uname -s)" in
     ;;
 esac
 
+unset _OS _HOST
+
 # Convenience boolean flags (compatible with bash env)
-[[ "$(uname -s)" == "Darwin" ]] && export IS_MACOS=true || export IS_MACOS=false
+[[ "$OSTYPE" == darwin* ]] && export IS_MACOS=true || export IS_MACOS=false
 [[ "$MACHINE_PROFILE" == "rpi" ]] && export IS_RPI=true || export IS_RPI=false
-[[ "$(uname -s)" == "Linux" ]] && export IS_LINUX=true || export IS_LINUX=false
+[[ "$OSTYPE" == linux* ]] && export IS_LINUX=true || export IS_LINUX=false
 
 # ============================================================================
 # Locale and language
@@ -121,10 +127,10 @@ export FZF_DEFAULT_OPTS=" \
 --color=fg:#cdd6f4,header:#f38ba8,info:#cba6f7,pointer:#f5e0dc \
 --color=marker:#f5e0dc,fg+:#cdd6f4,prompt:#cba6f7,hl+:#f38ba8"
 
-# FZF default command (platform-agnostic)
-if command -v fd >/dev/null 2>&1; then
+# FZF default command — use $+commands to avoid forking
+if (( $+commands[fd] )); then
   export FZF_DEFAULT_COMMAND='fd --type f --hidden --follow --exclude .git'
-elif command -v fdfind >/dev/null 2>&1; then
+elif (( $+commands[fdfind] )); then
   export FZF_DEFAULT_COMMAND='fdfind --type f --hidden --follow --exclude .git'
 fi
 
@@ -136,9 +142,8 @@ export BAT_THEME="Catppuccin Mocha"
 # ============================================================================
 # GitHub token (for Claude Code MCP + tools)
 # ============================================================================
-if command -v gh &>/dev/null; then
-  export GITHUB_TOKEN="$(gh auth token 2>/dev/null)"
-fi
+# GITHUB_TOKEN: set in ~/.zsh/secrets.zsh (gitignored) or export on demand via: gh auth token
+# Do NOT export here — forks a Go binary on every shell start (200-500ms on RPi)
 
 # ============================================================================
 # MCP API keys (Claude Code + OpenCode integrations)

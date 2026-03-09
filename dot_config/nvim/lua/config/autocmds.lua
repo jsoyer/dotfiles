@@ -62,7 +62,7 @@ autocmd("BufWritePre", {
     if event.match:match("^%w%w+://") then
       return
     end
-    local file = vim.loop.fs_realpath(event.match) or event.match
+    local file = vim.uv.fs_realpath(event.match) or event.match
     vim.fn.mkdir(vim.fn.fnamemodify(file, ":p:h"), "p")
   end,
 })
@@ -79,7 +79,7 @@ autocmd("BufReadPost", {
   end,
 })
 
--- Check if file changed outside of Neovim
+-- Check if file changed outside of Neovim (also covers FocusGained)
 autocmd({ "FocusGained", "TermClose", "TermLeave" }, {
   group = augroup("Checktime", { clear = true }),
   command = "checktime",
@@ -90,11 +90,8 @@ autocmd("BufWritePre", {
   group = augroup("TrimWhitespace", { clear = true }),
   pattern = "*",
   callback = function()
-    -- Save cursor position to restore later
     local curpos = vim.api.nvim_win_get_cursor(0)
-    -- Remove trailing whitespace
     vim.cmd([[keeppatterns %s/\s\+$//e]])
-    -- Restore cursor position
     vim.api.nvim_win_set_cursor(0, curpos)
   end,
 })
@@ -103,14 +100,14 @@ autocmd("BufWritePre", {
 autocmd("InsertEnter", {
   group = augroup("DisableDiagnosticsInInsert", { clear = true }),
   callback = function()
-    vim.diagnostic.disable(0)
+    vim.diagnostic.enable(false, { bufnr = 0 })
   end,
 })
 
 autocmd("InsertLeave", {
   group = augroup("EnableDiagnosticsOnLeave", { clear = true }),
   callback = function()
-    vim.diagnostic.enable(0)
+    vim.diagnostic.enable(true, { bufnr = 0 })
   end,
 })
 
@@ -154,18 +151,12 @@ autocmd("TermOpen", {
   end,
 })
 
--- Auto-reload file when changed externally
-autocmd("FocusGained", {
-  group = augroup("AutoReload", { clear = true }),
-  command = "silent! checktime",
-})
-
 -- Show cursor line only in active window
 autocmd({ "InsertLeave", "WinEnter" }, {
   group = augroup("AutoCursorLine", { clear = true }),
   callback = function()
     if vim.bo.filetype ~= "alpha" then
-      vim.opt.cursorline = true
+      vim.wo.cursorline = true
     end
   end,
 })
@@ -173,17 +164,6 @@ autocmd({ "InsertLeave", "WinEnter" }, {
 autocmd({ "InsertEnter", "WinLeave" }, {
   group = augroup("AutoNoCursorLine", { clear = true }),
   callback = function()
-    vim.opt.cursorline = false
-  end,
-})
-
--- Create parent directories when saving
-autocmd("BufWritePre", {
-  group = augroup("CreateParentDirs", { clear = true }),
-  callback = function(event)
-    if event.match:match("^%w%w+://") then
-      return
-    end
-    vim.fn.mkdir(vim.fn.fnamemodify(vim.loop.fs_realpath(event.match) or event.match, ":p:h"), "p")
+    vim.wo.cursorline = false
   end,
 })

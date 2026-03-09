@@ -98,55 +98,42 @@ return {
       { "gpr", "<cmd>lua require('goto-preview').goto_preview_references()<CR>", desc = "Preview references" },
       { "gP", "<cmd>lua require('goto-preview').close_all_win()<CR>", desc = "Close all preview windows" },
     },
-    opts = {
-      width = 120,
-      height = 15,
-      border = { "↖", "─", "┐", "│", "┘", "─", "└", "│" },
-      default_mappings = false,
-      opacity = nil,
-      post_open_hook = nil,
-      references = {
-        telescope = require("telescope.themes").get_dropdown({ hide_preview = false }),
-      },
-      focus_on_open = true,
-      dismiss_on_move = false,
-      force_close = true,
-      bufhidden = "wipe",
-      stack_floating_preview_windows = true,
-      preview_window_title = { enable = true, position = "left" },
-    },
+    config = function()
+      require("goto-preview").setup({
+        width = 120,
+        height = 15,
+        border = { "↖", "─", "┐", "│", "┘", "─", "└", "│" },
+        default_mappings = false,
+        opacity = nil,
+        post_open_hook = nil,
+        references = {
+          telescope = require("telescope.themes").get_dropdown({ hide_preview = false }),
+        },
+        focus_on_open = true,
+        dismiss_on_move = false,
+        force_close = true,
+        bufhidden = "wipe",
+        stack_floating_preview_windows = true,
+        preview_window_title = { enable = true, position = "left" },
+      })
+    end,
   },
 
-  -- Trouble for diagnostics
+  -- Trouble for diagnostics (v3 API)
   {
     "folke/trouble.nvim",
-    cmd = { "TroubleToggle", "Trouble" },
+    cmd = "Trouble",
     keys = {
-      { "<leader>xx", "<cmd>TroubleToggle<cr>", desc = "Toggle Trouble" },
-      { "<leader>xw", "<cmd>TroubleToggle workspace_diagnostics<cr>", desc = "Workspace diagnostics" },
-      { "<leader>xd", "<cmd>TroubleToggle document_diagnostics<cr>", desc = "Document diagnostics" },
-      { "<leader>xl", "<cmd>TroubleToggle loclist<cr>", desc = "Location list" },
-      { "<leader>xq", "<cmd>TroubleToggle quickfix<cr>", desc = "Quickfix" },
-      { "gR", "<cmd>TroubleToggle lsp_references<cr>", desc = "LSP references" },
+      { "<leader>xx", "<cmd>Trouble diagnostics toggle<cr>", desc = "Toggle Trouble" },
+      { "<leader>xw", "<cmd>Trouble diagnostics toggle filter.buf=0<cr>", desc = "Buffer diagnostics" },
+      { "<leader>xd", "<cmd>Trouble diagnostics<cr>", desc = "Workspace diagnostics" },
+      { "<leader>xl", "<cmd>Trouble loclist toggle<cr>", desc = "Location list" },
+      { "<leader>xq", "<cmd>Trouble qflist toggle<cr>", desc = "Quickfix" },
+      { "gR", "<cmd>Trouble lsp_references toggle<cr>", desc = "LSP references" },
     },
     opts = {
       use_diagnostic_signs = true,
     },
-    config = function(_, opts)
-      require("trouble").setup(opts)
-
-      -- Diagnostic signs
-      local signs = {
-        Error = " ",
-        Warning = " ",
-        Hint = " ",
-        Information = " ",
-      }
-      for type, icon in pairs(signs) do
-        local hl = "DiagnosticSign" .. type
-        vim.fn.sign_define(hl, { text = icon, texthl = hl, numhl = hl })
-      end
-    end,
   },
 
   -- Todo comments

@@ -4,27 +4,42 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
 
 jobs:
   validate:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
       - name: Install chezmoi
-        run: sh -c "$(curl -fsLS get.chezmoi.io)" -- -b /usr/local/bin
+        run: |
+          CHEZMOI_VERSION="2.57.0"
+          curl -fsLS "https://github.com/twpayne/chezmoi/releases/download/v${CHEZMOI_VERSION}/chezmoi_${CHEZMOI_VERSION}_linux_amd64.tar.gz" \
+            | tar -xz -C /usr/local/bin chezmoi
 
       - name: Validate templates
         run: |
           # Verify all templates parse without errors
-          chezmoi init --source="$(pwd)" --destination=/tmp/chezmoi-test --no-tty 2>&1 || true
+          if ! chezmoi init --source="$(pwd)" --destination=/tmp/chezmoi-test --no-tty 2>&1; then
+            echo "ERROR: Template parsing failed"
+            exit 1
+          fi
           echo "Template parsing: OK"
 
       - name: Check for secrets
         run: |
-          # Scan for common secret patterns (excluding docs and samples)
           PATTERNS="sk-[a-zA-Z0-9]{20,}|ghp_[a-zA-Z0-9]{36}|xoxb-[0-9]{10,}|AKIA[0-9A-Z]{16}"
-          FOUND=$(grep -rPl "$PATTERNS" --include='*.zsh' --include='*.bash' --include='*.toml' --include='*.json' --include='*.tmpl' . 2>/dev/null | grep -v '.git/' | grep -v 'README' | grep -v 'SKILL.md' | grep -v 'pre-commit' || true)
+          FOUND=$(grep -rPl "$PATTERNS" --include='*.zsh' --include='*.bash' --include='*.toml' --include='*.json' --include='*.tmpl' . 2>/dev/null \
+            | grep -v '.git/' | grep -v 'README' | grep -v 'SKILL.md' | grep -v 'pre-commit' || true)
           if [[ -n "$FOUND" ]]; then
             echo "ERROR: Potential secrets found in:"
             echo "$FOUND"
@@ -34,21 +49,38 @@ jobs:
 
       - name: Validate JSON files
         run: |
-          find . -name '*.json' -not -path './.git/*' | while read -r f; do
+          ERRORS=0
+          while IFS= read -r f; do
             if python3 -m json.tool "$f" > /dev/null 2>&1; then
               echo "  OK: $f"
             else
               echo "  FAIL: $f"
-              exit 1
+              ERRORS=$(( ERRORS + 1 ))
             fi
-          done
+          done < <(find . -name '*.json' -not -path './.git/*')
+          if [[ "$ERRORS" -gt 0 ]]; then
+            echo "JSON validation: FAIL ($ERRORS errors)"
+            exit 1
+          fi
           echo "JSON validation: PASS"
 
       - name: Check file naming conventions
         run: |
-          # Verify chezmoi naming conventions
           ERRORS=0
           for f in $(find . -maxdepth 1 -name '.*' -not -name '.git*' -not -name '.chezmoi*' -not -name '.commit_message*' -not -name '.claude' -not -name '.github' -not -name '.DS_Store' -not -name '.editorconfig'); do
             echo "WARNING: Unexpected dotfile at root: $f"
+            ERRORS=$(( ERRORS + 1 ))
           done
-          echo "Naming conventions: checked"
+          if [[ "$ERRORS" -gt 0 ]]; then
+            echo "Naming conventions: $ERRORS warnings"
+          else
+            echo "Naming conventions: PASS"
+          fi
+
+      - name: ShellCheck
+        run: |
+          sudo apt-get install -y shellcheck
+          find . -name '*.sh' -not -path './.git/*' -not -path './dot_claude/*' | while IFS= read -r f; do
+            shellcheck --severity=error "$f" || true
+          done
+          echo "ShellCheck: done"

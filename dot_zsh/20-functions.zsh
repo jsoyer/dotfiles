@@ -4,11 +4,11 @@
 
 # Cross-platform clipboard helper
 _clip() {
-  if command -v pbcopy &>/dev/null; then
+  if (( $+commands[pbcopy] )); then
     pbcopy
-  elif command -v wl-copy &>/dev/null; then
+  elif (( $+commands[wl-copy] )); then
     wl-copy
-  elif command -v xclip &>/dev/null; then
+  elif (( $+commands[xclip] )); then
     xclip -selection clipboard
   else
     echo "(clipboard not available)" >&2
@@ -50,7 +50,7 @@ fv() {
 }
 
 # Aerospace window picker via FZF (macOS only)
-if command -v aerospace &>/dev/null; then
+if (( $+commands[aerospace] )); then
   ff() {
     aerospace list-windows --all | fzf --bind 'enter:execute(bash -c "aerospace focus --window-id {1}")+abort'
   }
