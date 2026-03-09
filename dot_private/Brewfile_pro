@@ -350,14 +350,6 @@ cask "rectangle"
 cask "skyfonts"
 cask "xquartz"
 cask "zed"
-mas "GarageBand", id: 682658836
-mas "iMovie", id: 408981434
-mas "Keynote", id: 409183694
-mas "Numbers", id: 409203825
-mas "Pages", id: 409201541
-mas "Remote Desktop", id: 409907375
-mas "Tailscale", id: 1475387142
-mas "Windows App", id: 1295203466
 go "golang.org/x/tools/cmd/callgraph"
 go "github.com/go-delve/delve/cmd/dlv"
 go "github.com/davidrjenni/reftools/cmd/fillswitch"
