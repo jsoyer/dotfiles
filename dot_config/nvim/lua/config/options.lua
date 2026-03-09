@@ -68,7 +68,7 @@ if vim.uv.os_uname().machine:match("aarch64") then
   vim.opt.foldmethod = "indent"
 else
   vim.opt.foldmethod = "expr"
-  vim.opt.foldexpr = "nvim_treesitter#foldexpr()"
+  vim.opt.foldexpr = "v:lua.vim.treesitter.foldexpr()"
 end
 vim.opt.foldenable = false
 vim.opt.foldlevel = 99

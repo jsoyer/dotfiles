@@ -1,29 +1,11 @@
 -- Autocmds are automatically loaded on the VeryLazy event
 -- Default autocmds that are always set: https://github.com/LazyVim/LazyVim/blob/main/lua/lazyvim/config/autocmds.lua
 -- Add any additional autocmds here
+-- NOTE: YankHighlight, ResizeSplits, RestoreCursor, Checktime, AutoCursorLine
+--       are intentionally omitted — LazyVim ships them already.
 
 local augroup = vim.api.nvim_create_augroup
 local autocmd = vim.api.nvim_create_autocmd
-
--- Highlight on yank
-local highlight_group = augroup("YankHighlight", { clear = true })
-autocmd("TextYankPost", {
-  callback = function()
-    vim.highlight.on_yank({ higroup = "IncSearch", timeout = 200 })
-  end,
-  group = highlight_group,
-  pattern = "*",
-})
-
--- Resize splits if window got resized
-autocmd("VimResized", {
-  group = augroup("ResizeSplits", { clear = true }),
-  callback = function()
-    local current_tab = vim.fn.tabpagenr()
-    vim.cmd("tabdo wincmd =")
-    vim.cmd("tabnext " .. current_tab)
-  end,
-})
 
 -- Close some filetypes with <q>
 autocmd("FileType", {
@@ -67,58 +49,33 @@ autocmd("BufWritePre", {
   end,
 })
 
--- Restore cursor position
-autocmd("BufReadPost", {
-  group = augroup("RestoreCursor", { clear = true }),
-  callback = function()
-    local mark = vim.api.nvim_buf_get_mark(0, '"')
-    local lcount = vim.api.nvim_buf_line_count(0)
-    if mark[1] > 0 and mark[1] <= lcount then
-      pcall(vim.api.nvim_win_set_cursor, 0, mark)
-    end
-  end,
-})
-
--- Check if file changed outside of Neovim (also covers FocusGained)
-autocmd({ "FocusGained", "TermClose", "TermLeave" }, {
-  group = augroup("Checktime", { clear = true }),
-  command = "checktime",
-})
-
--- Remove trailing whitespace on save
+-- Remove trailing whitespace on save (skip markdown/text where trailing spaces are semantic)
 autocmd("BufWritePre", {
   group = augroup("TrimWhitespace", { clear = true }),
   pattern = "*",
   callback = function()
+    local ft = vim.bo.filetype
+    if ft == "markdown" or ft == "text" or vim.b.autoformat == false then
+      return
+    end
     local curpos = vim.api.nvim_win_get_cursor(0)
     vim.cmd([[keeppatterns %s/\s\+$//e]])
     vim.api.nvim_win_set_cursor(0, curpos)
   end,
 })
 
--- Disable diagnostics in insert mode
+-- Disable diagnostics in insert mode (single augroup for paired events)
+local diag_group = augroup("DiagnosticsInsertMode", { clear = true })
 autocmd("InsertEnter", {
-  group = augroup("DisableDiagnosticsInInsert", { clear = true }),
+  group = diag_group,
   callback = function()
     vim.diagnostic.enable(false, { bufnr = 0 })
   end,
 })
-
 autocmd("InsertLeave", {
-  group = augroup("EnableDiagnosticsOnLeave", { clear = true }),
+  group = diag_group,
   callback = function()
     vim.diagnostic.enable(true, { bufnr = 0 })
-  end,
-})
-
--- Auto-format on save for specific filetypes
-autocmd("BufWritePre", {
-  group = augroup("AutoFormat", { clear = true }),
-  pattern = { "*.lua", "*.go", "*.rs", "*.ts", "*.tsx", "*.js", "*.jsx", "*.json", "*.yaml", "*.yml" },
-  callback = function()
-    if vim.b.autoformat ~= false then
-      vim.lsp.buf.format({ async = false })
-    end
   end,
 })
 
@@ -148,22 +105,5 @@ autocmd("TermOpen", {
     vim.opt_local.number = false
     vim.opt_local.relativenumber = false
     vim.opt_local.signcolumn = "no"
-  end,
-})
-
--- Show cursor line only in active window
-autocmd({ "InsertLeave", "WinEnter" }, {
-  group = augroup("AutoCursorLine", { clear = true }),
-  callback = function()
-    if vim.bo.filetype ~= "alpha" then
-      vim.wo.cursorline = true
-    end
-  end,
-})
-
-autocmd({ "InsertEnter", "WinLeave" }, {
-  group = augroup("AutoNoCursorLine", { clear = true }),
-  callback = function()
-    vim.wo.cursorline = false
   end,
 })

@@ -3,11 +3,6 @@ return {
   opts = function(_, opts)
     local cmp = require("cmp")
 
-    -- Override default options
-    opts.view = {
-      entries = "native",
-    }
-
     -- Add custom mappings while preserving defaults
     opts.mapping = vim.tbl_extend("force", opts.mapping or {}, {
       ["<C-d>"] = cmp.mapping.scroll_docs(-4),
