@@ -194,6 +194,20 @@ if [[ "${IS_FEDORA:-false}" == "true" ]] && [[ "${MACHINE_PROFILE:-}" != "fedora
   yum() { command dnfw "$@"; }
 fi
 
+# Arch Linux package manager wrappers
+if [[ "${MACHINE_PROFILE:-}" == arch-desktop || "${MACHINE_PROFILE:-}" == arch-server ]]; then
+    pacman() { pacmanw "$@"; }
+fi
+
+if [[ "${MACHINE_PROFILE:-}" == arch-desktop ]]; then
+    yay() { yayw "$@"; }
+fi
+
+# Fedora Atomic wrapper
+if [[ "${MACHINE_PROFILE:-}" == fedora-atomic ]]; then
+    rpm-ostree() { ostreew "$@"; }
+fi
+
 # ============================================================================
 # Chezmoi
 # ============================================================================

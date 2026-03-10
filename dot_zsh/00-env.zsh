@@ -89,6 +89,17 @@ case "${_OS}" in
       export MACHINE_PROFILE="debian"
       export STARSHIP_CONFIG="${HOME}/.config/starship/starship-rpi.toml"
 
+    elif [[ "${_DISTRO_ID}" == "arch" ]]; then
+      # Arch Linux — server vs desktop by hostname
+      export STARSHIP_ICON_COLOR="blue"
+      export STARSHIP_ICON=""
+      if [[ "${_HOST}" == arch-server* ]]; then
+        export MACHINE_PROFILE="arch-server"
+        export STARSHIP_CONFIG="${HOME}/.config/starship/starship-rpi.toml"
+      else
+        export MACHINE_PROFILE="arch-desktop"
+      fi
+
     else
       # Fedora — atomic by tool, then server/desktop by hostname
       export STARSHIP_ICON_COLOR="blue"
@@ -123,6 +134,7 @@ unset _OS _HOST
 [[ "$OSTYPE" == linux* ]]                && export IS_LINUX=true   || export IS_LINUX=false
 [[ "$MACHINE_PROFILE" == ubuntu* ]]      && export IS_UBUNTU=true  || export IS_UBUNTU=false
 [[ "$MACHINE_PROFILE" == fedora* ]]      && export IS_FEDORA=true  || export IS_FEDORA=false
+[[ "$MACHINE_PROFILE" == arch-* ]]       && export IS_ARCH=true    || export IS_ARCH=false
 
 # ============================================================================
 # Locale and language

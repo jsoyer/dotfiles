@@ -1327,4 +1327,27 @@ def yum [...args: string] {
         ^yum ...$args
     }
 }
+
+def pacman [...args: string] {
+    let mp = ($env.MACHINE_PROFILE? | default "")
+    if ($mp | str starts-with "arch-") {
+        ^pacmanw ...$args
+    } else {
+        ^pacman ...$args
+    }
+}
+
+def yay [...args: string] {
+    let mp = ($env.MACHINE_PROFILE? | default "")
+    if ($mp == "arch-desktop") {
+        ^yayw ...$args
+    } else {
+        ^yay ...$args
+    }
+}
+
+# Fedora Atomic: rpm-ostree → ostreew
+# (nushell does not support hyphens in def names; use an alias instead)
+alias "rpm-ostree" = ostreew
+
 source ~/.cache/atuin/init.nu

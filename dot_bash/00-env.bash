@@ -43,6 +43,7 @@ export IS_RPI=false
 export IS_LINUX=false
 export IS_UBUNTU=false
 export IS_FEDORA=false
+export IS_ARCH=false
 
 case "$(uname -s)" in
   Darwin)
@@ -85,6 +86,17 @@ case "$(uname -s)" in
     elif [[ "${_DISTRO_ID}" == "debian" ]]; then
       export PLATFORM="debian"
       export MACHINE_PROFILE="debian"
+
+    elif [[ "${_DISTRO_ID}" == "arch" ]]; then
+      export IS_ARCH=true
+      export PLATFORM="arch"
+      _HOST="${HOSTNAME%%.*}"
+      if [[ "${_HOST}" == arch-server* ]]; then
+        export MACHINE_PROFILE="arch-server"
+      else
+        export MACHINE_PROFILE="arch-desktop"
+      fi
+      unset _HOST
 
     else
       # Fedora — atomic by tool, then server/desktop by hostname
