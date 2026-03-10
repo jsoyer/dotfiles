@@ -22,6 +22,7 @@ encryption = "age"
 {{- else if eq .chezmoi.os "linux" -}}
 {{- if or (eq .chezmoi.osRelease.id "raspbian") (eq .chezmoi.osRelease.id "raspios") -}}rpi
 {{- else if stat "/proc/device-tree/model" -}}{{ promptStringOnce . "machine_profile" "Machine profile [rpi/debian]" "rpi" }}
+{{- else if env "CI" -}}ubuntu-server
 {{- else if eq .chezmoi.osRelease.id "ubuntu" -}}
 {{- if hasPrefix "ubuntu-server" .chezmoi.hostname -}}ubuntu-server
 {{- else if hasPrefix "ubuntu-desktop" .chezmoi.hostname -}}ubuntu-desktop
