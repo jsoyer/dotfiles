@@ -1,5 +1,5 @@
 {{- $mp := index . "machine_profile" -}}
-{{- $skipProfiles := list "fedora-atomic" "toolbox" "windows" -}}
+{{- $skipProfiles := list "fedora-atomic" "windows" -}}
 {{- if and (eq .chezmoi.os "linux") (not (has $mp $skipProfiles)) -}}
 #!/usr/bin/env bash
 # =============================================================================
@@ -16,7 +16,7 @@ fi
 echo "Installing Homebrew (Linuxbrew)..."
 
 # Prerequisites
-{{- if or (eq $mp "fedora-desktop") (eq $mp "fedora-server") }}
+{{- if or (eq $mp "fedora-desktop") (eq $mp "fedora-server") (eq $mp "toolbox") }}
 sudo dnf groupinstall -y "Development Tools"
 sudo dnf install -y procps-ng curl file gcc
 {{- else if eq $mp "arch-desktop" }}
