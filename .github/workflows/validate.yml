@@ -29,9 +29,7 @@ jobs:
       - name: Validate templates
         run: |
           # Verify all templates parse without errors
-          # --promptString pre-answers promptStringOnce calls (ubuntu_flavor used on Linux only)
-          if ! chezmoi init --source="$(pwd)" --destination=/tmp/chezmoi-test --no-tty \
-            --promptString ubuntu_flavor=server 2>&1; then
+          if ! chezmoi init --source="$(pwd)" --destination=/tmp/chezmoi-test --no-tty 2>&1; then
             echo "ERROR: Template parsing failed"
             exit 1
           fi

@@ -17,7 +17,7 @@ encryption = "age"
     name = "Jerome Soyer"
     email = "jeromesoyer@gmail.com"
     work_email = "jsoyer@varonis.com"
-    ubuntu_flavor     = "{{ promptStringOnce . "ubuntu_flavor" "Ubuntu flavor (desktop/server)" "server" }}"
+    ubuntu_flavor     = "{{ if and (eq .chezmoi.os "linux") (eq .chezmoi.osRelease.id "ubuntu") (not (env "CI")) }}{{ promptStringOnce . "ubuntu_flavor" "Ubuntu flavor (desktop/server)" "server" }}{{ else }}server{{ end }}"
 
 {{- if lookPath "age" }}
 
