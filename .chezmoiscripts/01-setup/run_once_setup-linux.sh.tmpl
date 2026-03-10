@@ -1,4 +1,5 @@
 {{- if eq .chezmoi.os "linux" -}}
+{{- $mp              := (index . "machine_profile") | default "debian" -}}
 {{- $isRPi    := or (eq .chezmoi.osRelease.id "raspbian") (stat "/proc/device-tree/model") -}}
 {{- $isUbuntu := and (eq .chezmoi.osRelease.id "ubuntu") (not $isRPi) -}}
 {{- $isDebian := and (eq .chezmoi.osRelease.id "debian") (not $isRPi) -}}
@@ -7,6 +8,9 @@
 {{- $isFedora        := and (eq .chezmoi.os "linux") (lookPath "dnf") (not (lookPath "rpm-ostree")) (not (stat "/.toolboxenv")) (not (env "TOOLBOX_PATH")) -}}
 {{- $isFedoraDesktop := and $isFedora (eq $fedoraFlavor "desktop") -}}
 {{- $isFedoraServer  := and $isFedora (eq $fedoraFlavor "server") -}}
+{{- $isArchDesktop   := eq $mp "arch-desktop" -}}
+{{- $isArchServer    := eq $mp "arch-server" -}}
+{{- $isArch          := or $isArchDesktop $isArchServer -}}
 #!/usr/bin/env bash
 # =============================================================================
 # Linux Setup - Locale, Repositories, Tailscale
@@ -33,6 +37,20 @@ export LC_ALL=en_US.UTF-8
 # Create symlinks for renamed packages on Debian/Ubuntu
 sudo ln -sf /usr/bin/batcat /usr/local/bin/bat 2>/dev/null || true
 sudo ln -sf /usr/bin/fdfind /usr/local/bin/fd 2>/dev/null || true
+{{- end }}
+
+# =============================================================================
+# Arch Linux - Locale configuration
+# =============================================================================
+{{- if $isArch }}
+echo "Configuring Arch Linux locale..."
+if ! grep -q "^en_US.UTF-8 UTF-8" /etc/locale.gen 2>/dev/null; then
+    echo "en_US.UTF-8 UTF-8" | sudo tee -a /etc/locale.gen > /dev/null
+    sudo locale-gen
+fi
+if [[ ! -f /etc/locale.conf ]]; then
+    echo "LANG=en_US.UTF-8" | sudo tee /etc/locale.conf > /dev/null
+fi
 {{- end }}
 
 # =============================================================================

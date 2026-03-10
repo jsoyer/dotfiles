@@ -19,6 +19,34 @@ encryption = "age"
     work_email = "jsoyer@varonis.com"
     ubuntu_flavor     = "{{ if and (eq .chezmoi.os "linux") (eq .chezmoi.osRelease.id "ubuntu") (not (env "CI")) }}{{ if hasPrefix "ubuntu-server" .chezmoi.hostname }}server{{ else }}desktop{{ end }}{{ else }}server{{ end }}"
     fedora_flavor     = "{{ if lookPath "rpm-ostree" }}atomic{{ else if hasPrefix "fedora-server" .chezmoi.hostname }}server{{ else }}desktop{{ end }}"
+    machine_profile   = "{{- if eq .chezmoi.os "windows" -}}windows
+{{- else if eq .chezmoi.os "darwin" -}}
+{{- if hasPrefix "mac-pro" .chezmoi.hostname -}}mac-pro
+{{- else -}}mac-personal
+{{- end -}}
+{{- else if eq .chezmoi.os "linux" -}}
+{{- if or (eq .chezmoi.osRelease.id "raspbian") (stat "/proc/device-tree/model") -}}rpi
+{{- else if eq .chezmoi.osRelease.id "ubuntu" -}}
+{{- if hasPrefix "ubuntu-server" .chezmoi.hostname -}}ubuntu-server
+{{- else -}}ubuntu-desktop
+{{- end -}}
+{{- else if and (lookPath "rpm-ostree") (not (stat "/.toolboxenv")) (not (env "TOOLBOX_PATH")) -}}fedora-atomic
+{{- else if and (stat "/.toolboxenv") -}}toolbox
+{{- else if env "TOOLBOX_PATH" -}}toolbox
+{{- else if and (lookPath "dnf") (not (stat "/.toolboxenv")) (not (env "TOOLBOX_PATH")) -}}
+{{- if hasPrefix "fedora-server" .chezmoi.hostname -}}fedora-server
+{{- else -}}fedora-desktop
+{{- end -}}
+{{- else if eq .chezmoi.osRelease.id "arch" -}}
+{{- if hasPrefix "arch-server" .chezmoi.hostname -}}arch-server
+{{- else if hasPrefix "arch-desktop" .chezmoi.hostname -}}arch-desktop
+{{- else -}}{{ promptStringOnce . "machine_profile" "Machine profile [arch-desktop/arch-server]" "arch-desktop" }}
+{{- end -}}
+{{- else if eq .chezmoi.osRelease.id "debian" -}}debian
+{{- else -}}{{ promptStringOnce . "machine_profile" "Machine profile" "debian" }}
+{{- end -}}
+{{- else -}}{{ promptStringOnce . "machine_profile" "Machine profile" "debian" }}
+{{- end -}}"
 
 {{- if lookPath "age" }}
 
