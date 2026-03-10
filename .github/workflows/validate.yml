@@ -91,6 +91,40 @@ jobs:
           fi
           echo "TOML validation: PASS"
 
+      - name: Validate Aptfile/Dnffile format
+        run: |
+          ERRORS=0
+          while IFS= read -r f; do
+            while IFS= read -r line || [[ -n "$line" ]]; do
+              [[ -z "${line// }" || "$line" =~ ^[[:space:]]*# ]] && continue
+              if ! [[ "$line" =~ ^[a-zA-Z0-9][a-zA-Z0-9.+\-]*$ ]]; then
+                echo "  FAIL: invalid package name '${line}' in ${f}"
+                ERRORS=$(( ERRORS + 1 ))
+              fi
+            done < "$f"
+          done < <(find dot_private -name 'Aptfile_*' -o -name 'Dnffile_*' 2>/dev/null)
+          if [[ "$ERRORS" -gt 0 ]]; then
+            echo "Manifest format: FAIL ($ERRORS errors)"
+            exit 1
+          fi
+          echo "Manifest format: PASS"
+
+      - name: Validate Scoopfile.json schema
+        run: |
+          if [[ -f dot_private/Scoopfile.json ]]; then
+            python3 -c "
+          import json, sys
+          with open('dot_private/Scoopfile.json') as f:
+              d = json.load(f)
+          assert 'apps' in d, 'missing apps key'
+          assert 'buckets' in d, 'missing buckets key'
+          print('  Scoopfile.json: OK')
+          "
+            echo "Scoopfile schema: PASS"
+          else
+            echo "Scoopfile schema: SKIP (no Scoopfile.json)"
+          fi
+
       - name: ShellCheck
         run: |
           sudo apt-get install -y shellcheck

@@ -1,0 +1,38 @@
+# Fedora Desktop dnf packages
+# managed by dnfw — do not edit manually
+chezmoi
+zsh
+git
+curl
+wget
+tmux
+fzf
+neovim
+fd-find
+ripgrep
+jq
+unzip
+bat
+fontconfig
+starship
+zoxide
+vivid
+atuin
+direnv
+htop
+fish
+kitty
+nushell
+jetbrains-mono-fonts-all
+util-linux-user
+gnome-tweaks
+dconf-editor
+telegram-desktop
+remmina
+cargo
+rust
+
+# installed via cargo (not managed by dnfw)
+# eza
+# installed via Flatpak (not managed by dnfw)
+# Brave, Discord, Obsidian, Zed, Signal, DBeaver, LocalSend

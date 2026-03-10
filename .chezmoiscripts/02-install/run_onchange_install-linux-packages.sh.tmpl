@@ -14,6 +14,23 @@
 # Linux Packages Installation - apt, dnf, rpm-ostree
 # =============================================================================
 
+# Manifest checksums — chezmoi reruns this script when any of these change:
+{{- if $isRPi }}
+# Aptfile_rpi:            {{ include "dot_private/Aptfile_rpi" | sha256sum }}
+{{- end }}
+{{- if $isUbuntuServer }}
+# Aptfile_ubuntu_server:  {{ include "dot_private/Aptfile_ubuntu_server" | sha256sum }}
+{{- end }}
+{{- if $isUbuntuDesktop }}
+# Aptfile_ubuntu_desktop: {{ include "dot_private/Aptfile_ubuntu_desktop" | sha256sum }}
+{{- end }}
+{{- if $isFedoraServer }}
+# Dnffile_fedora_server:  {{ include "dot_private/Dnffile_fedora_server" | sha256sum }}
+{{- end }}
+{{- if $isFedoraDesktop }}
+# Dnffile_fedora_desktop: {{ include "dot_private/Dnffile_fedora_desktop" | sha256sum }}
+{{- end }}
+
 set -euo pipefail
 
 # =============================================================================
@@ -22,27 +39,12 @@ set -euo pipefail
 {{- if $isRPi }}
 echo "Installing Raspberry Pi packages via apt..."
 
-sudo apt update && sudo apt install -y \
-    zsh \
-    git \
-    curl \
-    wget \
-    tmux \
-    fzf \
-    neovim \
-    fd-find \
-    ripgrep \
-    jq \
-    unzip \
-    bat \
-    fontconfig \
-    starship \
-    zoxide \
-    eza \
-    vivid \
-    atuin \
-    direnv \
-    locales
+# Install packages from Aptfile manifest
+_aptfile="{{ .chezmoi.sourceDir }}/dot_private/Aptfile_rpi"
+if [[ -f "$_aptfile" ]]; then
+    mapfile -t _pkgs < <(grep -v '^\s*#' "$_aptfile" | grep -v '^\s*$')
+    sudo apt update && sudo apt-get install -y "${_pkgs[@]}"
+fi
 
 # Install 1Password CLI via official apt repo
 if ! command -v op &>/dev/null; then
@@ -70,26 +72,12 @@ fi
 {{- if $isUbuntuServer }}
 echo "Installing Ubuntu Server packages via apt..."
 
-sudo apt update && sudo apt install -y \
-    zsh \
-    git \
-    curl \
-    wget \
-    tmux \
-    fzf \
-    neovim \
-    fd-find \
-    ripgrep \
-    jq \
-    unzip \
-    bat \
-    fontconfig \
-    zoxide \
-    atuin \
-    direnv \
-    locales \
-    htop \
-    tree
+# Install packages from Aptfile manifest
+_aptfile="{{ .chezmoi.sourceDir }}/dot_private/Aptfile_ubuntu_server"
+if [[ -f "$_aptfile" ]]; then
+    mapfile -t _pkgs < <(grep -v '^\s*#' "$_aptfile" | grep -v '^\s*$')
+    sudo apt update && sudo apt-get install -y "${_pkgs[@]}"
+fi
 
 # Install starship via official installer (not in Ubuntu apt)
 if ! command -v starship &>/dev/null; then
@@ -150,30 +138,12 @@ fi
 {{- if $isUbuntuDesktop }}
 echo "Installing Ubuntu Desktop packages via apt..."
 
-sudo apt update && sudo apt install -y \
-    zsh \
-    git \
-    curl \
-    wget \
-    tmux \
-    fzf \
-    neovim \
-    fd-find \
-    ripgrep \
-    jq \
-    unzip \
-    bat \
-    fontconfig \
-    zoxide \
-    atuin \
-    direnv \
-    locales \
-    htop \
-    tree \
-    xclip \
-    wl-clipboard \
-    flatpak \
-    gnome-software-plugin-flatpak
+# Install packages from Aptfile manifest
+_aptfile="{{ .chezmoi.sourceDir }}/dot_private/Aptfile_ubuntu_desktop"
+if [[ -f "$_aptfile" ]]; then
+    mapfile -t _pkgs < <(grep -v '^\s*#' "$_aptfile" | grep -v '^\s*$')
+    sudo apt update && sudo apt-get install -y "${_pkgs[@]}"
+fi
 
 # Install starship via official installer (not in Ubuntu apt)
 if ! command -v starship &>/dev/null; then
@@ -248,30 +218,12 @@ fi
 {{- if $isFedoraServer }}
 echo "Installing Fedora Server packages via dnf..."
 
-sudo dnf install -y --skip-unavailable \
-    chezmoi \
-    zsh \
-    git \
-    curl \
-    wget \
-    tmux \
-    fzf \
-    neovim \
-    fd-find \
-    ripgrep \
-    jq \
-    unzip \
-    bat \
-    fontconfig \
-    starship \
-    zoxide \
-    vivid \
-    atuin \
-    direnv \
-    htop \
-    util-linux-user \
-    cargo \
-    rust
+# Install packages from Dnffile manifest
+_dnffile="{{ .chezmoi.sourceDir }}/dot_private/Dnffile_fedora_server"
+if [[ -f "$_dnffile" ]]; then
+    mapfile -t _pkgs < <(grep -v '^\s*#' "$_dnffile" | grep -v '^\s*$')
+    sudo dnf install -y --skip-unavailable "${_pkgs[@]}"
+fi
 
 # Install eza via cargo (not in Fedora repos)
 if ! command -v eza &>/dev/null; then
@@ -286,38 +238,12 @@ fi
 {{- if $isFedoraDesktop }}
 echo "Installing Fedora Desktop packages via dnf..."
 
-sudo dnf install -y --skip-unavailable \
-    chezmoi \
-    zsh \
-    git \
-    curl \
-    wget \
-    tmux \
-    fzf \
-    neovim \
-    fd-find \
-    ripgrep \
-    jq \
-    unzip \
-    bat \
-    fontconfig \
-    starship \
-    zoxide \
-    vivid \
-    atuin \
-    direnv \
-    htop \
-    fish \
-    kitty \
-    nushell \
-    jetbrains-mono-fonts-all \
-    util-linux-user \
-    gnome-tweaks \
-    dconf-editor \
-    telegram-desktop \
-    remmina \
-    cargo \
-    rust
+# Install packages from Dnffile manifest
+_dnffile="{{ .chezmoi.sourceDir }}/dot_private/Dnffile_fedora_desktop"
+if [[ -f "$_dnffile" ]]; then
+    mapfile -t _pkgs < <(grep -v '^\s*#' "$_dnffile" | grep -v '^\s*$')
+    sudo dnf install -y --skip-unavailable "${_pkgs[@]}"
+fi
 
 # Install eza via cargo (not in Fedora repos)
 if ! command -v eza &>/dev/null; then

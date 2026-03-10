@@ -1,0 +1,185 @@
+#!/usr/bin/env bash
+# dnfw — dnf/yum wrapper that keeps Dnffile manifests in sync with chezmoi
+# Usage: dnfw <dnf-subcommand> [args...]
+#        dnfw install foo    → installs + adds to Dnffile
+#        dnfw remove foo     → removes + removes from Dnffile
+#        dnfw upgrade/search → passthrough
+
+set -euo pipefail
+
+# --- Colors ---
+BLUE='\033[0;34m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+RED='\033[0;31m'
+NC='\033[0m'
+
+# --- Config ---
+CHEZMOI_SOURCE_PATH="${CHEZMOI_SOURCE_PATH:-${HOME}/.local/share/chezmoi}"
+MANIFEST_DIR="${CHEZMOI_SOURCE_PATH}/dot_private"
+
+# --- Detect dnf vs yum binary ---
+get_dnf_binary() {
+    if command -v dnf &>/dev/null; then
+        printf 'dnf'
+    elif command -v yum &>/dev/null; then
+        printf 'yum'
+    else
+        printf 'dnf'
+    fi
+}
+
+# --- Package name validation ---
+validate_pkg() {
+    local pkg="$1"
+    if ! [[ "$pkg" =~ ^[a-zA-Z0-9][a-zA-Z0-9.+\-]{0,127}$ ]]; then
+        printf '%b\n' "${RED}Error: invalid package name: '${pkg}'${NC}" >&2
+        exit 1
+    fi
+}
+
+# --- Determine target Dnffile based on MACHINE_PROFILE ---
+get_dnffile() {
+    case "${MACHINE_PROFILE:-}" in
+        fedora-desktop) printf '%s' "${MANIFEST_DIR}/Dnffile_fedora_desktop" ;;
+        fedora-server)  printf '%s' "${MANIFEST_DIR}/Dnffile_fedora_server" ;;
+        *)              printf '' ;;
+    esac
+}
+
+# --- Add package to manifest (idempotent) ---
+add_to_manifest() {
+    local manifest="$1"
+    local pkg="$2"
+    # Skip if already present (exact line match, ignoring comment lines)
+    if grep -qxF "$pkg" "$manifest" 2>/dev/null; then
+        printf '%b\n' "${YELLOW}${pkg} already in $(basename "$manifest")${NC}"
+        return
+    fi
+    printf '%s\n' "$pkg" >> "$manifest"
+    printf '%b\n' "${GREEN}Added '${pkg}' to $(basename "$manifest")${NC}"
+}
+
+# --- Remove package from manifest ---
+remove_from_manifest() {
+    local manifest="$1"
+    local pkg="$2"
+    local tmp
+    tmp="$(mktemp)"
+    # Keep all lines except exact match of package name (preserve comments/blanks)
+    while IFS= read -r line || [[ -n "$line" ]]; do
+        if [[ "$line" == "$pkg" ]]; then
+            continue
+        fi
+        printf '%s\n' "$line"
+    done < "$manifest" > "$tmp"
+    mv "$tmp" "$manifest"
+    printf '%b\n' "${GREEN}Removed '${pkg}' from $(basename "$manifest")${NC}"
+}
+
+# --- Git sync ---
+sync_to_git() {
+    local manifest="$1"
+    local action="$2"
+    local pkg="$3"
+    printf '\n%b\n' "${BLUE}Syncing with Git...${NC}"
+    if ! git -C "$CHEZMOI_SOURCE_PATH" diff --quiet "$manifest" 2>/dev/null; then
+        git -C "$CHEZMOI_SOURCE_PATH" add "$manifest"
+        git -C "$CHEZMOI_SOURCE_PATH" commit -m "feat(dnfw): ${action} ${pkg}"
+        git -C "$CHEZMOI_SOURCE_PATH" push
+        printf '%b\n' "${GREEN}Pushed to remote.${NC}"
+    else
+        printf '%b\n' "${YELLOW}No changes to sync.${NC}"
+    fi
+}
+
+# --- Help ---
+show_help() {
+    local dnffile dnf_bin
+    dnffile="$(get_dnffile)"
+    dnf_bin="$(get_dnf_binary)"
+    cat <<EOF
+dnfw — dnf/yum wrapper with Dnffile manifest sync
+
+Usage:
+  dnfw install <pkg>    Install package and add to Dnffile
+  dnfw remove <pkg>     Remove package and remove from Dnffile
+  dnfw upgrade          Upgrade all packages (no manifest change)
+  dnfw <subcommand>     Passthrough to ${dnf_bin}
+
+Dnffile location: ${dnffile:-unknown (check MACHINE_PROFILE)}
+MACHINE_PROFILE: ${MACHINE_PROFILE:-unset}
+DNF binary: ${dnf_bin}
+EOF
+}
+
+# --- Main ---
+if [[ $# -eq 0 ]] || [[ "${1:-}" == "--help" ]] || [[ "${1:-}" == "-h" ]]; then
+    show_help
+    exit 0
+fi
+
+SUBCOMMAND="$1"
+shift
+
+DNF_BIN="$(get_dnf_binary)"
+DNFFILE="$(get_dnffile)"
+
+case "$SUBCOMMAND" in
+    install)
+        if [[ $# -eq 0 ]]; then
+            printf '%b\n' "${RED}Error: specify a package name${NC}" >&2
+            exit 1
+        fi
+        # Validate all package names before installing anything
+        for pkg in "$@"; do
+            validate_pkg "$pkg"
+        done
+        printf '%b\n' "${BLUE}Running: sudo ${DNF_BIN} install -y --skip-unavailable $*${NC}"
+        sudo "$DNF_BIN" install -y --skip-unavailable "$@"
+        if [[ -n "$DNFFILE" ]]; then
+            for pkg in "$@"; do
+                add_to_manifest "$DNFFILE" "$pkg"
+            done
+            sync_to_git "$DNFFILE" "install" "$*"
+        else
+            printf '%b\n' "${YELLOW}Warning: no Dnffile for profile '${MACHINE_PROFILE:-unset}' — skipping manifest sync${NC}"
+        fi
+        ;;
+    remove|erase)
+        if [[ $# -eq 0 ]]; then
+            printf '%b\n' "${RED}Error: specify a package name${NC}" >&2
+            exit 1
+        fi
+        for pkg in "$@"; do
+            validate_pkg "$pkg"
+        done
+        printf '%b\n' "${BLUE}Running: sudo ${DNF_BIN} ${SUBCOMMAND} -y $*${NC}"
+        sudo "$DNF_BIN" "$SUBCOMMAND" -y "$@"
+        if [[ -n "$DNFFILE" ]]; then
+            for pkg in "$@"; do
+                remove_from_manifest "$DNFFILE" "$pkg"
+            done
+            sync_to_git "$DNFFILE" "remove" "$*"
+        else
+            printf '%b\n' "${YELLOW}Warning: no Dnffile for profile '${MACHINE_PROFILE:-unset}' — skipping manifest sync${NC}"
+        fi
+        ;;
+    upgrade|update|autoremove|clean|check-update|search|info|list|repolist|provides|deplist|history)
+        # Passthrough — no manifest change needed
+        printf '%b\n' "${BLUE}Running: ${DNF_BIN} ${SUBCOMMAND} $*${NC}"
+        case "$SUBCOMMAND" in
+            search|info|list|repolist|provides|deplist|history|check-update)
+                "$DNF_BIN" "$SUBCOMMAND" "$@"
+                ;;
+            *)
+                sudo "$DNF_BIN" "$SUBCOMMAND" "$@"
+                ;;
+        esac
+        ;;
+    *)
+        # Unknown subcommand — full passthrough
+        printf '%b\n' "${BLUE}Running: ${DNF_BIN} ${SUBCOMMAND} $*${NC}"
+        "$DNF_BIN" "$SUBCOMMAND" "$@"
+        ;;
+esac

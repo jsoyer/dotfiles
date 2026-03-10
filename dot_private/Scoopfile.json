@@ -1,0 +1,11 @@
+{
+  "buckets": [
+    { "name": "main" },
+    { "name": "extras" },
+    { "name": "versions" }
+  ],
+  "apps": [
+    { "name": "git", "bucket": "main" },
+    { "name": "chezmoi", "bucket": "main" }
+  ]
+}

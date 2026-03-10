@@ -1297,4 +1297,34 @@ if ($gem_bin | path exists) {
 source ~/.cache/starship/init.nu
 source ~/.cache/zoxide/init.nu
 source ~/.cache/carapace/init.nu
+
+# =============================================================================
+# Package manager wrappers
+# =============================================================================
+def apt [...args: string] {
+    let mp = ($env.MACHINE_PROFILE? | default "")
+    if ($mp == "rpi") or ($mp | str starts-with "ubuntu") or ($mp == "debian") {
+        ^aptw ...$args
+    } else {
+        ^apt ...$args
+    }
+}
+
+def dnf [...args: string] {
+    let mp = ($env.MACHINE_PROFILE? | default "")
+    if ($mp == "fedora-desktop") or ($mp == "fedora-server") {
+        ^dnfw ...$args
+    } else {
+        ^dnf ...$args
+    }
+}
+
+def yum [...args: string] {
+    let mp = ($env.MACHINE_PROFILE? | default "")
+    if ($mp == "fedora-desktop") or ($mp == "fedora-server") {
+        ^dnfw ...$args
+    } else {
+        ^yum ...$args
+    }
+}
 source ~/.cache/atuin/init.nu

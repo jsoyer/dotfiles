@@ -273,6 +273,24 @@ alias binfo='breww info'
 alias bd='breww doctor'
 
 # ============================================================================
+# Package manager wrappers
+# ============================================================================
+set -l _mp (string trim -- "$MACHINE_PROFILE")
+if string match -q "rpi" "$_mp"; or string match -q "ubuntu*" "$_mp"; or string match -q "debian" "$_mp"
+    function apt --wraps aptw --description 'apt wrapper with manifest sync'
+        command aptw $argv
+    end
+end
+if string match -q "fedora-desktop" "$_mp"; or string match -q "fedora-server" "$_mp"
+    function dnf --wraps dnfw --description 'dnf wrapper with manifest sync'
+        command dnfw $argv
+    end
+    function yum --wraps dnfw --description 'yum → dnfw wrapper'
+        command dnfw $argv
+    end
+end
+
+# ============================================================================
 # Chezmoi
 # ============================================================================
 alias c='chezmoi'

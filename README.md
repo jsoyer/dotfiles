@@ -344,6 +344,47 @@ A custom `breww` script wraps the `brew` command. When you install a package wit
 breww install ripgrep
 ```
 
+### Package Manager Wrappers (Linux / Windows)
+
+The same auto-sync pattern from `breww` is extended to Linux and Windows package managers via `aptw`, `dnfw`, and `scoopw`. Shell aliases make these transparent — just use `apt`, `dnf`/`yum`, or `scoop` as usual.
+
+**How it works:**
+1. Install or remove a package with the normal command (`apt install foo`).
+2. The wrapper adds/removes the package from the correct manifest file (`dot_private/Aptfile_*`, `Dnffile_*`, or `Scoopfile.json`).
+3. The manifest change is committed and pushed automatically.
+
+**Manifest files (in `dot_private/`):**
+
+| Profile | Manifest | Package Manager |
+|---------|----------|-----------------|
+| `rpi` | `Aptfile_rpi` | aptw |
+| `ubuntu-server` | `Aptfile_ubuntu_server` | aptw |
+| `ubuntu-desktop` | `Aptfile_ubuntu_desktop` | aptw |
+| `debian` | `Aptfile_debian` | aptw |
+| `fedora-server` | `Dnffile_fedora_server` | dnfw |
+| `fedora-desktop` | `Dnffile_fedora_desktop` | dnfw |
+| `windows` | `Scoopfile.json` | scoopw |
+
+**Shell aliases (set automatically based on `MACHINE_PROFILE`):**
+- `apt` → `aptw` (Linux non-Fedora profiles)
+- `dnf` / `yum` → `dnfw` (Fedora desktop/server)
+- `scoop` → `scoopw` (Windows, via PowerShell alias)
+
+**Usage:**
+```bash
+# Install a package — tracked automatically in the manifest
+apt install htop
+
+# Remove a package — removed from manifest
+apt remove htop
+
+# Fedora
+dnf install btop
+
+# Windows
+scoop install neovim
+```
+
 ### Checking What's Changed
 
 ```bash
