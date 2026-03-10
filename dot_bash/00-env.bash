@@ -74,10 +74,10 @@ case "$(uname -s)" in
       export IS_UBUNTU=true
       export PLATFORM="ubuntu"
       _HOST="${HOSTNAME%%.*}"
-      if [[ "${_HOST}" == ubuntu-desktop* ]]; then
-        export MACHINE_PROFILE="ubuntu-desktop"
-      else
+      if [[ "${_HOST}" == ubuntu-server* ]]; then
         export MACHINE_PROFILE="ubuntu-server"
+      else
+        export MACHINE_PROFILE="ubuntu-desktop"
       fi
       unset _HOST
 

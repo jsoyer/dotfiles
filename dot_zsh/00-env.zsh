@@ -70,16 +70,16 @@ case "${_OS}" in
       export STARSHIP_CONFIG="${HOME}/.config/starship/starship-rpi.toml"
 
     elif [[ "${_DISTRO_ID}" == "ubuntu" ]]; then
-      # Ubuntu — desktop vs server by hostname prefix
-      if [[ "${_HOST}" == ubuntu-desktop* ]]; then
-        export STARSHIP_ICON_COLOR="peach"
-        export STARSHIP_ICON=""
-        export MACHINE_PROFILE="ubuntu-desktop"
-      else
+      # Ubuntu — server if hostname starts with ubuntu-server, otherwise desktop
+      if [[ "${_HOST}" == ubuntu-server* ]]; then
         export STARSHIP_ICON_COLOR="yellow"
         export STARSHIP_ICON=""
         export MACHINE_PROFILE="ubuntu-server"
         export STARSHIP_CONFIG="${HOME}/.config/starship/starship-rpi.toml"
+      else
+        export STARSHIP_ICON_COLOR="peach"
+        export STARSHIP_ICON=""
+        export MACHINE_PROFILE="ubuntu-desktop"
       fi
 
     elif [[ "${_DISTRO_ID}" == "debian" ]]; then

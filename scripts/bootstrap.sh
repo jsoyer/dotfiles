@@ -80,14 +80,14 @@ case "$OS" in
             elif [[ "${_DISTRO_ID}" == "ubuntu" ]]; then
                 # Distinguish desktop vs server by hostname prefix
                 _BHOST="${HOSTNAME%%.*}"
-                if [[ "${_BHOST}" == ubuntu-desktop* ]]; then
-                    PLATFORM="ubuntu-desktop"
-                    EMOJI="🐧"
-                    log_success "Detected: $EMOJI Ubuntu Desktop"
-                else
+                if [[ "${_BHOST}" == ubuntu-server* ]]; then
                     PLATFORM="ubuntu-server"
                     EMOJI="🐧"
                     log_success "Detected: $EMOJI Ubuntu Server"
+                else
+                    PLATFORM="ubuntu-desktop"
+                    EMOJI="🐧"
+                    log_success "Detected: $EMOJI Ubuntu Desktop"
                 fi
                 unset _BHOST
             else
