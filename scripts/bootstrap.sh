@@ -296,6 +296,15 @@ install_macos() {
         brew install chezmoi
         log_success "chezmoi installed"
     fi
+
+    # gh CLI via Homebrew (available before brew bundle runs)
+    if command -v gh &>/dev/null; then
+        log_warn "gh already installed"
+    else
+        log_info "Installing gh (GitHub CLI) via Homebrew..."
+        brew install gh
+        log_success "gh installed"
+    fi
 }
 
 install_linuxbrew() {
