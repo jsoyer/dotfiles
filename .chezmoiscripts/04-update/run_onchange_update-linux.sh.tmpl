@@ -35,7 +35,7 @@ if command -v uv &>/dev/null; then
 fi
 {{- end }}
 
-{{- if and (lookPath "dnf") (not (lookPath "rpm-ostree")) (not (stat "/.toolboxenv")) }}
+{{- if and (lookPath "dnf") (not (lookPath "rpm-ostree")) (not (stat "/.toolboxenv")) (not (env "TOOLBOX_PATH")) }}
 echo "Updating Fedora packages..."
 sudo dnf upgrade -y
 {{- end }}

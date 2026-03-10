@@ -387,9 +387,10 @@ install_fedora_atomic() {
         log_warn "chezmoi already installed"
     else
         log_info "Installing chezmoi via rpm-ostree..."
-        if ! sudo rpm-ostree install --apply-live --idempotent chezmoi 2>/dev/null; then
-            log_warn "chezmoi already in base layer (will be available after reboot)"
-            # Fallback: install via official script to ~/.local/bin
+        if sudo rpm-ostree install --apply-live chezmoi 2>/dev/null; then
+            log_success "chezmoi installed via rpm-ostree"
+        else
+            log_warn "rpm-ostree install failed (package may need a reboot to apply); using fallback"
             log_info "Installing chezmoi via official script to ~/.local/bin..."
             sh -c "$(curl -fsLS get.chezmoi.io)" -- -b "$HOME/.local/bin"
         fi

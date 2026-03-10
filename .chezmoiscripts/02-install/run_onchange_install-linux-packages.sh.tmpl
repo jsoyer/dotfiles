@@ -1,5 +1,6 @@
 {{- if eq .chezmoi.os "linux" -}}
 {{- $isRPi           := or (eq .chezmoi.osRelease.id "raspbian") (stat "/proc/device-tree/model") -}}
+{{- $isDebian        := and (eq .chezmoi.osRelease.id "debian") (not $isRPi) -}}
 {{- $isUbuntu        := and (eq .chezmoi.osRelease.id "ubuntu") (not $isRPi) -}}
 {{- $ubuntuFlavor    := (index . "ubuntu_flavor") | default "server" -}}
 {{- $isUbuntuDesktop := and $isUbuntu (eq $ubuntuFlavor "desktop") -}}
@@ -26,6 +27,9 @@
 {{- end }}
 {{- if $isFedoraServer }}
 # Dnffile_fedora_server:  {{ include "dot_private/Dnffile_fedora_server" | sha256sum }}
+{{- end }}
+{{- if $isDebian }}
+# Aptfile_debian:         {{ include "dot_private/Aptfile_debian" | sha256sum }}
 {{- end }}
 {{- if $isFedoraDesktop }}
 # Dnffile_fedora_desktop: {{ include "dot_private/Dnffile_fedora_desktop" | sha256sum }}
@@ -57,6 +61,62 @@ if ! command -v op &>/dev/null; then
         | sudo tee /etc/apt/sources.list.d/1password.list > /dev/null
     sudo apt update
     sudo apt install -y 1password-cli
+fi
+
+# Install uv (provides uvx for MCP servers using Python)
+if ! command -v uv &>/dev/null; then
+    echo "Installing uv..."
+    curl -LsSf https://astral.sh/uv/install.sh | sh
+fi
+{{- end }}
+
+# =============================================================================
+# Debian (generic, non-RPi) - apt packages
+# =============================================================================
+{{- if $isDebian }}
+echo "Installing Debian packages via apt..."
+
+# Install packages from Aptfile manifest
+_aptfile="{{ .chezmoi.sourceDir }}/dot_private/Aptfile_debian"
+if [[ -f "$_aptfile" ]]; then
+    mapfile -t _pkgs < <(grep -v '^\s*#' "$_aptfile" | grep -v '^\s*$')
+    sudo apt update && sudo apt-get install -y "${_pkgs[@]}"
+fi
+
+# Install starship via official installer (not in Debian apt)
+if ! command -v starship &>/dev/null; then
+    echo "Installing starship..."
+    curl -sS https://starship.rs/install.sh | sh -s -- -y
+fi
+
+# Install 1Password CLI via official apt repo
+if ! command -v op &>/dev/null; then
+    echo "Installing 1Password CLI..."
+    tmp_key="$(mktemp)"
+    curl -sS https://downloads.1password.com/linux/keys/1password.asc -o "$tmp_key"
+    sudo gpg --dearmor < "$tmp_key" | sudo tee /usr/share/keyrings/1password-archive-keyring.gpg > /dev/null
+    rm -f "$tmp_key"
+    echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/1password-archive-keyring.gpg] https://downloads.1password.com/linux/debian/$(dpkg --print-architecture) stable main" \
+        | sudo tee /etc/apt/sources.list.d/1password.list > /dev/null
+    sudo apt update
+    sudo apt install -y 1password-cli
+fi
+
+# Install gh CLI via official apt keyring
+if ! command -v gh &>/dev/null; then
+    echo "Installing gh (GitHub CLI)..."
+    tmp_key="$(mktemp)"
+    if ! command -v wget &>/dev/null; then
+        sudo apt install -y wget
+    fi
+    wget -nv -O "$tmp_key" https://cli.github.com/packages/githubcli-archive-keyring.gpg
+    sudo mkdir -p -m 755 /etc/apt/keyrings
+    sudo install -m 644 "$tmp_key" /etc/apt/keyrings/githubcli-archive-keyring.gpg
+    rm -f "$tmp_key"
+    echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" \
+        | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
+    sudo apt update
+    sudo apt install -y gh
 fi
 
 # Install uv (provides uvx for MCP servers using Python)
