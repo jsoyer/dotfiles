@@ -120,6 +120,9 @@ Configuration adapts based on:
 - `cu` - chezmoi update -v
 - `cup` - chezmoi update + package updates (all platforms)
 - `c` - chezmoi (shortcut)
+- `apt` → `aptw` (Linux non-Fedora: tracks in Aptfile_*)
+- `dnf`/`yum` → `dnfw` (Fedora desktop/server: tracks in Dnffile_*)
+- `scoop` → `scoopw` (Windows: tracks in Scoopfile.json)
 
 ## Security Notes
 

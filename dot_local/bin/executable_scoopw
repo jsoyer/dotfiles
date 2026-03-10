@@ -1,0 +1,103 @@
+#!/usr/bin/env pwsh
+# scoopw — scoop wrapper that keeps Scoopfile.json in sync with chezmoi
+# Usage: scoopw <scoop-subcommand> [args...]
+
+param(
+    [Parameter(Position=0)]
+    [string]$Subcommand,
+    [Parameter(Position=1, ValueFromRemainingArguments)]
+    [string[]]$Args
+)
+
+Set-StrictMode -Version Latest
+$ErrorActionPreference = 'Stop'
+
+# --- Config ---
+$ChezmoiSourcePath = if ($env:CHEZMOI_SOURCE_PATH) { $env:CHEZMOI_SOURCE_PATH } else { Join-Path $HOME ".local\share\chezmoi" }
+$ManifestDir = Join-Path $ChezmoiSourcePath "dot_private"
+$ScoopfileJson = Join-Path $ManifestDir "Scoopfile.json"
+
+# --- Colors ---
+function Write-Blue([string]$msg)   { Write-Host $msg -ForegroundColor Blue }
+function Write-Green([string]$msg)  { Write-Host $msg -ForegroundColor Green }
+function Write-Yellow([string]$msg) { Write-Host $msg -ForegroundColor Yellow }
+function Write-Red([string]$msg)    { Write-Host $msg -ForegroundColor Red }
+
+# --- Package name validation ---
+function Validate-PackageName([string]$Name) {
+    if ($Name -notmatch '^[a-zA-Z0-9][a-zA-Z0-9._\-]{0,127}$') {
+        Write-Red "Error: invalid package name: '$Name'"
+        exit 1
+    }
+}
+
+# --- Export Scoopfile.json from current scoop state ---
+function Update-Scoopfile {
+    Write-Yellow "Updating Scoopfile.json..."
+    $export = scoop export | ConvertFrom-Json
+    $export | ConvertTo-Json -Depth 10 | Set-Content -Path $ScoopfileJson -Encoding UTF8
+    Write-Green "Scoopfile.json updated."
+}
+
+# --- Git sync ---
+function Sync-ToGit([string]$Action, [string]$Pkg) {
+    Write-Blue "Syncing with Git..."
+    Push-Location $ChezmoiSourcePath
+    try {
+        git add $ScoopfileJson
+        $status = git status --porcelain $ScoopfileJson
+        if ($status) {
+            git commit -m "feat(scoopw): $Action $Pkg"
+            git push
+            Write-Green "Pushed to remote."
+        } else {
+            Write-Yellow "No changes to sync."
+        }
+    } finally {
+        Pop-Location
+    }
+}
+
+# --- Help ---
+function Show-Help {
+    Write-Host @"
+scoopw — scoop wrapper with Scoopfile.json manifest sync
+
+Usage:
+  scoopw install <pkg>     Install package and update Scoopfile.json
+  scoopw uninstall <pkg>   Uninstall package and update Scoopfile.json
+  scoopw update            Update all packages (no manifest change)
+  scoopw <subcommand>      Passthrough to scoop
+
+Scoopfile: $ScoopfileJson
+"@
+}
+
+# --- Main ---
+if (-not $Subcommand -or $Subcommand -in @('--help', '-h', 'help')) {
+    Show-Help
+    exit 0
+}
+
+switch ($Subcommand) {
+    'install' {
+        if (-not $Args) { Write-Red "Error: specify a package name"; exit 1 }
+        foreach ($pkg in $Args) { Validate-PackageName $pkg }
+        Write-Blue "Running: scoop install $Args"
+        scoop install @Args
+        Update-Scoopfile
+        Sync-ToGit "install" ($Args -join " ")
+    }
+    'uninstall' {
+        if (-not $Args) { Write-Red "Error: specify a package name"; exit 1 }
+        foreach ($pkg in $Args) { Validate-PackageName $pkg }
+        Write-Blue "Running: scoop uninstall $Args"
+        scoop uninstall @Args
+        Update-Scoopfile
+        Sync-ToGit "uninstall" ($Args -join " ")
+    }
+    default {
+        Write-Blue "Running: scoop $Subcommand $Args"
+        scoop $Subcommand @Args
+    }
+}

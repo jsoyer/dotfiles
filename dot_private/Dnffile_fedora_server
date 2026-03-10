@@ -1,0 +1,28 @@
+# Fedora Server dnf packages
+# managed by dnfw — do not edit manually
+chezmoi
+zsh
+git
+curl
+wget
+tmux
+fzf
+neovim
+fd-find
+ripgrep
+jq
+unzip
+bat
+fontconfig
+starship
+zoxide
+vivid
+atuin
+direnv
+htop
+util-linux-user
+cargo
+rust
+
+# installed via cargo (not managed by dnfw)
+# eza

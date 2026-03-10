@@ -183,6 +183,18 @@ alias binfo='breww info'
 alias bd='breww doctor'
 
 # ============================================================================
+# Package manager wrappers
+# ============================================================================
+if [[ "${IS_LINUX:-false}" == "true" ]] && [[ "${MACHINE_PROFILE:-}" != fedora* ]]; then
+  apt() { command aptw "$@"; }
+fi
+
+if [[ "${IS_FEDORA:-false}" == "true" ]] && [[ "${MACHINE_PROFILE:-}" != "fedora-atomic" ]]; then
+  dnf() { command dnfw "$@"; }
+  yum() { command dnfw "$@"; }
+fi
+
+# ============================================================================
 # Chezmoi
 # ============================================================================
 alias c='chezmoi'

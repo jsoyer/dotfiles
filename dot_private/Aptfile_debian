@@ -1,0 +1,20 @@
+# Debian apt packages
+# managed by aptw — do not edit manually
+zsh
+git
+curl
+wget
+tmux
+fzf
+neovim
+fd-find
+ripgrep
+jq
+unzip
+bat
+fontconfig
+zoxide
+atuin
+direnv
+locales
+htop
