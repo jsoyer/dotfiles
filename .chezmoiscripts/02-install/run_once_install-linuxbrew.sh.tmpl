@@ -1,0 +1,42 @@
+{{- $mp := index . "machine_profile" -}}
+{{- $skipProfiles := list "fedora-atomic" "toolbox" "windows" -}}
+{{- if and (eq .chezmoi.os "linux") (not (has $mp $skipProfiles)) -}}
+#!/usr/bin/env bash
+# =============================================================================
+# Linuxbrew (Homebrew for Linux) Installation
+# =============================================================================
+
+set -euo pipefail
+
+if command -v brew &>/dev/null; then
+    echo "Homebrew already installed, skipping."
+    exit 0
+fi
+
+echo "Installing Homebrew (Linuxbrew)..."
+
+# Prerequisites
+{{- if or (eq $mp "fedora-desktop") (eq $mp "fedora-server") }}
+sudo dnf groupinstall -y "Development Tools"
+sudo dnf install -y procps-ng curl file gcc
+{{- else if eq $mp "arch-desktop" }}
+sudo pacman -S --needed --noconfirm base-devel procps-ng curl file gcc
+{{- else if eq $mp "arch-server" }}
+sudo pacman -S --needed --noconfirm base-devel procps-ng curl file gcc
+{{- else }}
+# rpi / debian / ubuntu-*
+sudo apt-get update -q
+sudo apt-get install -y build-essential procps curl file gcc
+{{- end }}
+
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+
+# Add brew to PATH for the rest of this session
+if [[ -d "/home/linuxbrew/.linuxbrew" ]]; then
+    eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+elif [[ -d "${HOME}/.linuxbrew" ]]; then
+    eval "$("${HOME}/.linuxbrew/bin/brew" shellenv)"
+fi
+
+echo "Homebrew installed: $(brew --version)"
+{{ end -}}
