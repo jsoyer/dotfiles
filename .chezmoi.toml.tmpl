@@ -17,8 +17,8 @@ encryption = "age"
     name = "Jerome Soyer"
     email = "jeromesoyer@gmail.com"
     work_email = "jsoyer@varonis.com"
-    ubuntu_flavor     = "{{ if and (eq .chezmoi.os "linux") (eq .chezmoi.osRelease.id "ubuntu") (not (env "CI")) }}{{ if hasPrefix "ubuntu-server" .chezmoi.hostname }}server{{ else }}desktop{{ end }}{{ else }}server{{ end }}"
-    fedora_flavor     = "{{ if lookPath "rpm-ostree" }}atomic{{ else if hasPrefix "fedora-server" .chezmoi.hostname }}server{{ else }}desktop{{ end }}"
+    ubuntu_flavor     = "{{ if and (eq .chezmoi.os "linux") (eq .chezmoi.osRelease.id "ubuntu") (not (env "CI")) }}{{ if hasPrefix "ubuntu-server" .chezmoi.hostname }}server{{ else if hasPrefix "ubuntu-desktop" .chezmoi.hostname }}desktop{{ else }}{{ promptStringOnce . "ubuntu_flavor" "Ubuntu flavor [desktop/server]" "server" }}{{ end }}{{ else }}server{{ end }}"
+    fedora_flavor     = "{{ if lookPath "rpm-ostree" }}atomic{{ else if hasPrefix "fedora-server" .chezmoi.hostname }}server{{ else if hasPrefix "fedora-desktop" .chezmoi.hostname }}desktop{{ else }}{{ promptStringOnce . "fedora_flavor" "Fedora flavor [desktop/server]" "desktop" }}{{ end }}"
 
 {{- if lookPath "age" }}
 
