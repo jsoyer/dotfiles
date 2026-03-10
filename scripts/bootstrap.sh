@@ -9,6 +9,7 @@
 #
 # Supported platforms:
 #   - macOS (Homebrew)
+#   - Arch Linux (pacman + yay)
 #   - Fedora Standard (dnf)
 #   - Fedora Atomic (rpm-ostree)
 #   - Fedora Toolbox (container)
@@ -77,6 +78,18 @@ case "$OS" in
                 PLATFORM="fedora-desktop"
                 EMOJI="🐧"
                 log_success "Detected: $EMOJI Fedora Desktop"
+            fi
+            unset _BHOST
+        elif [[ "${_DISTRO_ID}" == "arch" ]]; then
+            _BHOST="${HOSTNAME%%.*}"
+            if [[ "${_BHOST}" == arch-server* ]]; then
+                PLATFORM="arch-server"
+                EMOJI="🐧"
+                log_success "Detected: $EMOJI Arch Linux Server"
+            else
+                PLATFORM="arch-desktop"
+                EMOJI="🐧"
+                log_success "Detected: $EMOJI Arch Linux Desktop"
             fi
             unset _BHOST
         elif command -v apt &>/dev/null; then
@@ -222,6 +235,27 @@ check_os_updates() {
                         fi
                     else
                         log_warn "Skipping update. You can run 'sudo apt update && sudo apt dist-upgrade' later."
+                    fi
+                fi
+            fi
+            ;;
+        arch-desktop|arch-server)
+            if command -v pacman &>/dev/null; then
+                log_info "Checking for Arch Linux updates..."
+                UPDATES=$(pacman -Qu 2>/dev/null || true)
+                if [[ -z "$UPDATES" ]]; then
+                    log_success "Arch Linux is up to date"
+                else
+                    log_warn "Arch Linux has updates available!"
+                    echo "$UPDATES" | head -20
+                    read -p "Update now? (y/N) " -n 1 -r
+                    echo
+                    if [[ $REPLY =~ ^[Yy]$ ]]; then
+                        log_info "Updating Arch Linux..."
+                        sudo pacman -Syu --noconfirm
+                        log_success "Arch Linux updated."
+                    else
+                        log_warn "Skipping update. You can run 'sudo pacman -Syu' later."
                     fi
                 fi
             fi
@@ -576,11 +610,76 @@ install_rpi()            { install_apt; }
 install_ubuntu_server()  { install_apt; }
 install_ubuntu_desktop() { install_apt; }
 
+install_yay() {
+    if command -v yay &>/dev/null; then
+        log_warn "yay already installed"
+        return
+    fi
+
+    log_info "Installing yay (AUR helper)..."
+    local _yay_tmp
+    _yay_tmp="$(mktemp -d)"
+    trap 'rm -rf "$_yay_tmp"' EXIT
+
+    git clone https://aur.archlinux.org/yay.git "$_yay_tmp/yay"
+    (cd "$_yay_tmp/yay" && makepkg -si --noconfirm)
+    log_success "yay installed"
+}
+
+install_arch() {
+    log_info "Installing Arch Linux prerequisites..."
+
+    # base-devel (needed for AUR/makepkg)
+    if ! pacman -Qq base-devel &>/dev/null; then
+        log_info "Installing base-devel..."
+        sudo pacman -S --noconfirm --needed base-devel
+    fi
+
+    # git
+    if command -v git &>/dev/null; then
+        log_warn "git already installed"
+    else
+        sudo pacman -S --noconfirm git
+    fi
+
+    # chezmoi
+    if command -v chezmoi &>/dev/null; then
+        log_warn "chezmoi already installed"
+    else
+        log_info "Installing chezmoi..."
+        sudo pacman -S --noconfirm chezmoi || \
+            sh -c "$(curl -fsLS get.chezmoi.io)" -- -b "$HOME/.local/bin"
+        log_success "chezmoi installed"
+    fi
+
+    # gh (GitHub CLI)
+    if command -v gh &>/dev/null; then
+        log_warn "gh already installed"
+    else
+        log_info "Installing gh (GitHub CLI)..."
+        sudo pacman -S --noconfirm github-cli
+        log_success "gh installed"
+    fi
+
+    # uv
+    if ! command -v uv &>/dev/null; then
+        log_info "Installing uv..."
+        curl -LsSf https://astral.sh/uv/install.sh | sh
+        log_success "uv installed"
+    fi
+
+    # yay (AUR helper)
+    install_yay
+
+    log_success "Arch Linux prerequisites installed"
+}
+
 case "$PLATFORM" in
     macos)           install_macos ;;
     fedora-desktop|fedora-server) install_fedora ;;
     fedora-atomic)   install_fedora_atomic ;;
     toolbox)         install_toolbox ;;
+    arch-desktop|arch-server) install_arch ;;
     rpi)             install_rpi ;;
     debian)          install_debian ;;
     ubuntu-server)   install_ubuntu_server ;;
@@ -595,53 +694,30 @@ setup_fedora_atomic_base_layer() {
     if [[ "$PLATFORM" != "fedora-atomic" ]]; then
         return
     fi
-    
-    log_info "Setting up Fedora Atomic base layer..."
-    
-    # Create /etc/rpm-ostree.conf if not exists
-    if [[ ! -f /etc/rpm-ostree.conf ]]; then
-        # Check if we have the config file in dotfiles
-        if [[ -f "$HOME/.config/fedora/rpm-ostree.conf" ]]; then
-            log_info "Installing base layer config from dotfiles..."
-            sudo cp "$HOME/.config/fedora/rpm-ostree.conf" /etc/rpm-ostree.conf
-        else
-            log_info "Creating /etc/rpm-ostree.conf with default packages..."
-            sudo tee /etc/rpm-ostree.conf > /dev/null << 'EOF'
-[Packages]
-git
-openssh-server
-curl
-wget
-chezmoi
-EOF
-        fi
-        log_success "Base layer config created at /etc/rpm-ostree.conf"
+
+    log_info "Setting up Fedora Atomic base layer packages..."
+
+    # Read from Pacfile_fedora_atomic if chezmoi source is available
+    local _pacfile="${HOME}/.local/share/chezmoi/dot_private/Pacfile_fedora_atomic"
+    local -a BASE_PACKAGES
+
+    if [[ -f "$_pacfile" ]]; then
+        mapfile -t BASE_PACKAGES < <(grep -v '^\s*#' "$_pacfile" | grep -v '^\s*$')
     else
-        log_info "Base layer config already exists at /etc/rpm-ostree.conf"
+        # Fallback before chezmoi apply
+        BASE_PACKAGES=( git openssh-server curl chezmoi )
     fi
-    
-    # Verify packages are in base layer (rpm-ostree.conf), add if missing
-    log_info "Verifying base layer packages..."
-    local -a BASE_PACKAGES=( git openssh-server curl wget chezmoi )
+
     for pkg in "${BASE_PACKAGES[@]}"; do
-        if ! grep -qx "${pkg}" /etc/rpm-ostree.conf 2>/dev/null; then
-            log_info "Adding $pkg to base layer..."
-            echo "$pkg" | sudo tee -a /etc/rpm-ostree.conf > /dev/null
+        if ! rpm -q "$pkg" &>/dev/null; then
+            log_info "Installing $pkg to base layer..."
+            sudo rpm-ostree install --apply-live "$pkg" 2>/dev/null || \
+                log_warn "Could not install $pkg (may need reboot)"
         fi
     done
 
-    # Install packages that aren't installed yet (will apply on next boot)
-    # Skip wget — provided by wget2 on Fedora
-    local -a BASE_PACKAGES_CLEAN=( git openssh-server curl chezmoi )
-    for pkg in "${BASE_PACKAGES_CLEAN[@]}"; do
-        if ! rpm -q "$pkg" &>/dev/null; then
-            log_info "Installing $pkg to base layer..."
-            sudo rpm-ostree install "$pkg" 2>/dev/null || log_warn "Could not install $pkg"
-        fi
-    done
-    
     log_success "Fedora Atomic base layer configured"
-    log_warn "⚠️  Reboot required for base layer packages to be available!"
+    log_warn "Reboot may be required for some base layer packages to be fully active."
 }
 
 setup_fedora_atomic_base_layer
@@ -688,11 +764,6 @@ check_ssh() {
                     log_success "🔐 SSH server installed and enabled"
                     ;;
                 fedora-atomic)
-                    # Add to base layer config for persistence
-                    if ! grep -q "openssh-server" /etc/rpm-ostree.conf 2>/dev/null; then
-                        log_info "Adding openssh-server to base layer..."
-                        echo "openssh-server" | sudo tee -a /etc/rpm-ostree.conf > /dev/null
-                    fi
                     sudo rpm-ostree install openssh-server
                     log_warn "SSH will be active after reboot. Run 'sudo systemctl enable --now sshd' after reboot."
                     ;;
