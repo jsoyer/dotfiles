@@ -91,18 +91,18 @@ jobs:
           fi
           echo "TOML validation: PASS"
 
-      - name: Validate Aptfile/Dnffile format
+      - name: Validate Aptfile/Dnffile/Pacfile format
         run: |
           ERRORS=0
           while IFS= read -r f; do
             while IFS= read -r line || [[ -n "$line" ]]; do
               [[ -z "${line// }" || "$line" =~ ^[[:space:]]*# ]] && continue
-              if ! [[ "$line" =~ ^[a-zA-Z0-9][a-zA-Z0-9.+\-]*$ ]]; then
+              if ! [[ "$line" =~ ^[a-zA-Z0-9][a-zA-Z0-9.+\-_]*$ ]]; then
                 echo "  FAIL: invalid package name '${line}' in ${f}"
                 ERRORS=$(( ERRORS + 1 ))
               fi
             done < "$f"
-          done < <(find dot_private -name 'Aptfile_*' -o -name 'Dnffile_*' 2>/dev/null)
+          done < <(find dot_private -name 'Aptfile_*' -o -name 'Dnffile_*' -o -name 'Pacfile_*' 2>/dev/null)
           if [[ "$ERRORS" -gt 0 ]]; then
             echo "Manifest format: FAIL ($ERRORS errors)"
             exit 1
