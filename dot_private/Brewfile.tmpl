@@ -5,24 +5,19 @@
 {{ include "dot_private/Brewfile_common" | trim }}
 
 # 2. Profile-specific packages
+{{- $mp := index . "machine_profile" -}}
 {{- if eq .chezmoi.os "darwin" }}
-{{-   if eq .chezmoi.hostname "jsoyer-macOS" }}
+{{-   if eq $mp "mac-pro" }}
 {{ include "dot_private/Brewfile_pro" | trim }}
 {{-   else }}
 {{ include "dot_private/Brewfile_personal" | trim }}
 {{-   end }}
 {{- else if eq .chezmoi.os "linux" }}
-{{-   $isRPi           := or (eq .chezmoi.osRelease.id "raspbian") (stat "/proc/device-tree/model") -}}
-{{-   $isUbuntu        := and (eq .chezmoi.osRelease.id "ubuntu") (not $isRPi) -}}
-{{-   $ubuntuFlavor    := (index . "ubuntu_flavor") | default "server" -}}
-{{-   $isUbuntuDesktop := and $isUbuntu (eq $ubuntuFlavor "desktop") -}}
-{{-   $fedoraFlavor    := (index . "fedora_flavor") | default "desktop" -}}
-{{-   $isFedoraDesktop := eq $fedoraFlavor "desktop" -}}
-{{-   if $isRPi }}
+{{-   if eq $mp "rpi" }}
 {{ include "dot_private/Brewfile_rpi" | trim }}
-{{-   else if $isUbuntuDesktop }}
+{{-   else if eq $mp "ubuntu-desktop" }}
 {{ include "dot_private/Brewfile_ubuntu_desktop" | trim }}
-{{-   else if $isFedoraDesktop }}
+{{-   else if eq $mp "fedora-desktop" }}
 {{ include "dot_private/Brewfile_fedora_desktop" | trim }}
 {{-   else }}
 {{ include "dot_private/Brewfile_linux" | trim }}

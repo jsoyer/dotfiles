@@ -1,11 +1,9 @@
 {{- if eq .chezmoi.os "linux" -}}
-{{- $isRPi    := or (eq .chezmoi.osRelease.id "raspbian") (stat "/proc/device-tree/model") -}}
-{{- $isUbuntu := and (eq .chezmoi.osRelease.id "ubuntu") (not $isRPi) -}}
-{{- $isFedoraAtomic  := and (eq .chezmoi.os "linux") (lookPath "rpm-ostree") (not (stat "/.toolboxenv")) (not (env "TOOLBOX_PATH")) -}}
-{{- $fedoraFlavor    := (index . "fedora_flavor") | default "desktop" -}}
-{{- $isFedora        := and (eq .chezmoi.os "linux") (lookPath "dnf") (not (lookPath "rpm-ostree")) (not (stat "/.toolboxenv")) (not (env "TOOLBOX_PATH")) -}}
-{{- $isFedoraDesktop := and $isFedora (eq $fedoraFlavor "desktop") -}}
-{{- $isFedoraServer  := and $isFedora (eq $fedoraFlavor "server") -}}
+{{- $mp             := index . "machine_profile" -}}
+{{- $isRPi          := eq $mp "rpi" -}}
+{{- $isUbuntu       := or (eq $mp "ubuntu-server") (eq $mp "ubuntu-desktop") -}}
+{{- $isFedoraAtomic := eq $mp "fedora-atomic" -}}
+{{- $isFedora       := or (eq $mp "fedora-desktop") (eq $mp "fedora-server") -}}
 #!/usr/bin/env bash
 # Update Linux packages
 
@@ -35,12 +33,12 @@ if command -v uv &>/dev/null; then
 fi
 {{- end }}
 
-{{- if and (lookPath "dnf") (not (lookPath "rpm-ostree")) (not (stat "/.toolboxenv")) (not (env "TOOLBOX_PATH")) }}
+{{- if $isFedora }}
 echo "Updating Fedora packages..."
 sudo dnf upgrade -y
 {{- end }}
 
-{{- if lookPath "rpm-ostree" }}
+{{- if $isFedoraAtomic }}
 echo "Updating Fedora Atomic (rpm-ostree)..."
 sudo rpm-ostree upgrade
 {{- end }}

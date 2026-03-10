@@ -1,13 +1,15 @@
 {{- if eq .chezmoi.os "linux" -}}
-{{- $isRPi           := or (eq .chezmoi.osRelease.id "raspbian") (stat "/proc/device-tree/model") -}}
-{{- $isUbuntu        := and (eq .chezmoi.osRelease.id "ubuntu") (not $isRPi) -}}
-{{- $ubuntuFlavor    := (index . "ubuntu_flavor") | default "server" -}}
-{{- $isUbuntuDesktop := and $isUbuntu (eq $ubuntuFlavor "desktop") -}}
-{{- $isFedoraAtomic  := and (eq .chezmoi.os "linux") (lookPath "rpm-ostree") (not (stat "/.toolboxenv")) (not (env "TOOLBOX_PATH")) -}}
-{{- $fedoraFlavor    := (index . "fedora_flavor") | default "desktop" -}}
-{{- $isFedora        := and (eq .chezmoi.os "linux") (lookPath "dnf") (not (lookPath "rpm-ostree")) (not (stat "/.toolboxenv")) (not (env "TOOLBOX_PATH")) -}}
-{{- $isFedoraDesktop := and $isFedora (eq $fedoraFlavor "desktop") -}}
-{{- $isFedoraServer  := and $isFedora (eq $fedoraFlavor "server") -}}
+{{- $mp              := index . "machine_profile" -}}
+{{- $isRPi           := eq $mp "rpi" -}}
+{{- $isDebian        := eq $mp "debian" -}}
+{{- $isUbuntuServer  := eq $mp "ubuntu-server" -}}
+{{- $isUbuntuDesktop := eq $mp "ubuntu-desktop" -}}
+{{- $isUbuntu        := or $isUbuntuServer $isUbuntuDesktop -}}
+{{- $isFedoraAtomic  := eq $mp "fedora-atomic" -}}
+{{- $isToolbox       := eq $mp "toolbox" -}}
+{{- $isFedoraDesktop := eq $mp "fedora-desktop" -}}
+{{- $isFedoraServer  := eq $mp "fedora-server" -}}
+{{- $isFedora        := or $isFedoraDesktop $isFedoraServer -}}
 #!/usr/bin/env bash
 # =============================================================================
 # Linux Configuration - Nerd Fonts + Zsh default shell

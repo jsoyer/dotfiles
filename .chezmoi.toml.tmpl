@@ -17,8 +17,27 @@ encryption = "age"
     name = "Jerome Soyer"
     email = "jeromesoyer@gmail.com"
     work_email = "jsoyer@varonis.com"
-    ubuntu_flavor     = "{{ if and (eq .chezmoi.os "linux") (eq .chezmoi.osRelease.id "ubuntu") (not (env "CI")) }}{{ if hasPrefix "ubuntu-server" .chezmoi.hostname }}server{{ else if hasPrefix "ubuntu-desktop" .chezmoi.hostname }}desktop{{ else }}{{ promptStringOnce . "ubuntu_flavor" "Ubuntu flavor [desktop/server]" "server" }}{{ end }}{{ else }}server{{ end }}"
-    fedora_flavor     = "{{ if lookPath "rpm-ostree" }}atomic{{ else if hasPrefix "fedora-server" .chezmoi.hostname }}server{{ else if hasPrefix "fedora-desktop" .chezmoi.hostname }}desktop{{ else }}{{ promptStringOnce . "fedora_flavor" "Fedora flavor [desktop/server]" "desktop" }}{{ end }}"
+    machine_profile   = "{{- if eq .chezmoi.os "windows" -}}windows
+{{- else if eq .chezmoi.os "darwin" -}}{{- if eq .chezmoi.hostname "jsoyer-macOS" -}}mac-pro{{- else -}}mac-personal{{- end -}}
+{{- else if eq .chezmoi.os "linux" -}}
+{{- if or (eq .chezmoi.osRelease.id "raspbian") (eq .chezmoi.osRelease.id "raspios") -}}rpi
+{{- else if stat "/proc/device-tree/model" -}}{{ promptStringOnce . "machine_profile" "Machine profile [rpi/debian]" "rpi" }}
+{{- else if eq .chezmoi.osRelease.id "ubuntu" -}}
+{{- if hasPrefix "ubuntu-server" .chezmoi.hostname -}}ubuntu-server
+{{- else if hasPrefix "ubuntu-desktop" .chezmoi.hostname -}}ubuntu-desktop
+{{- else -}}{{ promptStringOnce . "machine_profile" "Machine profile [ubuntu-server/ubuntu-desktop]" "ubuntu-server" }}
+{{- end -}}
+{{- else if and (lookPath "rpm-ostree") (not (stat "/.toolboxenv")) (not (env "TOOLBOX_PATH")) -}}fedora-atomic
+{{- else if or (stat "/.toolboxenv") (env "TOOLBOX_PATH") -}}toolbox
+{{- else if lookPath "dnf" -}}
+{{- if hasPrefix "fedora-server" .chezmoi.hostname -}}fedora-server
+{{- else if hasPrefix "fedora-desktop" .chezmoi.hostname -}}fedora-desktop
+{{- else -}}{{ promptStringOnce . "machine_profile" "Machine profile [fedora-desktop/fedora-server]" "fedora-desktop" }}
+{{- end -}}
+{{- else if eq .chezmoi.osRelease.id "debian" -}}debian
+{{- else -}}{{ promptStringOnce . "machine_profile" "Machine profile" "debian" }}
+{{- end -}}
+{{- end -}}"
 
 {{- if lookPath "age" }}
 

@@ -18,7 +18,8 @@
     refreshPeriod = "168h"
 {{- end }}
 
-{{- if or (and (eq .chezmoi.os "darwin") (ne .chezmoi.hostname "jsoyer-macOS")) (and (eq .chezmoi.osRelease.id "ubuntu") (eq (index . "ubuntu_flavor") "desktop")) }}
+{{- $mp := index . "machine_profile" -}}
+{{- if or (eq $mp "mac-personal") (eq $mp "ubuntu-desktop") }}
 [".wallpapers"]
     type = "git-repo"
     url = "https://github.com/orangci/walls-catppuccin-mocha.git"
