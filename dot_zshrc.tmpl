@@ -52,11 +52,6 @@ for config_file ($HOME/.zsh/*.zsh(N)); do
 done
 
 # ============================================================================
-# Secrets (API keys via 1Password — gitignored, machine-local)
-# ============================================================================
-[[ -f "$HOME/.zsh/secrets.zsh" ]] && source "$HOME/.zsh/secrets.zsh"
-
-# ============================================================================
 # Starship prompt (must be last to override oh-my-zsh theme)
 # ============================================================================
 if (( $+commands[starship] )); then
