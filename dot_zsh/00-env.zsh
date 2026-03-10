@@ -12,6 +12,20 @@ export STARSHIP_CONFIG="${HOME}/.config/starship/starship.toml"
 _OS="${OSTYPE}"
 _HOST="${HOST%%.*}"
 
+# Helper: read distro ID from /etc/os-release
+_detect_distro() {
+  local id=""
+  if [[ -f /etc/os-release ]]; then
+    id=$(. /etc/os-release && echo "${ID:-}")
+  fi
+  echo "$id"
+}
+
+# Helper: true if running on a Raspberry Pi (hardware check)
+_is_rpi() {
+  [[ -f /proc/device-tree/model ]] && grep -qi "raspberry pi" /proc/device-tree/model 2>/dev/null
+}
+
 # Determine OS and apply specific logic
 case "${_OS}" in
   darwin*)
@@ -29,16 +43,17 @@ case "${_OS}" in
 
   linux*)
     # --- Linux ---
-    export STARSHIP_CONFIG="${HOME}/.config/starship/starship-rpi.toml"
+    _DISTRO_ID="$(_detect_distro)"
 
     if [[ -n "$TOOLBOX_PATH" ]] || [[ "$HOSTNAME" == *toolbx* ]]; then
       # Fedora Toolbox container
       export STARSHIP_ICON_COLOR="blue"
       export STARSHIP_ICON=""
       export MACHINE_PROFILE="toolbox"
+      export STARSHIP_CONFIG="${HOME}/.config/starship/starship-rpi.toml"
 
-    elif [[ -f /proc/device-tree/model ]] && grep -q "Raspberry Pi" /proc/device-tree/model 2>/dev/null; then
-      # Raspberry Pi devices
+    elif _is_rpi; then
+      # Raspberry Pi devices (any OS: raspbian, ubuntu, etc.)
       export STARSHIP_ICON_COLOR="red"
       case "${_HOST}" in
         bbh-network*)
@@ -52,17 +67,42 @@ case "${_OS}" in
           ;;
       esac
       export MACHINE_PROFILE="rpi"
+      export STARSHIP_CONFIG="${HOME}/.config/starship/starship-rpi.toml"
+
+    elif [[ "${_DISTRO_ID}" == "ubuntu" ]]; then
+      # Ubuntu — desktop vs server by hostname prefix
+      if [[ "${_HOST}" == ubuntu-desktop* ]]; then
+        export STARSHIP_ICON_COLOR="peach"
+        export STARSHIP_ICON=""
+        export MACHINE_PROFILE="ubuntu-desktop"
+      else
+        export STARSHIP_ICON_COLOR="yellow"
+        export STARSHIP_ICON=""
+        export MACHINE_PROFILE="ubuntu-server"
+        export STARSHIP_CONFIG="${HOME}/.config/starship/starship-rpi.toml"
+      fi
+
+    elif [[ "${_DISTRO_ID}" == "debian" ]]; then
+      # Debian (non-RPi)
+      export STARSHIP_ICON_COLOR="red"
+      export STARSHIP_ICON=""
+      export MACHINE_PROFILE="debian"
+      export STARSHIP_CONFIG="${HOME}/.config/starship/starship-rpi.toml"
 
     else
-      # Other Linux devices (Fedora)
+      # Fedora and other Linux
       export STARSHIP_ICON_COLOR="blue"
       export STARSHIP_ICON=""
       if [[ "${_HOST}" == "fedora" ]]; then
         export MACHINE_PROFILE="linux-standard"
       elif [[ "${_HOST}" == "fedora-atomic" ]]; then
         export MACHINE_PROFILE="linux-atomic"
+      else
+        export MACHINE_PROFILE="linux-standard"
       fi
     fi
+
+    unset _DISTRO_ID
     ;;
 
   cygwin*|msys*|mingw*)
@@ -76,9 +116,10 @@ esac
 unset _OS _HOST
 
 # Convenience boolean flags (compatible with bash env)
-[[ "$OSTYPE" == darwin* ]] && export IS_MACOS=true || export IS_MACOS=false
-[[ "$MACHINE_PROFILE" == "rpi" ]] && export IS_RPI=true || export IS_RPI=false
-[[ "$OSTYPE" == linux* ]] && export IS_LINUX=true || export IS_LINUX=false
+[[ "$OSTYPE" == darwin* ]]               && export IS_MACOS=true  || export IS_MACOS=false
+[[ "$MACHINE_PROFILE" == "rpi" ]]        && export IS_RPI=true    || export IS_RPI=false
+[[ "$OSTYPE" == linux* ]]                && export IS_LINUX=true  || export IS_LINUX=false
+[[ "$MACHINE_PROFILE" == ubuntu* ]]      && export IS_UBUNTU=true || export IS_UBUNTU=false
 
 # ============================================================================
 # Locale and language
@@ -121,11 +162,21 @@ export KUBECONFIG="${HOME}/.kube/config"
 # ============================================================================
 # FZF Configuration
 # ============================================================================
-# FZF theme (Catppuccin Mocha)
-export FZF_DEFAULT_OPTS=" \
+# FZF theme — Catppuccin Mocha for macOS + ubuntu-desktop, Snazzy for Linux servers
+case "${MACHINE_PROFILE:-}" in
+  rpi|linux*|toolbox|ubuntu-server|debian)
+    export FZF_DEFAULT_OPTS=" \
+--color=bg+:#3a3d4d,bg:#282a36,spinner:#ff5c57,hl:#57c7ff \
+--color=fg:#eff0eb,header:#57c7ff,info:#ff6ac1,pointer:#ff5c57 \
+--color=marker:#f3f99d,fg+:#eff0eb,prompt:#ff6ac1,hl+:#57c7ff"
+    ;;
+  *)
+    export FZF_DEFAULT_OPTS=" \
 --color=bg+:#313244,bg:#1e1e2e,spinner:#f5e0dc,hl:#f38ba8 \
 --color=fg:#cdd6f4,header:#f38ba8,info:#cba6f7,pointer:#f5e0dc \
 --color=marker:#f5e0dc,fg+:#cdd6f4,prompt:#cba6f7,hl+:#f38ba8"
+    ;;
+esac
 
 # FZF default command — use $+commands to avoid forking
 if (( $+commands[fd] )); then
@@ -137,15 +188,22 @@ fi
 # ============================================================================
 # Bat theme
 # ============================================================================
-export BAT_THEME="Catppuccin Mocha"
+case "${MACHINE_PROFILE:-}" in
+  rpi|linux*|toolbox|ubuntu-server|debian)
+    export BAT_THEME="ansi"
+    ;;
+  *)
+    export BAT_THEME="Catppuccin Mocha"
+    ;;
+esac
 
 # ============================================================================
 # LS_COLORS via vivid (matches theme per platform)
 # ============================================================================
 if (( $+commands[vivid] )); then
   case "${MACHINE_PROFILE:-}" in
-    rpi|linux*) export LS_COLORS="$(vivid generate snazzy)" ;;
-    *)          export LS_COLORS="$(vivid generate catppuccin-mocha)" ;;
+    rpi|linux*|toolbox|ubuntu-server|debian) export LS_COLORS="$(vivid generate snazzy)" ;;
+    *)                                        export LS_COLORS="$(vivid generate catppuccin-mocha)" ;;
   esac
 fi
 

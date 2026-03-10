@@ -1,4 +1,7 @@
 {{- if eq .chezmoi.os "linux" -}}
+{{- $isRPi    := or (eq .chezmoi.osRelease.id "raspbian") (stat "/proc/device-tree/model") -}}
+{{- $isUbuntu := and (eq .chezmoi.osRelease.id "ubuntu") (not $isRPi) -}}
+{{- $isDebian := and (eq .chezmoi.osRelease.id "debian") (not $isRPi) -}}
 #!/usr/bin/env bash
 # =============================================================================
 # Linux Setup - Locale, Repositories, Tailscale
@@ -7,10 +10,10 @@
 set -euo pipefail
 
 # =============================================================================
-# Raspberry Pi / Debian - Locale configuration
+# Raspberry Pi / Debian / Ubuntu - Locale configuration
 # =============================================================================
-{{- if contains "rpi" .chezmoi.kernel.osrelease }}
-echo "🐍 Configuring locale..."
+{{- if or $isRPi $isDebian $isUbuntu }}
+echo "Configuring locale..."
 
 if ! locale -a 2>/dev/null | grep -qi "en_US.utf8"; then
     echo "en_US.UTF-8 not found. Generating..."

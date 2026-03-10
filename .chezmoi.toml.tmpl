@@ -17,6 +17,7 @@ encryption = "age"
     name = "Jerome Soyer"
     email = "jeromesoyer@gmail.com"
     work_email = "jsoyer@varonis.com"
+    ubuntu_flavor     = "{{ promptStringOnce . "ubuntu_flavor" "Ubuntu flavor (desktop/server)" "server" }}"
 
 {{- if lookPath "age" }}
 

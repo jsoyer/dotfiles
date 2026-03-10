@@ -12,7 +12,19 @@
 {{ include "dot_private/Brewfile_personal" | trim }}
 {{-   end }}
 {{- else if eq .chezmoi.os "linux" }}
-{{-   if or (hasPrefix "bbh-network" .chezmoi.hostname) (hasPrefix "omv-" .chezmoi.hostname) }}
+{{-   $isRPi           := or (eq .chezmoi.osRelease.id "raspbian") (stat "/proc/device-tree/model") -}}
+{{-   $isUbuntu        := and (eq .chezmoi.osRelease.id "ubuntu") (not $isRPi) -}}
+{{-   $ubuntuFlavor    := .ubuntu_flavor | default "server" -}}
+{{-   $isUbuntuDesktop := and $isUbuntu (eq $ubuntuFlavor "desktop") -}}
+{{-   if $isRPi }}
+{{-     if or (hasPrefix "bbh-network" .chezmoi.hostname) (hasPrefix "omv-" .chezmoi.hostname) }}
+{{ include "dot_private/Brewfile_rpi" | trim }}
+{{-     else }}
+{{ include "dot_private/Brewfile_rpi" | trim }}
+{{-     end }}
+{{-   else if $isUbuntuDesktop }}
+{{ include "dot_private/Brewfile_ubuntu_desktop" | trim }}
+{{-   else if $isUbuntu }}
 {{ include "dot_private/Brewfile_rpi" | trim }}
 {{-   else }}
 {{ include "dot_private/Brewfile_linux" | trim }}

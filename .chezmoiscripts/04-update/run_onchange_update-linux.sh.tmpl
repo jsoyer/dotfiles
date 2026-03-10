@@ -1,30 +1,44 @@
 {{- if eq .chezmoi.os "linux" -}}
+{{- $isRPi    := or (eq .chezmoi.osRelease.id "raspbian") (stat "/proc/device-tree/model") -}}
+{{- $isUbuntu := and (eq .chezmoi.osRelease.id "ubuntu") (not $isRPi) -}}
 #!/usr/bin/env bash
 # Update Linux packages
 
 set -euo pipefail
 
-{{- if contains "rpi" .chezmoi.kernel.osrelease }}
-echo "🐍 Updating Raspberry Pi packages..."
+{{- if $isRPi }}
+echo "Updating Raspberry Pi packages..."
 sudo apt update
 sudo apt dist-upgrade -y
 sudo apt autoremove -y
 
 if command -v uv &>/dev/null; then
-    echo "🐍 Updating uv..."
+    echo "Updating uv..."
+    uv self update
+fi
+{{- end }}
+
+{{- if $isUbuntu }}
+echo "Updating Ubuntu packages..."
+sudo apt update
+sudo apt dist-upgrade -y
+sudo apt autoremove -y
+
+if command -v uv &>/dev/null; then
+    echo "Updating uv..."
     uv self update
 fi
 {{- end }}
 
 {{- if and (lookPath "dnf") (not (lookPath "rpm-ostree")) (not (stat "/.toolboxenv")) }}
-echo "🐧 Updating Fedora packages..."
+echo "Updating Fedora packages..."
 sudo dnf upgrade -y
 {{- end }}
 
 {{- if lookPath "rpm-ostree" }}
-echo "🐧 Updating Fedora Atomic (rpm-ostree)..."
+echo "Updating Fedora Atomic (rpm-ostree)..."
 sudo rpm-ostree upgrade
 {{- end }}
 
-echo "✅ Upgrade complete!"
+echo "Upgrade complete!"
 {{- end -}}

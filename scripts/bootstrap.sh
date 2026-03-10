@@ -46,13 +46,24 @@ case "$OS" in
         log_success "Detected: $EMOJI macOS $(sw_vers -productVersion)"
         ;;
     Linux)
+        # Read /etc/os-release as the primary source of truth
+        _DISTRO_ID=""
+        if [[ -f /etc/os-release ]]; then
+            _DISTRO_ID="$(. /etc/os-release && echo "${ID:-}")"
+        fi
+
+        # Helper: true if running on Raspberry Pi hardware
+        _is_rpi_hw() {
+            [[ -f /proc/device-tree/model ]] && grep -qi "raspberry pi" /proc/device-tree/model 2>/dev/null
+        }
+
         # Check for Fedora Atomic (rpm-ostree) - must be checked BEFORE Toolbox
         if command -v rpm-ostree &>/dev/null || [[ -f "/run/ostree" ]]; then
             PLATFORM="fedora-atomic"
             EMOJI="🐧"
             log_success "Detected: $EMOJI Fedora Atomic"
         # Check for Toolbox container
-        elif [[ -n "$TOOLBOX_PATH" ]] || [[ -f "/run/host/usr/lib/os-release" ]]; then
+        elif [[ -n "${TOOLBOX_PATH:-}" ]] || [[ -f "/run/host/usr/lib/os-release" ]]; then
             PLATFORM="toolbox"
             EMOJI="📦"
             log_success "Detected: $EMOJI Fedora Toolbox"
@@ -61,21 +72,33 @@ case "$OS" in
             EMOJI="🐧"
             log_success "Detected: $EMOJI Fedora Standard"
         elif command -v apt &>/dev/null; then
-            # Check for Raspberry Pi
-            if [[ "$ARCH" == "aarch64" ]] || [[ "$ARCH" == "arm64" ]] || \
-               grep -qi "rpi\|raspberry" /proc/device-tree/model 2>/dev/null || \
-               { [[ -f "/sys/firmware/devicetree/base/model" ]] && grep -qi "rpi\|raspberry" /sys/firmware/devicetree/base/model 2>/dev/null; }; then
+            # Use hardware detection for RPi (works regardless of OS: raspbian or ubuntu)
+            if _is_rpi_hw || [[ "${_DISTRO_ID}" == "raspbian" ]]; then
                 PLATFORM="rpi"
                 EMOJI="🍓"
-                log_success "Detected: $EMOJI Raspberry Pi"
+                log_success "Detected: $EMOJI Raspberry Pi (${_DISTRO_ID:-unknown})"
+            elif [[ "${_DISTRO_ID}" == "ubuntu" ]]; then
+                # Distinguish desktop vs server by hostname prefix
+                _BHOST="${HOSTNAME%%.*}"
+                if [[ "${_BHOST}" == ubuntu-desktop* ]]; then
+                    PLATFORM="ubuntu-desktop"
+                    EMOJI="🐧"
+                    log_success "Detected: $EMOJI Ubuntu Desktop"
+                else
+                    PLATFORM="ubuntu-server"
+                    EMOJI="🐧"
+                    log_success "Detected: $EMOJI Ubuntu Server"
+                fi
+                unset _BHOST
             else
                 PLATFORM="debian"
                 EMOJI="🐍"
-                log_success "Detected: $EMOJI Debian/Ubuntu"
+                log_success "Detected: $EMOJI Debian"
             fi
         else
-            log_error "Unsupported Linux distribution"
+            log_error "Unsupported Linux distribution (ID=${_DISTRO_ID:-unknown})"
         fi
+        unset _DISTRO_ID
         ;;
     *)
         log_error "Unsupported OS: $OS. For Windows, use bootstrap.ps1"
@@ -168,22 +191,22 @@ check_os_updates() {
                 fi
             fi
             ;;
-        rpi|debian)
+        rpi|debian|ubuntu-server|ubuntu-desktop)
             if command -v apt &>/dev/null; then
-                log_info "Checking for Debian/RPi updates..."
+                log_info "Checking for apt updates..."
                 sudo apt update -qq 2>/dev/null
                 UPDATES=$(sudo apt-get -s dist-upgrade 2>&1 || true)
                 if echo "$UPDATES" | grep -q "0 upgraded, 0 newly installed, 0 to remove"; then
-                    log_success "🐍 Debian/RPi is up to date"
+                    log_success "System is up to date"
                 else
-                    log_warn "🐍 Debian/RPi has updates available!"
+                    log_warn "Updates available!"
                     echo "$UPDATES" | head -20
                     read -p "Update now? (y/N) " -n 1 -r
                     echo
                     if [[ $REPLY =~ ^[Yy]$ ]]; then
-                        log_info "Updating Debian/RPi..."
+                        log_info "Updating system..."
                         sudo apt dist-upgrade -y
-                        log_success "Debian/RPi updated. Reboot recommended."
+                        log_success "System updated. Reboot recommended."
                         read -p "Reboot now? (y/N) " -n 1 -r
                         echo
                         if [[ $REPLY =~ ^[Yy]$ ]]; then
@@ -281,7 +304,7 @@ install_linuxbrew() {
             sudo dnf groupinstall -y "Development Tools"
             sudo dnf install -y procps-ng curl file gcc
             ;;
-        rpi|debian)
+        rpi|debian|ubuntu-server|ubuntu-desktop)
             sudo apt install -y build-essential procps curl file gcc
             ;;
     esac
@@ -540,16 +563,20 @@ install_apt() {
     log_success "$EMOJI git, chezmoi, gh, op, uv, and Homebrew installed"
 }
 
-install_debian() { install_apt; }
-install_rpi()    { install_apt; }
+install_debian()         { install_apt; }
+install_rpi()            { install_apt; }
+install_ubuntu_server()  { install_apt; }
+install_ubuntu_desktop() { install_apt; }
 
 case "$PLATFORM" in
-    macos)          install_macos ;;
-    fedora)         install_fedora ;;
-    fedora-atomic)  install_fedora_atomic ;;
-    toolbox)        install_toolbox ;;
-    rpi)            install_rpi ;;
-    debian)         install_debian ;;
+    macos)           install_macos ;;
+    fedora)          install_fedora ;;
+    fedora-atomic)   install_fedora_atomic ;;
+    toolbox)         install_toolbox ;;
+    rpi)             install_rpi ;;
+    debian)          install_debian ;;
+    ubuntu-server)   install_ubuntu_server ;;
+    ubuntu-desktop)  install_ubuntu_desktop ;;
 esac
 
 # =============================================================================
@@ -661,7 +688,7 @@ check_ssh() {
                     sudo rpm-ostree install openssh-server
                     log_warn "SSH will be active after reboot. Run 'sudo systemctl enable --now sshd' after reboot."
                     ;;
-                rpi|debian)
+                rpi|debian|ubuntu-server|ubuntu-desktop)
                     sudo apt update
                     sudo apt install -y openssh-server
                     sudo systemctl enable --now ssh

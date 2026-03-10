@@ -1,4 +1,8 @@
 {{- if eq .chezmoi.os "linux" -}}
+{{- $isRPi           := or (eq .chezmoi.osRelease.id "raspbian") (stat "/proc/device-tree/model") -}}
+{{- $isUbuntu        := and (eq .chezmoi.osRelease.id "ubuntu") (not $isRPi) -}}
+{{- $ubuntuFlavor    := .ubuntu_flavor | default "server" -}}
+{{- $isUbuntuDesktop := and $isUbuntu (eq $ubuntuFlavor "desktop") -}}
 #!/usr/bin/env bash
 # =============================================================================
 # Linux Configuration - Nerd Fonts + Zsh default shell
@@ -10,14 +14,14 @@ set -euo pipefail
 # Nerd Fonts Installation (all Linux distros)
 # =============================================================================
 if [[ ! -d "$HOME/.local/share/fonts/JetBrainsMonoNerdFont" ]]; then
-    echo "🔤 Installing JetBrains Mono Nerd Font..."
+    echo "Installing JetBrains Mono Nerd Font..."
     mkdir -p "$HOME/.local/share/fonts/JetBrainsMonoNerdFont"
     cd "$HOME/.local/share/fonts/JetBrainsMonoNerdFont"
     curl -fsSL "https://github.com/ryanoasis/nerd-fonts/releases/latest/download/JetBrainsMono.tar.xz" -o JetBrainsMono.tar.xz
     tar -xf JetBrainsMono.tar.xz
     rm JetBrainsMono.tar.xz
     fc-cache -f > /dev/null 2>&1
-    echo "✅ Nerd Font installed"
+    echo "Nerd Font installed"
 fi
 
 # =============================================================================
@@ -26,15 +30,27 @@ fi
 {{- if not (lookPath "rpm-ostree") }}
 if command -v zsh &>/dev/null; then
     if [[ "$SHELL" != *"zsh"* ]]; then
-        echo "🐚 Setting Zsh as default shell..."
+        echo "Setting Zsh as default shell..."
         ZSH_PATH=$(command -v zsh)
         chsh -s "$ZSH_PATH" || true
-        echo "✅ Default shell changed to Zsh (log out and back in to apply)"
+        echo "Default shell changed to Zsh (log out and back in to apply)"
     fi
 else
-    echo "⚠️ Zsh not installed, skipping shell change"
+    echo "Zsh not installed, skipping shell change"
 fi
 {{- end }}
 
-echo "✅ Linux configuration complete!"
+# =============================================================================
+# Ubuntu Desktop - GNOME configuration
+# =============================================================================
+{{- if $isUbuntuDesktop }}
+if command -v gsettings &>/dev/null; then
+    echo "Configuring GNOME dark mode..."
+    gsettings set org.gnome.desktop.interface color-scheme prefer-dark || true
+    gsettings set org.gnome.desktop.interface gtk-theme Adwaita-dark || true
+    echo "GNOME dark mode enabled"
+fi
+{{- end }}
+
+echo "Linux configuration complete!"
 {{- end }}

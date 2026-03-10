@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# shellcheck shell=bash
 # Environment variables configuration
 
 # ============================================================================
@@ -17,11 +18,30 @@ _cache_eval() {
 }
 
 # ============================================================================
+# Platform detection helpers
+# ============================================================================
+
+# Read distro ID from /etc/os-release (source of truth)
+_detect_distro() {
+  local id=""
+  if [[ -f /etc/os-release ]]; then
+    id=$(. /etc/os-release && echo "${ID:-}")
+  fi
+  echo "$id"
+}
+
+# True if running on Raspberry Pi hardware (works regardless of OS)
+_is_rpi() {
+  [[ -f /proc/device-tree/model ]] && grep -qi "raspberry pi" /proc/device-tree/model 2>/dev/null
+}
+
+# ============================================================================
 # Platform detection
 # ============================================================================
 export IS_MACOS=false
 export IS_RPI=false
 export IS_LINUX=false
+export IS_UBUNTU=false
 
 case "$(uname -s)" in
   Darwin)
@@ -37,17 +57,44 @@ case "$(uname -s)" in
     ;;
   Linux)
     export IS_LINUX=true
-    if [[ -f /proc/device-tree/model ]] && grep -q "Raspberry Pi" /proc/device-tree/model 2>/dev/null; then
+    _DISTRO_ID="$(_detect_distro)"
+
+    if [[ -n "${TOOLBOX_PATH:-}" ]] || [[ "${HOSTNAME:-}" == *toolbx* ]]; then
+      export PLATFORM="toolbox"
+      export MACHINE_PROFILE="toolbox"
+
+    elif _is_rpi; then
       export IS_RPI=true
       export PLATFORM="rpi"
-      RPI_MODEL=$(cat /proc/device-tree/model 2>/dev/null | tr -d '\0')
+      export MACHINE_PROFILE="rpi"
+      RPI_MODEL="$(tr -d '\0' < /proc/device-tree/model 2>/dev/null || true)"
       export RPI_MODEL
+
+    elif [[ "${_DISTRO_ID}" == "ubuntu" ]]; then
+      export IS_UBUNTU=true
+      export PLATFORM="ubuntu"
+      _HOST="${HOSTNAME%%.*}"
+      if [[ "${_HOST}" == ubuntu-desktop* ]]; then
+        export MACHINE_PROFILE="ubuntu-desktop"
+      else
+        export MACHINE_PROFILE="ubuntu-server"
+      fi
+      unset _HOST
+
+    elif [[ "${_DISTRO_ID}" == "debian" ]]; then
+      export PLATFORM="debian"
+      export MACHINE_PROFILE="debian"
+
     else
       export PLATFORM="linux"
+      export MACHINE_PROFILE="linux-standard"
     fi
+
+    unset _DISTRO_ID
     ;;
   *)
     export PLATFORM="unknown"
+    export MACHINE_PROFILE="unknown"
     ;;
 esac
 
@@ -56,7 +103,9 @@ esac
 # ============================================================================
 if [[ "${IS_MACOS}" == "true" ]]; then
   export STARSHIP_ICON="⌘"
-elif [[ "${IS_RPI}" == "true" ]] || [[ "${IS_LINUX}" == "true" ]]; then
+  export STARSHIP_ICON_COLOR="mauve"
+elif [[ "${IS_RPI}" == "true" ]]; then
+  export STARSHIP_ICON_COLOR="red"
   case "$(hostname)" in
     bbh-network*)
       export STARSHIP_ICON="🌐"
@@ -68,6 +117,15 @@ elif [[ "${IS_RPI}" == "true" ]] || [[ "${IS_LINUX}" == "true" ]]; then
       export STARSHIP_ICON="🍓"
       ;;
   esac
+elif [[ "${MACHINE_PROFILE}" == "ubuntu-desktop" ]]; then
+  export STARSHIP_ICON=""
+  export STARSHIP_ICON_COLOR="peach"
+elif [[ "${MACHINE_PROFILE}" == "ubuntu-server" ]]; then
+  export STARSHIP_ICON=""
+  export STARSHIP_ICON_COLOR="yellow"
+elif [[ "${IS_LINUX}" == "true" ]]; then
+  export STARSHIP_ICON=""
+  export STARSHIP_ICON_COLOR="blue"
 fi
 
 # ============================================================================
@@ -88,7 +146,11 @@ export HISTIGNORE="ls:cd:exit:clear:history"
 # ============================================================================
 # Editor configuration
 # ============================================================================
-export EDITOR='nvim'
+if [[ "${MACHINE_PROFILE}" == "rpi" ]]; then
+  export EDITOR='nano'
+else
+  export EDITOR='nvim'
+fi
 
 # ============================================================================
 # Docker configuration
@@ -103,8 +165,13 @@ export KUBECONFIG="${HOME}/.kube/config"
 # ============================================================================
 # Platform-specific theming
 # ============================================================================
-if [[ "${IS_RPI}" == "true" ]] || [[ "${IS_LINUX}" == "true" && "${IS_MACOS}" == "false" ]]; then
-  # Raspberry Pi / Linux: Snazzy theme
+_use_snazzy=false
+case "${MACHINE_PROFILE:-}" in
+  rpi|linux*|toolbox|ubuntu-server|debian) _use_snazzy=true ;;
+esac
+
+if [[ "${_use_snazzy}" == "true" ]]; then
+  # RPi / Linux servers: Snazzy theme
   export STARSHIP_CONFIG="${HOME}/.config/starship/starship-rpi.toml"
 
   # FZF theme (Snazzy)
@@ -125,7 +192,7 @@ if [[ "${IS_RPI}" == "true" ]] || [[ "${IS_LINUX}" == "true" && "${IS_MACOS}" ==
   alias tmux='tmux -f ~/.config/tmux/tmux-rpi.conf'
 
 else
-  # macOS: Catppuccin Mocha theme
+  # macOS / Ubuntu Desktop: Catppuccin Mocha theme
   export STARSHIP_CONFIG="${HOME}/.config/starship/starship.toml"
 
   # FZF theme (Catppuccin Mocha)
@@ -142,6 +209,8 @@ else
   # Bat theme (Catppuccin Mocha)
   export BAT_THEME="Catppuccin Mocha"
 fi
+
+unset _use_snazzy
 
 # ============================================================================
 # FZF default command (platform-agnostic)

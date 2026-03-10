@@ -1,4 +1,9 @@
 {{- if eq .chezmoi.os "linux" -}}
+{{- $isRPi           := or (eq .chezmoi.osRelease.id "raspbian") (stat "/proc/device-tree/model") -}}
+{{- $isUbuntu        := and (eq .chezmoi.osRelease.id "ubuntu") (not $isRPi) -}}
+{{- $ubuntuFlavor    := .ubuntu_flavor | default "server" -}}
+{{- $isUbuntuDesktop := and $isUbuntu (eq $ubuntuFlavor "desktop") -}}
+{{- $isUbuntuServer  := and $isUbuntu (not $isUbuntuDesktop) -}}
 #!/bin/bash
 # =============================================================================
 # Linux Packages Installation - apt, dnf, rpm-ostree
@@ -9,8 +14,8 @@ set -euo pipefail
 # =============================================================================
 # Raspberry Pi / Debian - apt packages
 # =============================================================================
-{{- if contains "rpi" .chezmoi.kernel.osrelease }}
-echo "🐍 Installing Raspberry Pi packages via apt..."
+{{- if $isRPi }}
+echo "Installing Raspberry Pi packages via apt..."
 
 sudo apt update && sudo apt install -y \
     zsh \
@@ -36,7 +41,7 @@ sudo apt update && sudo apt install -y \
 
 # Install 1Password CLI via official apt repo
 if ! command -v op &>/dev/null; then
-    echo "🔐 Installing 1Password CLI..."
+    echo "Installing 1Password CLI..."
     tmp_key="$(mktemp)"
     curl -sS https://downloads.1password.com/linux/keys/1password.asc -o "$tmp_key"
     sudo gpg --dearmor < "$tmp_key" | sudo tee /usr/share/keyrings/1password-archive-keyring.gpg > /dev/null
@@ -49,8 +54,186 @@ fi
 
 # Install uv (provides uvx for MCP servers using Python)
 if ! command -v uv &>/dev/null; then
-    echo "🐍 Installing uv..."
+    echo "Installing uv..."
     curl -LsSf https://astral.sh/uv/install.sh | sh
+fi
+{{- end }}
+
+# =============================================================================
+# Ubuntu Server - apt packages (minimal, server-focused)
+# =============================================================================
+{{- if $isUbuntuServer }}
+echo "Installing Ubuntu Server packages via apt..."
+
+sudo apt update && sudo apt install -y \
+    zsh \
+    git \
+    curl \
+    wget \
+    tmux \
+    fzf \
+    neovim \
+    fd-find \
+    ripgrep \
+    jq \
+    unzip \
+    bat \
+    fontconfig \
+    zoxide \
+    atuin \
+    direnv \
+    locales \
+    htop \
+    tree
+
+# Install starship via official installer (not in Ubuntu apt)
+if ! command -v starship &>/dev/null; then
+    echo "Installing starship..."
+    curl -sS https://starship.rs/install.sh | sh -s -- -y
+fi
+
+# Install eza via cargo (not in standard Ubuntu repos)
+if ! command -v eza &>/dev/null; then
+    if command -v cargo &>/dev/null; then
+        echo "Installing eza via cargo..."
+        cargo install eza
+    else
+        echo "cargo not found — skipping eza (install Rust first)"
+    fi
+fi
+
+# Install 1Password CLI via official apt repo
+if ! command -v op &>/dev/null; then
+    echo "Installing 1Password CLI..."
+    tmp_key="$(mktemp)"
+    curl -sS https://downloads.1password.com/linux/keys/1password.asc -o "$tmp_key"
+    sudo gpg --dearmor < "$tmp_key" | sudo tee /usr/share/keyrings/1password-archive-keyring.gpg > /dev/null
+    rm -f "$tmp_key"
+    echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/1password-archive-keyring.gpg] https://downloads.1password.com/linux/debian/$(dpkg --print-architecture) stable main" \
+        | sudo tee /etc/apt/sources.list.d/1password.list > /dev/null
+    sudo apt update
+    sudo apt install -y 1password-cli
+fi
+
+# Install gh CLI via official apt keyring
+if ! command -v gh &>/dev/null; then
+    echo "Installing gh (GitHub CLI)..."
+    tmp_key="$(mktemp)"
+    if ! command -v wget &>/dev/null; then
+        sudo apt install -y wget
+    fi
+    wget -nv -O "$tmp_key" https://cli.github.com/packages/githubcli-archive-keyring.gpg
+    sudo mkdir -p -m 755 /etc/apt/keyrings
+    sudo install -m 644 "$tmp_key" /etc/apt/keyrings/githubcli-archive-keyring.gpg
+    rm -f "$tmp_key"
+    echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" \
+        | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
+    sudo apt update
+    sudo apt install -y gh
+fi
+
+# Install uv (provides uvx for MCP servers using Python)
+if ! command -v uv &>/dev/null; then
+    echo "Installing uv..."
+    curl -LsSf https://astral.sh/uv/install.sh | sh
+fi
+{{- end }}
+
+# =============================================================================
+# Ubuntu Desktop - additional packages on top of server
+# =============================================================================
+{{- if $isUbuntuDesktop }}
+echo "Installing Ubuntu Desktop packages via apt..."
+
+sudo apt update && sudo apt install -y \
+    zsh \
+    git \
+    curl \
+    wget \
+    tmux \
+    fzf \
+    neovim \
+    fd-find \
+    ripgrep \
+    jq \
+    unzip \
+    bat \
+    fontconfig \
+    zoxide \
+    atuin \
+    direnv \
+    locales \
+    htop \
+    tree \
+    xclip \
+    wl-clipboard \
+    flatpak \
+    gnome-software-plugin-flatpak
+
+# Install starship via official installer (not in Ubuntu apt)
+if ! command -v starship &>/dev/null; then
+    echo "Installing starship..."
+    curl -sS https://starship.rs/install.sh | sh -s -- -y
+fi
+
+# Install eza via cargo (not in standard Ubuntu repos)
+if ! command -v eza &>/dev/null; then
+    if command -v cargo &>/dev/null; then
+        echo "Installing eza via cargo..."
+        cargo install eza
+    else
+        echo "cargo not found — skipping eza (install Rust first)"
+    fi
+fi
+
+# Install WezTerm via official apt repo
+if ! command -v wezterm &>/dev/null; then
+    echo "Installing WezTerm..."
+    curl -fsSL https://apt.fury.io/wez/gpg.key | sudo gpg --yes --dearmor -o /etc/apt/keyrings/wezterm-fury.gpg
+    echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/wezterm-fury.gpg] https://apt.fury.io/wez/ * *" \
+        | sudo tee /etc/apt/sources.list.d/wezterm.list > /dev/null
+    sudo apt update
+    sudo apt install -y wezterm
+fi
+
+# Install 1Password CLI via official apt repo
+if ! command -v op &>/dev/null; then
+    echo "Installing 1Password CLI..."
+    tmp_key="$(mktemp)"
+    curl -sS https://downloads.1password.com/linux/keys/1password.asc -o "$tmp_key"
+    sudo gpg --dearmor < "$tmp_key" | sudo tee /usr/share/keyrings/1password-archive-keyring.gpg > /dev/null
+    rm -f "$tmp_key"
+    echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/1password-archive-keyring.gpg] https://downloads.1password.com/linux/debian/$(dpkg --print-architecture) stable main" \
+        | sudo tee /etc/apt/sources.list.d/1password.list > /dev/null
+    sudo apt update
+    sudo apt install -y 1password-cli
+fi
+
+# Install gh CLI via official apt keyring
+if ! command -v gh &>/dev/null; then
+    echo "Installing gh (GitHub CLI)..."
+    tmp_key="$(mktemp)"
+    wget -nv -O "$tmp_key" https://cli.github.com/packages/githubcli-archive-keyring.gpg
+    sudo mkdir -p -m 755 /etc/apt/keyrings
+    sudo install -m 644 "$tmp_key" /etc/apt/keyrings/githubcli-archive-keyring.gpg
+    rm -f "$tmp_key"
+    echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" \
+        | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
+    sudo apt update
+    sudo apt install -y gh
+fi
+
+# Install uv (provides uvx for MCP servers using Python)
+if ! command -v uv &>/dev/null; then
+    echo "Installing uv..."
+    curl -LsSf https://astral.sh/uv/install.sh | sh
+fi
+
+# Add Flathub remote for desktop apps
+if command -v flatpak &>/dev/null; then
+    if ! flatpak remote-list --user 2>/dev/null | grep -q flathub; then
+        flatpak remote-add --user --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+    fi
 fi
 {{- end }}
 
@@ -58,7 +241,7 @@ fi
 # Fedora Standard - dnf packages
 # =============================================================================
 {{- if and (lookPath "dnf") (not (lookPath "rpm-ostree")) (not (stat "/.toolboxenv")) (not (env "TOOLBOX_PATH")) }}
-echo "🐧 Installing Fedora Standard packages via dnf..."
+echo "Installing Fedora Standard packages via dnf..."
 
 sudo dnf install -y --skip-unavailable \
     chezmoi \
@@ -88,7 +271,7 @@ sudo dnf install -y --skip-unavailable \
 
 # Install eza via cargo (not in Fedora repos)
 if ! command -v eza &>/dev/null; then
-    echo "📦 Installing eza via cargo..."
+    echo "Installing eza via cargo..."
     cargo install eza
 fi
 {{- end }}
@@ -97,7 +280,7 @@ fi
 # Fedora Toolbox - dnf packages (same as Fedora Standard)
 # =============================================================================
 {{- if and (lookPath "dnf") (or (stat "/.toolboxenv") (env "TOOLBOX_PATH")) }}
-echo "📦 Installing Fedora Toolbox packages via dnf..."
+echo "Installing Fedora Toolbox packages via dnf..."
 
 sudo dnf install -y --skip-unavailable \
     chezmoi \
@@ -126,7 +309,7 @@ sudo dnf install -y --skip-unavailable \
 
 # Install eza via cargo (not in Fedora repos)
 if ! command -v eza &>/dev/null; then
-    echo "📦 Installing eza via cargo..."
+    echo "Installing eza via cargo..."
     cargo install eza
 fi
 {{- end }}
@@ -135,8 +318,8 @@ fi
 # Fedora Atomic - rpm-ostree packages
 # =============================================================================
 {{- if and (lookPath "rpm-ostree") (not (stat "/.toolboxenv")) }}
-echo "🐧 Fedora Atomic - no additional packages (git/chezmoi handled by bootstrap)"
+echo "Fedora Atomic - no additional packages (git/chezmoi handled by bootstrap)"
 {{- end }}
 
-echo "✅ Linux packages installation complete!"
+echo "Linux packages installation complete!"
 {{- end }}

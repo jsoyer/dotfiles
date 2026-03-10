@@ -1,4 +1,4 @@
-{{- if and (eq .chezmoi.os "linux") (hasKey .chezmoi.kernel "osrelease") (contains "rpi" .chezmoi.kernel.osrelease) -}}
+{{- if and (eq .chezmoi.os "linux") (or (eq .chezmoi.osRelease.id "raspbian") (stat "/proc/device-tree/model")) -}}
 source-file ~/.config/tmux/tmux-rpi.conf
 {{- else -}}
 source-file ~/.config/tmux/tmux.reset.conf

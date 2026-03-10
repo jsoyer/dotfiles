@@ -1,19 +1,25 @@
 {{- if eq .chezmoi.os "linux" -}}
-{{- if lookPath "rpm-ostree" -}}
+{{- $isRPi           := or (eq .chezmoi.osRelease.id "raspbian") (stat "/proc/device-tree/model") -}}
+{{- $isUbuntu        := and (eq .chezmoi.osRelease.id "ubuntu") (not $isRPi) -}}
+{{- $ubuntuFlavor    := .ubuntu_flavor | default "server" -}}
+{{- $isUbuntuDesktop := and $isUbuntu (eq $ubuntuFlavor "desktop") -}}
+{{- $isFedoraAtomic  := lookPath "rpm-ostree" -}}
+{{- if or $isFedoraAtomic $isUbuntuDesktop -}}
 #!/bin/bash
 # =============================================================================
-# Flatpak Packages Installation (Fedora Atomic)
+# Flatpak Packages Installation (Fedora Atomic + Ubuntu Desktop)
 # =============================================================================
 
 set -euo pipefail
 
-echo "📦 Setting up Flatpak..."
+echo "Setting up Flatpak..."
 
+{{- if $isFedoraAtomic }}
 # Check if flatpak is installed, install if not
 if ! command -v flatpak &>/dev/null; then
-    echo "📦 Flatpak not found, installing..."
+    echo "Flatpak not found, installing..."
     sudo rpm-ostree install flatpak
-    echo "⚠️  Flatpak installed. Reboot required, then run this script again."
+    echo "Flatpak installed. Reboot required, then run this script again."
     exit 0
 fi
 
@@ -23,10 +29,10 @@ if ! sudo flatpak remote-list --system 2>/dev/null | grep -q flathub; then
 fi
 
 # Refresh metadata so installs don't fail with "No remote refs found"
-echo "📦 Refreshing Flathub metadata..."
+echo "Refreshing Flathub metadata..."
 sudo flatpak update --appstream flathub --system 2>/dev/null || true
 
-echo "📦 Installing Flatpak packages..."
+echo "Installing Flatpak packages (Fedora Atomic)..."
 for pkg in \
     best.ellie.StartupConfiguration \
     com.brave.Browser \
@@ -55,13 +61,55 @@ for pkg in \
     tech.feliciano.pocket-casts
 do
     if flatpak info "$pkg" &>/dev/null; then
-        echo "  ✅ $pkg already installed"
+        echo "  $pkg already installed"
     else
-        echo "  → Installing $pkg..."
-        sudo flatpak install --system --noninteractive flathub "$pkg" || echo "  ⚠️  Failed to install $pkg"
+        echo "  Installing $pkg..."
+        sudo flatpak install --system --noninteractive flathub "$pkg" || echo "  Failed to install $pkg"
     fi
 done
+{{- end }}
 
-echo "✅ Flatpak packages installation complete."
+{{- if $isUbuntuDesktop }}
+# Ensure flatpak is installed (apt)
+if ! command -v flatpak &>/dev/null; then
+    echo "Flatpak not found, installing via apt..."
+    sudo apt update
+    sudo apt install -y flatpak gnome-software-plugin-flatpak
+fi
+
+# Add Flathub remote (user-level, no reboot needed)
+if ! flatpak remote-list --user 2>/dev/null | grep -q flathub; then
+    flatpak remote-add --user --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+fi
+
+# Refresh metadata
+echo "Refreshing Flathub metadata..."
+flatpak update --appstream flathub --user 2>/dev/null || true
+
+echo "Installing Flatpak packages (Ubuntu Desktop)..."
+for pkg in \
+    com.brave.Browser \
+    com.discordapp.Discord \
+    dev.zed.Zed \
+    io.dbeaver.DBeaverCommunity \
+    io.github.shiftey.Desktop \
+    md.obsidian.Obsidian \
+    org.localsend.localsend_app \
+    org.remmina.Remmina \
+    org.signal.Signal \
+    org.telegram.desktop \
+    org.videolan.VLC \
+    tech.feliciano.pocket-casts
+do
+    if flatpak info --user "$pkg" &>/dev/null; then
+        echo "  $pkg already installed"
+    else
+        echo "  Installing $pkg..."
+        flatpak install --user --noninteractive flathub "$pkg" || echo "  Failed to install $pkg"
+    fi
+done
+{{- end }}
+
+echo "Flatpak packages installation complete."
 {{ end -}}
 {{- end }}
