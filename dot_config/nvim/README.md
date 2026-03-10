@@ -42,7 +42,13 @@ Modern Neovim configuration based on LazyVim.
 | `mistral_vibe` | `mistral-vibe` |
 | `codex` | `codex` |
 
-Le provider par défaut est **automatiquement sélectionné** : premier dont la clé est présente dans l'environnement, sinon Ollama.
+Le provider par défaut est **automatiquement sélectionné** au démarrage selon cet ordre de priorité :
+
+1. `ANTHROPIC_API_KEY` → `anthropic`, sinon `claude` CLI → `claude_code`
+2. `OPENAI_API_KEY` → `openai`, sinon `codex` CLI → `codex`
+3. `GEMINI_API_KEY` → `gemini`, sinon `gemini` CLI → `gemini_cli`
+4. `MISTRAL_API_KEY` → `mistral`, sinon `mistral-vibe` CLI → `mistral_vibe`
+5. Fallback final → `ollama` (local)
 
 ### Keymaps AI
 

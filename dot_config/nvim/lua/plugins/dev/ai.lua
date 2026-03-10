@@ -23,20 +23,21 @@ return {
       { "<leader>ae", "<cmd>CodeCompanionActions<cr>",     mode = "v",          desc = "AI Actions (visual)" },
     },
     config = function(_, opts)
-      -- Pick default adapter: first one whose API key is set, fallback to ollama
-      local api_adapters = {
-        { name = "anthropic", env = "ANTHROPIC_API_KEY" },
-        { name = "openai",    env = "OPENAI_API_KEY" },
-        { name = "gemini",    env = "GEMINI_API_KEY" },
-        { name = "mistral",   env = "MISTRAL_API_KEY" },
-      }
+      -- Pick default adapter: API key first, then corresponding CLI, then ollama
+      local function has_key(env) return vim.env[env] and vim.env[env] ~= "" end
+      local function has_cli(cmd) return vim.fn.executable(cmd) == 1 end
+
       local default = "ollama"
-      for _, a in ipairs(api_adapters) do
-        if vim.env[a.env] and vim.env[a.env] ~= "" then
-          default = a.name
-          break
-        end
+      if     has_key("ANTHROPIC_API_KEY") then default = "anthropic"
+      elseif has_cli("claude")            then default = "claude_code"
+      elseif has_key("OPENAI_API_KEY")    then default = "openai"
+      elseif has_cli("codex")             then default = "codex"
+      elseif has_key("GEMINI_API_KEY")    then default = "gemini"
+      elseif has_cli("gemini")            then default = "gemini_cli"
+      elseif has_key("MISTRAL_API_KEY")   then default = "mistral"
+      elseif has_cli("mistral-vibe")      then default = "mistral_vibe"
       end
+
       opts.strategies = {
         chat   = { adapter = default },
         inline = { adapter = default },
