@@ -290,6 +290,26 @@ if string match -q "fedora-desktop" "$_mp"; or string match -q "fedora-server" "
     end
 end
 
+# Arch Linux package manager wrappers
+if string match -q 'arch-*' "$_mp"
+    function pacman --wraps pacmanw --description 'pacman wrapper with manifest sync'
+        pacmanw $argv
+    end
+end
+
+if test "$_mp" = arch-desktop
+    function yay --wraps yayw --description 'yay wrapper with manifest sync'
+        yayw $argv
+    end
+end
+
+# Fedora Atomic wrapper
+if test "$_mp" = fedora-atomic
+    function rpm-ostree --wraps ostreew --description 'rpm-ostree → ostreew wrapper'
+        ostreew $argv
+    end
+end
+
 # ============================================================================
 # Chezmoi
 # ============================================================================
