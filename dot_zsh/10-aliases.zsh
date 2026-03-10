@@ -353,8 +353,8 @@ cup() {
       fi
       ;;
     linux)
-      if grep -qi rpi /proc/version 2>/dev/null; then
-        echo "🐍 Updating apt packages..."
+      if [[ "${IS_RPI:-false}" == "true" ]] || [[ "${IS_UBUNTU:-false}" == "true" ]]; then
+        echo "Updating apt packages..."
         sudo apt update && sudo apt dist-upgrade -y && sudo apt autoremove -y
       elif command -v dnf &>/dev/null; then
         if command -v rpm-ostree &>/dev/null; then
