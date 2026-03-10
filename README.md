@@ -331,7 +331,6 @@ A custom `breww` script wraps the `brew` command. When you install a package wit
 |---------|----------|---------|
 | `mac-pro` | `Brewfile_common` + `Brewfile_pro` | Full workstation (casks, mas, go) |
 | `mac-personal` | `Brewfile_common` + `Brewfile_personal` | Personal Mac (casks, mas) |
-| `linux-standard` | `Brewfile_common` + `Brewfile_linux` | Linux CLI tools |
 | `rpi` | `Brewfile_common` + `Brewfile_rpi` | Minimal RPi subset |
 
 **Usage:**

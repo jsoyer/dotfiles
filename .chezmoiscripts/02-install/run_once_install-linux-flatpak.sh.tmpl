@@ -9,7 +9,7 @@
 {{- $isFedoraDesktop := and $isFedora (eq $fedoraFlavor "desktop") -}}
 {{- $isFedoraServer  := and $isFedora (eq $fedoraFlavor "server") -}}
 {{- if or $isFedoraAtomic $isFedoraDesktop $isUbuntuDesktop -}}
-#!/bin/bash
+#!/usr/bin/env bash
 # =============================================================================
 # Flatpak Packages Installation (Fedora Atomic + Ubuntu Desktop)
 # =============================================================================

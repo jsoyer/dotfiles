@@ -59,17 +59,6 @@ return {
     opts = {},
   },
 
-  -- GitHub Copilot alternative (si vous ne voulez pas Codeium)
-  -- {
-  --   "zbirenbaum/copilot.lua",
-  --   cmd = "Copilot",
-  --   event = "InsertEnter",
-  --   opts = {
-  --     suggestion = { enabled = false },
-  --     panel = { enabled = false },
-  --   },
-  -- },
-
   -- Note: which-key disabled due to fetch issues
   -- LazyVim provides which-key by default anyway
 

@@ -29,8 +29,6 @@ def get_target_brewfile():
         return BREWFILE_DIR / "Brewfile_pro"
     elif profile == "mac-personal":
         return BREWFILE_DIR / "Brewfile_personal"
-    elif profile == "linux-standard":
-        return BREWFILE_DIR / "Brewfile_linux"
     elif profile == "rpi":
         return BREWFILE_DIR / "Brewfile_rpi"
     else:

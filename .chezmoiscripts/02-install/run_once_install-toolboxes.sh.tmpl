@@ -1,5 +1,5 @@
 {{- if and (lookPath "rpm-ostree") (not (stat "/.toolboxenv")) -}}
-#!/bin/bash
+#!/usr/bin/env bash
 # =============================================================================
 # Toolbox Setup - Fedora Atomic
 # Creates a Fedora toolbox (latest = host version) and an Arch Linux toolbox

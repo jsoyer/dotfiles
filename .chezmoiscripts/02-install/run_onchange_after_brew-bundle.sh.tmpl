@@ -1,5 +1,5 @@
 {{- if lookPath "brew" -}}
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Brewfile hashes -- chezmoi reruns this script when any Brewfile changes
 # common:   {{ include "dot_private/Brewfile_common" | sha256sum }}

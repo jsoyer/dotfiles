@@ -118,10 +118,11 @@ esac
 unset _OS _HOST
 
 # Convenience boolean flags (compatible with bash env)
-[[ "$OSTYPE" == darwin* ]]               && export IS_MACOS=true  || export IS_MACOS=false
-[[ "$MACHINE_PROFILE" == "rpi" ]]        && export IS_RPI=true    || export IS_RPI=false
-[[ "$OSTYPE" == linux* ]]                && export IS_LINUX=true  || export IS_LINUX=false
-[[ "$MACHINE_PROFILE" == ubuntu* ]]      && export IS_UBUNTU=true || export IS_UBUNTU=false
+[[ "$OSTYPE" == darwin* ]]               && export IS_MACOS=true   || export IS_MACOS=false
+[[ "$MACHINE_PROFILE" == "rpi" ]]        && export IS_RPI=true     || export IS_RPI=false
+[[ "$OSTYPE" == linux* ]]                && export IS_LINUX=true   || export IS_LINUX=false
+[[ "$MACHINE_PROFILE" == ubuntu* ]]      && export IS_UBUNTU=true  || export IS_UBUNTU=false
+[[ "$MACHINE_PROFILE" == fedora* ]]      && export IS_FEDORA=true  || export IS_FEDORA=false
 
 # ============================================================================
 # Locale and language

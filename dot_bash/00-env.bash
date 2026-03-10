@@ -42,6 +42,7 @@ export IS_MACOS=false
 export IS_RPI=false
 export IS_LINUX=false
 export IS_UBUNTU=false
+export IS_FEDORA=false
 
 case "$(uname -s)" in
   Darwin)
@@ -87,6 +88,7 @@ case "$(uname -s)" in
 
     else
       # Fedora — atomic by tool, then server/desktop by hostname
+      export IS_FEDORA=true
       _HOST="${HOSTNAME%%.*}"
       if command -v rpm-ostree &>/dev/null 2>&1; then
         export MACHINE_PROFILE="fedora-atomic"

@@ -331,7 +331,13 @@ mkd() {
 cup() {
   cu "$@"
 
-  local os="{{ .chezmoi.os }}"
+  local os
+  case "$OSTYPE" in
+    darwin*)           os="darwin" ;;
+    linux*)            os="linux" ;;
+    cygwin*|msys*|mingw*) os="windows" ;;
+    *) return ;;
+  esac
 
   case "$os" in
     darwin)

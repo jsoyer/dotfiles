@@ -17,7 +17,7 @@ return {
     -- Add custom sources
     opts.sources = cmp.config.sources({
       { name = "nvim_lsp" },
-      { name = "luasnip" },
+      { name = "snippets" },
       { name = "buffer" },
       { name = "path" },
     })
