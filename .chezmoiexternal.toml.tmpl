@@ -18,7 +18,7 @@
     refreshPeriod = "168h"
 {{- end }}
 
-{{- if or (and (eq .chezmoi.os "darwin") (ne .chezmoi.hostname "jsoyer-macOS")) (and (eq .chezmoi.osRelease.id "ubuntu") (eq .ubuntu_flavor "desktop")) }}
+{{- if or (and (eq .chezmoi.os "darwin") (ne .chezmoi.hostname "jsoyer-macOS")) (and (eq .chezmoi.osRelease.id "ubuntu") (eq (index . "ubuntu_flavor") "desktop")) }}
 [".wallpapers"]
     type = "git-repo"
     url = "https://github.com/orangci/walls-catppuccin-mocha.git"

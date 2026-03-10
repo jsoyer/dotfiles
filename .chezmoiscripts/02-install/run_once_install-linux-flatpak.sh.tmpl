@@ -1,10 +1,10 @@
 {{- if eq .chezmoi.os "linux" -}}
 {{- $isRPi           := or (eq .chezmoi.osRelease.id "raspbian") (stat "/proc/device-tree/model") -}}
 {{- $isUbuntu        := and (eq .chezmoi.osRelease.id "ubuntu") (not $isRPi) -}}
-{{- $ubuntuFlavor    := .ubuntu_flavor | default "server" -}}
+{{- $ubuntuFlavor    := (index . "ubuntu_flavor") | default "server" -}}
 {{- $isUbuntuDesktop := and $isUbuntu (eq $ubuntuFlavor "desktop") -}}
 {{- $isFedoraAtomic  := and (eq .chezmoi.os "linux") (lookPath "rpm-ostree") (not (stat "/.toolboxenv")) (not (env "TOOLBOX_PATH")) -}}
-{{- $fedoraFlavor    := .fedora_flavor | default "desktop" -}}
+{{- $fedoraFlavor    := (index . "fedora_flavor") | default "desktop" -}}
 {{- $isFedora        := and (eq .chezmoi.os "linux") (lookPath "dnf") (not (lookPath "rpm-ostree")) (not (stat "/.toolboxenv")) (not (env "TOOLBOX_PATH")) -}}
 {{- $isFedoraDesktop := and $isFedora (eq $fedoraFlavor "desktop") -}}
 {{- $isFedoraServer  := and $isFedora (eq $fedoraFlavor "server") -}}
