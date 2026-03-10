@@ -90,15 +90,17 @@ case "${_OS}" in
       export STARSHIP_CONFIG="${HOME}/.config/starship/starship-rpi.toml"
 
     else
-      # Fedora and other Linux
+      # Fedora — atomic by tool, then server/desktop by hostname
       export STARSHIP_ICON_COLOR="blue"
       export STARSHIP_ICON=""
-      if [[ "${_HOST}" == "fedora" ]]; then
-        export MACHINE_PROFILE="linux-standard"
-      elif [[ "${_HOST}" == "fedora-atomic" ]]; then
-        export MACHINE_PROFILE="linux-atomic"
+      if command -v rpm-ostree &>/dev/null 2>&1; then
+        export MACHINE_PROFILE="fedora-atomic"
+        export STARSHIP_CONFIG="${HOME}/.config/starship/starship-rpi.toml"
+      elif [[ "${_HOST}" == fedora-server* ]]; then
+        export MACHINE_PROFILE="fedora-server"
+        export STARSHIP_CONFIG="${HOME}/.config/starship/starship-rpi.toml"
       else
-        export MACHINE_PROFILE="linux-standard"
+        export MACHINE_PROFILE="fedora-desktop"
       fi
     fi
 
@@ -162,9 +164,9 @@ export KUBECONFIG="${HOME}/.kube/config"
 # ============================================================================
 # FZF Configuration
 # ============================================================================
-# FZF theme — Catppuccin Mocha for macOS + ubuntu-desktop, Snazzy for Linux servers
+# FZF theme — Catppuccin Mocha for macOS/desktop, Snazzy for servers
 case "${MACHINE_PROFILE:-}" in
-  rpi|linux*|toolbox|ubuntu-server|debian)
+  rpi|fedora-server|fedora-atomic|toolbox|ubuntu-server|debian)
     export FZF_DEFAULT_OPTS=" \
 --color=bg+:#3a3d4d,bg:#282a36,spinner:#ff5c57,hl:#57c7ff \
 --color=fg:#eff0eb,header:#57c7ff,info:#ff6ac1,pointer:#ff5c57 \
@@ -189,7 +191,7 @@ fi
 # Bat theme
 # ============================================================================
 case "${MACHINE_PROFILE:-}" in
-  rpi|linux*|toolbox|ubuntu-server|debian)
+  rpi|fedora-server|fedora-atomic|toolbox|ubuntu-server|debian)
     export BAT_THEME="ansi"
     ;;
   *)
@@ -202,7 +204,7 @@ esac
 # ============================================================================
 if (( $+commands[vivid] )); then
   case "${MACHINE_PROFILE:-}" in
-    rpi|linux*|toolbox|ubuntu-server|debian) export LS_COLORS="$(vivid generate snazzy)" ;;
+    rpi|fedora-server|fedora-atomic|toolbox|ubuntu-server|debian) export LS_COLORS="$(vivid generate snazzy)" ;;
     *)                                        export LS_COLORS="$(vivid generate catppuccin-mocha)" ;;
   esac
 fi

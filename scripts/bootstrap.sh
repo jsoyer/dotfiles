@@ -68,9 +68,17 @@ case "$OS" in
             EMOJI="📦"
             log_success "Detected: $EMOJI Fedora Toolbox"
         elif command -v dnf &>/dev/null; then
-            PLATFORM="fedora"
-            EMOJI="🐧"
-            log_success "Detected: $EMOJI Fedora Standard"
+            _BHOST="${HOSTNAME%%.*}"
+            if [[ "${_BHOST}" == fedora-server* ]]; then
+                PLATFORM="fedora-server"
+                EMOJI="🐧"
+                log_success "Detected: $EMOJI Fedora Server"
+            else
+                PLATFORM="fedora-desktop"
+                EMOJI="🐧"
+                log_success "Detected: $EMOJI Fedora Desktop"
+            fi
+            unset _BHOST
         elif command -v apt &>/dev/null; then
             # Use hardware detection for RPi (works regardless of OS: raspbian or ubuntu)
             if _is_rpi_hw || [[ "${_DISTRO_ID}" == "raspbian" ]]; then
@@ -138,7 +146,7 @@ check_os_updates() {
                 fi
             fi
             ;;
-        fedora)
+        fedora-desktop|fedora-server)
             if command -v dnf &>/dev/null; then
                 log_info "Checking for Fedora updates..."
                 UPDATES=$(sudo dnf check-update 2>&1 || true)
@@ -300,7 +308,7 @@ install_linuxbrew() {
 
     # Prerequisites
     case "$PLATFORM" in
-        fedora|toolbox)
+        fedora-desktop|fedora-server|toolbox)
             sudo dnf groupinstall -y "Development Tools"
             sudo dnf install -y procps-ng curl file gcc
             ;;
@@ -570,7 +578,7 @@ install_ubuntu_desktop() { install_apt; }
 
 case "$PLATFORM" in
     macos)           install_macos ;;
-    fedora)          install_fedora ;;
+    fedora-desktop|fedora-server) install_fedora ;;
     fedora-atomic)   install_fedora_atomic ;;
     toolbox)         install_toolbox ;;
     rpi)             install_rpi ;;
@@ -674,7 +682,7 @@ check_ssh() {
         echo
         if [[ $REPLY =~ ^[Yy]$ ]]; then
             case "$PLATFORM" in
-                fedora)
+                fedora-desktop|fedora-server)
                     sudo dnf install -y openssh-server
                     sudo systemctl enable --now sshd
                     log_success "🔐 SSH server installed and enabled"

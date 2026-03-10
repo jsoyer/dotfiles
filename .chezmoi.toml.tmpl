@@ -18,6 +18,7 @@ encryption = "age"
     email = "jeromesoyer@gmail.com"
     work_email = "jsoyer@varonis.com"
     ubuntu_flavor     = "{{ if and (eq .chezmoi.os "linux") (eq .chezmoi.osRelease.id "ubuntu") (not (env "CI")) }}{{ if hasPrefix "ubuntu-server" .chezmoi.hostname }}server{{ else }}desktop{{ end }}{{ else }}server{{ end }}"
+    fedora_flavor     = "{{ if lookPath "rpm-ostree" }}atomic{{ else if hasPrefix "fedora-server" .chezmoi.hostname }}server{{ else }}desktop{{ end }}"
 
 {{- if lookPath "age" }}
 

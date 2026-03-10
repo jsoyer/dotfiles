@@ -86,8 +86,16 @@ case "$(uname -s)" in
       export MACHINE_PROFILE="debian"
 
     else
-      export PLATFORM="linux"
-      export MACHINE_PROFILE="linux-standard"
+      # Fedora — atomic by tool, then server/desktop by hostname
+      _HOST="${HOSTNAME%%.*}"
+      if command -v rpm-ostree &>/dev/null 2>&1; then
+        export MACHINE_PROFILE="fedora-atomic"
+      elif [[ "${_HOST}" == fedora-server* ]]; then
+        export MACHINE_PROFILE="fedora-server"
+      else
+        export MACHINE_PROFILE="fedora-desktop"
+      fi
+      unset _HOST
     fi
 
     unset _DISTRO_ID
@@ -167,7 +175,7 @@ export KUBECONFIG="${HOME}/.kube/config"
 # ============================================================================
 _use_snazzy=false
 case "${MACHINE_PROFILE:-}" in
-  rpi|linux*|toolbox|ubuntu-server|debian) _use_snazzy=true ;;
+  rpi|fedora-server|fedora-atomic|toolbox|ubuntu-server|debian) _use_snazzy=true ;;
 esac
 
 if [[ "${_use_snazzy}" == "true" ]]; then

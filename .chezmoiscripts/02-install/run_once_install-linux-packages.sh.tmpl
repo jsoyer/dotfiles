@@ -4,6 +4,11 @@
 {{- $ubuntuFlavor    := .ubuntu_flavor | default "server" -}}
 {{- $isUbuntuDesktop := and $isUbuntu (eq $ubuntuFlavor "desktop") -}}
 {{- $isUbuntuServer  := and $isUbuntu (not $isUbuntuDesktop) -}}
+{{- $isFedoraAtomic  := and (eq .chezmoi.os "linux") (lookPath "rpm-ostree") (not (stat "/.toolboxenv")) (not (env "TOOLBOX_PATH")) -}}
+{{- $fedoraFlavor    := .fedora_flavor | default "desktop" -}}
+{{- $isFedora        := and (eq .chezmoi.os "linux") (lookPath "dnf") (not (lookPath "rpm-ostree")) (not (stat "/.toolboxenv")) (not (env "TOOLBOX_PATH")) -}}
+{{- $isFedoraDesktop := and $isFedora (eq $fedoraFlavor "desktop") -}}
+{{- $isFedoraServer  := and $isFedora (eq $fedoraFlavor "server") -}}
 #!/bin/bash
 # =============================================================================
 # Linux Packages Installation - apt, dnf, rpm-ostree
@@ -238,10 +243,10 @@ fi
 {{- end }}
 
 # =============================================================================
-# Fedora Standard - dnf packages
+# Fedora Server - dnf packages (minimal, headless)
 # =============================================================================
-{{- if and (lookPath "dnf") (not (lookPath "rpm-ostree")) (not (stat "/.toolboxenv")) (not (env "TOOLBOX_PATH")) }}
-echo "Installing Fedora Standard packages via dnf..."
+{{- if $isFedoraServer }}
+echo "Installing Fedora Server packages via dnf..."
 
 sudo dnf install -y --skip-unavailable \
     chezmoi \
@@ -261,10 +266,9 @@ sudo dnf install -y --skip-unavailable \
     starship \
     zoxide \
     vivid \
-    jetbrains-mono-fonts-all \
-    fish \
-    kitty \
-    nushell \
+    atuin \
+    direnv \
+    htop \
     util-linux-user \
     cargo \
     rust
@@ -274,6 +278,54 @@ if ! command -v eza &>/dev/null; then
     echo "Installing eza via cargo..."
     cargo install eza
 fi
+{{- end }}
+
+# =============================================================================
+# Fedora Desktop - dnf packages (server + GUI apps via DNF first)
+# =============================================================================
+{{- if $isFedoraDesktop }}
+echo "Installing Fedora Desktop packages via dnf..."
+
+sudo dnf install -y --skip-unavailable \
+    chezmoi \
+    zsh \
+    git \
+    curl \
+    wget \
+    tmux \
+    fzf \
+    neovim \
+    fd-find \
+    ripgrep \
+    jq \
+    unzip \
+    bat \
+    fontconfig \
+    starship \
+    zoxide \
+    vivid \
+    atuin \
+    direnv \
+    htop \
+    fish \
+    kitty \
+    nushell \
+    jetbrains-mono-fonts-all \
+    util-linux-user \
+    gnome-tweaks \
+    dconf-editor \
+    telegram-desktop \
+    remmina \
+    cargo \
+    rust
+
+# Install eza via cargo (not in Fedora repos)
+if ! command -v eza &>/dev/null; then
+    echo "Installing eza via cargo..."
+    cargo install eza
+fi
+
+# Note: Brave, Discord, Obsidian, Zed, Signal, DBeaver, LocalSend installed via Flatpak
 {{- end }}
 
 # =============================================================================

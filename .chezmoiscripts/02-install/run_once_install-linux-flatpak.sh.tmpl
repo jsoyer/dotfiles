@@ -3,8 +3,12 @@
 {{- $isUbuntu        := and (eq .chezmoi.osRelease.id "ubuntu") (not $isRPi) -}}
 {{- $ubuntuFlavor    := .ubuntu_flavor | default "server" -}}
 {{- $isUbuntuDesktop := and $isUbuntu (eq $ubuntuFlavor "desktop") -}}
-{{- $isFedoraAtomic  := lookPath "rpm-ostree" -}}
-{{- if or $isFedoraAtomic $isUbuntuDesktop -}}
+{{- $isFedoraAtomic  := and (eq .chezmoi.os "linux") (lookPath "rpm-ostree") (not (stat "/.toolboxenv")) (not (env "TOOLBOX_PATH")) -}}
+{{- $fedoraFlavor    := .fedora_flavor | default "desktop" -}}
+{{- $isFedora        := and (eq .chezmoi.os "linux") (lookPath "dnf") (not (lookPath "rpm-ostree")) (not (stat "/.toolboxenv")) (not (env "TOOLBOX_PATH")) -}}
+{{- $isFedoraDesktop := and $isFedora (eq $fedoraFlavor "desktop") -}}
+{{- $isFedoraServer  := and $isFedora (eq $fedoraFlavor "server") -}}
+{{- if or $isFedoraAtomic $isFedoraDesktop $isUbuntuDesktop -}}
 #!/bin/bash
 # =============================================================================
 # Flatpak Packages Installation (Fedora Atomic + Ubuntu Desktop)
@@ -99,6 +103,42 @@ for pkg in \
     org.signal.Signal \
     org.telegram.desktop \
     org.videolan.VLC \
+    tech.feliciano.pocket-casts
+do
+    if flatpak info --user "$pkg" &>/dev/null; then
+        echo "  $pkg already installed"
+    else
+        echo "  Installing $pkg..."
+        flatpak install --user --noninteractive flathub "$pkg" || echo "  Failed to install $pkg"
+    fi
+done
+{{- end }}
+
+{{- if $isFedoraDesktop }}
+# Flatpak for Fedora Desktop (apps not available or outdated in DNF repos)
+if ! command -v flatpak &>/dev/null; then
+    echo "Flatpak not found, installing via dnf..."
+    sudo dnf install -y flatpak
+fi
+
+# Add Flathub remote (user-level)
+if ! flatpak remote-list --user 2>/dev/null | grep -q flathub; then
+    flatpak remote-add --user --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+fi
+
+echo "Refreshing Flathub metadata..."
+flatpak update --appstream flathub --user 2>/dev/null || true
+
+echo "Installing Flatpak packages (Fedora Desktop)..."
+for pkg in \
+    com.brave.Browser \
+    com.discordapp.Discord \
+    dev.zed.Zed \
+    io.dbeaver.DBeaverCommunity \
+    io.github.shiftey.Desktop \
+    md.obsidian.Obsidian \
+    org.localsend.localsend_app \
+    org.signal.Signal \
     tech.feliciano.pocket-casts
 do
     if flatpak info --user "$pkg" &>/dev/null; then

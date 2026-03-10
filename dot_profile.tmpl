@@ -25,20 +25,40 @@ elif [ -f /etc/os-release ] && { . /etc/os-release && [ "${ID:-}" = "ubuntu" ]; 
     # Ubuntu (desktop vs server by hostname prefix)
     _h="${HOSTNAME%%.*}"
     case "${_h}" in
-        ubuntu-desktop*)
-            export STARSHIP_ICON=""
-            export STARSHIP_ICON_COLOR="peach"
-            export STARSHIP_CONFIG="${HOME}/.config/starship/starship.toml"
-            ;;
-        *)
+        ubuntu-server*)
             export STARSHIP_ICON=""
             export STARSHIP_ICON_COLOR="yellow"
             export STARSHIP_CONFIG="${HOME}/.config/starship/starship-rpi.toml"
             ;;
+        *)
+            export STARSHIP_ICON=""
+            export STARSHIP_ICON_COLOR="peach"
+            export STARSHIP_CONFIG="${HOME}/.config/starship/starship.toml"
+            ;;
+    esac
+    unset _h
+elif command -v rpm-ostree &>/dev/null 2>/dev/null; then
+    # Fedora Atomic
+    export STARSHIP_ICON=""
+    export STARSHIP_ICON_COLOR="blue"
+    export STARSHIP_CONFIG="${HOME}/.config/starship/starship-rpi.toml"
+elif [ -f /etc/os-release ] && { . /etc/os-release && [ "${ID:-}" = "fedora" ]; }; then
+    _h="${HOSTNAME%%.*}"
+    case "${_h}" in
+        fedora-server*)
+            export STARSHIP_ICON=""
+            export STARSHIP_ICON_COLOR="blue"
+            export STARSHIP_CONFIG="${HOME}/.config/starship/starship-rpi.toml"
+            ;;
+        *)
+            export STARSHIP_ICON=""
+            export STARSHIP_ICON_COLOR="blue"
+            export STARSHIP_CONFIG="${HOME}/.config/starship/starship.toml"
+            ;;
     esac
     unset _h
 else
-    # Other Linux (Fedora, Debian, etc.)
+    # Other Linux (Debian, etc.)
     export STARSHIP_ICON=""
     export STARSHIP_ICON_COLOR="blue"
     export STARSHIP_CONFIG="${HOME}/.config/starship/starship.toml"

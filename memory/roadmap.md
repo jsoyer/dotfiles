@@ -68,6 +68,28 @@ All 8 phases completed. Second-pass audit by 7 agents applied.
   and Fedora/Toolbox (install_gh_dnf via dnf5-plugins + config-manager addrepo)
 - memory/roadmap.md: regenerated cleanly
 
+## Phase 10 — Fedora Flavors
+
+**Objectif** : Mirror Ubuntu's hostname-based flavor detection for Fedora.
+
+### Convention hostname
+
+| Hostname | MACHINE_PROFILE | Detection |
+|----------|----------------|-----------|
+| `fedora-server*` | `fedora-server` | hostname |
+| `fedora-atomic*` ou `rpm-ostree` | `fedora-atomic` | tool (fiable) |
+| `fedora-*` (tout autre) | `fedora-desktop` | hostname |
+
+### Fichiers modifies
+- `.chezmoi.toml.tmpl` -> `fedora_flavor` auto-derive (no prompt)
+- `dot_zsh/00-env.zsh`, `dot_bash/00-env.bash` -> detection + case patterns
+- `dot_profile.tmpl` -> branches fedora desktop/server/atomic
+- `scripts/bootstrap.sh` -> hostname-based detection
+- `run_once_install-linux-packages.sh.tmpl` -> split server/desktop DNF blocks
+- `run_once_install-linux-flatpak.sh.tmpl` -> fedora-desktop block (user Flatpak)
+- `run_once_configure-linux.sh.tmpl` -> GNOME dark mode fedora-desktop
+- `dot_private/Brewfile.tmpl` + `Brewfile_fedora_desktop` (new)
+
 ## Status
 Complete. No pending items.
-Last updated: 2026-03-09
+Last updated: 2026-03-10
