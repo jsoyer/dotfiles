@@ -1,0 +1,132 @@
+#!/usr/bin/env bash
+# pacmanw — pacman wrapper that keeps Pacfile manifests in sync with chezmoi
+# Usage: pacmanw <pacman-subcommand> [args...]
+#        pacmanw -S foo     → installs + adds to Pacfile
+#        pacmanw -R foo     → removes + removes from Pacfile
+#        pacmanw -Syu       → passthrough (system upgrade)
+
+set -euo pipefail
+
+BLUE='\033[0;34m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+RED='\033[0;31m'
+NC='\033[0m'
+
+CHEZMOI_SOURCE_PATH="${CHEZMOI_SOURCE_PATH:-${HOME}/.local/share/chezmoi}"
+MANIFEST_DIR="${CHEZMOI_SOURCE_PATH}/dot_private"
+
+validate_pkg() {
+    local pkg="$1"
+    if ! [[ "$pkg" =~ ^[a-zA-Z0-9][a-zA-Z0-9.+\-_]{0,127}$ ]]; then
+        printf '%b\n' "${RED}Error: invalid package name: '${pkg}'${NC}" >&2
+        exit 1
+    fi
+}
+
+get_pacfile() {
+    case "${MACHINE_PROFILE:-}" in
+        arch-desktop) printf '%s' "${MANIFEST_DIR}/Pacfile_arch_desktop" ;;
+        arch-server)  printf '%s' "${MANIFEST_DIR}/Pacfile_arch_server" ;;
+        *)            printf '' ;;
+    esac
+}
+
+add_to_manifest() {
+    local manifest="$1" pkg="$2"
+    if grep -qxF "$pkg" "$manifest" 2>/dev/null; then
+        printf '%b\n' "${YELLOW}${pkg} already in $(basename "$manifest")${NC}"
+        return
+    fi
+    printf '%s\n' "$pkg" >> "$manifest"
+    printf '%b\n' "${GREEN}Added ${pkg} to $(basename "$manifest")${NC}"
+}
+
+remove_from_manifest() {
+    local manifest="$1" pkg="$2"
+    if ! grep -qxF "$pkg" "$manifest" 2>/dev/null; then
+        printf '%b\n' "${YELLOW}${pkg} not in $(basename "$manifest")${NC}"
+        return
+    fi
+    local tmp
+    tmp="$(mktemp)"
+    grep -vxF "$pkg" "$manifest" > "$tmp"
+    mv "$tmp" "$manifest"
+    printf '%b\n' "${GREEN}Removed ${pkg} from $(basename "$manifest")${NC}"
+}
+
+sync_to_git() {
+    local manifest="$1"
+    if command -v chezmoi &>/dev/null; then
+        chezmoi re-add "$manifest" 2>/dev/null || true
+    fi
+}
+
+if [[ $# -eq 0 ]]; then
+    exec sudo pacman
+fi
+
+# Parse subcommand: pacman uses flags like -S, -R, -Syu etc.
+SUBCMD="$1"
+shift
+
+case "$SUBCMD" in
+    -S|--sync)
+        # Check it's not an upgrade flag (-Syu, -Su, etc.)
+        if [[ $# -eq 0 ]]; then
+            exec sudo pacman "$SUBCMD" "$@"
+        fi
+        # Filter out flags (starting with -) to get package names
+        PKGS=()
+        FLAGS=()
+        for arg in "$@"; do
+            if [[ "$arg" == -* ]]; then
+                FLAGS+=("$arg")
+            else
+                PKGS+=("$arg")
+            fi
+        done
+        if [[ ${#PKGS[@]} -eq 0 ]]; then
+            # Pure flags like -Syu — passthrough
+            exec sudo pacman "$SUBCMD" "${FLAGS[@]}"
+        fi
+        for pkg in "${PKGS[@]}"; do
+            validate_pkg "$pkg"
+        done
+        printf '%b\n' "${BLUE}Installing: ${PKGS[*]}${NC}"
+        sudo pacman "$SUBCMD" "${FLAGS[@]}" "${PKGS[@]}"
+        manifest="$(get_pacfile)"
+        if [[ -n "$manifest" ]]; then
+            for pkg in "${PKGS[@]}"; do
+                add_to_manifest "$manifest" "$pkg"
+            done
+            sync_to_git "$manifest"
+        fi
+        ;;
+    -R|--remove|-Rs|-Rns)
+        PKGS=()
+        FLAGS=()
+        for arg in "$@"; do
+            if [[ "$arg" == -* ]]; then
+                FLAGS+=("$arg")
+            else
+                PKGS+=("$arg")
+            fi
+        done
+        if [[ ${#PKGS[@]} -eq 0 ]]; then
+            exec sudo pacman "$SUBCMD" "${FLAGS[@]}"
+        fi
+        printf '%b\n' "${BLUE}Removing: ${PKGS[*]}${NC}"
+        sudo pacman "$SUBCMD" "${FLAGS[@]}" "${PKGS[@]}"
+        manifest="$(get_pacfile)"
+        if [[ -n "$manifest" ]]; then
+            for pkg in "${PKGS[@]}"; do
+                remove_from_manifest "$manifest" "$pkg"
+            done
+            sync_to_git "$manifest"
+        fi
+        ;;
+    *)
+        exec sudo pacman "$SUBCMD" "$@"
+        ;;
+esac

@@ -1,0 +1,6 @@
+# Fedora Atomic base layer packages (rpm-ostree)
+# managed by ostreew — do not edit manually
+git
+openssh-server
+curl
+chezmoi

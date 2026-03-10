@@ -1,0 +1,109 @@
+#!/usr/bin/env bash
+# ostreew — rpm-ostree wrapper that keeps Pacfile_fedora_atomic in sync
+# Usage: ostreew install foo   → installs + adds to Pacfile_fedora_atomic
+#        ostreew uninstall foo → removes + removes from Pacfile_fedora_atomic
+#        ostreew upgrade       → passthrough
+
+set -euo pipefail
+
+BLUE='\033[0;34m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+RED='\033[0;31m'
+NC='\033[0m'
+
+CHEZMOI_SOURCE_PATH="${CHEZMOI_SOURCE_PATH:-${HOME}/.local/share/chezmoi}"
+MANIFEST="${CHEZMOI_SOURCE_PATH}/dot_private/Pacfile_fedora_atomic"
+
+validate_pkg() {
+    local pkg="$1"
+    if ! [[ "$pkg" =~ ^[a-zA-Z0-9][a-zA-Z0-9.+\-]{0,127}$ ]]; then
+        printf '%b\n' "${RED}Error: invalid package name: '${pkg}'${NC}" >&2
+        exit 1
+    fi
+}
+
+add_to_manifest() {
+    local pkg="$1"
+    if grep -qxF "$pkg" "$MANIFEST" 2>/dev/null; then
+        printf '%b\n' "${YELLOW}${pkg} already in Pacfile_fedora_atomic${NC}"
+        return
+    fi
+    printf '%s\n' "$pkg" >> "$MANIFEST"
+    printf '%b\n' "${GREEN}Added ${pkg} to Pacfile_fedora_atomic${NC}"
+}
+
+remove_from_manifest() {
+    local pkg="$1"
+    if ! grep -qxF "$pkg" "$MANIFEST" 2>/dev/null; then
+        printf '%b\n' "${YELLOW}${pkg} not in Pacfile_fedora_atomic${NC}"
+        return
+    fi
+    local tmp
+    tmp="$(mktemp)"
+    grep -vxF "$pkg" "$MANIFEST" > "$tmp"
+    mv "$tmp" "$MANIFEST"
+    printf '%b\n' "${GREEN}Removed ${pkg} from Pacfile_fedora_atomic${NC}"
+}
+
+sync_to_git() {
+    if command -v chezmoi &>/dev/null; then
+        chezmoi re-add "$MANIFEST" 2>/dev/null || true
+    fi
+}
+
+if [[ $# -eq 0 ]]; then
+    exec sudo rpm-ostree
+fi
+
+SUBCMD="$1"
+shift
+
+case "$SUBCMD" in
+    install)
+        PKGS=()
+        FLAGS=()
+        for arg in "$@"; do
+            if [[ "$arg" == -* ]]; then
+                FLAGS+=("$arg")
+            else
+                PKGS+=("$arg")
+            fi
+        done
+        if [[ ${#PKGS[@]} -eq 0 ]]; then
+            exec sudo rpm-ostree "$SUBCMD" "${FLAGS[@]}"
+        fi
+        for pkg in "${PKGS[@]}"; do
+            validate_pkg "$pkg"
+        done
+        printf '%b\n' "${BLUE}Installing (rpm-ostree): ${PKGS[*]}${NC}"
+        sudo rpm-ostree install --apply-live "${FLAGS[@]}" "${PKGS[@]}"
+        for pkg in "${PKGS[@]}"; do
+            add_to_manifest "$pkg"
+        done
+        sync_to_git
+        ;;
+    uninstall|remove)
+        PKGS=()
+        FLAGS=()
+        for arg in "$@"; do
+            if [[ "$arg" == -* ]]; then
+                FLAGS+=("$arg")
+            else
+                PKGS+=("$arg")
+            fi
+        done
+        if [[ ${#PKGS[@]} -eq 0 ]]; then
+            exec sudo rpm-ostree "$SUBCMD" "${FLAGS[@]}"
+        fi
+        printf '%b\n' "${BLUE}Removing (rpm-ostree): ${PKGS[*]}${NC}"
+        sudo rpm-ostree uninstall --apply-live "${FLAGS[@]}" "${PKGS[@]}"
+        for pkg in "${PKGS[@]}"; do
+            remove_from_manifest "$pkg"
+        done
+        sync_to_git
+        ;;
+    *)
+        exec sudo rpm-ostree "$SUBCMD" "$@"
+        ;;
+esac

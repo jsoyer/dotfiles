@@ -1,0 +1,22 @@
+# Arch Linux server packages (pacman)
+# managed by pacmanw — do not edit manually
+base-devel
+git
+curl
+wget
+zsh
+tmux
+fzf
+neovim
+fd
+ripgrep
+jq
+unzip
+bat
+zoxide
+atuin
+direnv
+fontconfig
+htop
+openssh
+github-cli
