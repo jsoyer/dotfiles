@@ -21,16 +21,21 @@ All configurations use the **Catppuccin Mocha** color palette for a consistent, 
 
 ## ⚙️ Profile-Based Configuration
 
-This setup uses `chezmoi`'s templating capabilities to apply different configurations based on a `profile` attribute defined in `chezmoi.toml.tmpl`. This allows for a clean separation between machine types (professional, personal, Linux, etc.).
+This setup uses `chezmoi`'s templating capabilities to apply different configurations based on `MACHINE_PROFILE`, detected at runtime from hostname, OS, and hardware. This allows for a clean separation between machine types.
 
-| Profile          | Hostname(s)      | OS       | Package Manager | Prompt Icon |
-| ---------------- | ---------------- | -------- | --------------- | ----------- |
-| `mac`            | `jsoyer-macOS`   | macOS    | `brew`          | `💼`        |
-| `mac`            | *(default)*      | macOS    | `brew`          | ``         |
-| `linux`          | `fedora-atomic`  | Fedora   | `flatpak`       | ``         |
-| `linux`          | `fedora`         | Fedora   | `dnf`           | ``         |
-| `windows`        | *(any)*          | Windows  | `scoop`         | ``         |
-| `rpi`            | *(rpi kernel)*   | Linux    | `apt`           | `🍓`        |
+| `MACHINE_PROFILE`  | Detection                              | OS       | Package Manager     | Theme          |
+| ------------------ | -------------------------------------- | -------- | ------------------- | -------------- |
+| `mac-pro`          | hostname `jsoyer-macOS`                | macOS    | Homebrew            | Catppuccin     |
+| `mac-personal`     | macOS (other hosts)                    | macOS    | Homebrew            | Catppuccin     |
+| `ubuntu-desktop`   | Ubuntu, hostname not `ubuntu-server*`  | Linux    | apt + Linuxbrew     | Catppuccin     |
+| `ubuntu-server`    | Ubuntu, hostname `ubuntu-server*`      | Linux    | apt + Linuxbrew     | Snazzy         |
+| `fedora-desktop`   | Fedora, hostname not `fedora-server*`  | Linux    | dnf + Linuxbrew     | Catppuccin     |
+| `fedora-server`    | Fedora, hostname `fedora-server*`      | Linux    | dnf                 | Snazzy         |
+| `fedora-atomic`    | `rpm-ostree` present                   | Linux    | rpm-ostree          | Snazzy         |
+| `debian`           | Debian (non-RPi)                       | Linux    | apt                 | Snazzy         |
+| `toolbox`          | `TOOLBOX_PATH` set                     | Linux    | (host tools)        | Snazzy         |
+| `rpi`              | `/proc/device-tree/model` contains rpi | Linux    | apt + Linuxbrew     | Snazzy         |
+| `windows`          | cygwin/msys/mingw                      | Windows  | Scoop               | N/A            |
 
 ---
 
@@ -82,6 +87,7 @@ This setup uses `chezmoi`'s templating capabilities to apply different configura
 - **Claude Code** - AI coding assistant (165 agents, 84 skills, 15 MCP servers)
 - **OpenCode** - Alternative AI coding CLI (shared MCP config)
 - **RTK** - Token optimization proxy for Claude Code
+- **codecompanion.nvim** - Multi-provider AI in Neovim (Claude, OpenAI, Gemini, Mistral, Ollama + CLI agents)
 
 ### Other Tools
 - **FZF** - Fuzzy finder
@@ -126,13 +132,12 @@ sh -c "$(curl -fsLS get.chezmoi.io)" -- init --apply jsoyer
 
 ### Platform Differences
 
-| Feature | macOS | Fedora | Raspberry Pi | Windows |
-|---------|-------|--------|-------------|---------|
-| **Theme** | Catppuccin Mocha | Catppuccin Mocha | Snazzy | N/A |
-| **Package Manager** | Homebrew | Linuxbrew + dnf / rpm-ostree | Linuxbrew + apt | Scoop |
-| **Prompt** | `~/path ➜` | `~/path ➜` | `🍓 host:~/path ❯` | N/A |
-| **Tmux Bar** | Top | Top | Bottom | Top |
-| **Tmux Prefix** | `Ctrl+A` | `Ctrl+A` | `Ctrl+B` | `Ctrl+A` |
+| Feature | macOS | Fedora Desktop | Fedora Server/Atomic | Ubuntu Desktop | Ubuntu Server / RPi | Windows |
+|---------|-------|----------------|----------------------|----------------|---------------------|---------|
+| **Theme** | Catppuccin Mocha | Catppuccin Mocha | Snazzy | Catppuccin Mocha | Snazzy | N/A |
+| **Package Manager** | Homebrew | dnf + Linuxbrew | dnf / rpm-ostree | apt + Linuxbrew | apt + Linuxbrew | Scoop |
+| **Editor** | Neovim | Neovim | Neovim | Neovim | nano | N/A |
+| **Tmux Prefix** | `Ctrl+A` | `Ctrl+A` | `Ctrl+A` | `Ctrl+A` | `Ctrl+B` | `Ctrl+A` |
 
 ### Post-Installation Steps
 
