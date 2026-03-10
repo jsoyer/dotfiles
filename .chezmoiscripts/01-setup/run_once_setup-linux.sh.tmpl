@@ -10,6 +10,9 @@
 {{- $isFedoraDesktop := eq $mp "fedora-desktop" -}}
 {{- $isFedoraServer  := eq $mp "fedora-server" -}}
 {{- $isFedora        := or $isFedoraDesktop $isFedoraServer -}}
+{{- $isArchDesktop   := eq $mp "arch-desktop" -}}
+{{- $isArchServer    := eq $mp "arch-server" -}}
+{{- $isArch          := or $isArchDesktop $isArchServer -}}
 #!/usr/bin/env bash
 # =============================================================================
 # Linux Setup - Locale, Repositories, Tailscale
@@ -36,6 +39,20 @@ export LC_ALL=en_US.UTF-8
 # Create symlinks for renamed packages on Debian/Ubuntu
 sudo ln -sf /usr/bin/batcat /usr/local/bin/bat 2>/dev/null || true
 sudo ln -sf /usr/bin/fdfind /usr/local/bin/fd 2>/dev/null || true
+{{- end }}
+
+# =============================================================================
+# Arch Linux - Locale configuration
+# =============================================================================
+{{- if $isArch }}
+echo "Configuring Arch Linux locale..."
+if ! grep -q "^en_US.UTF-8 UTF-8" /etc/locale.gen 2>/dev/null; then
+    echo "en_US.UTF-8 UTF-8" | sudo tee -a /etc/locale.gen > /dev/null
+    sudo locale-gen
+fi
+if [[ ! -f /etc/locale.conf ]]; then
+    echo "LANG=en_US.UTF-8" | sudo tee /etc/locale.conf > /dev/null
+fi
 {{- end }}
 
 # =============================================================================

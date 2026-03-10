@@ -4,6 +4,8 @@
 {{- $isUbuntu       := or (eq $mp "ubuntu-server") (eq $mp "ubuntu-desktop") -}}
 {{- $isFedoraAtomic := eq $mp "fedora-atomic" -}}
 {{- $isFedora       := or (eq $mp "fedora-desktop") (eq $mp "fedora-server") -}}
+{{- $isArch         := or (eq $mp "arch-desktop") (eq $mp "arch-server") -}}
+{{- $isArchDesktop  := eq $mp "arch-desktop" -}}
 #!/usr/bin/env bash
 # Update Linux packages
 
@@ -38,6 +40,20 @@ echo "Updating Fedora packages..."
 sudo dnf upgrade -y
 {{- end }}
 
+{{- if $isArch }}
+echo "Updating Arch Linux packages..."
+sudo pacman -Syu --noconfirm
+
+if [[ "${MACHINE_PROFILE:-}" == "arch-desktop" ]] && command -v yay &>/dev/null; then
+    echo "Updating AUR packages..."
+    yay -Sua --noconfirm
+fi
+
+if command -v uv &>/dev/null; then
+    echo "Updating uv..."
+    uv self update
+fi
+{{- end }}
 {{- if $isFedoraAtomic }}
 echo "Updating Fedora Atomic (rpm-ostree)..."
 sudo rpm-ostree upgrade

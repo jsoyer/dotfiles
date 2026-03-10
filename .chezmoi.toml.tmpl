@@ -34,6 +34,11 @@ encryption = "age"
 {{- else if hasPrefix "fedora-desktop" .chezmoi.hostname -}}fedora-desktop
 {{- else -}}{{ promptStringOnce . "machine_profile" "Machine profile [fedora-desktop/fedora-server]" "fedora-desktop" }}
 {{- end -}}
+{{- else if eq .chezmoi.osRelease.id "arch" -}}
+{{- if hasPrefix "arch-server" .chezmoi.hostname -}}arch-server
+{{- else if hasPrefix "arch-desktop" .chezmoi.hostname -}}arch-desktop
+{{- else -}}{{ promptStringOnce . "machine_profile" "Machine profile [arch-desktop/arch-server]" "arch-desktop" }}
+{{- end -}}
 {{- else if eq .chezmoi.osRelease.id "debian" -}}debian
 {{- else -}}{{ promptStringOnce . "machine_profile" "Machine profile" "debian" }}
 {{- end -}}

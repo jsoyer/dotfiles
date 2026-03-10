@@ -10,6 +10,9 @@
 {{- $isFedoraDesktop := eq $mp "fedora-desktop" -}}
 {{- $isFedoraServer  := eq $mp "fedora-server" -}}
 {{- $isFedora        := or $isFedoraDesktop $isFedoraServer -}}
+{{- $isArchDesktop   := eq $mp "arch-desktop" -}}
+{{- $isArchServer    := eq $mp "arch-server" -}}
+{{- $isArch          := or $isArchDesktop $isArchServer -}}
 #!/usr/bin/env bash
 # =============================================================================
 # Linux Packages Installation - apt, dnf, rpm-ostree
@@ -33,6 +36,16 @@
 {{- end }}
 {{- if $isFedoraDesktop }}
 # Dnffile_fedora_desktop: {{ include "dot_private/Dnffile_fedora_desktop" | sha256sum }}
+{{- end }}
+{{- if $isArchDesktop }}
+# Pacfile_arch_desktop:   {{ include "dot_private/Pacfile_arch_desktop" | sha256sum }}
+# Pacfile_aur_desktop:    {{ include "dot_private/Pacfile_aur_desktop" | sha256sum }}
+{{- end }}
+{{- if $isArchServer }}
+# Pacfile_arch_server:    {{ include "dot_private/Pacfile_arch_server" | sha256sum }}
+{{- end }}
+{{- if $isFedoraAtomic }}
+# Pacfile_fedora_atomic:  {{ include "dot_private/Pacfile_fedora_atomic" | sha256sum }}
 {{- end }}
 
 set -euo pipefail
@@ -353,10 +366,78 @@ fi
 {{- end }}
 
 # =============================================================================
-# Fedora Atomic - rpm-ostree packages
+# Arch Linux Desktop - pacman + yay (AUR)
 # =============================================================================
-{{- if and (lookPath "rpm-ostree") (not (stat "/.toolboxenv")) }}
-echo "Fedora Atomic - no additional packages (git/chezmoi handled by bootstrap)"
+{{- if $isArchDesktop }}
+echo "Installing Arch Linux Desktop packages via pacman..."
+
+# Install packages from Pacfile manifest
+_pacfile="{{ .chezmoi.sourceDir }}/dot_private/Pacfile_arch_desktop"
+if [[ -f "$_pacfile" ]]; then
+    mapfile -t _pkgs < <(grep -v '^\s*#' "$_pacfile" | grep -v '^\s*$')
+    sudo pacman -S --noconfirm --needed "${_pkgs[@]}"
+fi
+
+# Install yay (AUR helper) if not present
+if ! command -v yay &>/dev/null; then
+    echo "Installing yay (AUR helper)..."
+    _yay_tmp="$(mktemp -d)"
+    trap 'rm -rf "$_yay_tmp"' EXIT
+    git clone https://aur.archlinux.org/yay.git "$_yay_tmp/yay"
+    (cd "$_yay_tmp/yay" && makepkg -si --noconfirm)
+fi
+
+# Install AUR packages from Pacfile_aur_desktop
+_aurfile="{{ .chezmoi.sourceDir }}/dot_private/Pacfile_aur_desktop"
+if [[ -f "$_aurfile" ]] && command -v yay &>/dev/null; then
+    mapfile -t _aurpkgs < <(grep -v '^\s*#' "$_aurfile" | grep -v '^\s*$')
+    [[ ${#_aurpkgs[@]} -gt 0 ]] && yay -S --noconfirm --needed "${_aurpkgs[@]}"
+fi
+
+# Install uv
+if ! command -v uv &>/dev/null; then
+    echo "Installing uv..."
+    curl -LsSf https://astral.sh/uv/install.sh | sh
+fi
+{{- end }}
+
+# =============================================================================
+# Arch Linux Server - pacman only
+# =============================================================================
+{{- if $isArchServer }}
+echo "Installing Arch Linux Server packages via pacman..."
+
+# Install packages from Pacfile manifest
+_pacfile="{{ .chezmoi.sourceDir }}/dot_private/Pacfile_arch_server"
+if [[ -f "$_pacfile" ]]; then
+    mapfile -t _pkgs < <(grep -v '^\s*#' "$_pacfile" | grep -v '^\s*$')
+    sudo pacman -S --noconfirm --needed "${_pkgs[@]}"
+fi
+
+# Install uv
+if ! command -v uv &>/dev/null; then
+    echo "Installing uv..."
+    curl -LsSf https://astral.sh/uv/install.sh | sh
+fi
+{{- end }}
+
+# =============================================================================
+# Fedora Atomic - rpm-ostree base layer packages
+# =============================================================================
+{{- if $isFedoraAtomic }}
+echo "Installing Fedora Atomic base layer packages via rpm-ostree..."
+
+_pacfile="{{ .chezmoi.sourceDir }}/dot_private/Pacfile_fedora_atomic"
+if [[ -f "$_pacfile" ]]; then
+    mapfile -t _pkgs < <(grep -v '^\s*#' "$_pacfile" | grep -v '^\s*$')
+    for _pkg in "${_pkgs[@]}"; do
+        if ! rpm -q "$_pkg" &>/dev/null; then
+            echo "  Installing $_pkg..."
+            sudo rpm-ostree install --apply-live "$_pkg" 2>/dev/null || \
+                echo "  Warning: could not install $_pkg (may need reboot)"
+        fi
+    done
+fi
 {{- end }}
 
 echo "Linux packages installation complete!"
