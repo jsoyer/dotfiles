@@ -1,4 +1,4 @@
-name: Validate Dotfiles
+name: 🔍 Validate Dotfiles
 on:
   push:
     branches: [main]
@@ -29,7 +29,9 @@ jobs:
       - name: Validate templates
         run: |
           # Verify all templates parse without errors
-          if ! chezmoi init --source="$(pwd)" --destination=/tmp/chezmoi-test --no-tty 2>&1; then
+          # --promptString pre-answers promptStringOnce calls (ubuntu_flavor used on Linux only)
+          if ! chezmoi init --source="$(pwd)" --destination=/tmp/chezmoi-test --no-tty \
+            --promptString ubuntu_flavor=server 2>&1; then
             echo "ERROR: Template parsing failed"
             exit 1
           fi
