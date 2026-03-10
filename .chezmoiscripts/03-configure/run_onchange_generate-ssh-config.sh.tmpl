@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+# chezmoi:template:left-delimiter="{{" right-delimiter="}}"
+set -euo pipefail
+
+SSH_CONFIG="${HOME}/.ssh/config"
+mkdir -p "${HOME}/.ssh"
+chmod 700 "${HOME}/.ssh"
+
+{{- if ne .chezmoi.os "darwin" }}
+
+printf '# Ignore macOS-only options on Linux\nIgnoreUnknown UseKeychain\n' > "${SSH_CONFIG}"
+chmod 600 "${SSH_CONFIG}"
+
+{{- else }}
+
+# Fetch SSH config from 1Password (requires desktop app to be running)
+if op document get "wf34z662n2u3kn5jhrmrmo3o4u" > "${SSH_CONFIG}.tmp" 2>/dev/null; then
+    mv "${SSH_CONFIG}.tmp" "${SSH_CONFIG}"
+    chmod 600 "${SSH_CONFIG}"
+    echo "chezmoi: SSH config updated from 1Password"
+else
+    rm -f "${SSH_CONFIG}.tmp"
+    echo "chezmoi: WARNING - 1Password not available, SSH config unchanged" >&2
+fi
+
+{{- end }}

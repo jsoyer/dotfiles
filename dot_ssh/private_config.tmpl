@@ -1,7 +1,0 @@
-{{- if ne .chezmoi.os "darwin" -}}
-# Ignore macOS-only options on Linux
-IgnoreUnknown UseKeychain
-{{ end -}}
-{{- if stat "/Applications/1Password.app" -}}
-{{- onepasswordDocument "wf34z662n2u3kn5jhrmrmo3o4u" -}}
-{{- end -}}
