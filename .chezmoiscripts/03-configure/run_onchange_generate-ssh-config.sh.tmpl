@@ -1,3 +1,4 @@
+{{- if ne .chezmoi.os "windows" -}}
 #!/usr/bin/env bash
 # chezmoi:template:left-delimiter="{{" right-delimiter="}}"
 set -euo pipefail
@@ -24,3 +25,4 @@ else
 fi
 
 {{- end }}
+{{ end -}}
