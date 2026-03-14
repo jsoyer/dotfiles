@@ -2,7 +2,14 @@
 {{- /* Sync with: sync-mcp-servers or manually match dot_claude/private_settings.json.tmpl */ -}}
 {
   "$schema": "https://opencode.ai/config.json",
-  "theme": "wezterm-match",
+  "theme": "catppuccin",
+  "plugin": [
+    "@slkiser/opencode-quota",
+    "opencode-sessions",
+    "opencode-snippets",
+    "opencode-plugin-openspec",
+    "opencode-swarm-plugin"
+  ],
   "permission": {
     "bash": "allow",
     "read": "allow",

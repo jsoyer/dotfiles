@@ -1,15 +1,30 @@
 -- Git plugins configuration
 return {
-  -- Git worktree management
+  -- Git worktree management (polarmutex fork, actively maintained)
   {
-    "brandoncc/git-worktree.nvim",
-    branch = "main",
-    event = "VeryLazy",
-    dependencies = { "nvim-telescope/telescope.nvim" },
+    "polarmutex/git-worktree.nvim",
+    version = "^2",
+    dependencies = {
+      "nvim-lua/plenary.nvim",
+      "nvim-telescope/telescope.nvim",
+    },
     config = function()
-      require("git-worktree").setup()
       require("telescope").load_extension("git_worktree")
+      local Hooks = require("git-worktree.hooks")
+      Hooks.register(Hooks.type.SWITCH, Hooks.builtins.update_current_buffer_on_switch)
     end,
+    keys = {
+      {
+        "<leader>gwl",
+        function() require("telescope").extensions.git_worktree.git_worktrees() end,
+        desc = "Git worktrees: list/switch",
+      },
+      {
+        "<leader>gwc",
+        function() require("telescope").extensions.git_worktree.create_git_worktree() end,
+        desc = "Git worktrees: create",
+      },
+    },
   },
 
   -- Neogit - Magit clone for Neovim

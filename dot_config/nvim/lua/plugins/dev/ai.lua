@@ -1,5 +1,126 @@
 -- AI coding assistants
 return {
+  -- opencode.nvim: OpenCode CLI integration
+  {
+    "nickjvandyke/opencode.nvim",
+    version = "*",
+    config = function()
+      vim.g.opencode_opts = {}
+      vim.o.autoread = true
+    end,
+    keys = {
+      {
+        "<leader>ao",
+        function() require("opencode").toggle() end,
+        mode = { "n", "v" },
+        desc = "OpenCode toggle",
+      },
+      {
+        "<C-a>",
+        function() require("opencode").ask("@this: ", { submit = true }) end,
+        mode = "v",
+        desc = "OpenCode ask (selection)",
+      },
+    },
+  },
+
+  -- copilot.lua: GitHub Copilot ghost-text completions
+  {
+    "zbirenbaum/copilot.lua",
+    cmd = "Copilot",
+    event = "InsertEnter",
+    opts = {
+      suggestion = {
+        enabled = true,
+        auto_trigger = true,
+        keymap = {
+          accept = "<M-l>",
+          accept_word = "<M-k>",
+          accept_line = "<M-j>",
+          next = "<M-]>",
+          prev = "<M-[>",
+          dismiss = "<C-]>",
+        },
+      },
+      panel = { enabled = false },
+      filetypes = {
+        markdown = true,
+        yaml = true,
+        ["."] = false,
+      },
+    },
+  },
+
+  -- avante.nvim: Cursor-style AI diff panel
+  {
+    "yetone/avante.nvim",
+    event = "VeryLazy",
+    build = "make",
+    dependencies = {
+      "nvim-treesitter/nvim-treesitter",
+      "nvim-lua/plenary.nvim",
+      "MunifTanjim/nui.nvim",
+      "nvim-telescope/telescope.nvim",
+    },
+    opts = {
+      provider = "claude",
+      auto_suggestions_provider = "copilot",
+      providers = {
+        claude = {
+          model = "claude-sonnet-4-6",
+          extra_request_body = { max_tokens = 4096 },
+        },
+        openai = {
+          model = "gpt-4o",
+        },
+        gemini = {
+          model = "gemini-2.5-pro",
+        },
+      },
+      selector = {
+        provider = "telescope",
+      },
+      behaviour = {
+        auto_suggestions = false,
+        auto_set_keymaps = true,
+      },
+    },
+  },
+
+  -- minuet-ai.nvim: multi-provider as-you-type completions
+  {
+    "milanglacier/minuet-ai.nvim",
+    dependencies = { "nvim-lua/plenary.nvim" },
+    event = "InsertEnter",
+    opts = {
+      provider = "openai_fim_compatible",
+      notify = "warn",
+      throttle = 1500,
+      provider_options = {
+        openai_fim_compatible = {
+          api_key = "OLLAMA_API_KEY",
+          name = "Ollama",
+          end_point = "http://localhost:11434/v1/completions",
+          model = "qwen2.5-coder:7b",
+          optional = {
+            max_tokens = 128,
+            stop = { "\n\n" },
+          },
+        },
+      },
+      virtualtext = {
+        auto_trigger_ft = {},
+        keymap = {
+          accept = "<A-a>",
+          accept_line = "<A-e>",
+          next = "<A-n>",
+          prev = "<A-p>",
+          dismiss = "<A-d>",
+        },
+      },
+    },
+  },
+
   -- codecompanion.nvim: multi-provider AI chat + inline editing
   -- Providers: Claude, ChatGPT, Gemini, Mistral, Ollama + ACP agents (Claude Code, Gemini CLI, OpenCode, Mistral Vibe, Codex)
   {

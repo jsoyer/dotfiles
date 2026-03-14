@@ -23,8 +23,11 @@ lua/plugins/
 ## Plugin Categories
 
 ### AI (ai.lua)
-- **Gen.nvim** - Local LLM (Ollama/Llama)
-- **Codeium** - AI code suggestions
+- **opencode.nvim** - OpenCode CLI integration (`<leader>ao` toggle, `<C-a>` ask)
+- **copilot.lua** - GitHub Copilot ghost-text completions (`<M-l>` accept)
+- **avante.nvim** - Cursor-style AI diff panel (Claude, OpenAI, Gemini)
+- **minuet-ai.nvim** - Multi-provider as-you-type completions (Ollama)
+- **codecompanion.nvim** - Multi-provider AI chat, inline, agents + ACP
 
 ### Completion (cmp.lua)
 - **nvim-cmp** - Completion engine
@@ -39,7 +42,7 @@ lua/plugins/
 - **Neogit** - Magit-like Git interface
 - **Gitsigns** - Git gutter decorations
 - **Fugitive** - Git commands
-- **git-worktree** - Worktree management
+- **git-worktree** (polarmutex) - Worktree management (`<leader>gwl` list, `<leader>gwc` create)
 - **Diffview** - Enhanced diff views
 
 ### Editor (editor.lua)

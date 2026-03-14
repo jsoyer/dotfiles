@@ -1,0 +1,58 @@
+{{- if ne .chezmoi.os "windows" -}}
+#!/usr/bin/env bash
+set -euo pipefail
+
+# =============================================================================
+# OpenCode Tools Installation
+# =============================================================================
+
+# ocx — OpenCode extension manager
+if ! command -v ocx &>/dev/null; then
+    echo "Installing ocx..."
+    curl -fsSL https://ocx.kdco.dev/install.sh | sh
+else
+    echo "ocx already installed"
+fi
+
+# oh-my-openagent — Agent harness plugin for OpenCode
+if ! npm list -g oh-my-openagent &>/dev/null; then
+    echo "Installing oh-my-openagent..."
+    npm install -g oh-my-openagent
+else
+    echo "oh-my-openagent already installed"
+fi
+
+# OpenSpec — Spec-driven development CLI
+if ! npm list -g @fission-ai/openspec &>/dev/null; then
+    echo "Installing OpenSpec..."
+    npm install -g @fission-ai/openspec@latest
+else
+    echo "OpenSpec already installed"
+fi
+
+# swarm-tools — Multi-agent orchestration
+if ! npm list -g opencode-swarm-plugin &>/dev/null; then
+    echo "Installing swarm-tools..."
+    npm install -g opencode-swarm-plugin
+else
+    echo "swarm-tools already installed"
+fi
+
+# opencode-notify — Desktop notifications plugin (via ocx)
+if ! ocx list 2>/dev/null | grep -q "kdco/notify"; then
+    echo "Installing opencode-notify..."
+    ocx add kdco/notify --from https://registry.kdco.dev
+else
+    echo "opencode-notify already installed"
+fi
+
+# opencode-worktree — Git worktree integration (via ocx)
+if ! ocx list 2>/dev/null | grep -q "kdco/worktree"; then
+    echo "Installing opencode-worktree..."
+    ocx add kdco/worktree --from https://registry.kdco.dev
+else
+    echo "opencode-worktree already installed"
+fi
+
+echo "OpenCode tools installation complete!"
+{{- end }}

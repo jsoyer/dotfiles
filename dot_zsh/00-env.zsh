@@ -255,3 +255,9 @@ fi
 # export DISCORD_TOKEN=""
 # export OBSIDIAN_API_KEY=""
 # export NOTION_API_KEY=""
+
+# ============================================================================
+# Telemetry opt-out
+# ============================================================================
+export OPENSPEC_TELEMETRY=0
+export DO_NOT_TRACK=1

@@ -43,7 +43,9 @@ if (which carapace | is-not-empty) {
 # ============================================================================
 mkdir ~/.cache/atuin
 if (which atuin | is-not-empty) {
-    atuin init nu | save --force ~/.cache/atuin/init.nu
+    # atuin 18.13.2 generates `job spawn -d` which doesn't exist in nu 0.111.0
+    # Replace `-d <tag>` with `-t <tag>` (the correct flag name)
+    atuin init nu | str replace --all 'job spawn -d' 'job spawn -t' | save --force ~/.cache/atuin/init.nu
 } else {
     "" | save --force ~/.cache/atuin/init.nu
 }
@@ -54,7 +56,14 @@ if (which atuin | is-not-empty) {
 $env.config.hooks.env_change.PWD = $env.config.hooks.env_change.PWD? | default []
 $env.config.hooks.env_change.PWD ++= [{||
     if (which direnv | is-empty) { return }
-    direnv export json | from json | default {} | load-env
+    let direnv_data = (direnv export json | from json | default {})
+    if ($direnv_data | is-empty) { return }
+    let has_path = ("PATH" in ($direnv_data | columns))
+    $direnv_data | load-env
+    if $has_path {
+        # direnv exports PATH as colon-separated string; convert back to list
+        $env.PATH = ($env.PATH | split row (char esep))
+    }
 }]
 
 # ============================================================================
