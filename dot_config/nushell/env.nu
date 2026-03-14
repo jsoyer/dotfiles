@@ -1,5 +1,5 @@
 # Nushell Environment Config File
-# version = "0.109.1"
+# version = "0.111.0"
 
 # ============================================================================
 # PATH Configuration (MUST BE FIRST)
@@ -55,7 +55,6 @@ $env.config.hooks.env_change.PWD = $env.config.hooks.env_change.PWD? | default [
 $env.config.hooks.env_change.PWD ++= [{||
     if (which direnv | is-empty) { return }
     direnv export json | from json | default {} | load-env
-    $env.PATH = do (env-conversions).path.from_string $env.PATH
 }]
 
 # ============================================================================
