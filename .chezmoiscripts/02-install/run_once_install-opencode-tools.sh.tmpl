@@ -38,18 +38,26 @@ else
     echo "swarm-tools already installed"
 fi
 
+# ocx plugins require a project context — install globally via config dir
+OCX_DIR="${HOME}/.config/opencode"
+mkdir -p "${OCX_DIR}"
+if [[ ! -f "${OCX_DIR}/ocx.jsonc" ]]; then
+    echo "Initializing ocx in ${OCX_DIR}..."
+    (cd "${OCX_DIR}" && ocx init 2>/dev/null || echo '{}' > "${OCX_DIR}/ocx.jsonc")
+fi
+
 # opencode-notify — Desktop notifications plugin (via ocx)
-if ! ocx list 2>/dev/null | grep -q "kdco/notify"; then
+if ! (cd "${OCX_DIR}" && ocx list 2>/dev/null | grep -q "kdco/notify"); then
     echo "Installing opencode-notify..."
-    ocx add kdco/notify --from https://registry.kdco.dev
+    (cd "${OCX_DIR}" && ocx add kdco/notify --from https://registry.kdco.dev)
 else
     echo "opencode-notify already installed"
 fi
 
 # opencode-worktree — Git worktree integration (via ocx)
-if ! ocx list 2>/dev/null | grep -q "kdco/worktree"; then
+if ! (cd "${OCX_DIR}" && ocx list 2>/dev/null | grep -q "kdco/worktree"); then
     echo "Installing opencode-worktree..."
-    ocx add kdco/worktree --from https://registry.kdco.dev
+    (cd "${OCX_DIR}" && ocx add kdco/worktree --from https://registry.kdco.dev)
 else
     echo "opencode-worktree already installed"
 fi
