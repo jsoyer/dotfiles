@@ -3,7 +3,7 @@ return {
   -- Git worktree management
   {
     "brandoncc/git-worktree.nvim",
-    branch = "stable",
+    branch = "main",
     event = "VeryLazy",
     dependencies = { "nvim-telescope/telescope.nvim" },
     config = function()
