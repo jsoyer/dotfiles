@@ -39,25 +39,32 @@ else
 fi
 
 # ocx global init — creates profiles and global config
-if [[ ! -f "${HOME}/.config/opencode/ocx.jsonc" ]]; then
+if [[ ! -f "${HOME}/.config/opencode/ocx.jsonc" ]] && [[ ! -f "${HOME}/.config/opencode/.opencode/ocx.jsonc" ]]; then
     echo "Initializing ocx globally..."
     ocx init --global
 else
     echo "ocx global config already initialized"
 fi
 
+# Fix: remove root-level ocx.jsonc if .opencode/ocx.jsonc also exists (ocx requires single location)
+if [[ -f "${HOME}/.config/opencode/ocx.jsonc" ]] && [[ -f "${HOME}/.config/opencode/.opencode/ocx.jsonc" ]]; then
+    echo "Consolidating duplicate ocx.jsonc..."
+    rm -f "${HOME}/.config/opencode/ocx.jsonc"
+fi
+
 # opencode-notify — Desktop notifications plugin (via ocx)
-if ! ocx list --global 2>/dev/null | grep -q "kdco/notify"; then
+OCX_DIR="${HOME}/.config/opencode"
+if ! (cd "${OCX_DIR}" && ocx list 2>/dev/null | grep -q "kdco/notify"); then
     echo "Installing opencode-notify..."
-    ocx add kdco/notify --from https://registry.kdco.dev --global
+    (cd "${OCX_DIR}" && ocx add kdco/notify --from https://registry.kdco.dev)
 else
     echo "opencode-notify already installed"
 fi
 
 # opencode-worktree — Git worktree integration (via ocx)
-if ! ocx list --global 2>/dev/null | grep -q "kdco/worktree"; then
+if ! (cd "${OCX_DIR}" && ocx list 2>/dev/null | grep -q "kdco/worktree"); then
     echo "Installing opencode-worktree..."
-    ocx add kdco/worktree --from https://registry.kdco.dev --global
+    (cd "${OCX_DIR}" && ocx add kdco/worktree --from https://registry.kdco.dev)
 else
     echo "opencode-worktree already installed"
 fi
