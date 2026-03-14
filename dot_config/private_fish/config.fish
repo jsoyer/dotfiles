@@ -21,6 +21,7 @@ end
 # PATH Configuration
 # ============================================================================
 # User bins (highest priority)
+fish_add_path -g $HOME/.opencode/bin
 fish_add_path -g $HOME/.antigravity/antigravity/bin
 fish_add_path -g $HOME/.local/bin
 fish_add_path -g $HOME/.jenv/bin

@@ -24,6 +24,7 @@ fi
 # ============================================================================
 path_prepend "${HOME}/.cargo/bin"
 path_prepend "${HOME}/.local/bin"
+path_prepend "${HOME}/.opencode/bin"
 
 # ============================================================================
 # macOS-specific paths

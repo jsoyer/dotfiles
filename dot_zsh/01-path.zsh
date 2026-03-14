@@ -12,6 +12,7 @@ fi
 
 path=(
   # User bins (highest priority)
+  "${HOME}/.opencode/bin"
   "${HOME}/.local/bin"
   "${HOME}/.cargo/bin"
 
