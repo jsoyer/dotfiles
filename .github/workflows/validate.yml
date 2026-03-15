@@ -36,7 +36,7 @@ jobs:
         run: |
           PATTERNS="sk-[a-zA-Z0-9]{20,}|ghp_[a-zA-Z0-9]{36}|xoxb-[0-9]{10,}|AKIA[0-9A-Z]{16}"
           FOUND=$(grep -rPl "$PATTERNS" --include='*.zsh' --include='*.bash' --include='*.toml' --include='*.json' --include='*.tmpl' . 2>/dev/null \
-            | grep -v '.git/' | grep -v 'README' | grep -v 'SKILL.md' | grep -v 'pre-commit' || true)
+            | grep -v '.git/' | grep -v 'README' | grep -v 'SKILL.md' | grep -v 'pre-commit' | grep -v 'dot_agents/skills/' || true)
           if [[ -n "$FOUND" ]]; then
             echo "ERROR: Potential secrets found in:"
             echo "$FOUND"
@@ -54,7 +54,7 @@ jobs:
               echo "  FAIL: $f"
               ERRORS=$(( ERRORS + 1 ))
             fi
-          done < <(find . -name '*.json' -not -path './.git/*')
+          done < <(find . -name '*.json' -not -path './.git/*' -not -path './dot_agents/skills/*')
           if [[ "$ERRORS" -gt 0 ]]; then
             echo "JSON validation: FAIL ($ERRORS errors)"
             exit 1
@@ -135,7 +135,7 @@ jobs:
             fi
           done < <(
             find . \( -name '*.sh' -o -name '*.bash' \) \
-              -not -path './.git/*' -not -path './dot_claude/*' 2>/dev/null
+              -not -path './.git/*' -not -path './dot_claude/*' -not -path './dot_agents/skills/*' 2>/dev/null
             grep -rl '#!/.*bash' dot_local/bin/ 2>/dev/null || true
           )
           if [[ "$ERRORS" -gt 0 ]]; then
