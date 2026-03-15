@@ -1,0 +1,44 @@
+{{- if ne .chezmoi.os "windows" -}}
+#!/usr/bin/env bash
+# Sync skill symlinks from ~/.agents/skills/ into consumer dirs
+# Managed by chezmoi — reruns when skill-lock.json changes
+
+# skill-lock hash: {{ include "dot_agents/dot_skill-lock.json" | sha256sum }}
+
+set -euo pipefail
+
+SKILLS_SRC="{{ .chezmoi.homeDir }}/.agents/skills"
+CONSUMERS=(.claude .qwen .vibe)
+REL_PATH="../../.agents/skills"
+
+if [[ ! -d "$SKILLS_SRC" ]]; then
+  echo "skills: $SKILLS_SRC not found, skipping"
+  exit 0
+fi
+
+for consumer in "${CONSUMERS[@]}"; do
+  target="{{ .chezmoi.homeDir }}/$consumer/skills"
+  mkdir -p "$target"
+
+  # Create symlinks for each skill
+  for skill_dir in "$SKILLS_SRC"/*/; do
+    [[ -d "$skill_dir" ]] || continue
+    name="$(basename "$skill_dir")"
+    link="$target/$name"
+    if [[ ! -L "$link" ]]; then
+      ln -sf "$REL_PATH/$name" "$link"
+    fi
+  done
+
+  # Clean up stale symlinks
+  for link in "$target"/*/; do
+    [[ -L "${link%/}" ]] || continue
+    if [[ ! -e "${link%/}" ]]; then
+      rm -f "${link%/}"
+    fi
+  done
+done
+
+count="$(find "$SKILLS_SRC" -mindepth 1 -maxdepth 1 -type d | wc -l | tr -d ' ')"
+echo "skills: synced $count skills to ${CONSUMERS[*]}"
+{{- end -}}

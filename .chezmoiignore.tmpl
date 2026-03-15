@@ -27,9 +27,11 @@ CLAUDE.md
 .ssh/config
 {{- end }}
 
-{{/* Scripts and CI directories - never apply to $HOME */}}
+{{/* Scripts, CI, and project-local directories - never apply to $HOME */}}
 scripts/
 .github/
+tasks/
+memory/
 
 {{/* Ignore COSMIC DE config on non-Fedora systems */}}
 {{- if not (and (eq .chezmoi.os "linux") (or (lookPath "dnf") (lookPath "rpm-ostree"))) }}
@@ -57,6 +59,11 @@ scripts/
 .codex/tmp/**
 .codex/vendor_imports/**
 .codex/skills/**
+
+{{/* Skills directories — managed by run_onchange_sync-skill-symlinks.sh */}}
+.claude/skills/
+.qwen/skills/
+.vibe/skills/
 
 {{/* .mistralcode runtime */}}
 .mistralcode/dev_data/**
