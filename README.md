@@ -35,6 +35,8 @@ This setup uses `chezmoi`'s templating capabilities to apply different configura
 | `debian`           | Debian (non-RPi)                       | Linux    | apt                 | Snazzy         |
 | `toolbox`          | `TOOLBOX_PATH` set                     | Linux    | (host tools)        | Snazzy         |
 | `rpi`              | `/proc/device-tree/model` contains rpi | Linux    | apt + Linuxbrew     | Snazzy         |
+| `arch-desktop`     | `pacman` present, hostname `arch-desktop*` | Linux    | pacman + Linuxbrew     | Catppuccin     |
+| `arch-server`      | `pacman` present, hostname `arch-server*` | Linux    | pacman + Linuxbrew     | Snazzy         |
 | `windows`          | cygwin/msys/mingw                      | Windows  | Scoop               | N/A            |
 
 ---
@@ -84,8 +86,8 @@ This setup uses `chezmoi`'s templating capabilities to apply different configura
 - **notmuch** - Email indexing and search
 
 ### AI Tools
-- **Claude Code** - AI coding assistant (165 agents, 84 skills, 15 MCP servers)
-- **OpenCode** - Alternative AI coding CLI (shared MCP config)
+- **Claude Code** - AI coding assistant (165 agents, 529 skills (symlinked from ~/.agents/skills/), 15 MCP servers)
+- **OpenCode** - Alternative AI coding CLI (ocx extensions, shared MCP config, desktop profiles only)
 - **RTK** - Token optimization proxy for Claude Code
 - **codecompanion.nvim** - Multi-provider AI in Neovim (Claude, OpenAI, Gemini, Mistral, Ollama + CLI agents)
 
@@ -441,9 +443,11 @@ chezmoi update  # Pull + apply automatically
 │   └── 05-maintenance/                 # Container maintenance
 ├── dot_claude/                         # Claude Code AI assistant
 │   ├── agents/                         # 165 specialized sub-agents
-│   ├── skills/                         # 84 skills (slash commands)
 │   ├── hooks/                          # Event hooks (RTK, state tracking)
 │   └── private_settings.json.tmpl      # Permissions, MCP servers
+├── dot_agents/                         # Shared AI agent skills
+│   ├── skills/                         # 529 skills (source of truth)
+│   └── dot_skill-lock.json             # Skill manifest (triggers sync)
 ├── dot_config/
 │   ├── aerospace/                      # Tiling window manager (macOS)
 │   ├── alacritty/                      # Terminal emulator
@@ -457,7 +461,7 @@ chezmoi update  # Pull + apply automatically
 │   ├── neomutt/                        # Email client
 │   ├── nushell/                        # Structured data shell
 │   ├── nvim/                           # Neovim editor (LazyVim)
-│   ├── opencode/                       # OpenCode AI assistant
+│   ├── opencode/                       # OpenCode AI assistant (desktop profiles only)
 │   ├── private_fish/                   # Fish shell (restricted)
 │   ├── sketchybar/                     # macOS status bar
 │   ├── starship/                       # Cross-shell prompt
@@ -759,7 +763,7 @@ These dotfiles are based on various open-source projects and personal customizat
 
 ---
 
-**Last Updated:** 2026-03-09
+**Last Updated:** 2026-03-15
 **Maintained by:** Jerome Soyer (@jsoyer)
 
 ---

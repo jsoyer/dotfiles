@@ -78,6 +78,12 @@ Git repos auto-refreshed weekly:
 - zsh-autosuggestions, zsh-syntax-highlighting
 - Tmux Plugin Manager (TPM)
 
+### Skills Sync (`dot_agents/`, `.chezmoiscripts/03-configure/`)
+- Source of truth: `dot_agents/skills/` (529 skills)
+- `run_onchange_sync-skill-symlinks.sh` creates symlinks in `~/.claude/skills/`, `~/.qwen/skills/`, `~/.vibe/skills/`
+- Triggered by changes to `dot_agents/dot_skill-lock.json`
+- OpenCode tools (`ocx`, `oh-my-openagent`) install only on desktop profiles: `mac-personal`, `fedora-desktop`, `toolbox`, `ubuntu-desktop`, `arch-desktop`
+
 ### Bootstrap Scripts (`scripts/`)
 - `bootstrap.sh` - Multiplatform bootstrap (macOS, Fedora, RPi/Debian)
 - `bootstrap.ps1` - Windows bootstrap (Scoop + chezmoi)
@@ -92,8 +98,9 @@ Configuration adapts based on:
 - **Windows** (`eq .chezmoi.os "windows"`): Scoop packages, minimal config (git, tmux, bash)
 
 ### Key Directories
-- `dot_config/` - XDG config files (nvim, starship, tmux, wezterm, aerospace, sketchybar, etc.)
+- `dot_config/` - XDG config files (nvim, starship, tmux, wezterm, aerospace, sketchybar, etc.) (desktop profiles only)
 - `dot_claude/` - Claude Code config (agents, skills, hooks, settings)
+- `dot_agents/` - Shared AI agent skills (529 skills, source of truth for `.claude/`, `.qwen/`, `.vibe/` symlinks)
 - `dot_config/opencode/` - OpenCode config (MCP servers mirror Claude)
 - `dot_private/` - Brewfiles (`Brewfile_common`, `Brewfile_pro`, `Brewfile_personal`, `Brewfile_linux`, `Brewfile_rpi`)
 - `dot_local/bin/` - Custom scripts (`breww`, `update-claude-agents`, `claude-init`)
@@ -101,7 +108,7 @@ Configuration adapts based on:
 
 ### AI Tools (`dot_claude/`)
 - `agents/` - 165 specialized sub-agents (131 VoltAgent/awesome-claude-code-subagents + 22 msitarzewski/agency-agents + 9 custom + 3 cloud)
-- `skills/` - 84 skills (from jeffallan/claude-skills + awesome-llm-apps)
+- Skills are symlinked from `~/.agents/skills/` (529 skills) via `run_onchange_sync-skill-symlinks.sh`
 - `hooks/` - `rtk-rewrite.sh` (token optimization), `claude-island-state.py` (state tracking)
 - `private_settings.json.tmpl` - Permissions, hooks, MCP servers (15 configured)
 
