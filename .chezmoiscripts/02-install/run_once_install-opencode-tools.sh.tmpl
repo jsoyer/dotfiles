@@ -60,19 +60,21 @@ if [[ -f "${HOME}/.config/opencode/ocx.jsonc" ]] && [[ -f "${HOME}/.config/openc
     rm -f "${HOME}/.config/opencode/ocx.jsonc"
 fi
 
-# opencode-notify — Desktop notifications plugin (via ocx)
+# ocx plugins — non-fatal (registry hash mismatches are transient)
 OCX_DIR="${HOME}/.config/opencode"
+
+# opencode-notify — Desktop notifications plugin
 if ! (cd "${OCX_DIR}" && ocx list 2>/dev/null | grep -q "kdco/notify"); then
     echo "Installing opencode-notify..."
-    (cd "${OCX_DIR}" && ocx add kdco/notify --from https://registry.kdco.dev)
+    (cd "${OCX_DIR}" && ocx add kdco/notify --from https://registry.kdco.dev) || echo "  Warning: opencode-notify install failed (non-fatal)"
 else
     echo "opencode-notify already installed"
 fi
 
-# opencode-worktree — Git worktree integration (via ocx)
+# opencode-worktree — Git worktree integration
 if ! (cd "${OCX_DIR}" && ocx list 2>/dev/null | grep -q "kdco/worktree"); then
     echo "Installing opencode-worktree..."
-    (cd "${OCX_DIR}" && ocx add kdco/worktree --from https://registry.kdco.dev)
+    (cd "${OCX_DIR}" && ocx add kdco/worktree --from https://registry.kdco.dev) || echo "  Warning: opencode-worktree install failed (non-fatal)"
 else
     echo "opencode-worktree already installed"
 fi
