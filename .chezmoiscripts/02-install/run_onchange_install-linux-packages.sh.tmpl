@@ -63,18 +63,7 @@ if [[ -f "$_aptfile" ]]; then
     sudo apt update && sudo apt-get install -y "${_pkgs[@]}"
 fi
 
-# Install 1Password CLI via official apt repo
-if ! command -v op &>/dev/null; then
-    echo "Installing 1Password CLI..."
-    tmp_key="$(mktemp)"
-    curl -sS https://downloads.1password.com/linux/keys/1password.asc -o "$tmp_key"
-    sudo gpg --dearmor < "$tmp_key" | sudo tee /usr/share/keyrings/1password-archive-keyring.gpg > /dev/null
-    rm -f "$tmp_key"
-    echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/1password-archive-keyring.gpg] https://downloads.1password.com/linux/debian/$(dpkg --print-architecture) stable main" \
-        | sudo tee /etc/apt/sources.list.d/1password.list > /dev/null
-    sudo apt update
-    sudo apt install -y 1password-cli
-fi
+# 1Password CLI — handled by run_once_install-1password.sh
 
 # Install uv (provides uvx for MCP servers using Python)
 if ! command -v uv &>/dev/null; then
