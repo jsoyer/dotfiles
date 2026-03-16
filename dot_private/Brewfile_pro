@@ -144,7 +144,6 @@ brew "graphviz2drawio"
 brew "grep"
 brew "gtk+3"
 brew "gstreamer"
-brew "hashcat"
 brew "helm"
 brew "highlight"
 brew "hopenpgp-tools"
@@ -179,7 +178,6 @@ brew "luarocks"
 brew "lynx"
 brew "m-cli"
 brew "mackup"
-brew "mas"
 brew "minikube"
 brew "mintoolkit"
 brew "mise"
@@ -193,7 +191,6 @@ brew "mutt"
 brew "ncdu"
 brew "neovim"
 brew "neovim-remote"
-brew "nmap"
 brew "node@22"
 brew "nodeenv"
 brew "nodenv"
@@ -234,7 +231,6 @@ brew "pyvim"
 brew "qman"
 brew "qrencode"
 brew "r"
-brew "radare2"
 brew "rails-completion"
 brew "rancher-cli"
 brew "ranger"
@@ -358,15 +354,6 @@ cask "rectangle"
 cask "skyfonts"
 cask "xquartz"
 cask "zed"
-mas "GarageBand", id: 682658836
-mas "iMovie", id: 408981434
-mas "Keynote", id: 409183694
-mas "Microsoft To Do", id: 1274495053
-mas "Numbers", id: 409203825
-mas "Pages", id: 409201541
-mas "Remote Desktop", id: 409907375
-mas "Tailscale", id: 1475387142
-mas "Windows App", id: 1295203466
 go "golang.org/x/tools/cmd/callgraph"
 go "github.com/go-delve/delve/cmd/dlv"
 go "github.com/davidrjenni/reftools/cmd/fillswitch"
