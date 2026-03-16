@@ -1,6 +1,7 @@
 {{- $mp := index . "machine_profile" -}}
-{{- $skipProfiles := list "fedora-atomic" "windows" -}}
-{{- if and (eq .chezmoi.os "linux") (not (has $mp $skipProfiles)) -}}
+{{- $skipProfiles := list "fedora-atomic" "fedora-server" "ubuntu-server" "arch-server" "debian" "windows" -}}
+{{- $isOMV := or (hasPrefix "omv-" .chezmoi.hostname) (hasPrefix "bbh-network" .chezmoi.hostname) -}}
+{{- if and (eq .chezmoi.os "linux") (not (has $mp $skipProfiles)) (not $isOMV) -}}
 #!/usr/bin/env bash
 # =============================================================================
 # Linuxbrew (Homebrew for Linux) Installation
@@ -16,12 +17,10 @@ fi
 echo "Installing Homebrew (Linuxbrew)..."
 
 # Prerequisites
-{{- if or (eq $mp "fedora-desktop") (eq $mp "fedora-server") (eq $mp "toolbox") }}
+{{- if or (eq $mp "fedora-desktop") (eq $mp "toolbox") }}
 sudo dnf groupinstall -y "Development Tools"
 sudo dnf install -y procps-ng curl file gcc
 {{- else if eq $mp "arch-desktop" }}
-sudo pacman -S --needed --noconfirm base-devel procps-ng curl file gcc
-{{- else if eq $mp "arch-server" }}
 sudo pacman -S --needed --noconfirm base-devel procps-ng curl file gcc
 {{- else }}
 # rpi / debian / ubuntu-*

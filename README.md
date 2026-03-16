@@ -28,15 +28,15 @@ This setup uses `chezmoi`'s templating capabilities to apply different configura
 | `mac-pro`          | hostname `jsoyer-macOS`                | macOS    | Homebrew            | Catppuccin     |
 | `mac-personal`     | macOS (other hosts)                    | macOS    | Homebrew            | Catppuccin     |
 | `ubuntu-desktop`   | Ubuntu, hostname not `ubuntu-server*`  | Linux    | apt + Linuxbrew     | Catppuccin     |
-| `ubuntu-server`    | Ubuntu, hostname `ubuntu-server*`      | Linux    | apt + Linuxbrew     | Snazzy         |
+| `ubuntu-server`    | Ubuntu, hostname `ubuntu-server*`      | Linux    | apt                 | Snazzy         |
 | `fedora-desktop`   | Fedora, hostname not `fedora-server*`  | Linux    | dnf + Linuxbrew     | Catppuccin     |
 | `fedora-server`    | Fedora, hostname `fedora-server*`      | Linux    | dnf                 | Snazzy         |
 | `fedora-atomic`    | `rpm-ostree` present                   | Linux    | rpm-ostree          | Snazzy         |
 | `debian`           | Debian (non-RPi)                       | Linux    | apt                 | Snazzy         |
 | `toolbox`          | `TOOLBOX_PATH` set                     | Linux    | dnf + Linuxbrew     | Snazzy         |
 | `rpi`              | `/proc/device-tree/model` contains rpi | Linux    | apt + Linuxbrew     | Snazzy         |
-| `arch-desktop`     | `pacman` present, hostname `arch-desktop*` | Linux    | pacman + Linuxbrew     | Catppuccin     |
-| `arch-server`      | `pacman` present, hostname `arch-server*` | Linux    | pacman + Linuxbrew     | Snazzy         |
+| `arch-desktop`     | `pacman` present, hostname `arch-desktop*` | Linux    | pacman + Linuxbrew  | Catppuccin     |
+| `arch-server`      | `pacman` present, hostname `arch-server*` | Linux    | pacman              | Snazzy         |
 | `windows`          | cygwin/msys/mingw                      | Windows  | Scoop               | N/A            |
 
 ---
