@@ -104,7 +104,7 @@ Configuration adapts based on:
 - `dot_config/opencode/` - OpenCode config (MCP servers mirror Claude)
 - `dot_private/` - Brewfiles (`Brewfile_common`, `Brewfile_pro`, `Brewfile_personal`, `Brewfile_linux`, `Brewfile_rpi`)
 - `dot_local/bin/` - Custom scripts (`breww`, `update-claude-agents`, `claude-init`)
-- `dot_ssh/` - SSH config with 1Password integration (templated)
+- `dot_ssh/` - SSH config directory
 
 ### AI Tools (`dot_claude/`)
 - `agents/` - 165 specialized sub-agents (131 VoltAgent/awesome-claude-code-subagents + 22 msitarzewski/agency-agents + 9 custom + 3 cloud)
@@ -135,7 +135,7 @@ Configuration adapts based on:
 
 - Secrets are managed via 1Password CLI (`op`) or environment variables -- never hardcoded
 - Files with `private_` prefix get 0600 permissions
-- SSH config is pulled from 1Password document (conditional on `op` being available)
+- SSH config is generated via `run_onchange_` script, skips gracefully when 1Password is unavailable
 - MCP server tokens use `${ENV_VAR}` references resolved at runtime
 - `secrets.zsh` is excluded from chezmoi tracking via `.chezmoiignore.tmpl`
 

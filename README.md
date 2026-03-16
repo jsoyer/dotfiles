@@ -33,7 +33,7 @@ This setup uses `chezmoi`'s templating capabilities to apply different configura
 | `fedora-server`    | Fedora, hostname `fedora-server*`      | Linux    | dnf                 | Snazzy         |
 | `fedora-atomic`    | `rpm-ostree` present                   | Linux    | rpm-ostree          | Snazzy         |
 | `debian`           | Debian (non-RPi)                       | Linux    | apt                 | Snazzy         |
-| `toolbox`          | `TOOLBOX_PATH` set                     | Linux    | (host tools)        | Snazzy         |
+| `toolbox`          | `TOOLBOX_PATH` set                     | Linux    | dnf + Linuxbrew     | Snazzy         |
 | `rpi`              | `/proc/device-tree/model` contains rpi | Linux    | apt + Linuxbrew     | Snazzy         |
 | `arch-desktop`     | `pacman` present, hostname `arch-desktop*` | Linux    | pacman + Linuxbrew     | Catppuccin     |
 | `arch-server`      | `pacman` present, hostname `arch-server*` | Linux    | pacman + Linuxbrew     | Snazzy         |
@@ -336,7 +336,7 @@ A custom `breww` script wraps the `brew` command. When you install a package wit
 
 | Profile | Brewfile | Content |
 |---------|----------|---------|
-| `mac-pro` | `Brewfile_common` + `Brewfile_pro` | Full workstation (casks, mas, go) |
+| `mac-pro` | `Brewfile_common` + `Brewfile_pro` | Full workstation (casks, go) |
 | `mac-personal` | `Brewfile_common` + `Brewfile_personal` | Personal Mac (casks, mas) |
 | `rpi` | `Brewfile_common` + `Brewfile_rpi` | Minimal RPi subset |
 
@@ -412,7 +412,7 @@ cup
 This performs:
 1. `chezmoi update` - Pull latest dotfiles
 2. Package updates:
-   - **macOS**: `brew upgrade` + `brew update` + `mas upgrade` (App Store)
+   - **macOS**: `brew upgrade` + `brew update` + `mas upgrade` (App Store, personal only)
    - **Linux (RPi)**: `apt dist-upgrade` + `apt autoremove`
    - **Linux (Fedora)**: `dnf upgrade` or `rpm-ostree upgrade`
    - **Windows**: `scoop update` + `scoop update --all`
@@ -481,7 +481,7 @@ chezmoi update  # Pull + apply automatically
 │   └── README.md                       # Zsh documentation
 ├── dot_bash/                           # Bash fallback configuration
 ├── dot_private/                        # Brewfiles: common, pro, personal, linux, rpi (0600)
-├── dot_ssh/                            # SSH config (1Password-integrated)
+├── dot_ssh/                            # SSH config directory
 ├── dot_local/bin/                      # Custom scripts
 │   ├── executable_breww                # Homebrew wrapper with auto-sync
 │   ├── executable_update-claude-agents # Agent updater
@@ -537,12 +537,9 @@ This means when you use `chezmoi re-add`, it automatically:
 
 ### 1Password Integration
 
-SSH config, git signing, and mail passwords are fetched from 1Password at apply time:
+Git signing and mail passwords are fetched from 1Password at apply time. SSH config is generated via a `run_onchange_` script that gracefully skips when 1Password is unavailable:
 
 ```go
-// SSH config pulled from 1Password document
-{{ onepasswordDocument "wf34z662n2u3kn5jhrmrmo3o4u" }}
-
 // Mail password at runtime
 passwordeval "op read 'op://Private/Gmail NeoMutt/password'"
 ```
