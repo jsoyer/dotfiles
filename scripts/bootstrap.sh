@@ -352,8 +352,7 @@ install_linuxbrew() {
     # Prerequisites
     case "$PLATFORM" in
         fedora-desktop|fedora-server|toolbox)
-            sudo dnf group install -y "Development Tools"
-            sudo dnf install -y procps-ng curl file gcc
+            sudo dnf install -y gcc gcc-c++ make procps-ng curl file git
             ;;
         rpi|debian|ubuntu-server|ubuntu-desktop)
             sudo apt install -y build-essential procps curl file gcc
