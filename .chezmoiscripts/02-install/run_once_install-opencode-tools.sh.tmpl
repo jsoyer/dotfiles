@@ -19,6 +19,12 @@ fi
 
 # npm-based tools — require npm
 if command -v npm &>/dev/null; then
+    # Ensure npm global installs go to user directory (avoids EACCES on Fedora/Linux)
+    if [[ -z "$(npm config get prefix 2>/dev/null | grep -v '/usr')" ]]; then
+        mkdir -p "${HOME}/.npm-global"
+        npm config set prefix "${HOME}/.npm-global"
+        export PATH="${HOME}/.npm-global/bin:${PATH}"
+    fi
     # oh-my-openagent — Agent harness plugin for OpenCode
     if ! npm list -g oh-my-openagent &>/dev/null; then
         echo "Installing oh-my-openagent..."
