@@ -18,7 +18,7 @@ echo "Installing Homebrew (Linuxbrew)..."
 
 # Prerequisites
 {{- if or (eq $mp "fedora-desktop") (eq $mp "toolbox") }}
-sudo dnf groupinstall -y "Development Tools"
+sudo dnf group install -y "Development Tools"
 sudo dnf install -y procps-ng curl file gcc
 {{- else if eq $mp "arch-desktop" }}
 sudo pacman -S --needed --noconfirm base-devel procps-ng curl file gcc
