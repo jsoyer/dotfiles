@@ -108,7 +108,7 @@ Configuration adapts based on:
 - `dot_ssh/` - SSH config directory
 
 ### AI Tools (`dot_claude/`)
-- `agents/` - 167 specialized sub-agents (131 VoltAgent/awesome-claude-code-subagents + 22 msitarzewski/agency-agents + 11 custom + 3 cloud)
+- `agents/` - 167 specialized sub-agents (132 VoltAgent/awesome-claude-code-subagents + 22 msitarzewski/agency-agents + 10 custom + 3 cloud)
 - Skills are symlinked from `~/.agents/skills/` (531 skills) via `run_onchange_sync-skill-symlinks.sh`
 - `hooks/` - `rtk-rewrite.sh` (token optimization), `claude-island-state.py` (state tracking)
 - `private_settings.json.tmpl` - Permissions, hooks, MCP servers (15 configured)

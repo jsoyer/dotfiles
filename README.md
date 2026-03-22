@@ -86,7 +86,7 @@ This setup uses `chezmoi`'s templating capabilities to apply different configura
 - **notmuch** - Email indexing and search
 
 ### AI Tools
-- **Claude Code** - AI coding assistant (165 agents, 529 skills (symlinked from ~/.agents/skills/), 15 MCP servers)
+- **Claude Code** - AI coding assistant (167 agents, 531 skills (symlinked from ~/.agents/skills/), 15 MCP servers, Claude Octopus plugin)
 - **OpenCode** - Alternative AI coding CLI (ocx extensions, shared MCP config, desktop profiles only)
 - **RTK** - Token optimization proxy for Claude Code
 - **codecompanion.nvim** - Multi-provider AI in Neovim (Claude, OpenAI, Gemini, Mistral, Ollama + CLI agents)
@@ -442,11 +442,11 @@ chezmoi update  # Pull + apply automatically
 │   ├── 04-update/                      # Package updates (Homebrew, App Store, dnf)
 │   └── 05-maintenance/                 # Container maintenance
 ├── dot_claude/                         # Claude Code AI assistant
-│   ├── agents/                         # 165 specialized sub-agents
+│   ├── agents/                         # 167 specialized sub-agents
 │   ├── hooks/                          # Event hooks (RTK, state tracking)
 │   └── private_settings.json.tmpl      # Permissions, MCP servers
 ├── dot_agents/                         # Shared AI agent skills
-│   ├── skills/                         # 529 skills (source of truth)
+│   ├── skills/                         # 531 skills (source of truth)
 │   └── dot_skill-lock.json             # Skill manifest (triggers sync)
 ├── dot_config/
 │   ├── aerospace/                      # Tiling window manager (macOS)
@@ -732,6 +732,19 @@ chezmoi apply ~/.config/alacritty/alacritty.toml
 # Force apply all
 chezmoi apply --force
 ```
+
+---
+
+## 📚 Documentation
+
+| Document | Description |
+|----------|-------------|
+| [Architecture](docs/ARCHITECTURE.md) | System design, Mermaid diagrams, profile detection, lifecycle phases |
+| [Onboarding](docs/ONBOARDING.md) | Day-2 guide: customization, templates, adding tools and profiles |
+| [Runbook](docs/RUNBOOK.md) | Operations, troubleshooting, disaster recovery, maintenance |
+| [Zsh Config](dot_zsh/README.md) | Shell architecture, plugins, aliases, integrations |
+| [Bash Config](dot_bash/README.md) | Bash architecture, cross-platform parity |
+| [Configuration Index](dot_config/CONFIGURATION_INDEX.md) | All 25+ tool configurations |
 
 ---
 
