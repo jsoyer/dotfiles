@@ -1,0 +1,48 @@
+{{- $mp := index . "machine_profile" -}}
+{{- $desktopProfiles := list "mac-personal" "fedora-desktop" "toolbox" "ubuntu-desktop" "arch-desktop" -}}
+{{- if has $mp $desktopProfiles -}}
+#!/usr/bin/env bash
+set -euo pipefail
+
+# =============================================================================
+# Claude Code Plugins Installation
+# Profiles: {{ join ", " $desktopProfiles }}
+# =============================================================================
+
+if ! command -v claude &>/dev/null; then
+    echo "claude not found, skipping plugin installation"
+    exit 0
+fi
+
+# --- Marketplaces ---
+
+# nyldn-plugins (Claude Octopus)
+if ! claude plugin marketplace list 2>/dev/null | grep -q "nyldn-plugins"; then
+    echo "Adding nyldn-plugins marketplace..."
+    claude plugin marketplace add https://github.com/nyldn/claude-octopus.git
+else
+    echo "nyldn-plugins marketplace already configured"
+fi
+
+# --- Plugins ---
+
+# Claude Octopus — multi-AI orchestrator
+if ! claude plugin list 2>/dev/null | grep -q "octo@nyldn-plugins"; then
+    echo "Installing Claude Octopus..."
+    claude plugin install octo@nyldn-plugins
+else
+    echo "Claude Octopus already installed"
+fi
+
+# LSP plugins from official marketplace
+for plugin in lua-lsp pyright-lsp swift-lsp typescript-lsp gopls-lsp; do
+    if ! claude plugin list 2>/dev/null | grep -q "${plugin}@claude-plugins-official"; then
+        echo "Installing ${plugin}..."
+        claude plugin install "${plugin}@claude-plugins-official"
+    else
+        echo "${plugin} already installed"
+    fi
+done
+
+echo "Claude Code plugins installation complete!"
+{{- end }}

@@ -13,6 +13,8 @@ set -euo pipefail
 if ! command -v ocx &>/dev/null; then
     echo "Installing ocx..."
     curl -fsSL https://ocx.kdco.dev/install.sh | sh
+    # Ensure ~/.local/bin is in PATH for the rest of this script
+    export PATH="${HOME}/.local/bin:${PATH}"
 else
     echo "ocx already installed"
 fi
