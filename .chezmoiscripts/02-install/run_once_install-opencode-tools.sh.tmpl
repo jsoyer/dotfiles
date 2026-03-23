@@ -71,21 +71,21 @@ fi
 # ocx plugins — non-fatal (registry hash mismatches are transient)
 OCX_DIR="${HOME}/.config/opencode"
 
-# opencode-notify — Desktop notifications plugin
-if ! (cd "${OCX_DIR}" && ocx list 2>/dev/null | grep -q "kdco/notify"); then
-    echo "Installing opencode-notify..."
-    (cd "${OCX_DIR}" && ocx add kdco/notify --from https://registry.kdco.dev) || echo "  Warning: opencode-notify install failed (non-fatal)"
-else
-    echo "opencode-notify already installed"
-fi
+ocx_ensure() {
+    local name="$1"
+    local label="$2"
+    if ! (cd "${OCX_DIR}" && ocx list 2>/dev/null | grep -q "${name}"); then
+        echo "Installing ${label}..."
+        (cd "${OCX_DIR}" && ocx add "${name}" --from https://registry.kdco.dev) || echo "  Warning: ${label} install failed (non-fatal)"
+    else
+        # Update to pick up new hashes from registry
+        echo "Updating ${label}..."
+        (cd "${OCX_DIR}" && ocx update "${name}" --from https://registry.kdco.dev 2>/dev/null) || echo "  ${label} already up to date"
+    fi
+}
 
-# opencode-worktree — Git worktree integration
-if ! (cd "${OCX_DIR}" && ocx list 2>/dev/null | grep -q "kdco/worktree"); then
-    echo "Installing opencode-worktree..."
-    (cd "${OCX_DIR}" && ocx add kdco/worktree --from https://registry.kdco.dev) || echo "  Warning: opencode-worktree install failed (non-fatal)"
-else
-    echo "opencode-worktree already installed"
-fi
+ocx_ensure "kdco/notify" "opencode-notify"
+ocx_ensure "kdco/worktree" "opencode-worktree"
 
 echo "OpenCode tools installation complete!"
 {{- end }}
