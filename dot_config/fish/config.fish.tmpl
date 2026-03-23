@@ -13,6 +13,7 @@ if not functions -q fisher
     fisher update
 end
 
+{{ if eq .chezmoi.os "darwin" -}}
 # ============================================================================
 # Homebrew Configuration
 # ============================================================================
@@ -34,13 +35,17 @@ else if test -x /usr/local/bin/brew
     set -gx INFOPATH /usr/local/share/info $INFOPATH
 end
 
+{{ end -}}
 # ============================================================================
 # PATH Configuration
 # ============================================================================
 # User bins (highest priority)
 fish_add_path -g $HOME/.opencode/bin
+{{ if eq .chezmoi.os "darwin" -}}
 fish_add_path -g $HOME/.antigravity/antigravity/bin
+{{ end -}}
 fish_add_path -g $HOME/.local/bin
+{{ if eq .chezmoi.os "darwin" -}}
 fish_add_path -g $HOME/.jenv/bin
 fish_add_path -g $HOME/.rbenv/shims
 fish_add_path -g $HOME/.tmuxifier/bin
@@ -56,47 +61,11 @@ fish_add_path -g /Library/TeX/texbin
 fish_add_path -g /usr/texbin
 fish_add_path -g /usr/local/texlive/2025basic/bin/universal-darwin
 
+{{ end -}}
 # ============================================================================
-# Machine Profile Detection
+# Machine Profile
 # ============================================================================
-# Use fish's built-in $hostname variable (no fork) instead of (hostname)
-if test $hostname = "jsoyer-macOS"
-    set -gx MACHINE_PROFILE "mac-pro"
-else if test (uname -s) = Darwin
-    set -gx MACHINE_PROFILE "mac-personal"
-else
-    # Linux: detect from /etc/os-release
-    set -l _distro ""
-    if test -f /etc/os-release
-        set _distro (. /etc/os-release && echo $ID 2>/dev/null; or echo "")
-    end
-
-    if set -q TOOLBOX_PATH; or string match -q '*toolbx*' $hostname
-        set -gx MACHINE_PROFILE "toolbox"
-    else if test -f /proc/device-tree/model; and grep -qi "raspberry pi" /proc/device-tree/model 2>/dev/null
-        set -gx MACHINE_PROFILE "rpi"
-    else if test "$_distro" = arch
-        if string match -q 'arch-server*' $hostname
-            set -gx MACHINE_PROFILE "arch-server"
-        else
-            set -gx MACHINE_PROFILE "arch-desktop"
-        end
-    else if test "$_distro" = ubuntu
-        if string match -q 'ubuntu-server*' $hostname
-            set -gx MACHINE_PROFILE "ubuntu-server"
-        else
-            set -gx MACHINE_PROFILE "ubuntu-desktop"
-        end
-    else if test "$_distro" = debian
-        set -gx MACHINE_PROFILE "debian"
-    else if command -q rpm-ostree
-        set -gx MACHINE_PROFILE "fedora-atomic"
-    else if string match -q 'fedora-server*' $hostname
-        set -gx MACHINE_PROFILE "fedora-server"
-    else
-        set -gx MACHINE_PROFILE "fedora-desktop"
-    end
-end
+set -gx MACHINE_PROFILE "{{ .machine_profile }}"
 
 # ============================================================================
 # Environment Variables
@@ -105,21 +74,20 @@ set -gx LANG en_US.UTF-8
 set -gx EDITOR nvim
 set -gx DOCKER_CONFIG $HOME/.docker
 
+{{ if eq .chezmoi.os "darwin" -}}
 # Homebrew Cask appdir based on machine profile
 if test "$MACHINE_PROFILE" = "mac-pro"
     set -gx HOMEBREW_CASK_OPTS "--appdir=$HOME/Applications"
 end
 
+{{ end -}}
 set -gx KUBECONFIG $HOME/.kube/config
 
 # ============================================================================
 # Theme selection (Catppuccin Mocha for desktop, Snazzy for servers)
 # ============================================================================
-set -l _use_snazzy false
-switch "$MACHINE_PROFILE"
-    case rpi fedora-server fedora-atomic toolbox ubuntu-server debian
-        set _use_snazzy true
-end
+{{- $snazzy_profiles := list "rpi" "fedora-server" "fedora-atomic" "toolbox" "ubuntu-server" "debian" "arch-server" }}
+set -l _use_snazzy {{ if has .machine_profile $snazzy_profiles }}true{{ else }}false{{ end }}
 
 # ============================================================================
 # Catppuccin Mocha / Snazzy Theme
@@ -161,12 +129,24 @@ set -gx FZF_DEFAULT_COMMAND 'fd --type f --hidden --follow --exclude .git'
 # Eza colors (Catppuccin Mocha)
 set -gx EZA_COLORS "uu=38;5;147:gu=38;5;147:ur=38;5;203:uw=38;5;204:ux=38;5;148:ue=38;5;148:gr=38;5;203:gw=38;5;204:gx=38;5;148:tr=38;5;203:tw=38;5;204:tx=38;5;148:da=38;5;110:sn=38;5;180:sb=38;5;180:xa=38;5;147"
 
+# ============================================================================
+# Cache helper: regenerate if cache is missing or older than 24h
+# ============================================================================
+function _fish_cache_eval -a name cmd
+    set -l cache $HOME/.cache/fish/$name.fish
+    if not test -f $cache; or test (math (date +%s) - (stat -c %Y $cache 2>/dev/null; or stat -f %m $cache 2>/dev/null; or echo 0)) -gt 86400
+        mkdir -p $HOME/.cache/fish
+        eval $cmd >$cache 2>/dev/null
+    end
+    source $cache
+end
+
 # LS_COLORS with vivid -- cache output to avoid forking vivid on every startup
 if command -q vivid
     set -l _vivid_theme catppuccin-mocha
     test "$_use_snazzy" = true; and set _vivid_theme snazzy
     set -l _vivid_cache $HOME/.cache/vivid/ls-colors-$_vivid_theme.txt
-    if not test -f $_vivid_cache
+    if not test -f $_vivid_cache; or test (math (date +%s) - (stat -c %Y $_vivid_cache 2>/dev/null; or stat -f %m $_vivid_cache 2>/dev/null; or echo 0)) -gt 86400
         mkdir -p $HOME/.cache/vivid
         vivid generate $_vivid_theme >$_vivid_cache 2>/dev/null
     end
@@ -187,7 +167,9 @@ alias v='nvim'
 alias la='tree'
 alias cat='bat'
 alias http='xh'
+{{ if eq .chezmoi.os "darwin" -}}
 alias as='aerospace'
+{{ end -}}
 alias asr='atuin scripts run'
 
 # Eza (modern ls replacement)
@@ -211,6 +193,7 @@ end
 # Development Environment Managers
 # ============================================================================
 
+{{ if eq .chezmoi.os "darwin" -}}
 # Pyenv - Python version management (lazy-loaded to avoid ~200ms fork on startup)
 if test -d $HOME/.pyenv
     set -gx PYENV_ROOT $HOME/.pyenv
@@ -253,6 +236,7 @@ if test -d $HOME/.nvm
     set -gx NVM_DIR $HOME/.nvm
 end
 
+{{ end -}}
 # ============================================================================
 # Shell Options
 # ============================================================================
@@ -267,8 +251,12 @@ set -g fish_greeting
 # System
 # ============================================================================
 alias cl='clear'
+{{ if eq .chezmoi.os "darwin" -}}
 alias bcask='brew cask'
+{{ end -}}
+{{ if eq .chezmoi.os "linux" -}}
 alias tbx='/usr/bin/toolbox run zsh'
+{{ end -}}
 
 # ============================================================================
 # Navigation
@@ -359,6 +347,7 @@ end
 # ============================================================================
 # Homebrew (via breww wrapper)
 # ============================================================================
+{{ if eq .chezmoi.os "darwin" -}}
 alias b='breww'
 alias bi='breww install'
 alias bu='breww update'
@@ -371,6 +360,7 @@ alias bci='breww cleanup'
 alias binfo='breww info'
 alias bd='breww doctor'
 
+{{ end -}}
 # ============================================================================
 # Package manager wrappers
 # ============================================================================
@@ -389,6 +379,7 @@ if string match -q "fedora-desktop" "$_mp"; or string match -q "fedora-server" "
     end
 end
 
+{{ if eq .chezmoi.os "linux" -}}
 # Arch Linux package manager wrappers
 if string match -q 'arch-*' "$_mp"
     function pacman --wraps pacmanw --description 'pacman wrapper with manifest sync'
@@ -402,6 +393,7 @@ if test "$_mp" = arch-desktop
     end
 end
 
+{{ end -}}
 # Fedora Atomic wrapper
 if test "$_mp" = fedora-atomic
     function rpm-ostree --wraps ostreew --description 'rpm-ostree -> ostreew wrapper'
@@ -673,12 +665,14 @@ function f --description 'Copy file path to clipboard via FZF'
     end
 end
 
+{{ if eq .chezmoi.os "darwin" -}}
 if command -q aerospace
     function ff --description 'Aerospace window picker via FZF'
         aerospace list-windows --all | fzf --bind 'enter:execute(bash -c "aerospace focus --window-id {1}")+abort'
     end
 end
 
+{{ end -}}
 function fv --description 'Open file in nvim via FZF'
     set -l file (fd --type f --hidden --exclude .git | fzf)
     if test -n "$file"
@@ -687,39 +681,24 @@ function fv --description 'Open file in nvim via FZF'
 end
 
 # ============================================================================
-# Zoxide (smart cd) -- cached init
+# Zoxide (smart cd) -- cached init with 24h TTL
 # ============================================================================
 if command -q zoxide
-    set -l _zo_cache $HOME/.cache/zoxide/init.fish
-    if not test -f $_zo_cache
-        mkdir -p $HOME/.cache/zoxide
-        zoxide init --cmd cd fish >$_zo_cache 2>/dev/null
-    end
-    source $_zo_cache
+    _fish_cache_eval zoxide 'zoxide init --cmd cd fish'
 end
 
 # ============================================================================
-# Atuin - Magical shell history -- cached init
+# Atuin - Magical shell history -- cached init with 24h TTL
 # ============================================================================
 if command -q atuin
-    set -l _at_cache $HOME/.cache/atuin/init.fish
-    if not test -f $_at_cache
-        mkdir -p $HOME/.cache/atuin
-        atuin init fish >$_at_cache 2>/dev/null
-    end
-    source $_at_cache
+    _fish_cache_eval atuin 'atuin init fish'
 end
 
 # ============================================================================
-# Direnv - Environment switcher -- cached init
+# Direnv - Environment switcher -- cached init with 24h TTL
 # ============================================================================
 if command -q direnv
-    set -l _de_cache $HOME/.cache/direnv/init.fish
-    if not test -f $_de_cache
-        mkdir -p $HOME/.cache/direnv
-        direnv hook fish >$_de_cache 2>/dev/null
-    end
-    source $_de_cache
+    _fish_cache_eval direnv 'direnv hook fish'
 end
 
 # ============================================================================
@@ -733,9 +712,11 @@ if command -q thefuck
     end
 end
 
+{{ if eq .chezmoi.os "darwin" -}}
 # ============================================================================
 # OrbStack - Docker/Kubernetes alternative (macOS only)
 # ============================================================================
 if test -f ~/.orbstack/shell/init.fish
     source ~/.orbstack/shell/init.fish 2>/dev/null
 end
+{{ end -}}
