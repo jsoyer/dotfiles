@@ -16,7 +16,8 @@ if ! command -v ocx &>/dev/null; then
     # Ensure ~/.local/bin is in PATH for the rest of this script
     export PATH="${HOME}/.local/bin:${PATH}"
 else
-    echo "ocx already installed"
+    echo "ocx already installed, checking for updates..."
+    ocx self update 2>/dev/null || true
 fi
 
 # npm-based tools — require npm
