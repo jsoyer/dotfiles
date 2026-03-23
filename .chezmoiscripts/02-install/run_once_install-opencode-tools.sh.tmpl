@@ -74,14 +74,14 @@ OCX_DIR="${HOME}/.config/opencode"
 ocx_ensure() {
     local name="$1"
     local label="$2"
-    if ! (cd "${OCX_DIR}" && ocx list 2>/dev/null | grep -q "${name}"); then
-        echo "Installing ${label}..."
-        (cd "${OCX_DIR}" && ocx add "${name}" --from https://registry.kdco.dev) || echo "  Warning: ${label} install failed (non-fatal)"
+    # Remove first to clear stale hashes, then re-add from registry
+    if (cd "${OCX_DIR}" && ocx list 2>/dev/null | grep -q "${name}"); then
+        echo "Refreshing ${label}..."
+        (cd "${OCX_DIR}" && ocx remove "${name}" 2>/dev/null) || true
     else
-        # Update to pick up new hashes from registry
-        echo "Updating ${label}..."
-        (cd "${OCX_DIR}" && ocx update "${name}" --from https://registry.kdco.dev 2>/dev/null) || echo "  ${label} already up to date"
+        echo "Installing ${label}..."
     fi
+    (cd "${OCX_DIR}" && ocx add "${name}" --from https://registry.kdco.dev) || echo "  Warning: ${label} install failed (non-fatal)"
 }
 
 ocx_ensure "kdco/notify" "opencode-notify"
