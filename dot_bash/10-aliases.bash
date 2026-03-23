@@ -167,6 +167,11 @@ ssh() {
   fi
 }
 
+# Sync local SSH config to 1Password (macOS only)
+if [[ "$OSTYPE" == darwin* ]] && command -v op &>/dev/null; then
+  alias ssh-sync='op document edit wf34z662n2u3kn5jhrmrmo3o4u ~/.ssh/config && echo "SSH config synced to 1Password"'
+fi
+
 # ============================================================================
 # Homebrew (via breww wrapper)
 # ============================================================================

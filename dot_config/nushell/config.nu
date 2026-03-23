@@ -1265,6 +1265,14 @@ alias dupsize = fdupes -rS
 alias dupsum = fdupes -rm
 
 # ============================================================================
+# Sync local SSH config to 1Password (macOS only)
+# ============================================================================
+def ssh-sync [] {
+    op document edit wf34z662n2u3kn5jhrmrmo3o4u $"($nu.home-dir)/.ssh/config"
+    print "SSH config synced to 1Password"
+}
+
+# ============================================================================
 # SSH wrapper for Kitty kitten ssh
 # ============================================================================
 def --wrapped ssh [...args: string] {
