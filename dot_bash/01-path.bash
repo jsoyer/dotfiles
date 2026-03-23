@@ -13,10 +13,12 @@ path_append() {
 # ============================================================================
 # Homebrew (must be first on macOS)
 # ============================================================================
+# Use _cache_eval to avoid forking brew on every startup (~200ms savings).
+# _cache_eval is defined in 00-env.bash and caches output for 24h.
 if [[ -x "/opt/homebrew/bin/brew" ]]; then
-  eval "$(/opt/homebrew/bin/brew shellenv)"
+  _cache_eval brew '/opt/homebrew/bin/brew shellenv'
 elif [[ -x "/usr/local/bin/brew" ]]; then
-  eval "$(/usr/local/bin/brew shellenv)"
+  _cache_eval brew '/usr/local/bin/brew shellenv'
 fi
 
 # ============================================================================

@@ -10,44 +10,70 @@ $env.PATH = ($env.PATH | split row (char esep) | prepend '/opt/homebrew/bin' | p
 # Starship Prompt Integration
 # ============================================================================
 $env.STARSHIP_CONFIG = ($env.HOME | path join ".config" "starship" "starship-nushell.toml")
-mkdir ~/.cache/starship
+let _starship_cache = ($env.HOME | path join ".cache" "starship" "init.nu")
+let _starship_ver_file = ($env.HOME | path join ".cache" "starship" "version")
 if (which starship | is-not-empty) {
-    starship init nu | save -f ~/.cache/starship/init.nu
+    let _current_ver = (starship --version | str trim)
+    let _cached_ver = if ($_starship_ver_file | path exists) {
+        open $_starship_ver_file | str trim
+    } else {
+        ""
+    }
+    if not ($_starship_cache | path exists) or $_cached_ver != $_current_ver {
+        mkdir ($env.HOME | path join ".cache" "starship")
+        starship init nu | save -f $_starship_cache
+        $_current_ver | save -f $_starship_ver_file
+    }
 } else {
-    "" | save --force ~/.cache/starship/init.nu
+    if not ($_starship_cache | path exists) {
+        mkdir ($env.HOME | path join ".cache" "starship")
+        "" | save --force $_starship_cache
+    }
 }
 
 # ============================================================================
 # Zoxide Integration (generate cache, sourced in config.nu)
 # ============================================================================
-mkdir ~/.cache/zoxide
-if (which zoxide | is-not-empty) {
-    zoxide init nushell --cmd cd | save -f ~/.cache/zoxide/init.nu
-} else {
-    "" | save --force ~/.cache/zoxide/init.nu
+let _zoxide_cache = ($env.HOME | path join ".cache" "zoxide" "init.nu")
+if not ($_zoxide_cache | path exists) {
+    if (which zoxide | is-not-empty) {
+        mkdir ($env.HOME | path join ".cache" "zoxide")
+        zoxide init nushell --cmd cd | save -f $_zoxide_cache
+    } else {
+        mkdir ($env.HOME | path join ".cache" "zoxide")
+        "" | save --force $_zoxide_cache
+    }
 }
 
 # ============================================================================
 # Carapace Integration (generate cache, sourced in config.nu)
 # ============================================================================
-mkdir ~/.cache/carapace
-if (which carapace | is-not-empty) {
-    $env.CARAPACE_BRIDGES = 'zsh,fish,bash,inshellisense'
-    carapace _carapace nushell | save --force ~/.cache/carapace/init.nu
-} else {
-    "" | save --force ~/.cache/carapace/init.nu
+let _carapace_cache = ($env.HOME | path join ".cache" "carapace" "init.nu")
+if not ($_carapace_cache | path exists) {
+    if (which carapace | is-not-empty) {
+        $env.CARAPACE_BRIDGES = 'zsh,fish,bash,inshellisense'
+        mkdir ($env.HOME | path join ".cache" "carapace")
+        carapace _carapace nushell | save --force $_carapace_cache
+    } else {
+        mkdir ($env.HOME | path join ".cache" "carapace")
+        "" | save --force $_carapace_cache
+    }
 }
 
 # ============================================================================
 # Atuin - Magical shell history (generate cache, sourced in config.nu)
 # ============================================================================
-mkdir ~/.cache/atuin
-if (which atuin | is-not-empty) {
-    # atuin 18.13.2 generates `job spawn -d` which doesn't exist in nu 0.111.0
-    # Replace `-d <tag>` with `-t <tag>` (the correct flag name)
-    atuin init nu | str replace --all 'job spawn -d' 'job spawn -t' | save --force ~/.cache/atuin/init.nu
-} else {
-    "" | save --force ~/.cache/atuin/init.nu
+let _atuin_cache = ($env.HOME | path join ".cache" "atuin" "init.nu")
+if not ($_atuin_cache | path exists) {
+    if (which atuin | is-not-empty) {
+        mkdir ($env.HOME | path join ".cache" "atuin")
+        # atuin 18.13.2 generates `job spawn -d` which doesn't exist in nu 0.111.0
+        # Replace `-d <tag>` with `-t <tag>` (the correct flag name)
+        atuin init nu | str replace --all 'job spawn -d' 'job spawn -t' | save --force $_atuin_cache
+    } else {
+        mkdir ($env.HOME | path join ".cache" "atuin")
+        "" | save --force $_atuin_cache
+    }
 }
 
 # ============================================================================
@@ -83,8 +109,13 @@ $env.BAT_THEME = "Catppuccin Mocha"
 $env.FZF_DEFAULT_OPTS = "--color=bg+:#313244,bg:#1e1e2e,spinner:#f5e0dc,hl:#f38ba8 --color=fg:#cdd6f4,header:#f38ba8,info:#cba6f7,pointer:#f5e0dc --color=marker:#b4befe,fg+:#cdd6f4,prompt:#cba6f7,hl+:#f38ba8 --color=selected-bg:#45475a --multi"
 
 # ============================================================================
-# LS_COLORS with vivid (Catppuccin Mocha)
+# LS_COLORS with vivid (Catppuccin Mocha) -- cached to avoid fork on every startup
 # ============================================================================
+let _vivid_cache = ($env.HOME | path join ".cache" "vivid" "ls-colors-catppuccin-mocha.txt")
 if (which vivid | is-not-empty) {
-    $env.LS_COLORS = (vivid generate catppuccin-mocha)
+    if not ($_vivid_cache | path exists) {
+        mkdir ($env.HOME | path join ".cache" "vivid")
+        vivid generate catppuccin-mocha | save -f $_vivid_cache
+    }
+    $env.LS_COLORS = (open $_vivid_cache | str trim)
 }

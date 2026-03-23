@@ -1,0 +1,741 @@
+# ============================================================================
+# Fish Shell Configuration
+# ============================================================================
+
+# Non-interactive shells don't need any of this
+status is-interactive; or exit 0
+
+# ============================================================================
+# Fisher bootstrap -- auto-install on first launch
+# ============================================================================
+if not functions -q fisher
+    curl -sL https://raw.githubusercontent.com/jorgebucaran/fisher/main/functions/fisher.fish | source
+    fisher update
+end
+
+# ============================================================================
+# Homebrew Configuration
+# ============================================================================
+# Inline brew shellenv rather than forking brew on every startup (~200ms savings)
+# Covers Apple Silicon (/opt/homebrew) and Intel (/usr/local) Macs
+if test -x /opt/homebrew/bin/brew
+    set -gx HOMEBREW_PREFIX /opt/homebrew
+    set -gx HOMEBREW_CELLAR /opt/homebrew/Cellar
+    set -gx HOMEBREW_REPOSITORY /opt/homebrew
+    fish_add_path -g /opt/homebrew/bin /opt/homebrew/sbin
+    set -gx MANPATH /opt/homebrew/share/man $MANPATH
+    set -gx INFOPATH /opt/homebrew/share/info $INFOPATH
+else if test -x /usr/local/bin/brew
+    set -gx HOMEBREW_PREFIX /usr/local
+    set -gx HOMEBREW_CELLAR /usr/local/Cellar
+    set -gx HOMEBREW_REPOSITORY /usr/local/Homebrew
+    fish_add_path -g /usr/local/bin /usr/local/sbin
+    set -gx MANPATH /usr/local/share/man $MANPATH
+    set -gx INFOPATH /usr/local/share/info $INFOPATH
+end
+
+# ============================================================================
+# PATH Configuration
+# ============================================================================
+# User bins (highest priority)
+fish_add_path -g $HOME/.opencode/bin
+fish_add_path -g $HOME/.antigravity/antigravity/bin
+fish_add_path -g $HOME/.local/bin
+fish_add_path -g $HOME/.jenv/bin
+fish_add_path -g $HOME/.rbenv/shims
+fish_add_path -g $HOME/.tmuxifier/bin
+
+# Tool-specific paths (use $HOMEBREW_PREFIX set above)
+if set -q HOMEBREW_PREFIX
+    fish_add_path -g $HOMEBREW_PREFIX/opt/ruby/bin
+end
+
+# X11 and TeX
+fish_add_path -g /opt/X11/bin
+fish_add_path -g /Library/TeX/texbin
+fish_add_path -g /usr/texbin
+fish_add_path -g /usr/local/texlive/2025basic/bin/universal-darwin
+
+# ============================================================================
+# Machine Profile Detection
+# ============================================================================
+# Use fish's built-in $hostname variable (no fork) instead of (hostname)
+if test $hostname = "jsoyer-macOS"
+    set -gx MACHINE_PROFILE "mac-pro"
+else if test (uname -s) = Darwin
+    set -gx MACHINE_PROFILE "mac-personal"
+else
+    # Linux: detect from /etc/os-release
+    set -l _distro ""
+    if test -f /etc/os-release
+        set _distro (. /etc/os-release && echo $ID 2>/dev/null; or echo "")
+    end
+
+    if set -q TOOLBOX_PATH; or string match -q '*toolbx*' $hostname
+        set -gx MACHINE_PROFILE "toolbox"
+    else if test -f /proc/device-tree/model; and grep -qi "raspberry pi" /proc/device-tree/model 2>/dev/null
+        set -gx MACHINE_PROFILE "rpi"
+    else if test "$_distro" = arch
+        if string match -q 'arch-server*' $hostname
+            set -gx MACHINE_PROFILE "arch-server"
+        else
+            set -gx MACHINE_PROFILE "arch-desktop"
+        end
+    else if test "$_distro" = ubuntu
+        if string match -q 'ubuntu-server*' $hostname
+            set -gx MACHINE_PROFILE "ubuntu-server"
+        else
+            set -gx MACHINE_PROFILE "ubuntu-desktop"
+        end
+    else if test "$_distro" = debian
+        set -gx MACHINE_PROFILE "debian"
+    else if command -q rpm-ostree
+        set -gx MACHINE_PROFILE "fedora-atomic"
+    else if string match -q 'fedora-server*' $hostname
+        set -gx MACHINE_PROFILE "fedora-server"
+    else
+        set -gx MACHINE_PROFILE "fedora-desktop"
+    end
+end
+
+# ============================================================================
+# Environment Variables
+# ============================================================================
+set -gx LANG en_US.UTF-8
+set -gx EDITOR nvim
+set -gx DOCKER_CONFIG $HOME/.docker
+
+# Homebrew Cask appdir based on machine profile
+if test "$MACHINE_PROFILE" = "mac-pro"
+    set -gx HOMEBREW_CASK_OPTS "--appdir=$HOME/Applications"
+end
+
+set -gx KUBECONFIG $HOME/.kube/config
+
+# ============================================================================
+# Theme selection (Catppuccin Mocha for desktop, Snazzy for servers)
+# ============================================================================
+set -l _use_snazzy false
+switch "$MACHINE_PROFILE"
+    case rpi fedora-server fedora-atomic toolbox ubuntu-server debian
+        set _use_snazzy true
+end
+
+# ============================================================================
+# Catppuccin Mocha / Snazzy Theme
+# ============================================================================
+# fish_config theme choose runs a file read on every startup -- only run if
+# the theme isn't already active. Tide/Fisher typically handles this; skip
+# if tide is installed (it manages its own colors).
+if not functions -q _tide_set_color
+    if test "$_use_snazzy" = false
+        # Avoid running this on every startup -- check current theme name first
+        set -l _current_theme (fish_config theme show 2>/dev/null | head -1; or echo "")
+        if not string match -q "Catppuccin Mocha" "$_current_theme"
+            fish_config theme choose "Catppuccin Mocha" 2>/dev/null
+        end
+    end
+end
+
+# Prompt is managed by Tide (installed via Fisher / fish_plugins)
+
+# ============================================================================
+# Environment Variables (theming)
+# ============================================================================
+if test "$_use_snazzy" = true
+    set -gx BAT_THEME "ansi"
+    set -gx FZF_DEFAULT_OPTS "\
+--color=bg+:#3a3d4d,bg:#282a36,spinner:#ff5c57,hl:#57c7ff \
+--color=fg:#eff0eb,header:#57c7ff,info:#ff6ac1,pointer:#ff5c57 \
+--color=marker:#f3f99d,fg+:#eff0eb,prompt:#ff6ac1,hl+:#57c7ff"
+else
+    set -gx BAT_THEME "Catppuccin Mocha"
+    set -gx FZF_DEFAULT_OPTS "\
+--color=bg+:#313244,bg:#1e1e2e,spinner:#f5e0dc,hl:#f38ba8 \
+--color=fg:#cdd6f4,header:#f38ba8,info:#cba6f7,pointer:#f5e0dc \
+--color=marker:#f5e0dc,fg+:#cdd6f4,prompt:#cba6f7,hl+:#f38ba8"
+end
+
+set -gx FZF_DEFAULT_COMMAND 'fd --type f --hidden --follow --exclude .git'
+
+# Eza colors (Catppuccin Mocha)
+set -gx EZA_COLORS "uu=38;5;147:gu=38;5;147:ur=38;5;203:uw=38;5;204:ux=38;5;148:ue=38;5;148:gr=38;5;203:gw=38;5;204:gx=38;5;148:tr=38;5;203:tw=38;5;204:tx=38;5;148:da=38;5;110:sn=38;5;180:sb=38;5;180:xa=38;5;147"
+
+# LS_COLORS with vivid -- cache output to avoid forking vivid on every startup
+if command -q vivid
+    set -l _vivid_theme catppuccin-mocha
+    test "$_use_snazzy" = true; and set _vivid_theme snazzy
+    set -l _vivid_cache $HOME/.cache/vivid/ls-colors-$_vivid_theme.txt
+    if not test -f $_vivid_cache
+        mkdir -p $HOME/.cache/vivid
+        vivid generate $_vivid_theme >$_vivid_cache 2>/dev/null
+    end
+    set -gx LS_COLORS (cat $_vivid_cache)
+end
+
+# ============================================================================
+# Modern CLI Tools Integration
+# ============================================================================
+
+# Neovim with raised file descriptor limit
+function nvim --wraps=nvim
+    ulimit -n 4096
+    command nvim $argv
+end
+alias vim='nvim'
+alias v='nvim'
+alias la='tree'
+alias cat='bat'
+alias http='xh'
+alias as='aerospace'
+alias asr='atuin scripts run'
+
+# Eza (modern ls replacement)
+alias ls='eza --color=always --icons'
+alias ll='eza -l --color=always --icons --git -a'
+alias l='eza -l --icons --git -a'
+alias lt='eza --tree --level=2 --long --icons --git'
+alias ltree='eza --tree --level=2 --icons --git'
+alias zl='eza -lagX --icons --color=always'
+
+# SSH wrapper for Kitty kitten ssh
+function ssh --wraps=ssh
+    if test "$TERM" = "xterm-kitty"
+        kitten ssh $argv
+    else
+        command ssh $argv
+    end
+end
+
+# ============================================================================
+# Development Environment Managers
+# ============================================================================
+
+# Pyenv - Python version management (lazy-loaded to avoid ~200ms fork on startup)
+if test -d $HOME/.pyenv
+    set -gx PYENV_ROOT $HOME/.pyenv
+    fish_add_path $PYENV_ROOT/bin
+end
+if command -q pyenv
+    function pyenv --wraps=pyenv
+        functions -e pyenv
+        command pyenv init - | source
+        pyenv $argv
+    end
+end
+
+# Jenv - Java version management (lazy-loaded)
+if test -d $HOME/.jenv
+    fish_add_path $HOME/.jenv/bin
+end
+if command -q jenv
+    function jenv --wraps=jenv
+        functions -e jenv
+        command jenv init - | source
+        jenv $argv
+    end
+end
+
+# Rbenv - Ruby version management (lazy-loaded)
+if test -d $HOME/.rbenv
+    fish_add_path $HOME/.rbenv/bin
+end
+if command -q rbenv
+    function rbenv --wraps=rbenv
+        functions -e rbenv
+        command rbenv init - fish | source
+        rbenv $argv
+    end
+end
+
+# NVM - Node version management
+if test -d $HOME/.nvm
+    set -gx NVM_DIR $HOME/.nvm
+end
+
+# ============================================================================
+# Shell Options
+# ============================================================================
+
+# Disable greeting
+set -g fish_greeting
+
+# Enable vi mode (optional - uncomment if you prefer vi keybindings)
+# fish_vi_key_bindings
+
+# ============================================================================
+# System
+# ============================================================================
+alias cl='clear'
+alias bcask='brew cask'
+alias tbx='/usr/bin/toolbox run zsh'
+
+# ============================================================================
+# Navigation
+# ============================================================================
+alias ..='cd ..'
+alias ...='cd ../..'
+alias ....='cd ../../..'
+alias .....='cd ../../../..'
+alias ......='cd ../../../../..'
+
+# ============================================================================
+# Git
+# ============================================================================
+alias gc='git commit -m'
+alias gca='git commit -a -m'
+alias gp='git push origin HEAD'
+alias gpu='git pull origin'
+alias gst='git status'
+alias glog="git log --graph --topo-order --pretty='%w(100,0,6)%C(yellow)%h%C(bold)%C(black)%d %C(cyan)%ar %C(green)%an%n%C(bold)%C(white)%s %N' --abbrev-commit"
+alias gdiff='git diff'
+alias gco='git checkout'
+alias gb='git branch'
+alias gba='git branch -a'
+alias gadd='git add'
+alias ga='git add -p'
+alias gcoall='git checkout -- .'
+alias gr='git remote'
+alias gre='git reset'
+
+# ============================================================================
+# Git (Additions)
+# ============================================================================
+alias gs='git status -s'
+alias gsw='git switch'
+alias gswc='git switch -c'
+alias grs='git restore'
+alias grbi='git rebase -i'
+alias gcl='git clone'
+
+# ============================================================================
+# Docker / Podman
+# ============================================================================
+alias dco='docker compose'
+alias dps='docker ps'
+alias dpa='docker ps -a'
+alias dl='docker ps -l -q'
+alias dx='docker exec -it'
+
+# docker-compose -> docker compose (function for compatibility)
+function docker-compose
+    docker compose $argv
+end
+
+# Podman Compose
+function podman-compose
+    podman compose $argv
+end
+
+# ============================================================================
+# Kubernetes
+# ============================================================================
+alias k='kubectl'
+alias ka='kubectl apply -f'
+alias kg='kubectl get'
+alias kd='kubectl describe'
+alias kdel='kubectl delete'
+alias kl='kubectl logs -f'
+alias kgpo='kubectl get pod'
+alias kgd='kubectl get deployments'
+alias kc='kubectx'
+alias kns='kubens'
+alias ke='kubectl exec -it'
+alias kcns='kubectl config set-context --current --namespace'
+
+# ============================================================================
+# Security & Pentesting tools (not on mac-pro)
+# ============================================================================
+if test "$MACHINE_PROFILE" != "mac-pro"
+    command -q gobuster; and alias gobust='gobuster dir --wordlist ~/security/wordlists/diccnoext.txt --wildcard --url'
+    command -q dirsearch; and alias dirsearch='python dirsearch.py -w db/dicc.txt -b -u'
+    test -x ~/hacking/tools/massdns/bin/massdns; and alias massdns='~/hacking/tools/massdns/bin/massdns -r ~/hacking/tools/massdns/lists/resolvers.txt -t A -o S bf-targets.txt -w livehosts.txt -s 4000'
+    alias server='python -m http.server 4445'
+    command -q ngrok; and alias tunnel='ngrok http 4445'
+    command -q ffuf; and alias fuzz='ffuf -w ~/hacking/SecLists/content_discovery_all.txt -mc all -u'
+    command -q nmap; and alias nm='nmap -sC -sV -oN nmap'
+end
+
+# ============================================================================
+# Homebrew (via breww wrapper)
+# ============================================================================
+alias b='breww'
+alias bi='breww install'
+alias bu='breww update'
+alias bup='breww upgrade'
+alias bcu='breww cu -a'
+alias bs='breww search'
+alias bl='breww list'
+alias bun='breww uninstall'
+alias bci='breww cleanup'
+alias binfo='breww info'
+alias bd='breww doctor'
+
+# ============================================================================
+# Package manager wrappers
+# ============================================================================
+set -l _mp (string trim -- "$MACHINE_PROFILE")
+if string match -q "rpi" "$_mp"; or string match -q "ubuntu*" "$_mp"; or string match -q "debian" "$_mp"
+    function apt --wraps aptw --description 'apt wrapper with manifest sync'
+        command aptw $argv
+    end
+end
+if string match -q "fedora-desktop" "$_mp"; or string match -q "fedora-server" "$_mp"
+    function dnf --wraps dnfw --description 'dnf wrapper with manifest sync'
+        command dnfw $argv
+    end
+    function yum --wraps dnfw --description 'yum -> dnfw wrapper'
+        command dnfw $argv
+    end
+end
+
+# Arch Linux package manager wrappers
+if string match -q 'arch-*' "$_mp"
+    function pacman --wraps pacmanw --description 'pacman wrapper with manifest sync'
+        pacmanw $argv
+    end
+end
+
+if test "$_mp" = arch-desktop
+    function yay --wraps yayw --description 'yay wrapper with manifest sync'
+        yayw $argv
+    end
+end
+
+# Fedora Atomic wrapper
+if test "$_mp" = fedora-atomic
+    function rpm-ostree --wraps ostreew --description 'rpm-ostree -> ostreew wrapper'
+        ostreew $argv
+    end
+end
+
+# ============================================================================
+# Chezmoi
+# ============================================================================
+alias c='chezmoi'
+alias cdiff='chezmoi diff'
+alias cedit='chezmoi edit'
+alias cadd='chezmoi add'
+alias creadd='chezmoi re-add'
+alias cs='chezmoi status'
+alias ccd='chezmoi cd'
+
+# Chezmoi apply/update with verbose mode
+function ca
+    chezmoi apply -v $argv
+end
+
+function cu
+    chezmoi update -v $argv
+end
+
+# Chezmoi update + package updates
+function cup
+    chezmoi update -v $argv
+
+    set os (uname -s | tr '[:upper:]' '[:lower:]')
+
+    switch $os
+        case darwin
+            echo "Updating Homebrew packages..."
+            if test "$MACHINE_PROFILE" = "mac-pro"
+                brew upgrade
+            else
+                brew upgrade --greedy
+            end
+            brew cleanup
+            brew update
+            echo "Updating App Store apps..."
+            if command -q mas
+                mas upgrade
+            else
+                echo "mas-cli not installed (run: brew install mas)"
+            end
+        case linux
+            set arch (uname -m)
+            if string match -q "*rpi*" $arch
+                echo "Updating apt packages..."
+                sudo apt update
+                sudo apt dist-upgrade -y
+                sudo apt autoremove -y
+            else if command -q dnf
+                if command -q rpm-ostree
+                    echo "Updating Fedora Atomic..."
+                    sudo rpm-ostree upgrade
+                else
+                    echo "Updating Fedora packages..."
+                    sudo dnf upgrade -y
+                end
+            end
+        case windows
+            echo "Updating Scoop packages..."
+            scoop update
+            scoop update --all
+    end
+
+    # Docker/Podman maintenance
+    if command -q docker
+        if docker info >/dev/null 2>&1
+            set CONTAINER_RUNTIME "docker"
+        end
+    else if command -q podman
+        if podman info >/dev/null 2>&1
+            set CONTAINER_RUNTIME "podman"
+        end
+    end
+
+    if set -q CONTAINER_RUNTIME
+        echo "Running container maintenance..."
+        $CONTAINER_RUNTIME ps
+
+        for compose_file in (find $HOME -name "docker-compose.yml" -not -path "*/.*" 2>/dev/null)
+            set project_dir (dirname $compose_file)
+            set project_name (basename $project_dir)
+
+            if $CONTAINER_RUNTIME compose -f $compose_file ps --services --filter "status=running" 2>/dev/null | grep -q .
+                echo "  -> Updating $project_name"
+                set pull_output ($CONTAINER_RUNTIME compose -f $compose_file pull 2>&1)
+
+                if echo "$pull_output" | grep -qE "(Pulling|Downloading|Extracting|Status: Downloaded)"
+                    echo "  New images found, restarting containers..."
+                    $CONTAINER_RUNTIME compose -f $compose_file up -d
+                else
+                    echo "  No new images, containers up to date"
+                end
+            end
+        end
+
+        $CONTAINER_RUNTIME image prune -a -f
+        echo "Container maintenance complete!"
+    end
+
+    echo "Update complete!"
+end
+
+# ============================================================================
+# Jujutsu (jj)
+# ============================================================================
+alias j='jj'
+alias js='jj st'
+alias jl="jj log -r 'all()'"
+alias jd='jj diff'
+alias jn='jj new'
+alias jui='jjui'
+alias jundo='jj undo'
+alias jp='jj git push'
+alias jf='jj git fetch'
+
+# ============================================================================
+# Tmux
+# ============================================================================
+alias t='tmux'
+alias ta='tmux attach -t'
+alias tl='tmux list-sessions'
+alias tk='tmux kill-session -t'
+alias tns='tmux new-session -s'
+
+# ============================================================================
+# lazygit / lazydocker
+# ============================================================================
+alias lg='lazygit'
+alias ld='lazydocker'
+
+# ============================================================================
+# Disk / System
+# ============================================================================
+if command -q dust
+    alias du='dust'
+end
+if command -q duf
+    alias df='duf'
+end
+if command -q btop
+    alias top='btop'
+end
+if command -q procs
+    alias ps='procs'
+end
+alias ports='lsof -iTCP -sTCP:LISTEN -n -P'
+function myip
+    curl -s ifconfig.me; and echo
+end
+function path
+    string join \n $PATH
+end
+
+# ============================================================================
+# Markdown (glow)
+# ============================================================================
+if command -q glow
+    alias md='glow'
+end
+
+# ============================================================================
+# Search (ripgrep / fd)
+# ============================================================================
+alias rgf='rg --files-with-matches'
+alias rgi='rg --ignore-case'
+alias fdf='fd --type f'
+alias fdd='fd --type d'
+
+# ============================================================================
+# Python (uv / poetry / venv)
+# ============================================================================
+# uv
+alias uvi='uv init'
+alias uva='uv add'
+alias uvr='uv run'
+alias uvs='uv sync'
+alias uvp='uv pip'
+alias uvpi='uv pip install'
+alias uvvenv='uv venv'
+
+# poetry
+alias po='poetry'
+alias poi='poetry install'
+alias poa='poetry add'
+alias por='poetry run'
+alias pos='poetry shell'
+alias pou='poetry update'
+alias pol='poetry lock'
+
+# venv shortcuts
+function venv
+    set -l dir (test (count $argv) -gt 0; and echo $argv[1]; or echo ".venv")
+    uv venv $dir
+end
+function activate
+    set -l dir (test (count $argv) -gt 0; and echo $argv[1]; or echo ".venv")
+    if test -f "$dir/bin/activate.fish"
+        source "$dir/bin/activate.fish"
+    else
+        echo "No virtualenv found at $dir/bin/activate.fish"
+        return 1
+    end
+end
+
+# ============================================================================
+# Misc
+# ============================================================================
+function mkd
+    mkdir -p $argv; and cd $argv[-1]
+end
+
+# ============================================================================
+# Claude Code
+# ============================================================================
+alias cco='claude --model opus'
+alias ccs='claude --model sonnet'
+alias cch='claude --model haiku'
+
+# ============================================================================
+# fdupes (duplicate file finder)
+# ============================================================================
+alias dup='fdupes -r'
+alias dupsize='fdupes -rS'
+alias dupsum='fdupes -rm'
+function dupdel
+    set -l target (test (count $argv) -gt 0; and echo $argv; or echo ".")
+    echo "WARNING: this will DELETE duplicate files (keeping one copy) in: $target"
+    read -P "Continue? (y/N) " reply
+    if string match -qi 'y' $reply
+        fdupes -rdN $argv
+    else
+        echo "Aborted."
+    end
+end
+
+# ============================================================================
+# Custom functions (FZF-powered)
+# ============================================================================
+function cx --description 'cd and list'
+    cd $argv; and l
+end
+
+function fcd --description 'FZF directory navigation'
+    set -l dir (fd --type d --hidden --exclude .git | fzf)
+    if test -n "$dir"
+        cd $dir; and l
+    end
+end
+
+function f --description 'Copy file path to clipboard via FZF'
+    set -l file (fd --type f --hidden --exclude .git | fzf)
+    if test -n "$file"
+        if command -q pbcopy
+            echo -n $file | pbcopy
+        else if command -q wl-copy
+            echo -n $file | wl-copy
+        else if command -q xclip
+            echo -n $file | xclip -selection clipboard
+        end
+        echo "Copied to clipboard: $file"
+    end
+end
+
+if command -q aerospace
+    function ff --description 'Aerospace window picker via FZF'
+        aerospace list-windows --all | fzf --bind 'enter:execute(bash -c "aerospace focus --window-id {1}")+abort'
+    end
+end
+
+function fv --description 'Open file in nvim via FZF'
+    set -l file (fd --type f --hidden --exclude .git | fzf)
+    if test -n "$file"
+        nvim $file
+    end
+end
+
+# ============================================================================
+# Zoxide (smart cd) -- cached init
+# ============================================================================
+if command -q zoxide
+    set -l _zo_cache $HOME/.cache/zoxide/init.fish
+    if not test -f $_zo_cache
+        mkdir -p $HOME/.cache/zoxide
+        zoxide init --cmd cd fish >$_zo_cache 2>/dev/null
+    end
+    source $_zo_cache
+end
+
+# ============================================================================
+# Atuin - Magical shell history -- cached init
+# ============================================================================
+if command -q atuin
+    set -l _at_cache $HOME/.cache/atuin/init.fish
+    if not test -f $_at_cache
+        mkdir -p $HOME/.cache/atuin
+        atuin init fish >$_at_cache 2>/dev/null
+    end
+    source $_at_cache
+end
+
+# ============================================================================
+# Direnv - Environment switcher -- cached init
+# ============================================================================
+if command -q direnv
+    set -l _de_cache $HOME/.cache/direnv/init.fish
+    if not test -f $_de_cache
+        mkdir -p $HOME/.cache/direnv
+        direnv hook fish >$_de_cache 2>/dev/null
+    end
+    source $_de_cache
+end
+
+# ============================================================================
+# Thefuck - Command correction (lazy-loaded)
+# ============================================================================
+if command -q thefuck
+    function fuck
+        functions -e fuck
+        thefuck --alias | source
+        fuck $argv
+    end
+end
+
+# ============================================================================
+# OrbStack - Docker/Kubernetes alternative (macOS only)
+# ============================================================================
+if test -f ~/.orbstack/shell/init.fish
+    source ~/.orbstack/shell/init.fish 2>/dev/null
+end
