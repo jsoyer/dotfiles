@@ -552,7 +552,7 @@ install_gh_apt() {
     log_info "Installing gh (GitHub CLI) via official apt repo..."
 
     # Ensure wget is available
-    if ! type -p wget &>/dev/null; then
+    if ! command -v wget &>/dev/null; then
         sudo apt update
         sudo apt install -y wget
     fi

@@ -18,6 +18,7 @@ MANIFEST_DIR="${CHEZMOI_SOURCE_PATH}/dot_private"
 
 validate_pkg() {
     local pkg="$1"
+    [[ "$pkg" == */* ]] && { printf '%b\n' "${RED}Error: invalid package name: '${pkg}'${NC}" >&2; exit 1; }
     if ! [[ "$pkg" =~ ^[a-zA-Z0-9][a-zA-Z0-9.+\-_]{0,127}$ ]]; then
         printf '%b\n' "${RED}Error: invalid package name: '${pkg}'${NC}" >&2
         exit 1
