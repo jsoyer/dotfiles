@@ -71,21 +71,21 @@ fi
 # ocx plugins — non-fatal (registry hash mismatches are transient)
 OCX_DIR="${HOME}/.config/opencode"
 
-ocx_ensure() {
+# Clear stale receipt to avoid integrity mismatches on registry updates
+if [[ -f "${OCX_DIR}/.ocx/receipt.jsonc" ]]; then
+    echo "Clearing ocx receipt for fresh install..."
+    rm -f "${OCX_DIR}/.ocx/receipt.jsonc"
+fi
+
+ocx_install() {
     local name="$1"
     local label="$2"
-    # Remove first to clear stale hashes, then re-add from registry
-    if (cd "${OCX_DIR}" && ocx list 2>/dev/null | grep -q "${name}"); then
-        echo "Refreshing ${label}..."
-        (cd "${OCX_DIR}" && ocx remove "${name}" 2>/dev/null) || true
-    else
-        echo "Installing ${label}..."
-    fi
+    echo "Installing ${label}..."
     (cd "${OCX_DIR}" && ocx add "${name}" --from https://registry.kdco.dev) || echo "  Warning: ${label} install failed (non-fatal)"
 }
 
-ocx_ensure "kdco/notify" "opencode-notify"
-ocx_ensure "kdco/worktree" "opencode-worktree"
+ocx_install "kdco/notify" "opencode-notify"
+ocx_install "kdco/worktree" "opencode-worktree"
 
 echo "OpenCode tools installation complete!"
 {{- end }}
