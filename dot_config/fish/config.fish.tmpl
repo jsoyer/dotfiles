@@ -8,6 +8,12 @@ status is-interactive; or exit 0
 # ============================================================================
 # Fisher bootstrap -- auto-install on first launch
 # ============================================================================
+# Plugins (fish_plugins): tide, fzf.fish, nvm.fish, done, gitnow
+#
+# Disabled plugins (conf.d/*.fish.disabled -- not loaded, still installed):
+#   gitnow  (110ms) -- redundant with git aliases below
+#   nvm.fish (81ms) -- not actively used
+# To re-enable: mv ~/.config/fish/conf.d/{name}.fish.disabled {name}.fish
 if not functions -q fisher
     curl -sL https://raw.githubusercontent.com/jorgebucaran/fisher/main/functions/fisher.fish | source
     fisher update
