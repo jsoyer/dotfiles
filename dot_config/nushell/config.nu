@@ -1061,6 +1061,38 @@ def cu [...args: string] {
     ^chezmoi update -v ...$args
 }
 
+# Chezmoi purge (remove chezmoi source + config, keep deployed files)
+def cpurge [] {
+    print "WARNING: This will remove chezmoi source directory and config."
+    print "  - Deletes: ~/.local/share/chezmoi (source repo)"
+    print "  - Deletes: ~/.config/chezmoi/chezmoi.toml (config)"
+    print "  - Keeps:   All deployed dotfiles in your home directory"
+    print ""
+    let reply = (input "Are you sure? (y/N) ")
+    if $reply == "y" or $reply == "Y" {
+        ^chezmoi purge --force
+        print "chezmoi purged."
+    } else {
+        print "Aborted."
+    }
+}
+
+# Chezmoi destroy (purge + remove ALL managed files)
+def cdestroy [] {
+    print "DANGER: This will remove chezmoi AND all managed dotfiles!"
+    print "  - Deletes: ~/.local/share/chezmoi (source repo)"
+    print "  - Deletes: ~/.config/chezmoi/chezmoi.toml (config)"
+    print "  - Deletes: ALL files managed by chezmoi in your home"
+    print ""
+    let reply = (input "Type 'destroy' to confirm: ")
+    if $reply == "destroy" {
+        ^chezmoi destroy --force
+        print "chezmoi destroyed. All managed files removed."
+    } else {
+        print "Aborted."
+    }
+}
+
 # Chezmoi update + package updates
 def cup [...args: string] {
     ^chezmoi update -v ...$args

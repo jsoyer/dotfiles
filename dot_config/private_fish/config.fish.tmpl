@@ -427,6 +427,38 @@ function cu
     chezmoi update -v $argv
 end
 
+# Chezmoi purge (remove chezmoi source + config, keep deployed files)
+function cpurge
+    echo "WARNING: This will remove chezmoi source directory and config."
+    echo "  - Deletes: ~/.local/share/chezmoi (source repo)"
+    echo "  - Deletes: ~/.config/chezmoi/chezmoi.toml (config)"
+    echo "  - Keeps:   All deployed dotfiles in your home directory"
+    echo ""
+    read -P "Are you sure? (y/N) " reply
+    if test "$reply" = "y" -o "$reply" = "Y"
+        chezmoi purge --force
+        echo "chezmoi purged."
+    else
+        echo "Aborted."
+    end
+end
+
+# Chezmoi destroy (purge + remove ALL managed files)
+function cdestroy
+    echo "DANGER: This will remove chezmoi AND all managed dotfiles!"
+    echo "  - Deletes: ~/.local/share/chezmoi (source repo)"
+    echo "  - Deletes: ~/.config/chezmoi/chezmoi.toml (config)"
+    echo "  - Deletes: ALL files managed by chezmoi in your home"
+    echo ""
+    read -P "Type 'destroy' to confirm: " reply
+    if test "$reply" = "destroy"
+        chezmoi destroy --force
+        echo "chezmoi destroyed. All managed files removed."
+    else
+        echo "Aborted."
+    end
+end
+
 # Chezmoi update + package updates
 function cup
     chezmoi update -v $argv

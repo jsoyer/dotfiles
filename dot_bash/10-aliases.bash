@@ -233,6 +233,40 @@ cu() {
   chezmoi update -v "$@"
 }
 
+# Chezmoi purge (remove chezmoi source + config, keep deployed files)
+cpurge() {
+  echo "WARNING: This will remove chezmoi source directory and config."
+  echo "  - Deletes: ~/.local/share/chezmoi (source repo)"
+  echo "  - Deletes: ~/.config/chezmoi/chezmoi.toml (config)"
+  echo "  - Keeps:   All deployed dotfiles in your home directory"
+  echo ""
+  echo -n "Are you sure? (y/N) "
+  read -r reply
+  if [[ "$reply" =~ ^[Yy]$ ]]; then
+    chezmoi purge --force
+    echo "chezmoi purged."
+  else
+    echo "Aborted."
+  fi
+}
+
+# Chezmoi destroy (purge + remove ALL managed files)
+cdestroy() {
+  echo "DANGER: This will remove chezmoi AND all managed dotfiles!"
+  echo "  - Deletes: ~/.local/share/chezmoi (source repo)"
+  echo "  - Deletes: ~/.config/chezmoi/chezmoi.toml (config)"
+  echo "  - Deletes: ALL files managed by chezmoi in your home"
+  echo ""
+  echo -n "Type 'destroy' to confirm: "
+  read -r reply
+  if [[ "$reply" == "destroy" ]]; then
+    chezmoi destroy --force
+    echo "chezmoi destroyed. All managed files removed."
+  else
+    echo "Aborted."
+  fi
+}
+
 # ============================================================================
 # Tmux
 # ============================================================================
