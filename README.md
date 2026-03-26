@@ -86,7 +86,7 @@ This setup uses `chezmoi`'s templating capabilities to apply different configura
 - **notmuch** - Email indexing and search
 
 ### AI Tools
-- **Claude Code** - AI coding assistant (167 agents, 531 skills (symlinked from ~/.agents/skills/), 15 MCP servers, Claude Octopus plugin)
+- **Claude Code** - AI coding assistant (192 agents, 654 skills, 60 slash commands, 64 rules, 19 MCP servers, 6 hooks, Claude Octopus plugin)
 - **OpenCode** - Alternative AI coding CLI (ocx extensions, shared MCP config, desktop profiles only)
 - **RTK** - Token optimization proxy for Claude Code
 - **codecompanion.nvim** - Multi-provider AI in Neovim (Claude, OpenAI, Gemini, Mistral, Ollama + CLI agents)
@@ -442,11 +442,13 @@ chezmoi update  # Pull + apply automatically
 │   ├── 04-update/                      # Package updates (Homebrew, App Store, dnf)
 │   └── 05-maintenance/                 # Container maintenance
 ├── dot_claude/                         # Claude Code AI assistant
-│   ├── agents/                         # 167 specialized sub-agents
-│   ├── hooks/                          # Event hooks (RTK, state tracking)
-│   └── private_settings.json.tmpl      # Permissions, MCP servers
+│   ├── agents/                         # 192 specialized sub-agents
+│   ├── commands/                       # 60 slash commands (/plan, /verify, /tdd, etc.)
+│   ├── rules/                          # 64 rule files (common + 12 languages)
+│   ├── hooks/                          # 6 event hooks (RTK, state, quality gate, etc.)
+│   └── private_settings.json.tmpl      # Permissions, 19 MCP servers
 ├── dot_agents/                         # Shared AI agent skills
-│   ├── skills/                         # 531 skills (source of truth)
+│   ├── skills/                         # 654 skills (source of truth)
 │   └── dot_skill-lock.json             # Skill manifest (triggers sync)
 ├── dot_config/
 │   ├── aerospace/                      # Tiling window manager (macOS)
@@ -773,7 +775,7 @@ These dotfiles are based on various open-source projects and personal customizat
 
 ---
 
-**Last Updated:** 2026-03-15
+**Last Updated:** 2026-03-26
 **Maintained by:** Jerome Soyer (@jsoyer)
 
 ---

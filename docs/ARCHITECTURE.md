@@ -142,9 +142,9 @@ graph TD
     subgraph Sources
         VA[VoltAgent<br>132 agents]
         MS[msitarzewski<br>22 agents]
-        CU[Custom<br>10 agents]
-        CL[Cloud<br>3 agents]
-        SK[Skills<br>531 modules]
+        ECC[ECC<br>27 agents]
+        CU[Custom<br>11 agents]
+        SK[Skills<br>654 modules]
     end
 
     subgraph Scripts
@@ -162,8 +162,8 @@ graph TD
 
     VA --> UCA
     MS --> UCA
+    ECC --> UCA
     CU --> UCA
-    CL --> UCA
     UCA --> CA
 
     SK --> UCS
@@ -177,9 +177,13 @@ graph TD
 - `octo@nyldn-plugins` -- Claude Octopus multi-AI orchestrator (39 commands, 32 personas, 50 skills)
 - LSP plugins: lua, pyright, swift, typescript, gopls
 
-**Hooks**: `rtk-rewrite.sh` (token optimization on Bash calls), `claude-island-state.py` (state tracking)
+**Commands**: 60 slash commands in `dot_claude/commands/` (`/plan`, `/verify`, `/code-review`, `/tdd`, `/build-fix`, language builds/reviews, etc.)
 
-**MCP Servers**: 15 configured in `private_settings.json.tmpl` (context7, fetch, github, 1password, playwright, etc.)
+**Rules**: 64 rule files in `dot_claude/rules/` (common best practices + 12 language-specific: TypeScript, Python, Rust, Go, Swift, C++, C#, Java, Kotlin, Perl, PHP)
+
+**Hooks**: `rtk-rewrite.sh` (token optimization on Bash calls), `claude-island-state.py` (state tracking), `console-log-check.sh` (debug statement warnings), `config-protection.sh` (protected file guard), `desktop-notify.sh` (macOS/Linux notifications)
+
+**MCP Servers**: 19 configured in `private_settings.json.tmpl` (context7, fetch, github, 1password, playwright, 4x cloudflare, token-optimizer, etc.)
 
 ## Shell Configuration
 

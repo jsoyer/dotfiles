@@ -56,6 +56,15 @@
             "command": "python3 {{ .chezmoi.homeDir }}/.claude/hooks/claude-island-state.py"
           }
         ]
+      },
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "{{ .chezmoi.homeDir }}/.claude/hooks/console-log-check.sh"
+          }
+        ]
       }
     ],
     "PreCompact": [
@@ -96,6 +105,15 @@
             "command": "{{ .chezmoi.homeDir }}/.claude/hooks/rtk-rewrite.sh"
           }
         ]
+      },
+      {
+        "matcher": "Write|Edit|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "{{ .chezmoi.homeDir }}/.claude/hooks/config-protection.sh"
+          }
+        ]
       }
     ],
     "SessionEnd": [
@@ -132,6 +150,14 @@
           {
             "type": "command",
             "command": "afplay /System/Library/Sounds/Glass.aiff 2>/dev/null || true"
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "{{ .chezmoi.homeDir }}/.claude/hooks/desktop-notify.sh"
           }
         ]
       }
@@ -251,6 +277,27 @@
       "type": "stdio",
       "command": "npx",
       "args": ["-y", "drawio-mcp-server", "--editor"]
+    },
+    "cloudflare-docs": {
+      "type": "http",
+      "url": "https://docs.mcp.cloudflare.com/mcp"
+    },
+    "cloudflare-workers-builds": {
+      "type": "http",
+      "url": "https://builds.mcp.cloudflare.com/mcp"
+    },
+    "cloudflare-workers-bindings": {
+      "type": "http",
+      "url": "https://bindings.mcp.cloudflare.com/mcp"
+    },
+    "cloudflare-observability": {
+      "type": "http",
+      "url": "https://observability.mcp.cloudflare.com/mcp"
+    },
+    "token-optimizer": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "token-optimizer-mcp"]
     }
   },
   "enabledPlugins": {

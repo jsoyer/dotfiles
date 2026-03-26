@@ -79,7 +79,7 @@ Git repos auto-refreshed weekly:
 - Tmux Plugin Manager (TPM)
 
 ### Skills Sync (`dot_agents/`, `.chezmoiscripts/03-configure/`)
-- Source of truth: `dot_agents/skills/` (531 skills)
+- Source of truth: `dot_agents/skills/` (654 skills)
 - `run_onchange_sync-skill-symlinks.sh` creates symlinks in `~/.claude/skills/`, `~/.qwen/skills/`, `~/.vibe/skills/`
 - Triggered by changes to `dot_agents/dot_skill-lock.json`
 - OpenCode tools (`ocx`, `oh-my-openagent`) install only on desktop profiles: `mac-personal`, `fedora-desktop`, `toolbox`, `ubuntu-desktop`, `arch-desktop`
@@ -100,18 +100,20 @@ Configuration adapts based on:
 
 ### Key Directories
 - `dot_config/` - XDG config files (nvim, starship, tmux, wezterm, aerospace, sketchybar, etc.) (desktop profiles only)
-- `dot_claude/` - Claude Code config (agents, skills, hooks, settings)
-- `dot_agents/` - Shared AI agent skills (531 skills, source of truth for `.claude/`, `.qwen/`, `.vibe/` symlinks)
+- `dot_claude/` - Claude Code config (agents, commands, rules, hooks, settings)
+- `dot_agents/` - Shared AI agent skills (654 skills, source of truth for `.claude/`, `.qwen/`, `.vibe/` symlinks)
 - `dot_config/opencode/` - OpenCode config (MCP servers mirror Claude)
 - `dot_private/` - Brewfiles (`Brewfile_common`, `Brewfile_pro`, `Brewfile_personal`, `Brewfile_linux`, `Brewfile_rpi`)
 - `dot_local/bin/` - Custom scripts (`breww`, `update-claude-agents`, `claude-init`)
 - `dot_ssh/` - SSH config directory
 
 ### AI Tools (`dot_claude/`)
-- `agents/` - 167 specialized sub-agents (132 VoltAgent/awesome-claude-code-subagents + 22 msitarzewski/agency-agents + 10 custom + 3 cloud)
-- Skills are symlinked from `~/.agents/skills/` (531 skills) via `run_onchange_sync-skill-symlinks.sh`
-- `hooks/` - `rtk-rewrite.sh` (token optimization), `claude-island-state.py` (state tracking)
-- `private_settings.json.tmpl` - Permissions, hooks, MCP servers (15 configured)
+- `agents/` - 192 specialized sub-agents (132 VoltAgent/awesome-claude-code-subagents + 22 msitarzewski/agency-agents + 27 ECC/everything-claude-code + 11 custom)
+- `commands/` - 60 slash commands (from ECC: `/plan`, `/verify`, `/code-review`, `/tdd`, `/build-fix`, language builds/reviews, etc.)
+- `rules/` - 64 rule files (common best practices + 12 language-specific: TypeScript, Python, Rust, Go, Swift, C++, C#, Java, Kotlin, Perl, PHP)
+- Skills are symlinked from `~/.agents/skills/` (654 skills) via `run_onchange_sync-skill-symlinks.sh`
+- `hooks/` - `rtk-rewrite.sh` (token optimization), `claude-island-state.py` (state tracking), `console-log-check.sh`, `config-protection.sh`, `desktop-notify.sh`
+- `private_settings.json.tmpl` - Permissions, hooks, MCP servers (19 configured)
 - Plugins: `octo@nyldn-plugins` (Claude Octopus multi-AI orchestrator), LSP plugins (lua, pyright, swift, typescript, gopls)
 
 ### macOS Desktop (`dot_config/aerospace/`, `dot_config/sketchybar/`)
