@@ -12,9 +12,11 @@ set -euo pipefail
 # ocx — OpenCode extension manager
 if ! command -v ocx &>/dev/null; then
     echo "Installing ocx..."
-    curl -fsSL https://ocx.kdco.dev/install.sh | sh
-    # Ensure ~/.local/bin is in PATH for the rest of this script
-    export PATH="${HOME}/.local/bin:${PATH}"
+    if curl -fsSL https://ocx.kdco.dev/install.sh | sh; then
+        export PATH="${HOME}/.local/bin:${PATH}"
+    else
+        echo "Warning: ocx installation failed (non-fatal, upstream may be down)"
+    fi
 else
     echo "ocx already installed, checking for updates..."
     ocx self update 2>/dev/null || true
@@ -55,12 +57,16 @@ else
     echo "npm not found, skipping npm-based tools"
 fi
 
-# ocx global init — creates profiles and global config
-if [[ ! -f "${HOME}/.config/opencode/ocx.jsonc" ]] && [[ ! -f "${HOME}/.config/opencode/.opencode/ocx.jsonc" ]]; then
-    echo "Initializing ocx globally..."
-    ocx init --global
+# ocx global init — creates profiles and global config (skip if ocx not available)
+if command -v ocx &>/dev/null; then
+    if [[ ! -f "${HOME}/.config/opencode/ocx.jsonc" ]] && [[ ! -f "${HOME}/.config/opencode/.opencode/ocx.jsonc" ]]; then
+        echo "Initializing ocx globally..."
+        ocx init --global
+    else
+        echo "ocx global config already initialized"
+    fi
 else
-    echo "ocx global config already initialized"
+    echo "Skipping ocx init (ocx not installed)"
 fi
 
 # Fix: remove root-level ocx.jsonc if .opencode/ocx.jsonc also exists (ocx requires single location)
@@ -70,23 +76,27 @@ if [[ -f "${HOME}/.config/opencode/ocx.jsonc" ]] && [[ -f "${HOME}/.config/openc
 fi
 
 # ocx plugins — non-fatal (registry hash mismatches are transient)
-OCX_DIR="${HOME}/.config/opencode"
+if command -v ocx &>/dev/null; then
+    OCX_DIR="${HOME}/.config/opencode"
 
-# Clear stale receipt to avoid integrity mismatches on registry updates
-if [[ -f "${OCX_DIR}/.ocx/receipt.jsonc" ]]; then
-    echo "Clearing ocx receipt for fresh install..."
-    rm -f "${OCX_DIR}/.ocx/receipt.jsonc"
+    # Clear stale receipt to avoid integrity mismatches on registry updates
+    if [[ -f "${OCX_DIR}/.ocx/receipt.jsonc" ]]; then
+        echo "Clearing ocx receipt for fresh install..."
+        rm -f "${OCX_DIR}/.ocx/receipt.jsonc"
+    fi
+
+    ocx_install() {
+        local name="$1"
+        local label="$2"
+        echo "Installing ${label}..."
+        (cd "${OCX_DIR}" && ocx add "${name}" --from https://registry.kdco.dev) || echo "  Warning: ${label} install failed (non-fatal)"
+    }
+
+    ocx_install "kdco/notify" "opencode-notify"
+    ocx_install "kdco/worktree" "opencode-worktree"
+else
+    echo "Skipping ocx plugins (ocx not installed)"
 fi
-
-ocx_install() {
-    local name="$1"
-    local label="$2"
-    echo "Installing ${label}..."
-    (cd "${OCX_DIR}" && ocx add "${name}" --from https://registry.kdco.dev) || echo "  Warning: ${label} install failed (non-fatal)"
-}
-
-ocx_install "kdco/notify" "opencode-notify"
-ocx_install "kdco/worktree" "opencode-worktree"
 
 echo "OpenCode tools installation complete!"
 {{- end }}
