@@ -52,8 +52,8 @@ Install-ScoopPackages @(
     'powertoys', 'sysinternals', 'tor-browser', 'vscode', 'whkd', 'zed'
 )
 
-Write-Host "Installing Scoop packages (versions)..." -ForegroundColor Cyan
-Install-ScoopPackages @('jdownloader')
+Write-Host "Installing Scoop packages (extras - jdownloader)..." -ForegroundColor Cyan
+try { Install-ScoopPackages @('jdownloader2') } catch { Write-Warning "jdownloader2 install failed (non-fatal): $_" }
 
 Write-Host "Installing Scoop packages (java)..." -ForegroundColor Cyan
 Install-ScoopPackages @('temurin25-jre')
