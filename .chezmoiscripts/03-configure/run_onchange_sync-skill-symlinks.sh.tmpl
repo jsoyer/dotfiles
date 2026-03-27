@@ -8,7 +8,7 @@
 set -euo pipefail
 
 SKILLS_SRC="{{ .chezmoi.homeDir }}/.agents/skills"
-CONSUMERS=(.claude .qwen .vibe)
+CONSUMERS=(.claude .qwen .vibe .codex)
 REL_PATH="../../.agents/skills"
 
 if [[ ! -d "$SKILLS_SRC" ]]; then
