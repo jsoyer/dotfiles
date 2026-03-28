@@ -15,7 +15,7 @@ scan_timeout = 30
 {{- else if eq $mp "omarchy" }}{{ $iconColor = "purple" }}
 {{- else if or (eq $mp "arch-desktop") (eq $mp "arch-server") }}{{ $iconColor = "blue" }}
 {{- else if or (eq $mp "fedora-desktop") (eq $mp "fedora-server") (eq $mp "fedora-atomic") }}{{ $iconColor = "blue" }}
-{{- else if eq $mp "toolbox" }}{{ $iconColor = "blue" }}
+{{- else if eq $mp "toolbox" }}{{ $iconColor = "white" }}
 {{- else if eq $mp "windows" }}{{ $iconColor = "cyan" }}
 {{- end }}
 [env_var.STARSHIP_ICON]
