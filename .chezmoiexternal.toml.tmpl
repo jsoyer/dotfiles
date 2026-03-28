@@ -19,7 +19,7 @@
 {{- end }}
 
 {{- $mp := index . "machine_profile" -}}
-{{- if or (eq $mp "mac-personal") (eq $mp "ubuntu-desktop") }}
+{{- if or (eq $mp "mac-personal") (eq $mp "ubuntu-desktop") (eq $mp "fedora-desktop") (eq $mp "arch-desktop") (eq $mp "omarchy") }}
 [".wallpapers"]
     type = "git-repo"
     url = "https://github.com/orangci/walls-catppuccin-mocha.git"
