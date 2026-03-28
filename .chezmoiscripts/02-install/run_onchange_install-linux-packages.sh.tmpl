@@ -416,7 +416,7 @@ fi
 _aurfile="{{ .chezmoi.sourceDir }}/dot_private/Pacfile_aur_desktop"
 if [[ -f "$_aurfile" ]] && command -v yay &>/dev/null; then
     mapfile -t _aurpkgs < <(grep -v '^\s*#' "$_aurfile" | grep -v '^\s*$')
-    [[ ${#_aurpkgs[@]} -gt 0 ]] && yay -S --noconfirm --needed "${_aurpkgs[@]}"
+    [[ ${#_aurpkgs[@]} -gt 0 ]] && yay -S --noconfirm --needed --answerdiff=None --answerclean=None "${_aurpkgs[@]}"
 fi
 
 # Install uv
@@ -503,7 +503,7 @@ if _has_gui; then
     _aurguifile="{{ .chezmoi.sourceDir }}/dot_private/Pacfile_aur_gui"
     if [[ -f "$_aurguifile" ]] && command -v yay &>/dev/null; then
         mapfile -t _aurguipkgs < <(grep -v '^\s*#' "$_aurguifile" | grep -v '^\s*$')
-        [[ ${#_aurguipkgs[@]} -gt 0 ]] && yay -S --noconfirm --needed "${_aurguipkgs[@]}"
+        [[ ${#_aurguipkgs[@]} -gt 0 ]] && yay -S --noconfirm --needed --answerdiff=None --answerclean=None "${_aurguipkgs[@]}"
     fi
 {{- end }}
 
@@ -519,7 +519,7 @@ fi
 {{- if or $isArchDesktop $isOmArchy $isArchServer }}
 # Arch/OmArchy — install via AUR (native > script)
 if command -v yay &>/dev/null; then
-    yay -S --noconfirm --needed claude-code github-copilot-cli-bin openai-codex-bin 2>/dev/null || true
+    yay -S --noconfirm --needed --answerdiff=None --answerclean=None claude-code github-copilot-cli-bin openai-codex-bin 2>/dev/null || true
 fi
 {{- else }}
 # Claude Code (native installer)
