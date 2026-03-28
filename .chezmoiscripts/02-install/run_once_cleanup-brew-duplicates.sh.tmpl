@@ -33,6 +33,13 @@ done
 
 if (( removed > 0 )); then
     echo "✅ Removed $removed brew duplicate(s)."
+
+    # Clear shell init caches — they contain hardcoded paths to brew binaries
+    echo "🗑️ Clearing shell init caches (stale brew paths)..."
+    rm -rf "${HOME}/.cache/starship" "${HOME}/.cache/zoxide" "${HOME}/.cache/atuin" \
+           "${HOME}/.cache/direnv" "${HOME}/.cache/linuxbrew" \
+           "${HOME}/.cache/shell"/*.bash "${HOME}/.cache/shell"/*.meta
+
     echo "🍺 Reinstalling brew-only packages to fix any broken dependencies..."
     BREWFILE_DIR="{{ .chezmoi.sourceDir }}/dot_private"
     if [[ -f "$BREWFILE_DIR/Brewfile_brew_only" ]]; then
