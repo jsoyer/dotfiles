@@ -9,10 +9,22 @@ scan_timeout = 30
 format = """$env_var$hostname$directory$git_branch$git_status$character"""
 palette = "snazzy"
 
-# Custom icon based on hostname (set in 00-env.zsh)
+# Platform icon — color set per machine_profile via chezmoi template
+{{- $mp := index . "machine_profile" -}}
+{{- $iconColor := "white" -}}
+{{- if or (eq $mp "mac-personal") (eq $mp "mac-pro") }}{{ $iconColor = "mauve" }}
+{{- else if eq $mp "rpi" }}{{ $iconColor = "red" }}
+{{- else if or (eq $mp "ubuntu-desktop") (eq $mp "ubuntu-server") }}{{ $iconColor = "peach" }}
+{{- else if eq $mp "debian" }}{{ $iconColor = "red" }}
+{{- else if eq $mp "omarchy" }}{{ $iconColor = "purple" }}
+{{- else if or (eq $mp "arch-desktop") (eq $mp "arch-server") }}{{ $iconColor = "blue" }}
+{{- else if or (eq $mp "fedora-desktop") (eq $mp "fedora-server") (eq $mp "fedora-atomic") }}{{ $iconColor = "blue" }}
+{{- else if eq $mp "toolbox" }}{{ $iconColor = "blue" }}
+{{- else if eq $mp "windows" }}{{ $iconColor = "cyan" }}
+{{- end }}
 [env_var.STARSHIP_ICON]
 variable = "STARSHIP_ICON"
-style = "bold"
+style = "bold {{ $iconColor }}"
 format = "[$env_value]($style) "
 disabled = false
 
