@@ -87,17 +87,11 @@ flatpak update --appstream flathub --user 2>/dev/null || true
 
 echo "Installing Flatpak packages (Ubuntu Desktop)..."
 for pkg in \
-    com.brave.Browser \
     com.discordapp.Discord \
-    dev.zed.Zed \
-    io.dbeaver.DBeaverCommunity \
     io.github.shiftey.Desktop \
     md.obsidian.Obsidian \
     org.localsend.localsend_app \
-    org.remmina.Remmina \
-    org.signal.Signal \
     org.telegram.desktop \
-    org.videolan.VLC \
     tech.feliciano.pocket-casts
 do
     if flatpak info --user "$pkg" &>/dev/null; then
@@ -126,10 +120,7 @@ flatpak update --appstream flathub --user 2>/dev/null || true
 
 echo "Installing Flatpak packages (Fedora Desktop)..."
 for pkg in \
-    com.brave.Browser \
     com.discordapp.Discord \
-    dev.zed.Zed \
-    io.dbeaver.DBeaverCommunity \
     io.github.shiftey.Desktop \
     md.obsidian.Obsidian \
     org.localsend.localsend_app \

@@ -35,6 +35,7 @@ encryption = "age"
 {{- else if hasPrefix "fedora-desktop" .chezmoi.hostname -}}fedora-desktop
 {{- else -}}{{ promptStringOnce . "machine_profile" "Machine profile [fedora-desktop/fedora-server]" "fedora-desktop" }}
 {{- end -}}
+{{- else if eq .chezmoi.osRelease.id "omarchy" -}}omarchy
 {{- else if eq .chezmoi.osRelease.id "arch" -}}
 {{- if hasPrefix "arch-server" .chezmoi.hostname -}}arch-server
 {{- else if hasPrefix "arch-desktop" .chezmoi.hostname -}}arch-desktop
@@ -44,6 +45,21 @@ encryption = "age"
 {{- else -}}{{ promptStringOnce . "machine_profile" "Machine profile" "debian" }}
 {{- end -}}
 {{- end -}}"
+{{- $mp := index . "machine_profile" -}}
+{{- $desktopProfiles := list "mac-personal" "fedora-desktop" "toolbox" "ubuntu-desktop" "arch-desktop" "omarchy" -}}
+{{- if has $mp $desktopProfiles }}
+    install_ocx = {{ promptBoolOnce . "install_ocx" "Install OpenCode extensions (ocx + npm plugins)?" false }}
+{{- end }}
+
+{{- if eq $mp "omarchy" }}
+
+[data.omarchy]
+    override_shell = {{ promptBoolOnce .omarchy "override_shell" "Override OmArchy shell config (zsh/bash/starship)?" true }}
+    override_nvim = {{ promptBoolOnce .omarchy "override_nvim" "Override OmArchy Neovim config?" false }}
+    override_tmux = {{ promptBoolOnce .omarchy "override_tmux" "Override OmArchy tmux config?" true }}
+    override_git = {{ promptBoolOnce .omarchy "override_git" "Override OmArchy git config?" true }}
+    override_wm = {{ promptBoolOnce .omarchy "override_wm" "Override OmArchy window manager (Hyprland/etc.)?" false }}
+{{- end }}
 
 {{- if lookPath "age" }}
 

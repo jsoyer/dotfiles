@@ -89,6 +89,12 @@ case "${_OS}" in
       export MACHINE_PROFILE="debian"
       export STARSHIP_CONFIG="${HOME}/.config/starship/starship-ssh.toml"
 
+    elif [[ "${_DISTRO_ID}" == "omarchy" ]]; then
+      # OmArchy — Arch-based desktop flavor
+      export STARSHIP_ICON_COLOR="purple"
+      export STARSHIP_ICON=""
+      export MACHINE_PROFILE="omarchy"
+
     elif [[ "${_DISTRO_ID}" == "arch" ]]; then
       # Arch Linux — server vs desktop by hostname
       export STARSHIP_ICON_COLOR="blue"
@@ -139,7 +145,7 @@ fi
 [[ "$OSTYPE" == linux* ]]                && export IS_LINUX=true   || export IS_LINUX=false
 [[ "$MACHINE_PROFILE" == ubuntu* ]]      && export IS_UBUNTU=true  || export IS_UBUNTU=false
 [[ "$MACHINE_PROFILE" == fedora* ]]      && export IS_FEDORA=true  || export IS_FEDORA=false
-[[ "$MACHINE_PROFILE" == arch-* ]]       && export IS_ARCH=true    || export IS_ARCH=false
+[[ "$MACHINE_PROFILE" == arch-* || "$MACHINE_PROFILE" == "omarchy" ]] && export IS_ARCH=true || export IS_ARCH=false
 
 # ============================================================================
 # Locale and language

@@ -1,5 +1,6 @@
+{{- if index . "install_ocx" | default false -}}
 {{- $mp := index . "machine_profile" -}}
-{{- $ocxProfiles := list "mac-personal" "fedora-desktop" "toolbox" "ubuntu-desktop" "arch-desktop" -}}
+{{- $ocxProfiles := list "mac-personal" "fedora-desktop" "toolbox" "ubuntu-desktop" "arch-desktop" "omarchy" -}}
 {{- if has $mp $ocxProfiles -}}
 #!/usr/bin/env bash
 set -euo pipefail
@@ -99,4 +100,5 @@ else
 fi
 
 echo "OpenCode tools installation complete!"
+{{- end }}
 {{- end }}

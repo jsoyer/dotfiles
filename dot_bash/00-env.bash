@@ -87,6 +87,11 @@ case "$(uname -s)" in
       export PLATFORM="debian"
       export MACHINE_PROFILE="debian"
 
+    elif [[ "${_DISTRO_ID}" == "omarchy" ]]; then
+      export IS_ARCH=true
+      export PLATFORM="omarchy"
+      export MACHINE_PROFILE="omarchy"
+
     elif [[ "${_DISTRO_ID}" == "arch" ]]; then
       export IS_ARCH=true
       export PLATFORM="arch"

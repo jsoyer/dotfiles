@@ -10,9 +10,10 @@
 {{- $isFedoraDesktop := eq $mp "fedora-desktop" -}}
 {{- $isFedoraServer  := eq $mp "fedora-server" -}}
 {{- $isFedora        := or $isFedoraDesktop $isFedoraServer -}}
+{{- $isOmArchy       := eq $mp "omarchy" -}}
 {{- $isArchDesktop   := eq $mp "arch-desktop" -}}
 {{- $isArchServer    := eq $mp "arch-server" -}}
-{{- $isArch          := or $isArchDesktop $isArchServer -}}
+{{- $isArch          := or $isArchDesktop $isArchServer $isOmArchy -}}
 #!/usr/bin/env bash
 # =============================================================================
 # Linux Setup - Locale, Repositories, Tailscale
@@ -56,6 +57,53 @@ fi
 {{- end }}
 
 # =============================================================================
+# Ubuntu Desktop - Third-party APT repositories
+# =============================================================================
+{{- if $isUbuntuDesktop }}
+echo "📦 Adding third-party APT repositories..."
+
+sudo mkdir -p -m 755 /etc/apt/keyrings
+
+# Brave Browser
+if [[ ! -f /etc/apt/sources.list.d/brave-browser-release.list ]]; then
+    echo "  Adding Brave Browser repo..."
+    curl -fsSLo /etc/apt/keyrings/brave-browser-archive-keyring.gpg \
+        https://brave-browser-apt-release.s3.brave.com/brave-browser-archive-keyring.gpg
+    echo "deb [signed-by=/etc/apt/keyrings/brave-browser-archive-keyring.gpg] https://brave-browser-apt-release.s3.brave.com/ stable main" \
+        | sudo tee /etc/apt/sources.list.d/brave-browser-release.list > /dev/null
+fi
+
+# Google Chrome
+if [[ ! -f /etc/apt/sources.list.d/google-chrome.list ]]; then
+    echo "  Adding Google Chrome repo..."
+    curl -fsSL https://dl.google.com/linux/linux_signing_key.pub \
+        | sudo gpg --yes --dearmor -o /etc/apt/keyrings/google-chrome.gpg
+    echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/google-chrome.gpg] https://dl.google.com/linux/chrome/deb/ stable main" \
+        | sudo tee /etc/apt/sources.list.d/google-chrome.list > /dev/null
+fi
+
+# Signal Desktop
+if [[ ! -f /etc/apt/sources.list.d/signal-xenial.list ]]; then
+    echo "  Adding Signal Desktop repo..."
+    curl -fsSL https://updates.signal.org/desktop/apt/keys.asc \
+        | sudo gpg --yes --dearmor -o /etc/apt/keyrings/signal-desktop-keyring.gpg
+    echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/signal-desktop-keyring.gpg] https://updates.signal.org/desktop/apt xenial main" \
+        | sudo tee /etc/apt/sources.list.d/signal-xenial.list > /dev/null
+fi
+
+# Zed Editor
+if [[ ! -f /etc/apt/sources.list.d/zed.list ]]; then
+    echo "  Adding Zed Editor repo..."
+    curl -fsSL https://zed.dev/linux/apt/gpg.key \
+        | sudo gpg --yes --dearmor -o /etc/apt/keyrings/zed.gpg
+    echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/zed.gpg] https://zed.dev/linux/apt stable main" \
+        | sudo tee /etc/apt/sources.list.d/zed.list > /dev/null
+fi
+
+sudo apt update
+{{- end }}
+
+# =============================================================================
 # Fedora Standard - COPR repositories
 # =============================================================================
 {{- if and (lookPath "dnf") (not (lookPath "rpm-ostree")) (not (stat "/.toolboxenv")) (not (env "TOOLBOX_PATH")) }}
@@ -65,6 +113,35 @@ sudo dnf copr enable -y alternateved/eza
 sudo dnf copr enable -y atim/starship
 sudo dnf copr enable -y skoved/vivid
 sudo dnf copr enable -y atim/nushell
+{{- end }}
+
+# =============================================================================
+# Fedora Desktop - Third-party DNF repositories
+# =============================================================================
+{{- if $isFedoraDesktop }}
+echo "📦 Adding third-party DNF repositories..."
+
+# Brave Browser
+if [[ ! -f /etc/yum.repos.d/brave-browser.repo ]]; then
+    echo "  Adding Brave Browser repo..."
+    sudo dnf config-manager addrepo --from-repofile=https://brave-browser-rpm-release.s3.brave.com/brave-browser.repo
+fi
+
+# Google Chrome
+if [[ ! -f /etc/yum.repos.d/google-chrome.repo ]]; then
+    echo "  Adding Google Chrome repo..."
+    sudo rpm --import https://dl.google.com/linux/linux_signing_key.pub
+    cat << 'REPO' | sudo tee /etc/yum.repos.d/google-chrome.repo > /dev/null
+[google-chrome]
+name=Google Chrome
+baseurl=https://dl.google.com/linux/chrome/rpm/stable/x86_64
+enabled=1
+gpgcheck=1
+gpgkey=https://dl.google.com/linux/linux_signing_key.pub
+REPO
+fi
+
+# Note: Zed on Fedora — no official dnf repo, installed via script in install-linux-packages
 {{- end }}
 
 # =============================================================================

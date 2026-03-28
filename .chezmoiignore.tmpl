@@ -79,9 +79,29 @@ memory/
 .vibe/logs/**
 .vibe/session/**
 
-{{/* .config/opencode — skip entirely on platforms without ocx */}}
+{{/* OmArchy — selective overrides (respect OmArchy defaults for nvim, WM) */}}
 {{- $mp := index . "machine_profile" -}}
-{{- $ocxProfiles := list "mac-personal" "fedora-desktop" "toolbox" "ubuntu-desktop" "arch-desktop" -}}
+{{- if eq $mp "omarchy" }}
+{{-   if not (index . "omarchy" | default dict | dig "override_shell" true) }}
+dot_zsh/
+dot_zshrc.tmpl
+dot_zprofile.tmpl
+dot_config/starship/
+{{-   end }}
+{{-   if not (index . "omarchy" | default dict | dig "override_nvim" false) }}
+dot_config/nvim/
+{{-   end }}
+{{-   if not (index . "omarchy" | default dict | dig "override_tmux" true) }}
+dot_config/tmux/
+{{-   end }}
+{{-   if not (index . "omarchy" | default dict | dig "override_wm" false) }}
+dot_config/hypr/
+dot_config/waybar/
+{{-   end }}
+{{- end }}
+
+{{/* .config/opencode — skip entirely on platforms without ocx */}}
+{{- $ocxProfiles := list "mac-personal" "fedora-desktop" "toolbox" "ubuntu-desktop" "arch-desktop" "omarchy" -}}
 {{- if not (has $mp $ocxProfiles) }}
 .config/opencode/
 {{- else }}

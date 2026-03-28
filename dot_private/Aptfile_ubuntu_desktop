@@ -24,6 +24,17 @@ wl-clipboard
 flatpak
 gnome-software-plugin-flatpak
 
+# GUI apps (native via third-party repos added in setup-linux.sh)
+brave-browser
+google-chrome-stable
+signal-desktop
+zed
+vlc
+remmina
+filezilla
+obs-studio
+torbrowser-launcher
+
 # installed via custom apt repo or installer (not managed by aptw)
 # starship (curl installer)
 # eza (cargo)

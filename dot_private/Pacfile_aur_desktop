@@ -1,3 +1,11 @@
 # AUR packages (yay) — desktop only
 # managed by yayw — do not edit manually
 1password-cli
+# GUI apps
+brave-bin
+google-chrome
+tor-browser-bin
+github-desktop-bin
+localsend-bin
+chatgpt-desktop-bin
+claude-desktop-bin

@@ -10,9 +10,10 @@
 {{- $isFedoraDesktop := eq $mp "fedora-desktop" -}}
 {{- $isFedoraServer  := eq $mp "fedora-server" -}}
 {{- $isFedora        := or $isFedoraDesktop $isFedoraServer -}}
+{{- $isOmArchy       := eq $mp "omarchy" -}}
 {{- $isArchDesktop   := eq $mp "arch-desktop" -}}
 {{- $isArchServer    := eq $mp "arch-server" -}}
-{{- $isArch          := or $isArchDesktop $isArchServer -}}
+{{- $isArch          := or $isArchDesktop $isArchServer $isOmArchy -}}
 #!/usr/bin/env bash
 # =============================================================================
 # Linux Packages Installation - apt, dnf, rpm-ostree
@@ -37,7 +38,7 @@
 {{- if $isFedoraDesktop }}
 # Dnffile_fedora_desktop: {{ include "dot_private/Dnffile_fedora_desktop" | sha256sum }}
 {{- end }}
-{{- if $isArchDesktop }}
+{{- if or $isArchDesktop $isOmArchy }}
 # Pacfile_arch_desktop:   {{ include "dot_private/Pacfile_arch_desktop" | sha256sum }}
 # Pacfile_aur_desktop:    {{ include "dot_private/Pacfile_aur_desktop" | sha256sum }}
 {{- end }}
@@ -330,7 +331,11 @@ if ! command -v eza &>/dev/null; then
     cargo install eza
 fi
 
-# Note: Brave, Discord, Obsidian, Zed, Signal, DBeaver, LocalSend installed via Flatpak
+# Zed Editor — no official dnf repo, use native installer
+if ! command -v zed &>/dev/null; then
+    echo "🖊️ Installing Zed Editor..."
+    curl -f https://zed.dev/install.sh | sh
+fi
 {{- end }}
 
 # =============================================================================
@@ -374,7 +379,7 @@ fi
 # =============================================================================
 # Arch Linux Desktop - pacman + yay (AUR)
 # =============================================================================
-{{- if $isArchDesktop }}
+{{- if or $isArchDesktop $isOmArchy }}
 echo "Installing Arch Linux Desktop packages via pacman..."
 
 # Install packages from Pacfile manifest
@@ -444,6 +449,40 @@ if [[ -f "$_pacfile" ]]; then
         fi
     done
 fi
+{{- end }}
+
+# =============================================================================
+# CLI AI Tools (all profiles except toolbox and fedora-atomic)
+# =============================================================================
+{{- if not (or $isToolbox $isFedoraAtomic) }}
+
+# Claude Code (native installer, auto-updates)
+if ! command -v claude &>/dev/null; then
+    echo "🤖 Installing Claude Code..."
+    curl -fsSL https://claude.ai/install.sh | sh
+fi
+
+# GitHub Copilot CLI (native installer)
+if ! command -v github-copilot-cli &>/dev/null; then
+    echo "🤖 Installing GitHub Copilot CLI..."
+    curl -fsSL https://gh.io/copilot-install | sudo bash 2>/dev/null || true
+fi
+
+# Codex CLI (native binary from GitHub releases)
+if ! command -v codex &>/dev/null; then
+    echo "🤖 Installing Codex CLI..."
+    _arch="$(uname -m)"
+    if [[ "${_arch}" == "x86_64" ]]; then
+        _codex_url="$(curl -fsSL https://api.github.com/repos/openai/codex/releases/latest \
+            | jq -r '.assets[] | select(.name | test("linux.*x64")) | .browser_download_url' | head -1)"
+        if [[ -n "${_codex_url}" ]]; then
+            curl -fsSL "${_codex_url}" -o /tmp/codex && chmod +x /tmp/codex
+            sudo mv /tmp/codex /usr/local/bin/codex
+        fi
+    fi
+fi
+
+# OpenCode CLI — handled by brew bundle (Brewfile_brew_only)
 {{- end }}
 
 echo "Linux packages installation complete!"

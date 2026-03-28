@@ -1,0 +1,47 @@
+{{- if eq .chezmoi.os "linux" -}}
+{{- $mp              := index . "machine_profile" -}}
+{{- $isUbuntuDesktop := eq $mp "ubuntu-desktop" -}}
+{{- $isFedoraDesktop := eq $mp "fedora-desktop" -}}
+{{- if or $isUbuntuDesktop $isFedoraDesktop -}}
+#!/usr/bin/env bash
+# =============================================================================
+# Flatpak Cleanup — Remove apps migrated to native packages (one-shot)
+# =============================================================================
+
+set -euo pipefail
+
+echo "🧹 Cleaning up Flatpak apps migrated to native packages..."
+
+_flatpak_remove() {
+    local pkg="$1"
+    if flatpak info "$pkg" &>/dev/null || flatpak info --user "$pkg" &>/dev/null; then
+        echo "  Removing $pkg..."
+        flatpak uninstall --noninteractive "$pkg" 2>/dev/null || \
+            flatpak uninstall --user --noninteractive "$pkg" 2>/dev/null || true
+    fi
+}
+
+{{- if $isUbuntuDesktop }}
+# Ubuntu Desktop — migrated to apt
+_flatpak_remove com.brave.Browser
+_flatpak_remove dev.zed.Zed
+_flatpak_remove org.videolan.VLC
+_flatpak_remove org.remmina.Remmina
+_flatpak_remove org.signal.Signal
+_flatpak_remove io.dbeaver.DBeaverCommunity
+{{- end }}
+
+{{- if $isFedoraDesktop }}
+# Fedora Desktop — migrated to dnf or script
+_flatpak_remove com.brave.Browser
+_flatpak_remove dev.zed.Zed
+_flatpak_remove io.dbeaver.DBeaverCommunity
+{{- end }}
+
+# Clean up unused runtimes
+flatpak uninstall --unused -y 2>/dev/null || \
+    flatpak uninstall --user --unused -y 2>/dev/null || true
+
+echo "🧹 Flatpak cleanup complete!"
+{{- end -}}
+{{- end }}

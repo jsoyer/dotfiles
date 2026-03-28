@@ -33,7 +33,18 @@ cargo
 rust
 tree
 
+# GUI apps (native via third-party repos added in setup-linux.sh)
+gh
+brave-browser
+google-chrome-stable
+vlc
+filezilla
+obs-studio
+torbrowser-launcher
+
 # installed via cargo (not managed by dnfw)
 # eza
 # installed via Flatpak (not managed by dnfw)
-# Brave, Discord, Obsidian, Zed, Signal, DBeaver, LocalSend
+# Discord, Obsidian, LocalSend, Signal, DBeaver
+# installed via script (not managed by dnfw)
+# Zed (curl installer)
