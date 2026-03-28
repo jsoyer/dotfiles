@@ -65,7 +65,7 @@ FZF colors, Vivid LS_COLORS, and Bat theme all switch automatically.
 ```zsh
 ca    # chezmoi apply -v
 cu    # chezmoi update -v
-cup   # chezmoi update + system package upgrade (all platforms)
+cup   # chezmoi update + system package upgrade + container updates
 c     # chezmoi
 cs    # chezmoi status
 ccd   # chezmoi cd
@@ -108,6 +108,11 @@ ccs   # claude --model sonnet
 cch   # claude --model haiku
 ```
 
+### SSH
+```zsh
+sshpw   # ssh -o PreferredAuthentications=password
+```
+
 ### Jujutsu
 ```zsh
 j     # jj
@@ -129,7 +134,9 @@ jp    # jj git push
 | `activate [dir]` | Activate virtualenv |
 | `mkd <dir>` | mkdir -p + cd |
 | `dupdel` | fdupes interactive dedup with confirmation |
+| `update-ai` | Update Claude Code, Copilot CLI, Codex CLI |
 | `cup` | chezmoi update + system packages + containers |
+| `sysup` | Update OS packages + Flatpak + update-ai |
 
 ## Integrations (99-integrations.zsh)
 
@@ -160,7 +167,7 @@ Auto-signs in via `op signin` if session expired. Falls back silently if `op` no
 ## Performance Optimizations
 
 - **Completion cache** — `compinit` full check only once per 24h (`compinit -C` otherwise)
-- **`_cache_eval`** — caches `starship init`, `zoxide init` etc. for 24h
+- **`_cache_eval`** — caches `starship init`, `zoxide init` etc. for 24h, auto-invalidates on binary path change (e.g., Homebrew → Pacman)
 - **Lazy loading** — `pyenv` and `jenv` loaded only on first call (~200ms saved)
 - **AWS completion** — `bashcompinit` only loaded if `aws_completer` is present (~30ms saved)
 
@@ -185,6 +192,6 @@ echo $LS_COLORS | tr ':' '\n' | head
 
 ---
 
-**Last updated:** 2026-03-09
+**Last updated:** 2026-03-28
 **Configuration:** Oh-My-Zsh + Starship + modular ~/.zsh/
 **Theme:** Catppuccin Mocha (macOS) / Snazzy (Linux/RPi)

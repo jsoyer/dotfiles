@@ -23,21 +23,22 @@ All configurations use the **Catppuccin Mocha** color palette for a consistent, 
 
 This setup uses `chezmoi`'s templating capabilities to apply different configurations based on `MACHINE_PROFILE`, detected at runtime from hostname, OS, and hardware. This allows for a clean separation between machine types.
 
-| `MACHINE_PROFILE`  | Detection                              | OS       | Package Manager     | Theme          |
-| ------------------ | -------------------------------------- | -------- | ------------------- | -------------- |
-| `mac-pro`          | hostname `jsoyer-macOS`                | macOS    | Homebrew            | Catppuccin     |
-| `mac-personal`     | macOS (other hosts)                    | macOS    | Homebrew            | Catppuccin     |
-| `ubuntu-desktop`   | Ubuntu, hostname not `ubuntu-server*`  | Linux    | apt + Linuxbrew     | Catppuccin     |
-| `ubuntu-server`    | Ubuntu, hostname `ubuntu-server*`      | Linux    | apt                 | Snazzy         |
-| `fedora-desktop`   | Fedora, hostname not `fedora-server*`  | Linux    | dnf + Linuxbrew     | Catppuccin     |
-| `fedora-server`    | Fedora, hostname `fedora-server*`      | Linux    | dnf                 | Snazzy         |
-| `fedora-atomic`    | `rpm-ostree` present                   | Linux    | rpm-ostree          | Snazzy         |
-| `debian`           | Debian (non-RPi)                       | Linux    | apt                 | Snazzy         |
-| `toolbox`          | `TOOLBOX_PATH` set                     | Linux    | dnf + Linuxbrew     | Snazzy         |
-| `rpi`              | `/proc/device-tree/model` contains rpi | Linux    | apt + Linuxbrew     | Snazzy         |
-| `arch-desktop`     | `pacman` present, hostname `arch-desktop*` | Linux    | pacman + Linuxbrew  | Catppuccin     |
-| `arch-server`      | `pacman` present, hostname `arch-server*` | Linux    | pacman              | Snazzy         |
-| `windows`          | cygwin/msys/mingw                      | Windows  | Scoop               | N/A            |
+| `MACHINE_PROFILE`  | Detection                              | OS       | Package Manager     | GUI Support    | Theme          |
+| ------------------ | -------------------------------------- | -------- | ------------------- | -------------- | -------------- |
+| `mac-pro`          | hostname `jsoyer-macOS`                | macOS    | Homebrew            | Native         | Catppuccin     |
+| `mac-personal`     | macOS (other hosts)                    | macOS    | Homebrew            | Native         | Catppuccin     |
+| `ubuntu-desktop`   | Ubuntu, hostname not `ubuntu-server*`  | Linux    | apt + Linuxbrew     | Hybrid (apt)   | Catppuccin     |
+| `ubuntu-server`    | Ubuntu, hostname `ubuntu-server*`      | Linux    | apt                 | None           | Snazzy         |
+| `fedora-desktop`   | Fedora, hostname not `fedora-server*`  | Linux    | dnf + Linuxbrew     | Hybrid (dnf)   | Catppuccin     |
+| `fedora-server`    | Fedora, hostname `fedora-server*`      | Linux    | dnf                 | None           | Snazzy         |
+| `fedora-atomic`    | `rpm-ostree` present                   | Linux    | rpm-ostree          | None           | Snazzy         |
+| `debian`           | Debian (non-RPi)                       | Linux    | apt                 | None           | Snazzy         |
+| `toolbox`          | `TOOLBOX_PATH` set                     | Linux    | dnf + Linuxbrew     | None           | Snazzy         |
+| `rpi`              | `/proc/device-tree/model` contains rpi | Linux    | apt + Linuxbrew     | Pi-Apps        | Snazzy         |
+| `arch-desktop`     | `pacman` present, hostname `arch-desktop*` | Linux    | pacman + Linuxbrew  | Hybrid (pacman)| Catppuccin     |
+| `arch-server`      | `pacman` present, hostname `arch-server*` | Linux    | pacman              | None           | Snazzy         |
+| `omarchy`          | `/etc/os-release` `ID=omarchy`         | Linux    | pacman + Linuxbrew  | Hybrid (pacman)| Catppuccin     |
+| `windows`          | cygwin/msys/mingw                      | Windows  | Scoop               | Native         | N/A            |
 
 ---
 
@@ -87,7 +88,8 @@ This setup uses `chezmoi`'s templating capabilities to apply different configura
 
 ### AI Tools
 - **Claude Code** - AI coding assistant (192 agents, 654 skills, 60 slash commands, 64 rules, 19 MCP servers, 6 hooks, Claude Octopus plugin)
-- **OpenCode** - Alternative AI coding CLI (ocx extensions, shared MCP config, desktop profiles only)
+- **CLI AI Tools** - Copilot CLI, Codex CLI (installed via AUR on Arch, native scripts on others)
+- **OpenCode** - Alternative AI coding CLI (ocx extensions, shared MCP config, optional installation)
 - **RTK** - Token optimization proxy for Claude Code
 - **codecompanion.nvim** - Multi-provider AI in Neovim (Claude, OpenAI, Gemini, Mistral, Ollama + CLI agents)
 
@@ -140,6 +142,31 @@ sh -c "$(curl -fsLS get.chezmoi.io)" -- init --apply jsoyer
 | **Package Manager** | Homebrew | dnf + Linuxbrew | dnf / rpm-ostree | apt + Linuxbrew | apt + Linuxbrew | Scoop |
 | **Editor** | Neovim | Neovim | Neovim | Neovim | nano | N/A |
 | **Tmux Prefix** | `Ctrl+A` | `Ctrl+A` | `Ctrl+A` | `Ctrl+A` | `Ctrl+B` | `Ctrl+A` |
+
+### GUI & Package Installation Strategy
+
+**GUI Apps (Desktop Profiles Only):**
+- GUI applications are **only installed when a display server is detected** (`_has_gui()` check)
+- **Hybrid native/Flatpak approach:**
+  - **Ubuntu/Fedora:** Native packages from apt/dnf repos
+  - **Arch/OmArchy:** Native packages from pacman + AUR
+  - **Raspberry Pi:** Pi-Apps integration for curated GUI apps
+- Separate GUI manifests track GUI-only packages: `Aptfile_ubuntu_gui`, `Dnffile_fedora_gui`, `Pacfile_arch_gui`, `Pacfile_aur_gui`, `Aptfile_rpi_gui`
+
+**CLI AI Tools (All Platforms):**
+- **Claude Code, Copilot CLI, Codex CLI** auto-update on `cup` command
+- Installed via native package managers on Linux
+- `update-ai` alias updates all CLI AI tools (integrated in `sysup` function)
+
+**OpenCode (Optional):**
+- Install via `install_ocx` prompt during `chezmoi init` on desktop profiles
+- Includes ocx extension manager + npm plugins (oh-my-openagent, openspec, swarm-tools)
+- Desktop profiles only: `mac-personal`, `fedora-desktop`, `toolbox`, `ubuntu-desktop`, `arch-desktop`, `omarchy`
+
+**OmArchy Support:**
+- New distro profile: Arch-based with optional config overrides
+- Prompts for shell, nvim, tmux, git, and window manager config overrides
+- All native packages installed via pacman/yay
 
 ### Post-Installation Steps
 
@@ -358,20 +385,26 @@ The same auto-sync pattern from `breww` is extended to Linux and Windows package
 
 **Manifest files (in `dot_private/`):**
 
-| Profile | Manifest | Package Manager |
-|---------|----------|-----------------|
-| `rpi` | `Aptfile_rpi` | aptw |
-| `ubuntu-server` | `Aptfile_ubuntu_server` | aptw |
-| `ubuntu-desktop` | `Aptfile_ubuntu_desktop` | aptw |
-| `debian` | `Aptfile_debian` | aptw |
-| `fedora-server` | `Dnffile_fedora_server` | dnfw |
-| `fedora-desktop` | `Dnffile_fedora_desktop` | dnfw |
-| `windows` | `Scoopfile.json` | scoopw |
+| Profile | Base Manifest | GUI Manifest | Package Manager |
+|---------|---------------|--------------|-----------------|
+| `rpi` | `Aptfile_rpi` | `Aptfile_rpi_gui` | aptw |
+| `ubuntu-server` | `Aptfile_ubuntu_server` | - | aptw |
+| `ubuntu-desktop` | `Aptfile_ubuntu_desktop` | `Aptfile_ubuntu_gui` | aptw |
+| `debian` | `Aptfile_debian` | - | aptw |
+| `fedora-server` | `Dnffile_fedora_server` | - | dnfw |
+| `fedora-desktop` | `Dnffile_fedora_desktop` | `Dnffile_fedora_gui` | dnfw |
+| `arch-desktop` | `Pacfile_arch_desktop` | `Pacfile_arch_gui` | pacmanw / yayw |
+| `arch-server` | `Pacfile_arch_server` | - | pacmanw |
+| `omarchy` | `Pacfile_arch_desktop` | `Pacfile_arch_gui` | pacmanw / yayw |
+| `windows` | `Scoopfile.json` | - | scoopw |
 
 **Shell aliases (set automatically based on `MACHINE_PROFILE`):**
 - `apt` → `aptw` (Linux non-Fedora profiles)
 - `dnf` / `yum` → `dnfw` (Fedora desktop/server)
+- `pacman` → `pacmanw` (Arch/OmArchy)
+- `yay` → `yayw` (Arch desktop/OmArchy, for AUR packages)
 - `scoop` → `scoopw` (Windows, via PowerShell alias)
+- `rpm-ostree` → `ostreew` (Fedora Atomic)
 
 **Usage:**
 ```bash
@@ -414,10 +447,12 @@ This performs:
 1. `chezmoi update` - Pull latest dotfiles
 2. Package updates:
    - **macOS**: `brew upgrade` + `brew update` + `mas upgrade` (App Store, personal only)
-   - **Linux (RPi)**: `apt dist-upgrade` + `apt autoremove`
+   - **Linux (Ubuntu/Debian/RPi)**: `apt dist-upgrade` + `apt autoremove`
    - **Linux (Fedora)**: `dnf upgrade` or `rpm-ostree upgrade`
+   - **Linux (Arch/OmArchy)**: `pacman -Syu` + `yay -Sua` (AUR)
    - **Windows**: `scoop update` + `scoop update --all`
-3. **Docker/Podman** (if running): Update containers and prune images
+3. **CLI AI Tools**: `update-ai` updates Claude Code, Copilot CLI, Codex CLI
+4. **Docker/Podman** (if running): Update containers and prune images
 
 ### Syncing Multiple Machines
 
@@ -483,7 +518,16 @@ chezmoi update  # Pull + apply automatically
 │   ├── 99-integrations.zsh             # FZF, Atuin, plugins
 │   └── README.md                       # Zsh documentation
 ├── dot_bash/                           # Bash fallback configuration
-├── dot_private/                        # Brewfiles: common, pro, personal, linux, rpi (0600)
+├── dot_private/                        # Package manifests (0600): Brewfiles, Aptfiles, Dnffiles, Pacfiles
+│   ├── Brewfile.tmpl                   # Templated Brewfile (macOS + Linuxbrew)
+│   ├── Brewfile_*                      # Profile-specific Brewfiles (macOS, RPi, Linuxbrew)
+│   ├── Aptfile_*                       # Ubuntu/Debian/RPi apt packages (base + GUI)
+│   ├── Dnffile_*                       # Fedora dnf packages (base + GUI)
+│   ├── Pacfile_*                       # Arch/OmArchy pacman packages (base + GUI)
+│   ├── Pacfile_aur_*                   # Arch AUR packages (via yay, base + GUI)
+│   ├── Pacfile_fedora_atomic           # Fedora Atomic rpm-ostree packages
+│   ├── Scoopfile.json                  # Windows Scoop packages
+│   └── README.md                       # Package manifest documentation
 ├── dot_ssh/                            # SSH config directory
 ├── dot_local/bin/                      # Custom scripts
 │   ├── executable_breww                # Homebrew wrapper with auto-sync
@@ -776,7 +820,7 @@ These dotfiles are based on various open-source projects and personal customizat
 
 ---
 
-**Last Updated:** 2026-03-26
+**Last Updated:** 2026-03-28
 **Maintained by:** Jerome Soyer (@jsoyer)
 
 ---

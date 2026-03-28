@@ -91,7 +91,19 @@ shopt -s nocaseglob       # Case-insensitive glob
 
 ### 00-env.bash
 
-**Purpose:** Core environment variables and platform detection
+**Purpose:** Core environment variables, platform detection, and cache helper
+
+#### 🚀 `_cache_eval()` Helper
+Caches shell-init command output for 24 hours with automatic invalidation:
+```bash
+_cache_eval "name" "command"  # Caches 'command' output to ~/.cache/shell/name.bash
+```
+
+**Features:**
+- Invalidates cache when binary path changes (e.g., Homebrew → Pacman, install → uninstall)
+- Tracks binary path in `.meta` file
+- Falls back to live eval if cache is stale or missing
+- Used for: Starship, Zoxide, Atuin, Carapace initialization
 
 **Sections:**
 
@@ -100,7 +112,11 @@ shopt -s nocaseglob       # Case-insensitive glob
 IS_MACOS=true/false
 IS_LINUX=true/false
 IS_RPI=true/false
-PLATFORM=macos/linux/rpi
+IS_UBUNTU=true/false
+IS_FEDORA=true/false
+IS_ARCH=true/false
+PLATFORM=macos/linux/rpi/ubuntu/debian/fedora/arch/omarchy/toolbox
+MACHINE_PROFILE=mac-personal/mac-pro/ubuntu-desktop/ubuntu-server/rpi/arch-desktop/arch-server/omarchy/fedora-desktop/fedora-server/fedora-atomic/debian/toolbox
 ```
 
 #### 🏠 Hostname Icons (Starship)
@@ -278,6 +294,11 @@ fuzz='ffuf -w ~/hacking/SecLists/content_discovery_all.txt -mc all -u'
 nm='nmap -sC -sV -oN nmap'
 ```
 
+#### 🔐 SSH
+```bash
+sshpw='ssh -o PreferredAuthentications=password'
+```
+
 ---
 
 ### 20-functions.bash
@@ -308,6 +329,16 @@ fv  # Select file with FZF, open in neovim
 ```bash
 ssh user@host  # Automatically renames tmux window to hostname
                # Restores window name after disconnect
+```
+
+#### 🤖 update-ai - Update CLI AI tools
+```bash
+update-ai  # Updates Claude Code, Copilot CLI, and Codex CLI
+```
+
+#### 🎯 sysup - Update OS packages
+```bash
+sysup  # Updates OS packages (apt/dnf/pacman), Flatpak, Homebrew, and AI tools
 ```
 
 ---
@@ -546,5 +577,5 @@ brew install xh thefuck
 
 ---
 
-**Last updated:** 2026-03-09
+**Last updated:** 2026-03-28
 **Maintained by:** Jerome Soyer (@jsoyer)

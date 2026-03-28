@@ -245,6 +245,18 @@ alias as = aerospace
 alias asr = atuin scripts run
 ```
 
+### SSH
+```nushell
+alias sshpw = ssh -o PreferredAuthentications=password
+```
+
+### System Updates
+```nushell
+alias update-ai = # Updates Claude Code, Copilot CLI, Codex CLI
+alias sysup = # Updates OS packages + Flatpak + update-ai
+alias cup = # chezmoi update + system upgrade + container updates
+```
+
 ## Configuration
 
 ### Vi Mode
@@ -558,12 +570,15 @@ This Nushell configuration uses **Catppuccin Mocha** to match your other tools:
 
 ---
 
-**Updated**: 2025-01-25  
-**Theme**: Catppuccin Mocha  
-**Shell**: Nushell 0.109.1+  
+**Updated**: 2026-03-28
+**Theme**: Catppuccin Mocha
+**Shell**: Nushell 0.109.1+
 **Optimized**: Cache cleaned and regenerated
 
 ## Changelog
+
+### 2026-03-28
+- Added SSH, system update aliases (sshpw, update-ai, sysup, cup)
 
 ### 2025-01-25
 - Fixed `$nu.home-path` → `$nu.home-dir` (renamed in Nushell 0.80+)

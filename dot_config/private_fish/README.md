@@ -36,6 +36,11 @@ Same aliases as zsh/bash/nushell — see `config.fish` for the full list.
 Categories: git, docker, kubernetes, chezmoi, homebrew, tmux, lazygit,
 python (uv/poetry), search (rg/fd), security, jujutsu, Claude Code, fdupes.
 
+Notable aliases:
+- `sshpw` — SSH with password-only authentication
+- `update-ai` — Update Claude Code, Copilot CLI, Codex CLI
+- `cup` — chezmoi update + system package upgrade + container updates
+
 ## FZF Functions
 
 - `cx <dir>` — cd + list
