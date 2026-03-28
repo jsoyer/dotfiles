@@ -1,0 +1,14 @@
+# Packages available exclusively via Homebrew (not in apt/dnf/pacman)
+# On Linux, native package managers handle everything else.
+
+brew "age"
+brew "dust"
+brew "glow"
+brew "go"
+brew "lazygit"
+brew "lua-language-server"
+brew "node"
+brew "procs"
+brew "stylua"
+brew "xh"
+brew "yq"
