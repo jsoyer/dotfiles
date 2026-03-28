@@ -322,6 +322,75 @@ function podman-compose
 end
 
 # ============================================================================
+# Docker / Podman Compose
+# ============================================================================
+if command -q docker
+    alias dps='docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}\t{{.Image}}"'
+    alias dpsa='docker container ls -a --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}\t{{.Image}}"'
+    alias dcpl='docker compose pull'
+    alias dcup='docker compose up -d'
+    alias dcl='docker compose logs -f'
+    alias dcd='docker compose down'
+    alias dcr='docker compose restart'
+    alias dcp='docker compose ps'
+    alias dce='docker compose exec'
+    alias dcb='docker compose build'
+else if command -q podman
+    alias dps='podman ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}\t{{.Image}}"'
+    alias dpsa='podman container ls -a --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}\t{{.Image}}"'
+    alias dcpl='podman compose pull'
+    alias dcup='podman compose up -d'
+    alias dcl='podman compose logs -f'
+    alias dcd='podman compose down'
+    alias dcr='podman compose restart'
+    alias dcp='podman compose ps'
+    alias dce='podman compose exec'
+    alias dcb='podman compose build'
+end
+
+function dcua
+    set -l base (if test (count $argv) -gt 0; echo $argv[1]; else; echo .; end)
+    set -l runtime ""
+
+    if command -q docker; and docker info >/dev/null 2>&1
+        set runtime "docker"
+    else if command -q podman; and podman info >/dev/null 2>&1
+        set runtime "podman"
+    else
+        echo "No container runtime found."
+        return 1
+    end
+
+    set -l updated 0
+
+    for dir in $base/*/
+        set -l compose_file ""
+        if test -f "$dir/docker-compose.yml"
+            set compose_file "$dir/docker-compose.yml"
+        else if test -f "$dir/compose.yml"
+            set compose_file "$dir/compose.yml"
+        else
+            continue
+        end
+
+        echo "Pulling: "(basename $dir)
+        set -l pull_output ($runtime compose -f $compose_file pull 2>&1)
+
+        if echo "$pull_output" | grep -qE "(Pulling|Downloading|Extracting|Status: Downloaded)"
+            echo "  New images found, restarting..."
+            $runtime compose -f $compose_file up -d
+            set updated (math $updated + 1)
+        else
+            echo "  Up to date"
+        end
+    end
+
+    echo "Pruning unused images..."
+    $runtime image prune -a -f
+    echo "Done. $updated project(s) updated."
+end
+
+# ============================================================================
 # Kubernetes
 # ============================================================================
 alias k='kubectl'
@@ -460,85 +529,58 @@ function cdestroy
 end
 
 # Chezmoi update + package updates
-function cup
-    chezmoi update -v $argv
-
+function sysup
     set os (uname -s | tr '[:upper:]' '[:lower:]')
 
     switch $os
         case darwin
-            echo "Updating Homebrew packages..."
-            if test "$MACHINE_PROFILE" = "mac-pro"
-                brew upgrade
-            else
-                brew upgrade --greedy
-            end
-            brew cleanup
-            brew update
-            echo "Updating App Store apps..."
+            bup
+            bcu
             if command -q mas
+                echo "Updating App Store apps..."
                 mas upgrade
-            else
-                echo "mas-cli not installed (run: brew install mas)"
             end
         case linux
-            set arch (uname -m)
-            if string match -q "*rpi*" $arch
-                echo "Updating apt packages..."
-                sudo apt update
-                sudo apt dist-upgrade -y
-                sudo apt autoremove -y
-            else if command -q dnf
-                if command -q rpm-ostree
+            set -l _mp "$MACHINE_PROFILE"
+            switch $_mp
+                case rpi ubuntu-desktop ubuntu-server debian
+                    echo "Updating apt packages..."
+                    sudo apt-get update; and sudo apt-get dist-upgrade -y; and sudo apt-get autoremove -y
+                case arch-desktop arch-server omarchy
+                    echo "Updating pacman packages..."
+                    sudo pacman -Syu --noconfirm
+                    if command -q yay
+                        echo "Updating AUR packages..."
+                        yay -Sua --noconfirm
+                    end
+                case fedora-desktop fedora-server toolbox
+                    echo "Updating dnf packages..."
+                    sudo dnf upgrade --refresh -y
+                case fedora-atomic
                     echo "Updating Fedora Atomic..."
-                    sudo rpm-ostree upgrade
-                else
-                    echo "Updating Fedora packages..."
-                    sudo dnf upgrade -y
-                end
+                    rpm-ostree upgrade
+            end
+
+            if command -q flatpak
+                echo "Updating Flatpak apps..."
+                flatpak update -y
+            end
+
+            if command -q brew
+                eval (brew shellenv)
+                echo "Updating Linuxbrew packages..."
+                brew update; and brew upgrade; and brew cleanup
             end
         case windows
             echo "Updating Scoop packages..."
-            scoop update
             scoop update --all
     end
+end
 
-    # Docker/Podman maintenance
-    if command -q docker
-        if docker info >/dev/null 2>&1
-            set CONTAINER_RUNTIME "docker"
-        end
-    else if command -q podman
-        if podman info >/dev/null 2>&1
-            set CONTAINER_RUNTIME "podman"
-        end
-    end
-
-    if set -q CONTAINER_RUNTIME
-        echo "Running container maintenance..."
-        $CONTAINER_RUNTIME ps
-
-        for compose_file in (find $HOME -name "docker-compose.yml" -not -path "*/.*" 2>/dev/null)
-            set project_dir (dirname $compose_file)
-            set project_name (basename $project_dir)
-
-            if $CONTAINER_RUNTIME compose -f $compose_file ps --services --filter "status=running" 2>/dev/null | grep -q .
-                echo "  -> Updating $project_name"
-                set pull_output ($CONTAINER_RUNTIME compose -f $compose_file pull 2>&1)
-
-                if echo "$pull_output" | grep -qE "(Pulling|Downloading|Extracting|Status: Downloaded)"
-                    echo "  New images found, restarting containers..."
-                    $CONTAINER_RUNTIME compose -f $compose_file up -d
-                else
-                    echo "  No new images, containers up to date"
-                end
-            end
-        end
-
-        $CONTAINER_RUNTIME image prune -a -f
-        echo "Container maintenance complete!"
-    end
-
+function cup
+    chezmoi update -v $argv
+    sysup
+    dcua $HOME
     echo "Update complete!"
 end
 
@@ -571,6 +613,17 @@ alias lg='lazygit'
 alias ld='lazydocker'
 
 # ============================================================================
+# Systemd (Linux only)
+# ============================================================================
+if test (uname -s) = "Linux"
+    alias sc='sudo systemctl'
+    alias scs='sudo systemctl status'
+    alias scr='sudo systemctl restart'
+    alias sce='sudo systemctl enable --now'
+    alias jctl='journalctl -fu'
+end
+
+# ============================================================================
 # Disk / System
 # ============================================================================
 if command -q dust
@@ -585,7 +638,11 @@ end
 if command -q procs
     alias ps='procs'
 end
+{{ if eq .chezmoi.os "darwin" -}}
 alias ports='lsof -iTCP -sTCP:LISTEN -n -P'
+{{ else -}}
+alias ports='sudo ss -tlnp'
+{{ end -}}
 function myip
     curl -s ifconfig.me; and echo
 end

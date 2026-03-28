@@ -331,8 +331,6 @@ fi
 if (( $+commands[procs] )); then
   alias ps='procs'
 fi
-alias ports='lsof -iTCP -sTCP:LISTEN -n -P'
-alias myip='curl -s ifconfig.me && echo'
 alias path='echo "$PATH" | tr ":" "\n"'
 
 # ============================================================================
@@ -392,96 +390,160 @@ mkd() {
   mkdir -p "$@" && cd "${@: -1}" || return
 }
 
-# Chezmoi update + package updates
-cup() {
-  cu "$@"
-
+sysup() {
   local os
   case "$OSTYPE" in
-    darwin*)           os="darwin" ;;
-    linux*)            os="linux" ;;
+    darwin*) os="darwin" ;;
+    linux*)  os="linux" ;;
     cygwin*|msys*|mingw*) os="windows" ;;
     *) return ;;
   esac
 
   case "$os" in
     darwin)
-      eval "$(brew shellenv)"
-      echo "Updating Homebrew..."
-      brew update
-      echo "Upgrading packages..."
-      if [[ "$MACHINE_PROFILE" == "mac-pro" ]]; then
-        brew upgrade
-      else
-        brew upgrade --greedy
-      fi
-      brew cleanup
-      echo "📱 Updating App Store apps..."
+      bup
+      bcu
       if (( $+commands[mas] )); then
+        echo "Updating App Store apps..."
         mas upgrade
-      else
-        echo "  mas-cli not installed (run: brew install mas)"
       fi
       ;;
     linux)
-      if [[ "${IS_RPI:-false}" == "true" ]] || [[ "${IS_UBUNTU:-false}" == "true" ]]; then
-        echo "Updating apt packages..."
-        sudo apt update && sudo apt dist-upgrade -y && sudo apt autoremove -y
-      elif command -v dnf &>/dev/null; then
-        if command -v rpm-ostree &>/dev/null; then
-          echo "🐧 Updating Fedora Atomic..."
-          sudo rpm-ostree upgrade
-        else
-          echo "🐧 Updating Fedora packages..."
-          sudo dnf upgrade -y
-        fi
+      case "${MACHINE_PROFILE:-}" in
+        rpi|ubuntu-desktop|ubuntu-server|debian)
+          echo "Updating apt packages..."
+          sudo apt-get update && sudo apt-get dist-upgrade -y && sudo apt-get autoremove -y
+          ;;
+        arch-desktop|arch-server|omarchy)
+          echo "Updating pacman packages..."
+          sudo pacman -Syu --noconfirm
+          if (( $+commands[yay] )); then
+            echo "Updating AUR packages..."
+            yay -Sua --noconfirm
+          fi
+          ;;
+        fedora-desktop|fedora-server|toolbox)
+          echo "Updating dnf packages..."
+          sudo dnf upgrade --refresh -y
+          ;;
+        fedora-atomic)
+          echo "Updating Fedora Atomic..."
+          rpm-ostree upgrade
+          ;;
+      esac
+
+      if (( $+commands[flatpak] )); then
+        echo "Updating Flatpak apps..."
+        flatpak update -y
+      fi
+
+      if (( $+commands[brew] )); then
+        eval "$(brew shellenv)"
+        echo "Updating Linuxbrew packages..."
+        brew update && brew upgrade && brew cleanup
       fi
       ;;
     windows)
-      echo "🪣 Updating Scoop packages..."
-      scoop update
+      echo "Updating Scoop packages..."
       scoop update --all
       ;;
   esac
-
-  # Docker/Podman maintenance
-  local CONTAINER_RUNTIME=""
-  local EMOJI=""
-  if command -v docker &>/dev/null && docker info &>/dev/null 2>&1; then
-    CONTAINER_RUNTIME="docker"
-    EMOJI="🐳"
-  elif command -v podman &>/dev/null && podman info &>/dev/null 2>&1; then
-    CONTAINER_RUNTIME="podman"
-    EMOJI="🦭"
-  fi
-
-  if [ -n "$CONTAINER_RUNTIME" ]; then
-    echo "$EMOJI Running container maintenance..."
-    $CONTAINER_RUNTIME ps
-    
-    while IFS= read -r compose_file; do
-      project_dir=$(dirname "$compose_file")
-      project_name=$(basename "$project_dir")
-
-      if $CONTAINER_RUNTIME compose -f "$compose_file" ps --services --filter "status=running" 2>/dev/null | grep -q .; then
-        echo "  → Updating $project_name"
-        pull_output=$($CONTAINER_RUNTIME compose -f "$compose_file" pull 2>&1)
-
-        if echo "$pull_output" | grep -qE "(Pulling|Downloading|Extracting|Status: Downloaded)"; then
-          echo "  🔄 New images found, restarting containers..."
-          $CONTAINER_RUNTIME compose -f "$compose_file" up -d
-        else
-          echo "  ✅ No new images, containers up to date"
-        fi
-      fi
-    done < <(find "$HOME" -name "docker-compose.yml" -not -path "*/.*" 2>/dev/null || true)
-    
-    $CONTAINER_RUNTIME image prune -a -f
-    echo "✨ Container maintenance complete!"
-  fi
-
-  echo "✅ Update complete!"
 }
+
+# Chezmoi update + package updates
+cup() {
+  cu "$@"
+  sysup
+  dcua "$HOME"
+  echo "Update complete!"
+}
+
+# ============================================================================
+# Docker / Podman Compose
+# ============================================================================
+if (( $+commands[docker] )); then
+  alias dps='docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}\t{{.Image}}"'
+  alias dpsa='docker container ls -a --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}\t{{.Image}}"'
+  alias dcpl='docker compose pull'
+  alias dcup='docker compose up -d'
+  alias dcl='docker compose logs -f'
+  alias dcd='docker compose down'
+  alias dcr='docker compose restart'
+  alias dcp='docker compose ps'
+  alias dce='docker compose exec'
+  alias dcb='docker compose build'
+elif (( $+commands[podman] )); then
+  alias dps='podman ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}\t{{.Image}}"'
+  alias dpsa='podman container ls -a --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}\t{{.Image}}"'
+  alias dcpl='podman compose pull'
+  alias dcup='podman compose up -d'
+  alias dcl='podman compose logs -f'
+  alias dcd='podman compose down'
+  alias dcr='podman compose restart'
+  alias dcp='podman compose ps'
+  alias dce='podman compose exec'
+  alias dcb='podman compose build'
+fi
+
+dcua() {
+  local base="${1:-.}"
+  local runtime=""
+
+  if (( $+commands[docker] )) && docker info &>/dev/null 2>&1; then
+    runtime="docker"
+  elif (( $+commands[podman] )) && podman info &>/dev/null 2>&1; then
+    runtime="podman"
+  else
+    echo "No container runtime found."
+    return 1
+  fi
+
+  local updated=0
+  local compose_file
+
+  for dir in "$base"/*/; do
+    if [[ -f "$dir/docker-compose.yml" ]]; then
+      compose_file="$dir/docker-compose.yml"
+    elif [[ -f "$dir/compose.yml" ]]; then
+      compose_file="$dir/compose.yml"
+    else
+      continue
+    fi
+
+    echo "Pulling: $(basename "$dir")"
+    local pull_output
+    pull_output=$($runtime compose -f "$compose_file" pull 2>&1)
+
+    if echo "$pull_output" | grep -qE "(Pulling|Downloading|Extracting|Status: Downloaded)"; then
+      echo "  New images found, restarting..."
+      $runtime compose -f "$compose_file" up -d
+      ((updated++))
+    else
+      echo "  Up to date"
+    fi
+  done
+
+  echo "Pruning unused images..."
+  $runtime image prune -a -f
+  echo "Done. $updated project(s) updated."
+}
+
+# ============================================================================
+# Systemd (Linux only)
+# ============================================================================
+if [[ "$OSTYPE" == linux* ]]; then
+  alias sc='sudo systemctl'
+  alias scs='sudo systemctl status'
+  alias scr='sudo systemctl restart'
+  alias sce='sudo systemctl enable --now'
+  alias jf='journalctl -fu'
+fi
+
+# ============================================================================
+# Network utilities
+# ============================================================================
+alias ports='sudo ss -tlnp'
+alias myip='curl -s ifconfig.me'
 
 # ============================================================================
 # Jujutsu (jj)

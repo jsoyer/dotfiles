@@ -998,6 +998,81 @@ alias docker-compose = ^docker compose
 alias podman-compose = ^podman compose
 
 # ============================================================================
+# Docker / Podman Compose
+# ============================================================================
+def _container_runtime [] {
+    if (which docker | is-not-empty) and (^docker info | complete).exit_code == 0 {
+        "docker"
+    } else if (which podman | is-not-empty) and (^podman info | complete).exit_code == 0 {
+        "podman"
+    } else {
+        ""
+    }
+}
+
+# Docker/Podman aliases - defined based on available runtime
+if (which docker | is-not-empty) {
+    def dps [] { ^docker ps --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}\t{{.Image}}' }
+    def dpsa [] { ^docker container ls -a --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}\t{{.Image}}' }
+    alias dcpl = docker compose pull
+    alias dcup = docker compose up -d
+    alias dcl = docker compose logs -f
+    alias dcd = docker compose down
+    alias dcr = docker compose restart
+    alias dcp = docker compose ps
+    alias dce = docker compose exec
+    alias dcb = docker compose build
+} else if (which podman | is-not-empty) {
+    def dps [] { ^podman ps --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}\t{{.Image}}' }
+    def dpsa [] { ^podman container ls -a --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}\t{{.Image}}' }
+    alias dcpl = podman compose pull
+    alias dcup = podman compose up -d
+    alias dcl = podman compose logs -f
+    alias dcd = podman compose down
+    alias dcr = podman compose restart
+    alias dcp = podman compose ps
+    alias dce = podman compose exec
+    alias dcb = podman compose build
+}
+
+def dcua [base?: string] {
+    let base_dir = ($base | default ".")
+    let runtime = (_container_runtime)
+
+    if ($runtime | is-empty) {
+        print "No container runtime found."
+        return
+    }
+
+    mut updated = 0
+
+    for dir in (ls $base_dir | where type == dir | get name) {
+        let compose_file = if ($dir | path join "docker-compose.yml" | path exists) {
+            $dir | path join "docker-compose.yml"
+        } else if ($dir | path join "compose.yml" | path exists) {
+            $dir | path join "compose.yml"
+        } else {
+            continue
+        }
+
+        print $"Pulling: ($dir | path basename)"
+        let pull_output = (^$runtime compose -f $compose_file pull 2>&1 | complete)
+
+        if ($pull_output.stdout | str contains "Pulling") or ($pull_output.stdout | str contains "Downloading") {
+            print "  New images found, restarting..."
+            ^$runtime compose -f $compose_file up -d
+            $updated = $updated + 1
+        } else {
+            print "  Up to date"
+        }
+    }
+
+    print "Pruning unused images..."
+    ^$runtime image prune -a -f
+    print $"Done. ($updated) project\(s\) updated."
+}
+
+# ============================================================================
 # Kubernetes
 # ============================================================================
 alias k = kubectl
@@ -1093,91 +1168,68 @@ def cdestroy [] {
     }
 }
 
-# Chezmoi update + package updates
-def cup [...args: string] {
-    ^chezmoi update -v ...$args
-
+def sysup [] {
     let os = (^uname | str downcase)
 
     match $os {
         "darwin" => {
-            print "🍺 Updating Homebrew packages..."
-            if ($env.MACHINE_PROFILE? | default "") == "mac-pro" {
-                ^brew upgrade
-            } else {
-                ^brew upgrade --greedy
-            }
-            ^brew cleanup
-            ^brew update
-            print "📱 Updating App Store apps..."
-            if (^command -v mas | complete).exit_code == 0 {
+            bup
+            bcu
+            if (which mas | is-not-empty) {
+                print "Updating App Store apps..."
                 ^mas upgrade
-            } else {
-                print "⚠️  mas-cli not installed (run: brew install mas)"
             }
         }
         "linux" => {
-            let arch = (^uname -m)
-            if ($arch | str contains "rpi") {
-                print "🐍 Updating apt packages..."
-                ^sudo apt update
-                ^sudo apt dist-upgrade -y
-                ^sudo apt autoremove -y
-            } else if (^command -v dnf | complete).exit_code == 0 {
-                if (^command -v rpm-ostree | complete).exit_code == 0 {
-                    print "🐧 Updating Fedora Atomic..."
-                    ^sudo rpm-ostree upgrade
-                } else {
-                    print "🐧 Updating Fedora packages..."
-                    ^sudo dnf upgrade -y
+            let mp = ($env.MACHINE_PROFILE? | default "")
+            match $mp {
+                "rpi" | "ubuntu-desktop" | "ubuntu-server" | "debian" => {
+                    print "Updating apt packages..."
+                    ^sudo apt-get update
+                    ^sudo apt-get dist-upgrade -y
+                    ^sudo apt-get autoremove -y
                 }
+                "arch-desktop" | "arch-server" | "omarchy" => {
+                    print "Updating pacman packages..."
+                    ^sudo pacman -Syu --noconfirm
+                    if (which yay | is-not-empty) {
+                        print "Updating AUR packages..."
+                        ^yay -Sua --noconfirm
+                    }
+                }
+                "fedora-desktop" | "fedora-server" | "toolbox" => {
+                    print "Updating dnf packages..."
+                    ^sudo dnf upgrade --refresh -y
+                }
+                "fedora-atomic" => {
+                    print "Updating Fedora Atomic..."
+                    ^rpm-ostree upgrade
+                }
+                _ => { }
             }
-        }
-        "windows" => {
-            print "🪣 Updating Scoop packages..."
-            ^scoop update
-            ^scoop update --all
+
+            if (which flatpak | is-not-empty) {
+                print "Updating Flatpak apps..."
+                ^flatpak update -y
+            }
+
+            if (which brew | is-not-empty) {
+                print "Updating Linuxbrew packages..."
+                ^brew update
+                ^brew upgrade
+                ^brew cleanup
+            }
         }
         _ => { }
     }
+}
 
-    # Docker/Podman maintenance
-    let container_runtime = if (^command -v docker | complete).exit_code == 0 and (^docker info | complete).exit_code == 0 {
-        "docker"
-    } else if (^command -v podman | complete).exit_code == 0 and (^podman info | complete).exit_code == 0 {
-        "podman"
-    } else {
-        ""
-    }
-
-    if $container_runtime != "" {
-        let emoji = if $container_runtime == "docker" { "🐳" } else { "🦭" }
-        print $"($emoji) Running container maintenance..."
-        ^$container_runtime ps
-
-        let compose_files = (^find $env.HOME -name "docker-compose.yml" -not -path "*/.*" 2>/dev/null | complete)
-        for compose_file in $compose_files {
-            let project_dir = ($compose_file | path dirname)
-            let project_name = ($project_dir | path basename)
-
-            if (^$container_runtime compose -f $compose_file ps --services --filter "status=running" 2>/dev/null | complete).exit_code == 0 {
-                print $"  → Updating ($project_name)"
-                let pull_output = (^$container_runtime compose -f $compose_file pull | complete)
-                
-                if ($pull_output.stdout | str contains "Pulling") {
-                    print "  🔄 New images found, restarting containers..."
-                    ^$container_runtime compose -f $compose_file up -d
-                } else {
-                    print "  ✅ No new images, containers up to date"
-                }
-            }
-        }
-
-        ^$container_runtime image prune -a -f
-        print "✨ Container maintenance complete!"
-    }
-
-    print "✅ Update complete!"
+# Chezmoi update + package updates
+def cup [...args: string] {
+    ^chezmoi update -v ...$args
+    sysup
+    dcua $env.HOME
+    print "Update complete!"
 }
 
 # ============================================================================
@@ -1222,9 +1274,25 @@ alias lg = lazygit
 alias ld = lazydocker
 
 # ============================================================================
+# Systemd (Linux only)
+# ============================================================================
+if (^uname | str downcase) == "linux" {
+    alias sc = sudo systemctl
+    alias scs = sudo systemctl status
+    alias scr = sudo systemctl restart
+    alias sce = sudo systemctl enable --now
+    alias jf = journalctl -fu
+}
+
+# ============================================================================
 # Disk / System
 # ============================================================================
-alias ports = lsof -iTCP -sTCP:LISTEN -n -P
+# ports: ss on Linux, lsof on macOS
+if (^uname | str downcase) == "linux" {
+    alias ports = sudo ss -tlnp
+} else {
+    alias ports = lsof -iTCP -sTCP:LISTEN -n -P
+}
 def myip [] { ^curl -s ifconfig.me }
 def path [] { $env.PATH }
 
