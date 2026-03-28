@@ -1303,16 +1303,14 @@ if (^uname | str downcase) == "linux" {
 # ============================================================================
 # Tailscale
 # ============================================================================
-if (which tailscale | is-not-empty) {
-    alias ts = tailscale
-    alias tss = tailscale status
-    alias tsu = sudo tailscale up
-    alias tsd = sudo tailscale down
-    alias tssh = tailscale ssh
-    alias tsip = tailscale ip -4
-    alias tsping = tailscale ping
-    def tsnet [] { ^tailscale status --json | from json | get Peer | transpose k v | get v | each { |r| { name: $r.HostName, ip: ($r.TailscaleIPs | first), status: (if $r.Online { "connected" } else { "disconnected" }) } } }
-}
+alias ts = tailscale
+alias tss = tailscale status
+alias tsu = sudo tailscale up
+alias tsd = sudo tailscale down
+alias tssh = tailscale ssh
+alias tsip = tailscale ip -4
+alias tsping = tailscale ping
+def tsnet [] { ^tailscale status --json | from json | get Peer | transpose k v | get v | each { |r| { name: $r.HostName, ip: ($r.TailscaleIPs | first), status: (if $r.Online { "connected" } else { "disconnected" }) } } }
 
 # ============================================================================
 # Disk / System
