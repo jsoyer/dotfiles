@@ -22,6 +22,24 @@ YELLOW = "\033[1;33m"
 NC = "\033[0m"
 
 
+NATIVE_PACKAGES = {
+    "bat", "chezmoi", "curl", "eza", "fd", "fontconfig", "fzf", "git",
+    "jq", "neovim", "ripgrep", "starship", "tmux", "unzip", "vivid",
+    "wget", "zoxide", "zsh", "atuin", "htop", "tree",
+}
+
+NATIVE_WRAPPER = {
+    "ubuntu-desktop": "aptw",
+    "ubuntu-server": "aptw",
+    "debian": "aptw",
+    "rpi": "aptw",
+    "fedora-desktop": "dnfw",
+    "fedora-server": "dnfw",
+    "arch-desktop": "pacmanw",
+    "arch-server": "pacmanw",
+}
+
+
 def get_target_brewfile():
     """Determine the target Brewfile based on machine profile."""
     profile = os.environ.get("MACHINE_PROFILE")
@@ -31,8 +49,25 @@ def get_target_brewfile():
         return BREWFILE_DIR / "Brewfile_personal"
     elif profile == "rpi":
         return BREWFILE_DIR / "Brewfile_rpi"
+    elif profile in ("ubuntu-desktop", "fedora-desktop", "arch-desktop", "toolbox"):
+        return BREWFILE_DIR / "Brewfile_brew_only"
     else:
         return None
+
+
+def check_native_available(args):
+    """Warn if a package is available natively on Linux."""
+    profile = os.environ.get("MACHINE_PROFILE", "")
+    wrapper = NATIVE_WRAPPER.get(profile)
+    if not wrapper:
+        return
+
+    for arg in args:
+        if not arg.startswith("-") and arg in NATIVE_PACKAGES:
+            print(
+                f"{YELLOW}Warning: '{arg}' is available natively via {wrapper}. "
+                f"Consider using {wrapper} instead.{NC}"
+            )
 
 
 def run_brew_command(args):
@@ -87,6 +122,10 @@ def main():
         )
         run_brew_command(args)
         return
+
+    # Warn about native packages on Linux
+    if "install" in args:
+        check_native_available(args)
 
     # Run the brew command
     returncode = run_brew_command(args)

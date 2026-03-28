@@ -56,6 +56,13 @@ remove_from_manifest() {
     printf '%b\n' "${GREEN}Removed ${pkg} from $(basename "$manifest")${NC}"
 }
 
+check_brew_duplicate() {
+    local pkg="$1"
+    if command -v brew &>/dev/null && brew list "$pkg" &>/dev/null 2>&1; then
+        printf '%b\n' "${YELLOW}Note: '${pkg}' is also installed via brew. Consider: brew uninstall ${pkg}${NC}"
+    fi
+}
+
 sync_to_git() {
     local manifest="$1"
     if command -v chezmoi &>/dev/null; then
@@ -96,6 +103,9 @@ case "$SUBCMD" in
         done
         printf '%b\n' "${BLUE}Installing: ${PKGS[*]}${NC}"
         sudo pacman "$SUBCMD" "${FLAGS[@]}" "${PKGS[@]}"
+        for pkg in "${PKGS[@]}"; do
+            check_brew_duplicate "$pkg"
+        done
         manifest="$(get_pacfile)"
         if [[ -n "$manifest" ]]; then
             for pkg in "${PKGS[@]}"; do
