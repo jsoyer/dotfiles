@@ -47,3 +47,7 @@ gnome-tweaks
 dconf-editor
 telegram-desktop
 remmina
+gcc
+kernel-devel
+make
+patch
