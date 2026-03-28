@@ -1,0 +1,13 @@
+# Fedora Atomic — lightweight CLI tools via Homebrew
+# Host stays minimal: no dev toolchains (go, node, lua-language-server, stylua)
+# Those belong in toolbox containers.
+
+brew "age"
+brew "dust"
+brew "gh"
+brew "glow"
+brew "jq"
+brew "lazygit"
+brew "procs"
+brew "xh"
+brew "yq"

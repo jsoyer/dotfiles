@@ -7,8 +7,9 @@
 # personal: {{ include "dot_private/Brewfile_personal" | sha256sum }}
 # pro:      {{ include "dot_private/Brewfile_pro" | sha256sum }}
 {{- else if eq .chezmoi.os "linux" }}
-# brew_only: {{ include "dot_private/Brewfile_brew_only" | sha256sum }}
-# rpi:       {{ include "dot_private/Brewfile_rpi" | sha256sum }}
+# brew_only:      {{ include "dot_private/Brewfile_brew_only" | sha256sum }}
+# rpi:             {{ include "dot_private/Brewfile_rpi" | sha256sum }}
+# fedora_atomic:   {{ include "dot_private/Brewfile_fedora_atomic" | sha256sum }}
 {{- end }}
 
 set -euo pipefail
@@ -33,6 +34,9 @@ cat "$BREWFILE_DIR/Brewfile_brew_only" "$BREWFILE_DIR/Brewfile_rpi" | brew bundl
 {{-     if eq $mp "rpi" }}
 echo "brew bundle install (rpi profile)"
 cat "$BREWFILE_DIR/Brewfile_brew_only" "$BREWFILE_DIR/Brewfile_rpi" | brew bundle install --file=-
+{{-     else if eq $mp "fedora-atomic" }}
+echo "brew bundle install (fedora-atomic profile)"
+brew bundle install --file="$BREWFILE_DIR/Brewfile_fedora_atomic"
 {{-     else }}
 echo "brew bundle install (linux brew-only)"
 brew bundle install --file="$BREWFILE_DIR/Brewfile_brew_only"

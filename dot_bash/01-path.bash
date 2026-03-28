@@ -19,6 +19,10 @@ if [[ -x "/opt/homebrew/bin/brew" ]]; then
   _cache_eval brew '/opt/homebrew/bin/brew shellenv'
 elif [[ -x "/usr/local/bin/brew" ]]; then
   _cache_eval brew '/usr/local/bin/brew shellenv'
+elif [[ -d "/home/linuxbrew/.linuxbrew" ]]; then
+  _cache_eval linuxbrew '/home/linuxbrew/.linuxbrew/bin/brew shellenv'
+elif [[ -d "${HOME}/.linuxbrew" ]]; then
+  _cache_eval linuxbrew "${HOME}/.linuxbrew/bin/brew shellenv"
 fi
 
 # ============================================================================

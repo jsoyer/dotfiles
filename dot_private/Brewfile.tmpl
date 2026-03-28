@@ -12,8 +12,12 @@
 {{ include "dot_private/Brewfile_personal" | trim }}
 {{-   end }}
 {{- else if eq .chezmoi.os "linux" }}
+{{-   if eq $mp "fedora-atomic" }}
+{{ include "dot_private/Brewfile_fedora_atomic" | trim }}
+{{-   else }}
 {{ include "dot_private/Brewfile_brew_only" | trim }}
-{{-   if eq $mp "rpi" }}
+{{-     if eq $mp "rpi" }}
 {{ include "dot_private/Brewfile_rpi" | trim }}
+{{-     end }}
 {{-   end }}
 {{- end }}
