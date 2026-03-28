@@ -1216,8 +1216,29 @@ def sysup [] {
                 ^brew upgrade
                 ^brew cleanup
             }
+
+            update-ai
         }
         _ => { }
+    }
+}
+
+# Update CLI AI tools (claude-code, copilot-cli, codex)
+def update-ai [] {
+    print "🤖 Updating CLI AI tools..."
+    if (which claude | is-not-empty) {
+        print "  🤖 Updating Claude Code..."
+        try { ^claude update } catch { }
+    }
+    if (which copilot-cli | is-not-empty) {
+        print "  🤖 Updating Copilot CLI..."
+        try { curl -fsSL https://gh.io/copilot-install | bash } catch { }
+    }
+    if (which codex | is-not-empty) {
+        print "  🤖 Updating Codex CLI..."
+        if (which npm | is-not-empty) {
+            try { ^npm update -g @openai/codex } catch { }
+        }
     }
 }
 

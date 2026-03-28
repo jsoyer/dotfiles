@@ -568,9 +568,29 @@ function sysup
                 echo "🍺 Updating Linuxbrew packages..."
                 brew update; and brew upgrade; and brew cleanup
             end
+
+            update-ai
         case windows
             echo "🪣 Updating Scoop packages..."
             scoop update --all
+    end
+end
+
+function update-ai
+    echo "🤖 Updating CLI AI tools..."
+    if command -q claude
+        echo "  🤖 Updating Claude Code..."
+        claude update 2>/dev/null; or true
+    end
+    if command -q copilot-cli
+        echo "  🤖 Updating Copilot CLI..."
+        curl -fsSL https://gh.io/copilot-install | bash 2>/dev/null; or true
+    end
+    if command -q codex
+        echo "  🤖 Updating Codex CLI..."
+        if command -q npm
+            npm update -g @openai/codex 2>/dev/null; or true
+        end
     end
 end
 

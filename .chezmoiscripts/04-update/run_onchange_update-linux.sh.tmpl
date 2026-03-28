@@ -59,5 +59,26 @@ echo "Updating Fedora Atomic (rpm-ostree)..."
 sudo rpm-ostree upgrade
 {{- end }}
 
+# =============================================================================
+# CLI AI Tools updates (all profiles except toolbox and fedora-atomic)
+# =============================================================================
+{{- if not (or (eq $mp "toolbox") $isFedoraAtomic) }}
+
+if command -v claude &>/dev/null; then
+    echo "🤖 Updating Claude Code..."
+    claude update 2>/dev/null || true
+fi
+
+if command -v copilot-cli &>/dev/null; then
+    echo "🤖 Updating Copilot CLI..."
+    curl -fsSL https://gh.io/copilot-install | bash 2>/dev/null || true
+fi
+
+if command -v codex &>/dev/null && command -v npm &>/dev/null; then
+    echo "🤖 Updating Codex CLI..."
+    npm update -g @openai/codex 2>/dev/null || true
+fi
+{{- end }}
+
 echo "Upgrade complete!"
 {{- end -}}

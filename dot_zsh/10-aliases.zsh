@@ -439,12 +439,33 @@ sysup() {
         echo "🍺 Updating Linuxbrew packages..."
         brew update && brew upgrade && brew cleanup
       fi
+
+      update-ai
       ;;
     windows)
       echo "🪣 Updating Scoop packages..."
       scoop update --all
       ;;
   esac
+}
+
+# Update CLI AI tools (claude-code, copilot-cli, codex)
+update-ai() {
+  echo "🤖 Updating CLI AI tools..."
+  if (( $+commands[claude] )); then
+    echo "  🤖 Updating Claude Code..."
+    claude update 2>/dev/null || true
+  fi
+  if (( $+commands[copilot-cli] )); then
+    echo "  🤖 Updating Copilot CLI..."
+    curl -fsSL https://gh.io/copilot-install | bash 2>/dev/null || true
+  fi
+  if (( $+commands[codex] )); then
+    echo "  🤖 Updating Codex CLI..."
+    if (( $+commands[npm] )); then
+      npm update -g @openai/codex 2>/dev/null || true
+    fi
+  fi
 }
 
 # Chezmoi update + package updates
