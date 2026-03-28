@@ -38,8 +38,8 @@ Detected via `uname` + `/proc/device-tree/model`:
 
 | Platform | Theme | Starship Config |
 |----------|-------|-----------------|
-| macOS | Catppuccin Mocha | `starship.toml` |
-| Raspberry Pi / Linux | Snazzy | `starship-rpi.toml` |
+| macOS | Catppuccin Mocha | `starship-desktop.toml` |
+| Raspberry Pi / Linux | Snazzy | `starship-ssh.toml` |
 
 FZF colors, Vivid LS_COLORS, and Bat theme all switch automatically.
 

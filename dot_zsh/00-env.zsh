@@ -6,7 +6,7 @@
 # ============================================================================
 
 # Default values
-export STARSHIP_CONFIG="${HOME}/.config/starship/starship.toml"
+export STARSHIP_CONFIG="${HOME}/.config/starship/starship-desktop.toml"
 
 # Cache OS and hostname — avoids forking uname/hostname on every shell start
 _OS="${OSTYPE}"
@@ -50,7 +50,7 @@ case "${_OS}" in
       export STARSHIP_ICON_COLOR="blue"
       export STARSHIP_ICON=""
       export MACHINE_PROFILE="toolbox"
-      export STARSHIP_CONFIG="${HOME}/.config/starship/starship-rpi.toml"
+      export STARSHIP_CONFIG="${HOME}/.config/starship/starship-ssh.toml"
 
     elif _is_rpi; then
       # Raspberry Pi devices (any OS: raspbian, ubuntu, etc.)
@@ -67,7 +67,7 @@ case "${_OS}" in
           ;;
       esac
       export MACHINE_PROFILE="rpi"
-      export STARSHIP_CONFIG="${HOME}/.config/starship/starship-rpi.toml"
+      export STARSHIP_CONFIG="${HOME}/.config/starship/starship-ssh.toml"
 
     elif [[ "${_DISTRO_ID}" == "ubuntu" ]]; then
       # Ubuntu — server if hostname starts with ubuntu-server, otherwise desktop
@@ -75,7 +75,7 @@ case "${_OS}" in
         export STARSHIP_ICON_COLOR="yellow"
         export STARSHIP_ICON=""
         export MACHINE_PROFILE="ubuntu-server"
-        export STARSHIP_CONFIG="${HOME}/.config/starship/starship-rpi.toml"
+        export STARSHIP_CONFIG="${HOME}/.config/starship/starship-ssh.toml"
       else
         export STARSHIP_ICON_COLOR="peach"
         export STARSHIP_ICON=""
@@ -87,7 +87,7 @@ case "${_OS}" in
       export STARSHIP_ICON_COLOR="red"
       export STARSHIP_ICON=""
       export MACHINE_PROFILE="debian"
-      export STARSHIP_CONFIG="${HOME}/.config/starship/starship-rpi.toml"
+      export STARSHIP_CONFIG="${HOME}/.config/starship/starship-ssh.toml"
 
     elif [[ "${_DISTRO_ID}" == "arch" ]]; then
       # Arch Linux — server vs desktop by hostname
@@ -95,7 +95,7 @@ case "${_OS}" in
       export STARSHIP_ICON=""
       if [[ "${_HOST}" == arch-server* ]]; then
         export MACHINE_PROFILE="arch-server"
-        export STARSHIP_CONFIG="${HOME}/.config/starship/starship-rpi.toml"
+        export STARSHIP_CONFIG="${HOME}/.config/starship/starship-ssh.toml"
       else
         export MACHINE_PROFILE="arch-desktop"
       fi
@@ -106,10 +106,10 @@ case "${_OS}" in
       export STARSHIP_ICON=""
       if command -v rpm-ostree &>/dev/null 2>&1; then
         export MACHINE_PROFILE="fedora-atomic"
-        export STARSHIP_CONFIG="${HOME}/.config/starship/starship-rpi.toml"
+        export STARSHIP_CONFIG="${HOME}/.config/starship/starship-ssh.toml"
       elif [[ "${_HOST}" == fedora-server* ]]; then
         export MACHINE_PROFILE="fedora-server"
-        export STARSHIP_CONFIG="${HOME}/.config/starship/starship-rpi.toml"
+        export STARSHIP_CONFIG="${HOME}/.config/starship/starship-ssh.toml"
       else
         export MACHINE_PROFILE="fedora-desktop"
       fi
@@ -129,8 +129,8 @@ esac
 unset _OS _HOST
 
 # SSH override: use compact Snazzy prompt when connected over SSH on desktops
-if [[ -n "${SSH_TTY:-}" && "${STARSHIP_CONFIG}" == *"/starship.toml" ]]; then
-  export STARSHIP_CONFIG="${HOME}/.config/starship/starship-rpi.toml"
+if [[ -n "${SSH_TTY:-}" && "${STARSHIP_CONFIG}" == *"/starship-desktop.toml" ]]; then
+  export STARSHIP_CONFIG="${HOME}/.config/starship/starship-ssh.toml"
 fi
 
 # Convenience boolean flags (compatible with bash env)

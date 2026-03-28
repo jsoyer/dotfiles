@@ -194,7 +194,7 @@ esac
 
 if [[ "${_use_snazzy}" == "true" ]]; then
   # RPi / Linux servers: Snazzy theme
-  export STARSHIP_CONFIG="${HOME}/.config/starship/starship-rpi.toml"
+  export STARSHIP_CONFIG="${HOME}/.config/starship/starship-ssh.toml"
 
   # FZF theme (Snazzy)
   export FZF_DEFAULT_OPTS=" \
@@ -215,7 +215,7 @@ if [[ "${_use_snazzy}" == "true" ]]; then
 
 else
   # macOS / Ubuntu Desktop: Catppuccin Mocha theme
-  export STARSHIP_CONFIG="${HOME}/.config/starship/starship.toml"
+  export STARSHIP_CONFIG="${HOME}/.config/starship/starship-desktop.toml"
 
   # FZF theme (Catppuccin Mocha)
   export FZF_DEFAULT_OPTS=" \
@@ -235,8 +235,8 @@ fi
 unset _use_snazzy
 
 # SSH override: use compact Snazzy prompt when connected over SSH on desktops
-if [[ -n "${SSH_TTY:-}" && "${STARSHIP_CONFIG}" == *"/starship.toml" ]]; then
-  export STARSHIP_CONFIG="${HOME}/.config/starship/starship-rpi.toml"
+if [[ -n "${SSH_TTY:-}" && "${STARSHIP_CONFIG}" == *"/starship-desktop.toml" ]]; then
+  export STARSHIP_CONFIG="${HOME}/.config/starship/starship-ssh.toml"
 fi
 
 # ============================================================================

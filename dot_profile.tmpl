@@ -5,13 +5,13 @@
 {{- if eq .chezmoi.os "darwin" }}
 export STARSHIP_ICON=""
 export STARSHIP_ICON_COLOR="mauve"
-export STARSHIP_CONFIG="${HOME}/.config/starship/starship.toml"
+export STARSHIP_CONFIG="${HOME}/.config/starship/starship-desktop.toml"
 {{- else if eq .chezmoi.os "linux" }}
 if [ -n "${TOOLBOX_PATH:-}" ] || case "$(hostname)" in *toolbx*) true;; *) false;; esac; then
     # Fedora Toolbox
     export STARSHIP_ICON=""
     export STARSHIP_ICON_COLOR="blue"
-    export STARSHIP_CONFIG="${HOME}/.config/starship/starship.toml"
+    export STARSHIP_CONFIG="${HOME}/.config/starship/starship-desktop.toml"
 elif [ -f /proc/device-tree/model ] && grep -qi "raspberry pi" /proc/device-tree/model 2>/dev/null; then
     # Raspberry Pi
     export STARSHIP_ICON_COLOR="red"
@@ -20,7 +20,7 @@ elif [ -f /proc/device-tree/model ] && grep -qi "raspberry pi" /proc/device-tree
         omv-*)        export STARSHIP_ICON="🐟" ;;
         *)            export STARSHIP_ICON="🍓" ;;
     esac
-    export STARSHIP_CONFIG="${HOME}/.config/starship/starship-rpi.toml"
+    export STARSHIP_CONFIG="${HOME}/.config/starship/starship-ssh.toml"
 elif [ -f /etc/os-release ] && { . /etc/os-release && [ "${ID:-}" = "ubuntu" ]; }; then
     # Ubuntu (desktop vs server by hostname prefix)
     _h="${HOSTNAME%%.*}"
@@ -28,12 +28,12 @@ elif [ -f /etc/os-release ] && { . /etc/os-release && [ "${ID:-}" = "ubuntu" ]; 
         ubuntu-server*)
             export STARSHIP_ICON=""
             export STARSHIP_ICON_COLOR="yellow"
-            export STARSHIP_CONFIG="${HOME}/.config/starship/starship-rpi.toml"
+            export STARSHIP_CONFIG="${HOME}/.config/starship/starship-ssh.toml"
             ;;
         *)
             export STARSHIP_ICON=""
             export STARSHIP_ICON_COLOR="peach"
-            export STARSHIP_CONFIG="${HOME}/.config/starship/starship.toml"
+            export STARSHIP_CONFIG="${HOME}/.config/starship/starship-desktop.toml"
             ;;
     esac
     unset _h
@@ -41,19 +41,19 @@ elif command -v rpm-ostree &>/dev/null 2>/dev/null; then
     # Fedora Atomic
     export STARSHIP_ICON=""
     export STARSHIP_ICON_COLOR="blue"
-    export STARSHIP_CONFIG="${HOME}/.config/starship/starship-rpi.toml"
+    export STARSHIP_CONFIG="${HOME}/.config/starship/starship-ssh.toml"
 elif [ -f /etc/os-release ] && { . /etc/os-release && [ "${ID:-}" = "fedora" ]; }; then
     _h="${HOSTNAME%%.*}"
     case "${_h}" in
         fedora-server*)
             export STARSHIP_ICON=""
             export STARSHIP_ICON_COLOR="blue"
-            export STARSHIP_CONFIG="${HOME}/.config/starship/starship-rpi.toml"
+            export STARSHIP_CONFIG="${HOME}/.config/starship/starship-ssh.toml"
             ;;
         *)
             export STARSHIP_ICON=""
             export STARSHIP_ICON_COLOR="blue"
-            export STARSHIP_CONFIG="${HOME}/.config/starship/starship.toml"
+            export STARSHIP_CONFIG="${HOME}/.config/starship/starship-desktop.toml"
             ;;
     esac
     unset _h
@@ -61,7 +61,7 @@ else
     # Other Linux (Debian, etc.)
     export STARSHIP_ICON=""
     export STARSHIP_ICON_COLOR="blue"
-    export STARSHIP_CONFIG="${HOME}/.config/starship/starship.toml"
+    export STARSHIP_CONFIG="${HOME}/.config/starship/starship-desktop.toml"
 fi
 {{- end }}
 

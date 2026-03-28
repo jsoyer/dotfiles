@@ -27,8 +27,8 @@ cup   # chezmoi update + brew upgrade/apt upgrade/dnf upgrade
 ### Edit and re-sync a config
 
 ```bash
-vim ~/.config/starship.toml          # edit locally
-chezmoi re-add ~/.config/starship.toml  # auto-commits + auto-pushes
+vim ~/.config/starship/starship-desktop.toml          # edit locally
+chezmoi re-add ~/.config/starship/starship-desktop.toml  # auto-commits + auto-pushes
 ```
 
 ### Check for drift
@@ -229,7 +229,7 @@ chezmoi apply ~/.zshrc ~/.zsh/ ~/.bashrc ~/.bash/
 ### Partial recovery (only a specific tool)
 
 ```bash
-chezmoi apply ~/.config/starship.toml
+chezmoi apply ~/.config/starship/starship-desktop.toml
 chezmoi apply ~/.config/tmux/
 ```
 

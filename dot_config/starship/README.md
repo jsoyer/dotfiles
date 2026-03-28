@@ -14,8 +14,8 @@ Starship is a fast, customizable, and cross-shell prompt. This configuration inc
 
 ```
 ~/.config/starship/
-├── starship.toml         # Main config (macOS - Catppuccin Mocha)
-├── starship-rpi.toml     # RPi/Linux config (Snazzy)
+├── starship-desktop.toml         # Main config (macOS - Catppuccin Mocha)
+├── starship-ssh.toml     # RPi/Linux config (Snazzy)
 ├── starship-nushell.toml # Nushell-specific config
 └── README.md             # This file
 ```
@@ -26,16 +26,16 @@ The correct configuration is automatically selected based on platform detection 
 
 | Platform | Config File | Theme | Prompt Style |
 |----------|-------------|-------|--------------|
-| macOS | `starship.toml` | Catppuccin Mocha | `~/path ➜` |
-| RPi/Linux | `starship-rpi.toml` | Snazzy | `🍓 hostname:~/path ❯` |
+| macOS | `starship-desktop.toml` | Catppuccin Mocha | `~/path ➜` |
+| RPi/Linux | `starship-ssh.toml` | Snazzy | `🍓 hostname:~/path ❯` |
 
 ### How It Works
 
 The master logic lives in `~/.zsh/00-env.zsh`. It detects the machine's profile and exports two key environment variables:
-1.  `STARSHIP_CONFIG`: Points to the correct `.toml` file to use (e.g., `starship.toml` for macOS, `starship-rpi.toml` for Linux).
+1.  `STARSHIP_CONFIG`: Points to the correct `.toml` file to use (e.g., `starship-desktop.toml` for macOS, `starship-ssh.toml` for Linux).
 2.  `STARSHIP_ICON`: Sets the main icon character for the prompt (``, ``, `🍓`, etc.).
 
-This icon is then displayed by the `[env_var.STARSHIP_ICON]` section in `starship.toml`.
+This icon is then displayed by the `[env_var.STARSHIP_ICON]` section in `starship-desktop.toml`.
 
 ## Configuration Comparison
 
@@ -148,7 +148,7 @@ eval "$(starship init bash)"
 
 ### Change RPi Icon
 
-Edit `starship-rpi.toml`:
+Edit `starship-ssh.toml`:
 ```toml
 # Current
 format = """[🍓](bold red) $hostname$directory..."""
@@ -224,7 +224,7 @@ starship timings         # Show module load times
 
 ```bash
 # Temporarily use RPi config on macOS
-STARSHIP_CONFIG=~/.config/starship/starship-rpi.toml zsh
+STARSHIP_CONFIG=~/.config/starship/starship-ssh.toml zsh
 ```
 
 ## Resources

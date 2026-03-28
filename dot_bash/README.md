@@ -130,7 +130,7 @@ HISTIGNORE="ls:cd:exit:clear:history"
 
 **macOS (Catppuccin Mocha):**
 ```bash
-STARSHIP_CONFIG=~/.config/starship/starship.toml
+STARSHIP_CONFIG=~/.config/starship/starship-desktop.toml
 FZF_DEFAULT_OPTS="--color=bg+:#313244,bg:#1e1e2e..."
 BAT_THEME="Catppuccin Mocha"
 LS_COLORS=$(vivid generate catppuccin-mocha)
@@ -138,7 +138,7 @@ LS_COLORS=$(vivid generate catppuccin-mocha)
 
 **Linux/RPi (Snazzy):**
 ```bash
-STARSHIP_CONFIG=~/.config/starship/starship-rpi.toml
+STARSHIP_CONFIG=~/.config/starship/starship-ssh.toml
 FZF_DEFAULT_OPTS="--color=bg+:#3a3d4d,bg:#282a36..."
 BAT_THEME="ansi"
 LS_COLORS=$(vivid generate snazzy)

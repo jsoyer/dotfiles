@@ -301,7 +301,7 @@ tmux
 **Quick Start**:
 ```bash
 # Already loaded in Zsh, Fish, Nushell
-# Config: ~/.config/starship/starship.toml
+# Config: ~/.config/starship/starship-desktop.toml (or starship-ssh.toml)
 starship config  # Edit config
 ```
 
@@ -656,7 +656,8 @@ All tools use **Catppuccin Mocha**:
 │   ├── env.nu
 │   └── catppuccin_mocha.nu
 ├── starship/
-│   ├── starship.toml
+│   ├── starship-desktop.toml
+│   ├── starship-ssh.toml
 │   └── starship-nushell.toml
 ├── tmux/
 │   └── tmux.conf
