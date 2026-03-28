@@ -11,6 +11,8 @@
 {{-   end -}}
 {{- else if eq .chezmoi.osRelease.id "arch" -}}
 {{-   $sshIcon = "" -}}
+{{-   else if eq .chezmoi.osRelease.id "omarchy" -}}
+{{-   $sshIcon = "" -}}
 {{- else if eq .chezmoi.osRelease.id "fedora" -}}
 {{-   $sshIcon = "" -}}
 {{- else if eq .chezmoi.osRelease.id "ubuntu" -}}
