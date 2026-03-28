@@ -1053,7 +1053,7 @@ def dcua [base?: string] {
         }
 
         print $"📥 Pulling: ($dir | path basename)"
-        let pull_output = (^$runtime compose -f $compose_file pull 2>&1 | complete)
+        let pull_output = (^$runtime compose -f $compose_file pull out+err>| complete)
 
         if ($pull_output.stdout | str contains "Pulling") or ($pull_output.stdout | str contains "Downloading") {
             print "  🔄 New images found, restarting..."
