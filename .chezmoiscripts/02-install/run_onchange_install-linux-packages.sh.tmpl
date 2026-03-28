@@ -522,29 +522,25 @@ if command -v yay &>/dev/null; then
     yay -S --noconfirm --needed claude-code github-copilot-cli-bin openai-codex-bin 2>/dev/null || true
 fi
 {{- else }}
-# Claude Code (native installer, auto-updates)
+# Claude Code (native installer)
 if ! command -v claude &>/dev/null; then
     echo "🤖 Installing Claude Code..."
-    curl -fsSL https://claude.ai/install.sh | sh
+    curl -fsSL https://claude.ai/install.sh | bash
 fi
 
 # GitHub Copilot CLI (native installer)
 if ! command -v copilot &>/dev/null; then
     echo "🤖 Installing GitHub Copilot CLI..."
-    curl -fsSL https://gh.io/copilot-install | sudo bash 2>/dev/null || true
+    curl -fsSL https://gh.io/copilot-install | bash 2>/dev/null || true
 fi
 
-# Codex CLI (native binary from GitHub releases)
+# Codex CLI (npm)
 if ! command -v codex &>/dev/null; then
-    echo "🤖 Installing Codex CLI..."
-    _arch="$(uname -m)"
-    if [[ "${_arch}" == "x86_64" ]]; then
-        _codex_url="$(curl -fsSL https://api.github.com/repos/openai/codex/releases/latest \
-            | jq -r '.assets[] | select(.name | test("linux.*x64")) | .browser_download_url' | head -1)"
-        if [[ -n "${_codex_url}" ]]; then
-            curl -fsSL "${_codex_url}" -o /tmp/codex && chmod +x /tmp/codex
-            sudo mv /tmp/codex /usr/local/bin/codex
-        fi
+    if command -v npm &>/dev/null; then
+        echo "🤖 Installing Codex CLI..."
+        npm i -g @openai/codex
+    else
+        echo "⚠️ npm not found, skipping Codex CLI"
     fi
 fi
 {{- end }}
