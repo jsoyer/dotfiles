@@ -336,9 +336,10 @@ A custom `breww` script wraps the `brew` command. When you install a package wit
 
 | Profile | Brewfile | Content |
 |---------|----------|---------|
-| `mac-pro` | `Brewfile_common` + `Brewfile_pro` | Full workstation (casks, go) |
-| `mac-personal` | `Brewfile_common` + `Brewfile_personal` | Personal Mac (casks, mas) |
-| `rpi` | `Brewfile_common` + `Brewfile_rpi` | Minimal RPi subset |
+| `mac-pro` | `Brewfile_macos` + `Brewfile_pro` | Full workstation (casks, go) |
+| `mac-personal` | `Brewfile_macos` + `Brewfile_personal` | Personal Mac (casks, mas) |
+| `rpi` | `Brewfile_brew_only` + `Brewfile_rpi` | Brew-only + RPi extras |
+| Linux desktop | `Brewfile_brew_only` | Brew-only (native packages via apt/dnf/pacman) |
 
 **Usage:**
 ```bash

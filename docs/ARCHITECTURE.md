@@ -125,7 +125,7 @@ graph TD
 
 | Wrapper | Package Manager | Manifest | Platforms |
 |---------|----------------|----------|-----------|
-| `breww` | Homebrew | `Brewfile_common` + `Brewfile_{pro,personal,linux,rpi}` | macOS, Linux |
+| `breww` | Homebrew | `Brewfile_macos` (macOS) / `Brewfile_brew_only` (Linux) + profile | macOS, Linux |
 | `aptw` | APT | `Aptfile_{debian,rpi,ubuntu_desktop,ubuntu_server}` | Debian, Ubuntu, RPi |
 | `dnfw` | DNF/YUM | `Dnffile_{fedora_desktop,fedora_server}` | Fedora |
 | `pacmanw` | Pacman | `Pacfile_{arch_desktop,arch_server}` | Arch |

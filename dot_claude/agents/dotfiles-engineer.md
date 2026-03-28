@@ -225,13 +225,14 @@ Delivery notification:
 "Dotfiles configuration completed. Managing 45 configurations across macOS, Fedora, and Raspberry Pi with chezmoi. 12 secrets encrypted via age, 8 external dependencies declared, and bootstrap script verified on all platforms. Full XDG compliance with numbered shell loading order."
 
 Brewfile management:
-- Brewfile_common for cross-platform tools
+- Brewfile_macos for macOS-only base packages
+- Brewfile_brew_only for Linux (packages not in native repos)
 - Brewfile_pro for work machine tools
 - Brewfile_personal for personal machine tools
-- Brewfile_linux for Linuxbrew packages
+- Brewfile_rpi for RPi-specific extras
+- Native packages always take priority over brew on Linux
 - Conditional bundle execution via templates
 - Tap, brew, cask, and mas organization
-- Version pinning for critical tools
 - Cleanup and pruning automation
 
 Neovim config integration:
@@ -414,9 +415,9 @@ exit 0
 
 BREWFILE_DIR="{{ .chezmoi.homeDir }}/.private"
 
-echo "Installing common packages..."
-brew bundle --no-lock --file="${BREWFILE_DIR}/Brewfile_common" || true
-
+{{- if eq .chezmoi.os "darwin" }}
+echo "Installing macOS base packages..."
+brew bundle --no-lock --file="${BREWFILE_DIR}/Brewfile_macos" || true
 {{- if eq .chezmoi.hostname "work-laptop" }}
 echo "Installing work packages..."
 brew bundle --no-lock --file="${BREWFILE_DIR}/Brewfile_pro" || true
@@ -424,9 +425,10 @@ brew bundle --no-lock --file="${BREWFILE_DIR}/Brewfile_pro" || true
 echo "Installing personal packages..."
 brew bundle --no-lock --file="${BREWFILE_DIR}/Brewfile_personal" || true
 {{- end }}
-
-echo "Cleaning up unused packages..."
-brew bundle cleanup --no-lock --file="${BREWFILE_DIR}/Brewfile_common" --force || true
+{{- else }}
+echo "Installing brew-only packages (native packages handled by system)..."
+brew bundle --no-lock --file="${BREWFILE_DIR}/Brewfile_brew_only" || true
+{{- end }}
 
 echo "Brew bundle complete."
 ```

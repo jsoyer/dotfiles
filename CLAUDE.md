@@ -103,7 +103,7 @@ Configuration adapts based on:
 - `dot_claude/` - Claude Code config (agents, commands, rules, hooks, settings)
 - `dot_agents/` - Shared AI agent skills (654 skills, source of truth for `.claude/`, `.qwen/`, `.vibe/` symlinks)
 - `dot_config/opencode/` - OpenCode config (MCP servers mirror Claude)
-- `dot_private/` - Brewfiles (`Brewfile_common`, `Brewfile_pro`, `Brewfile_personal`, `Brewfile_linux`, `Brewfile_rpi`)
+- `dot_private/` - Brewfiles (`Brewfile_macos`, `Brewfile_brew_only`, `Brewfile_pro`, `Brewfile_personal`, `Brewfile_rpi`), Aptfile_*, Dnffile_*, Pacfile_*
 - `dot_local/bin/` - Custom scripts (`breww`, `update-claude-agents`, `claude-init`)
 - `dot_ssh/` - SSH config directory
 
