@@ -31,7 +31,7 @@ case "${_OS}" in
   darwin*)
     # --- macOS ---
     export STARSHIP_ICON_COLOR="mauve"
-    export STARSHIP_ICON=""
+    export STARSHIP_ICON=$'\uf179'
     if [[ "${_HOST}" == "jsoyer-macOS" ]]; then
       export MACHINE_PROFILE="mac-pro"
       # Mac Pro: install casks in $HOME/Applications
@@ -48,7 +48,7 @@ case "${_OS}" in
     if [[ -n "$TOOLBOX_PATH" ]] || [[ "$HOSTNAME" == *toolbx* ]]; then
       # Fedora Toolbox container
       export STARSHIP_ICON_COLOR="blue"
-      export STARSHIP_ICON=""
+      export STARSHIP_ICON=$'\uf473'
       export MACHINE_PROFILE="toolbox"
       export STARSHIP_CONFIG="${HOME}/.config/starship/starship-ssh.toml"
 
@@ -73,32 +73,32 @@ case "${_OS}" in
       # Ubuntu — server if hostname starts with ubuntu-server, otherwise desktop
       if [[ "${_HOST}" == ubuntu-server* ]]; then
         export STARSHIP_ICON_COLOR="yellow"
-        export STARSHIP_ICON=""
+        export STARSHIP_ICON=$'\uf31b'
         export MACHINE_PROFILE="ubuntu-server"
         export STARSHIP_CONFIG="${HOME}/.config/starship/starship-ssh.toml"
       else
         export STARSHIP_ICON_COLOR="peach"
-        export STARSHIP_ICON=""
+        export STARSHIP_ICON=$'\uf31b'
         export MACHINE_PROFILE="ubuntu-desktop"
       fi
 
     elif [[ "${_DISTRO_ID}" == "debian" ]]; then
       # Debian (non-RPi)
       export STARSHIP_ICON_COLOR="red"
-      export STARSHIP_ICON=""
+      export STARSHIP_ICON=$'\uf306'
       export MACHINE_PROFILE="debian"
       export STARSHIP_CONFIG="${HOME}/.config/starship/starship-ssh.toml"
 
     elif [[ "${_DISTRO_ID}" == "omarchy" ]]; then
       # OmArchy — Arch-based desktop flavor
       export STARSHIP_ICON_COLOR="purple"
-      export STARSHIP_ICON=""
+      export STARSHIP_ICON=$'\uf303'
       export MACHINE_PROFILE="omarchy"
 
     elif [[ "${_DISTRO_ID}" == "arch" ]]; then
       # Arch Linux — server vs desktop by hostname
       export STARSHIP_ICON_COLOR="blue"
-      export STARSHIP_ICON=""
+      export STARSHIP_ICON=$'\uf303'
       if [[ "${_HOST}" == arch-server* ]]; then
         export MACHINE_PROFILE="arch-server"
         export STARSHIP_CONFIG="${HOME}/.config/starship/starship-ssh.toml"
@@ -109,7 +109,7 @@ case "${_OS}" in
     else
       # Fedora — atomic by tool, then server/desktop by hostname
       export STARSHIP_ICON_COLOR="blue"
-      export STARSHIP_ICON=""
+      export STARSHIP_ICON=$'\uf30a'
       if command -v rpm-ostree &>/dev/null 2>&1; then
         export MACHINE_PROFILE="fedora-atomic"
         export STARSHIP_CONFIG="${HOME}/.config/starship/starship-ssh.toml"
@@ -127,7 +127,7 @@ case "${_OS}" in
   cygwin*|msys*|mingw*)
     # --- Windows ---
     export STARSHIP_ICON_COLOR="cyan"
-    export STARSHIP_ICON=""
+    export STARSHIP_ICON=$'\ue62a'
     export MACHINE_PROFILE="windows"
     ;;
 esac

@@ -138,7 +138,7 @@ esac
 # Hostname-based icon for Starship prompt
 # ============================================================================
 if [[ "${IS_MACOS}" == "true" ]]; then
-  export STARSHIP_ICON="⌘"
+  export STARSHIP_ICON=$'\uf179'
   export STARSHIP_ICON_COLOR="mauve"
 elif [[ "${IS_RPI}" == "true" ]]; then
   export STARSHIP_ICON_COLOR="red"
@@ -154,13 +154,28 @@ elif [[ "${IS_RPI}" == "true" ]]; then
       ;;
   esac
 elif [[ "${MACHINE_PROFILE}" == "ubuntu-desktop" ]]; then
-  export STARSHIP_ICON=""
+  export STARSHIP_ICON=$'\uf31b'
   export STARSHIP_ICON_COLOR="peach"
 elif [[ "${MACHINE_PROFILE}" == "ubuntu-server" ]]; then
-  export STARSHIP_ICON=""
+  export STARSHIP_ICON=$'\uf31b'
   export STARSHIP_ICON_COLOR="yellow"
+elif [[ "${MACHINE_PROFILE}" == "omarchy" ]]; then
+  export STARSHIP_ICON=$'\uf303'
+  export STARSHIP_ICON_COLOR="purple"
+elif [[ "${MACHINE_PROFILE}" == arch-* ]]; then
+  export STARSHIP_ICON=$'\uf303'
+  export STARSHIP_ICON_COLOR="blue"
+elif [[ "${MACHINE_PROFILE}" == "debian" ]]; then
+  export STARSHIP_ICON=$'\uf306'
+  export STARSHIP_ICON_COLOR="red"
+elif [[ "${MACHINE_PROFILE}" == fedora-* ]]; then
+  export STARSHIP_ICON=$'\uf30a'
+  export STARSHIP_ICON_COLOR="blue"
+elif [[ "${MACHINE_PROFILE}" == "toolbox" ]]; then
+  export STARSHIP_ICON=$'\uf473'
+  export STARSHIP_ICON_COLOR="blue"
 elif [[ "${IS_LINUX}" == "true" ]]; then
-  export STARSHIP_ICON=""
+  export STARSHIP_ICON=$'\uf17c'
   export STARSHIP_ICON_COLOR="blue"
 fi
 
