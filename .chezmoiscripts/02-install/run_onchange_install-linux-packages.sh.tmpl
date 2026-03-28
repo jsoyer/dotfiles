@@ -69,6 +69,11 @@ elif [[ -d "${HOME}/.linuxbrew" ]]; then
     eval "$("${HOME}/.linuxbrew/bin/brew" shellenv)"
 fi
 
+# Initialize git-lfs if available (required for .wallpapers repo)
+if command -v git-lfs &>/dev/null; then
+    git lfs install --skip-smudge 2>/dev/null || true
+fi
+
 # Detect if a display server / desktop environment is installed
 _has_gui() {
     command -v Xorg &>/dev/null || \

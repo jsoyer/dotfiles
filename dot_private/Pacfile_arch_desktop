@@ -2,6 +2,7 @@
 # managed by pacmanw — do not edit manually
 base-devel
 git
+git-lfs
 curl
 wget
 zsh

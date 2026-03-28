@@ -3,6 +3,7 @@
 chezmoi
 zsh
 git
+git-lfs
 curl
 wget
 tmux

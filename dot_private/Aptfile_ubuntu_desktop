@@ -2,6 +2,7 @@
 # managed by aptw — do not edit manually
 zsh
 git
+git-lfs
 curl
 wget
 tmux
