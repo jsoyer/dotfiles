@@ -68,9 +68,38 @@ sudo dnf copr enable -y atim/nushell
 {{- end }}
 
 # =============================================================================
-# Fedora - Tailscale Installation
+# Tailscale Installation (all Linux profiles except toolbox)
 # =============================================================================
-{{- if and (lookPath "dnf") (not (lookPath "rpm-ostree")) (not (stat "/.toolboxenv")) (not (env "TOOLBOX_PATH")) }}
+{{- if not $isToolbox }}
+
+{{- if or $isRPi $isDebian $isUbuntu }}
+# Debian/Ubuntu/RPi - Tailscale via official apt repo
+if ! command -v tailscale &>/dev/null; then
+    echo "🔒 Installing Tailscale..."
+    curl -fsSL https://tailscale.com/install.sh | sh
+    sudo systemctl enable --now tailscaled || true
+    echo "🔒 Tailscale installed. Run 'sudo tailscale up' to authenticate."
+else
+    sudo systemctl enable --now tailscaled 2>/dev/null || true
+    echo "🔒 Tailscale already installed"
+fi
+{{- end }}
+
+{{- if $isArch }}
+# Arch Linux - Tailscale via pacman
+if ! command -v tailscale &>/dev/null; then
+    echo "🔒 Installing Tailscale..."
+    sudo pacman -S --needed --noconfirm tailscale
+    sudo systemctl enable --now tailscaled || true
+    echo "🔒 Tailscale installed. Run 'sudo tailscale up' to authenticate."
+else
+    sudo systemctl enable --now tailscaled 2>/dev/null || true
+    echo "🔒 Tailscale already installed"
+fi
+{{- end }}
+
+{{- if $isFedora }}
+# Fedora - Tailscale via official dnf repo
 if ! rpm -q tailscale &>/dev/null; then
     echo "🔒 Installing Tailscale..."
     sudo dnf config-manager addrepo --from-repofile=https://pkgs.tailscale.com/stable/fedora/tailscale.repo
@@ -78,23 +107,26 @@ if ! rpm -q tailscale &>/dev/null; then
     sudo systemctl enable --now tailscaled || true
     echo "🔒 Tailscale installed. Run 'sudo tailscale up' to authenticate."
 else
+    sudo systemctl enable --now tailscaled 2>/dev/null || true
     echo "🔒 Tailscale already installed"
 fi
 {{- end }}
 
-{{- if lookPath "rpm-ostree" }}
+{{- if $isFedoraAtomic }}
+# Fedora Atomic - Tailscale via rpm-ostree
 if ! rpm -q tailscale &>/dev/null; then
     echo "🔒 Installing Tailscale..."
-    if ! sudo ostree remote list 2>/dev/null | grep -q tailscale; then
-        sudo curl -fsSL https://pkgs.tailscale.com/stable/fedora/tailscale.repo \
-            -o /etc/yum.repos.d/tailscale.repo 2>/dev/null || true
-    fi
+    sudo curl -fsSL https://pkgs.tailscale.com/stable/fedora/tailscale.repo \
+        -o /etc/yum.repos.d/tailscale.repo 2>/dev/null || true
     sudo rpm-ostree install --idempotent --apply-live tailscale 2>/dev/null || true
     sudo systemctl enable --now tailscaled 2>/dev/null || true
     echo "🔒 Tailscale installation attempted. Run 'sudo tailscale up' to authenticate."
 else
+    sudo systemctl enable --now tailscaled 2>/dev/null || true
     echo "🔒 Tailscale already installed"
 fi
+{{- end }}
+
 {{- end }}
 
 echo "✅ Linux setup complete!"

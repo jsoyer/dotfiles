@@ -621,6 +621,22 @@ if test (uname -s) = "Linux"
 end
 
 # ============================================================================
+# Tailscale
+# ============================================================================
+if command -q tailscale
+    alias ts='tailscale'
+    alias tss='tailscale status'
+    alias tsu='sudo tailscale up'
+    alias tsd='sudo tailscale down'
+    alias tssh='tailscale ssh'
+    alias tsip='tailscale ip -4'
+    alias tsping='tailscale ping'
+    function tsnet
+        tailscale status --json | jq -r '.Peer[] | "\(.HostName)\t\(.TailscaleIPs[0])\t\(.Online)"' | column -t
+    end
+end
+
+# ============================================================================
 # Disk / System
 # ============================================================================
 if command -q dust

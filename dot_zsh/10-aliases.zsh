@@ -543,6 +543,20 @@ alias ports='sudo ss -tlnp'
 alias myip='curl -s ifconfig.me'
 
 # ============================================================================
+# Tailscale
+# ============================================================================
+if (( $+commands[tailscale] )); then
+  alias ts='tailscale'
+  alias tss='tailscale status'
+  alias tsu='sudo tailscale up'
+  alias tsd='sudo tailscale down'
+  alias tssh='tailscale ssh'
+  alias tsip='tailscale ip -4'
+  alias tsping='tailscale ping'
+  alias tsnet='tailscale status --json | jq -r ".Peer[] | \"\(.HostName)\t\(.TailscaleIPs[0])\t\(.Online)\"" | column -t'
+fi
+
+# ============================================================================
 # Jujutsu (jj)
 # ============================================================================
 alias j='jj'
