@@ -84,13 +84,10 @@ alias gr='git remote'
 alias gre='git reset'
 
 # ============================================================================
-# Docker / Podman
+# Docker / Podman (legacy — see conditional dc*/dps aliases below)
 # ============================================================================
 alias dco='docker compose'
-alias dps='docker ps'
-alias dpa='docker ps -a'
 alias dl='docker ps -l -q'
-alias dx='docker exec -it'
 
 # docker-compose -> docker compose (function for compatibility)
 docker-compose() {
@@ -462,8 +459,8 @@ cup() {
 # Docker / Podman Compose
 # ============================================================================
 if (( $+commands[docker] )); then
-  alias dps='docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}\t{{.Image}}"'
-  alias dpsa='docker container ls -a --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}\t{{.Image}}"'
+  alias dps='docker ps --format "table {{.Names}}\t{{.ID}}\t{{.Status}}\t{{.Ports}}\t{{.Image}}"'
+  alias dpsa='docker container ls -a --format "table {{.Names}}\t{{.ID}}\t{{.State}}\t{{.Status}}\t{{.Ports}}\t{{.Image}}"'
   alias dcpl='docker compose pull'
   alias dcup='docker compose up -d'
   alias dcl='docker compose logs -f'
@@ -473,8 +470,8 @@ if (( $+commands[docker] )); then
   alias dce='docker compose exec'
   alias dcb='docker compose build'
 elif (( $+commands[podman] )); then
-  alias dps='podman ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}\t{{.Image}}"'
-  alias dpsa='podman container ls -a --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}\t{{.Image}}"'
+  alias dps='podman ps --format "table {{.Names}}\t{{.ID}}\t{{.Status}}\t{{.Ports}}\t{{.Image}}"'
+  alias dpsa='podman container ls -a --format "table {{.Names}}\t{{.ID}}\t{{.State}}\t{{.Status}}\t{{.Ports}}\t{{.Image}}"'
   alias dcpl='podman compose pull'
   alias dcup='podman compose up -d'
   alias dcl='podman compose logs -f'

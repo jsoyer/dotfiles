@@ -986,10 +986,7 @@ alias gcl = git clone
 # Docker / Podman
 # ============================================================================
 alias dco = docker compose
-alias dps = docker ps
-alias dpa = docker ps -a
 alias dl = docker ps -l -q
-alias dx = docker exec -it
 
 # docker-compose -> docker compose (alias for compatibility)
 alias docker-compose = ^docker compose
@@ -1012,8 +1009,8 @@ def _container_runtime [] {
 
 # Docker/Podman aliases - defined based on available runtime
 if (which docker | is-not-empty) {
-    def dps [] { ^docker ps --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}\t{{.Image}}' }
-    def dpsa [] { ^docker container ls -a --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}\t{{.Image}}' }
+    def dps [] { ^docker ps --format 'table {{.Names}}\t{{.ID}}\t{{.Status}}\t{{.Ports}}\t{{.Image}}' }
+    def dpsa [] { ^docker container ls -a --format 'table {{.Names}}\t{{.ID}}\t{{.State}}\t{{.Status}}\t{{.Ports}}\t{{.Image}}' }
     alias dcpl = docker compose pull
     alias dcup = docker compose up -d
     alias dcl = docker compose logs -f
@@ -1023,8 +1020,8 @@ if (which docker | is-not-empty) {
     alias dce = docker compose exec
     alias dcb = docker compose build
 } else if (which podman | is-not-empty) {
-    def dps [] { ^podman ps --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}\t{{.Image}}' }
-    def dpsa [] { ^podman container ls -a --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}\t{{.Image}}' }
+    def dps [] { ^podman ps --format 'table {{.Names}}\t{{.ID}}\t{{.Status}}\t{{.Ports}}\t{{.Image}}' }
+    def dpsa [] { ^podman container ls -a --format 'table {{.Names}}\t{{.ID}}\t{{.State}}\t{{.Status}}\t{{.Ports}}\t{{.Image}}' }
     alias dcpl = podman compose pull
     alias dcup = podman compose up -d
     alias dcl = podman compose logs -f
