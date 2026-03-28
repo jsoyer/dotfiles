@@ -10,9 +10,18 @@ _cache_eval() {
   shift
   local cache_dir="${XDG_CACHE_HOME:-$HOME/.cache}/shell"
   local cache_file="$cache_dir/${name}.bash"
+  local meta_file="$cache_dir/${name}.meta"
+  # Track binary path to invalidate cache when binary moves (e.g., brew -> pacman)
+  local bin_name="${1%% *}"
+  local cur_path
+  cur_path="$(command -v "${bin_name}" 2>/dev/null)" || cur_path="${bin_name}"
+  local prev_path=""
+  [[ -f "$meta_file" ]] && prev_path="$(<"$meta_file")"
   mkdir -p "$cache_dir"
-  if [[ ! -f "$cache_file" ]] || [[ -n "$(find "$cache_file" -mtime +1 2>/dev/null)" ]]; then
-    eval "$@" > "$cache_file" 2>/dev/null || { rm -f "$cache_file"; eval "$@"; return; }
+  if [[ ! -f "$cache_file" ]] || [[ "$cur_path" != "$prev_path" ]] || \
+     [[ -n "$(find "$cache_file" -mtime +1 2>/dev/null)" ]]; then
+    eval "$@" > "$cache_file" 2>/dev/null || { rm -f "$cache_file" "$meta_file"; eval "$@"; return; }
+    echo "$cur_path" > "$meta_file"
   fi
   source "$cache_file" 2>/dev/null || eval "$@"
 }

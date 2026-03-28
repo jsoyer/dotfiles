@@ -37,9 +37,19 @@ plugins=(
 _cache_eval() {
   local name="$1" cmd="$2"
   local cache="${HOME}/.cache/${name}/init.zsh"
-  if [[ ! -f "$cache" ]] || [[ ! -s "$cache" ]] || [[ -n "$(find "$cache" -mtime +1 2>/dev/null)" ]]; then
+  local meta="${HOME}/.cache/${name}/meta"
+  # Track binary path to invalidate cache when binary moves (e.g., brew -> pacman)
+  local bin_name="${cmd%% *}"
+  local cur_path
+  cur_path="$(whence -p "${bin_name}" 2>/dev/null)" || cur_path="${bin_name}"
+  local prev_path=""
+  [[ -f "$meta" ]] && prev_path="$(<"$meta")"
+  if [[ ! -f "$cache" ]] || [[ ! -s "$cache" ]] || \
+     [[ "$cur_path" != "$prev_path" ]] || \
+     [[ -n "$(find "$cache" -mtime +1 2>/dev/null)" ]]; then
     mkdir -p "${cache:h}"
-    eval "$cmd" > "$cache" 2>/dev/null || { rm -f "$cache"; eval "$cmd"; return; }
+    eval "$cmd" > "$cache" 2>/dev/null || { rm -f "$cache" "$meta"; eval "$cmd"; return; }
+    echo "$cur_path" > "$meta"
   fi
   source "$cache" 2>/dev/null || eval "$cmd"
 }
