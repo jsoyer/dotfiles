@@ -34,15 +34,5 @@ else
     echo "Claude Octopus already installed"
 fi
 
-# LSP plugins from official marketplace
-for plugin in pyright-lsp swift-lsp typescript-lsp gopls-lsp; do
-    if ! claude plugin list 2>/dev/null | grep -q "${plugin}@claude-plugins-official"; then
-        echo "Installing ${plugin}..."
-        claude plugin install "${plugin}@claude-plugins-official" || echo "Warning: ${plugin} install failed (non-fatal)"
-    else
-        echo "${plugin} already installed"
-    fi
-done
-
-echo "Claude Code plugins installation complete!"
+echo "✅ Claude Code plugins installation complete!"
 {{- end }}
