@@ -557,25 +557,9 @@ if ! command -v copilot-cli &>/dev/null; then
     curl -fsSL https://gh.io/copilot-install | bash 2>/dev/null || true
 fi
 
-# Codex CLI (brew formula available, try brew first)
+# Codex CLI (cask on macOS only — npm on Linux)
 if ! command -v codex &>/dev/null; then
-    if command -v brew &>/dev/null; then
-        echo "🤖 Installing Codex CLI via brew..."
-        brew install codex 2>/dev/null || {
-            echo "🤖 Brew formula failed, falling back to npm..."
-            if command -v npm &>/dev/null; then
-                # Ensure npm global installs go to user directory (avoids EACCES)
-                if [[ -z "$(npm config get prefix 2>/dev/null | grep -v '/usr')" ]]; then
-                    mkdir -p "${HOME}/.npm-global"
-                    npm config set prefix "${HOME}/.npm-global"
-                    export PATH="${HOME}/.npm-global/bin:${PATH}"
-                fi
-                npm i -g @openai/codex
-            else
-                echo "⚠️ npm not found, skipping Codex CLI"
-            fi
-        }
-    elif command -v npm &>/dev/null; then
+    if command -v npm &>/dev/null; then
         echo "🤖 Installing Codex CLI via npm..."
         # Ensure npm global installs go to user directory (avoids EACCES)
         if [[ -z "$(npm config get prefix 2>/dev/null | grep -v '/usr')" ]]; then
@@ -585,7 +569,7 @@ if ! command -v codex &>/dev/null; then
         fi
         npm i -g @openai/codex
     else
-        echo "⚠️ Neither brew nor npm found, skipping Codex CLI"
+        echo "⚠️ npm not found, skipping Codex CLI"
     fi
 fi
 {{- end }}
