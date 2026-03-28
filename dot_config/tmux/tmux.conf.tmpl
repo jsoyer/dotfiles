@@ -1,10 +1,24 @@
 {{- $isRpi := and (eq .chezmoi.os "linux") (or (eq .chezmoi.osRelease.id "raspbian") (stat "/proc/device-tree/model")) -}}
-{{- $sshIcon := "" -}}
-{{- if $isRpi -}}
+{{- $sshIcon := "🖥️" -}}
+{{- if eq .chezmoi.os "darwin" -}}
+{{-   $sshIcon = "" -}}
+{{- else if eq .chezmoi.os "windows" -}}
+{{-   $sshIcon = "" -}}
+{{- else if $isRpi -}}
 {{-   $sshIcon = "🍓" -}}
 {{-   if hasPrefix "bbh-network" .chezmoi.hostname -}}{{- $sshIcon = "🌐" -}}
 {{-   else if hasPrefix "omv-" .chezmoi.hostname -}}{{- $sshIcon = "🐟" -}}
 {{-   end -}}
+{{- else if eq .chezmoi.osRelease.id "arch" -}}
+{{-   $sshIcon = "" -}}
+{{- else if eq .chezmoi.osRelease.id "fedora" -}}
+{{-   $sshIcon = "" -}}
+{{- else if eq .chezmoi.osRelease.id "ubuntu" -}}
+{{-   $sshIcon = "" -}}
+{{- else if eq .chezmoi.osRelease.id "debian" -}}
+{{-   $sshIcon = "" -}}
+{{- else -}}
+{{-   $sshIcon = "🐧" -}}
 {{- end -}}
 source-file ~/.config/tmux/tmux.reset.conf
 set-option -g default-terminal 'tmux-256color'
@@ -75,11 +89,7 @@ if-shell '[ -n "$SSH_TTY" ]' {
     set -g status-style "bg=#282a36 fg=#eff0eb"
     set -g status-left-length 50
     set -g status-right-length 100
-{{- if ne $sshIcon "" }}
     set -g status-left "#[fg=#ff5c57,bold]{{ $sshIcon }} #[fg=#f3f99d,bold]#S #[fg=#5af78e]│ "
-{{- else }}
-    set -g status-left "#[fg=#f3f99d,bold]#S #[fg=#5af78e]│ "
-{{- end }}
     set -g status-right "#[fg=#5af78e]│ #[fg=#57c7ff]#H #[fg=#5af78e]│ #[fg=#ff6ac1]%d/%m #[fg=#f3f99d]%H:%M "
     set -g window-status-format "#[fg=#9aedfe] #I:#W "
     set -g window-status-current-format "#[fg=#282a36,bg=#57c7ff,bold] #I:#W#{?window_zoomed_flag, 󰊓,} "
