@@ -8,15 +8,15 @@ scan_timeout = 30
 # Platform icon — color set per machine_profile via chezmoi template
 {{- $mp := index . "machine_profile" -}}
 {{- $iconColor := "white" -}}
-{{- if or (eq $mp "mac-personal") (eq $mp "mac-pro") }}{{ $iconColor = "mauve" }}
+{{- if or (eq $mp "mac-personal") (eq $mp "mac-pro") }}{{ $iconColor = "lavender" }}
 {{- else if eq $mp "rpi" }}{{ $iconColor = "red" }}
-{{- else if or (eq $mp "ubuntu-desktop") (eq $mp "ubuntu-server") }}{{ $iconColor = "peach" }}
+{{- else if or (eq $mp "ubuntu-desktop") (eq $mp "ubuntu-server") }}{{ $iconColor = "#E95420" }}
 {{- else if eq $mp "debian" }}{{ $iconColor = "red" }}
 {{- else if eq $mp "omarchy" }}{{ $iconColor = "purple" }}
 {{- else if or (eq $mp "arch-desktop") (eq $mp "arch-server") }}{{ $iconColor = "blue" }}
 {{- else if or (eq $mp "fedora-desktop") (eq $mp "fedora-server") (eq $mp "fedora-atomic") }}{{ $iconColor = "blue" }}
 {{- else if eq $mp "toolbox" }}{{ $iconColor = "white" }}
-{{- else if eq $mp "windows" }}{{ $iconColor = "cyan" }}
+{{- else if eq $mp "windows" }}{{ $iconColor = "blue" }}
 {{- end }}
 [env_var.STARSHIP_ICON]
 variable = "STARSHIP_ICON"
