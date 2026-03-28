@@ -516,6 +516,12 @@ fi
 # =============================================================================
 {{- if not (or $isToolbox $isFedoraAtomic) }}
 
+{{- if or $isArchDesktop $isOmArchy $isArchServer }}
+# Arch/OmArchy — install via AUR (native > script)
+if command -v yay &>/dev/null; then
+    yay -S --noconfirm --needed claude-code github-copilot-cli-bin openai-codex-bin 2>/dev/null || true
+fi
+{{- else }}
 # Claude Code (native installer, auto-updates)
 if ! command -v claude &>/dev/null; then
     echo "🤖 Installing Claude Code..."
@@ -523,7 +529,7 @@ if ! command -v claude &>/dev/null; then
 fi
 
 # GitHub Copilot CLI (native installer)
-if ! command -v github-copilot-cli &>/dev/null; then
+if ! command -v copilot &>/dev/null; then
     echo "🤖 Installing GitHub Copilot CLI..."
     curl -fsSL https://gh.io/copilot-install | sudo bash 2>/dev/null || true
 fi
@@ -541,6 +547,7 @@ if ! command -v codex &>/dev/null; then
         fi
     fi
 fi
+{{- end }}
 
 # OpenCode CLI — handled by brew bundle (Brewfile_brew_only)
 {{- end }}
