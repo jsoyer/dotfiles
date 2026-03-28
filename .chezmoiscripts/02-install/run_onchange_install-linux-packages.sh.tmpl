@@ -522,25 +522,50 @@ if command -v yay &>/dev/null; then
     yay -S --noconfirm --needed --answerdiff=None --answerclean=None claude-code github-copilot-cli-bin openai-codex-bin 2>/dev/null || true
 fi
 {{- else }}
-# Claude Code (native installer)
+# Priority: native repos > brew > script (last resort)
+# These tools are not in apt/dnf repos, so check brew first.
+
+# Claude Code
 if ! command -v claude &>/dev/null; then
-    echo "🤖 Installing Claude Code..."
-    curl -fsSL https://claude.ai/install.sh | bash
+    if command -v brew &>/dev/null; then
+        echo "🤖 Installing Claude Code via brew..."
+        brew install claude-code 2>/dev/null || {
+            echo "🤖 Brew formula not found, falling back to installer..."
+            curl -fsSL https://claude.ai/install.sh | bash
+        }
+    else
+        echo "🤖 Installing Claude Code via installer..."
+        curl -fsSL https://claude.ai/install.sh | bash
+    fi
 fi
 
-# GitHub Copilot CLI (native installer)
+# GitHub Copilot CLI
 if ! command -v copilot &>/dev/null; then
-    echo "🤖 Installing GitHub Copilot CLI..."
-    curl -fsSL https://gh.io/copilot-install | bash 2>/dev/null || true
+    if command -v brew &>/dev/null; then
+        echo "🤖 Installing Copilot CLI via brew..."
+        brew install copilot 2>/dev/null || {
+            echo "🤖 Brew formula not found, falling back to installer..."
+            curl -fsSL https://gh.io/copilot-install | bash 2>/dev/null || true
+        }
+    else
+        echo "🤖 Installing Copilot CLI via installer..."
+        curl -fsSL https://gh.io/copilot-install | bash 2>/dev/null || true
+    fi
 fi
 
-# Codex CLI (npm)
+# Codex CLI
 if ! command -v codex &>/dev/null; then
-    if command -v npm &>/dev/null; then
-        echo "🤖 Installing Codex CLI..."
+    if command -v brew &>/dev/null; then
+        echo "🤖 Installing Codex CLI via brew..."
+        brew install codex 2>/dev/null || {
+            echo "🤖 Brew formula not found, falling back to npm..."
+            command -v npm &>/dev/null && npm i -g @openai/codex || echo "⚠️ npm not found, skipping Codex CLI"
+        }
+    elif command -v npm &>/dev/null; then
+        echo "🤖 Installing Codex CLI via npm..."
         npm i -g @openai/codex
     else
-        echo "⚠️ npm not found, skipping Codex CLI"
+        echo "⚠️ Neither brew nor npm found, skipping Codex CLI"
     fi
 fi
 {{- end }}
