@@ -552,7 +552,7 @@ if ! command -v claude &>/dev/null; then
 fi
 
 # GitHub Copilot CLI (cask only on macOS — script on Linux)
-if ! command -v copilot &>/dev/null; then
+if ! command -v copilot-cli &>/dev/null; then
     echo "🤖 Installing GitHub Copilot CLI..."
     curl -fsSL https://gh.io/copilot-install | bash 2>/dev/null || true
 fi
