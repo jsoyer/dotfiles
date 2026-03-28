@@ -1037,7 +1037,7 @@ def dcua [base?: string] {
     let runtime = (_container_runtime)
 
     if ($runtime | is-empty) {
-        print "No container runtime found."
+        print "⚠️ No container runtime found."
         return
     }
 
@@ -1052,21 +1052,21 @@ def dcua [base?: string] {
             continue
         }
 
-        print $"Pulling: ($dir | path basename)"
+        print $"📥 Pulling: ($dir | path basename)"
         let pull_output = (^$runtime compose -f $compose_file pull 2>&1 | complete)
 
         if ($pull_output.stdout | str contains "Pulling") or ($pull_output.stdout | str contains "Downloading") {
-            print "  New images found, restarting..."
+            print "  🔄 New images found, restarting..."
             ^$runtime compose -f $compose_file up -d
             $updated = $updated + 1
         } else {
-            print "  Up to date"
+            print "  ✅ Up to date"
         }
     }
 
-    print "Pruning unused images..."
+    print "🧹 Pruning unused images..."
     ^$runtime image prune -a -f
-    print $"Done. ($updated) project\(s\) updated."
+    print $"✨ Done. ($updated) project\(s\) updated."
 }
 
 # ============================================================================
@@ -1173,7 +1173,7 @@ def sysup [] {
             bup
             bcu
             if (which mas | is-not-empty) {
-                print "Updating App Store apps..."
+                print "📱 Updating App Store apps..."
                 ^mas upgrade
             }
         }
@@ -1181,37 +1181,37 @@ def sysup [] {
             let mp = ($env.MACHINE_PROFILE? | default "")
             match $mp {
                 "rpi" | "ubuntu-desktop" | "ubuntu-server" | "debian" => {
-                    print "Updating apt packages..."
+                    print "📦 Updating apt packages..."
                     ^sudo apt-get update
                     ^sudo apt-get dist-upgrade -y
                     ^sudo apt-get autoremove -y
                 }
                 "arch-desktop" | "arch-server" | "omarchy" => {
-                    print "Updating pacman packages..."
+                    print "📦 Updating pacman packages..."
                     ^sudo pacman -Syu --noconfirm
                     if (which yay | is-not-empty) {
-                        print "Updating AUR packages..."
+                        print "📦 Updating AUR packages..."
                         ^yay -Sua --noconfirm
                     }
                 }
                 "fedora-desktop" | "fedora-server" | "toolbox" => {
-                    print "Updating dnf packages..."
+                    print "📦 Updating dnf packages..."
                     ^sudo dnf upgrade --refresh -y
                 }
                 "fedora-atomic" => {
-                    print "Updating Fedora Atomic..."
+                    print "🔒 Updating Fedora Atomic..."
                     ^rpm-ostree upgrade
                 }
                 _ => { }
             }
 
             if (which flatpak | is-not-empty) {
-                print "Updating Flatpak apps..."
+                print "📦 Updating Flatpak apps..."
                 ^flatpak update -y
             }
 
             if (which brew | is-not-empty) {
-                print "Updating Linuxbrew packages..."
+                print "🍺 Updating Linuxbrew packages..."
                 ^brew update
                 ^brew upgrade
                 ^brew cleanup
@@ -1226,7 +1226,7 @@ def cup [...args: string] {
     ^chezmoi update -v ...$args
     sysup
     dcua $env.HOME
-    print "Update complete!"
+    print "✅ Update complete!"
 }
 
 # ============================================================================

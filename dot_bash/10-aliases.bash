@@ -369,47 +369,47 @@ sysup() {
       bup
       bcu
       if command -v mas &>/dev/null; then
-        echo "Updating App Store apps..."
+        echo "📱 Updating App Store apps..."
         mas upgrade
       fi
       ;;
     linux)
       case "${MACHINE_PROFILE:-}" in
         rpi|ubuntu-desktop|ubuntu-server|debian)
-          echo "Updating apt packages..."
+          echo "📦 Updating apt packages..."
           sudo apt-get update && sudo apt-get dist-upgrade -y && sudo apt-get autoremove -y
           ;;
         arch-desktop|arch-server|omarchy)
-          echo "Updating pacman packages..."
+          echo "📦 Updating pacman packages..."
           sudo pacman -Syu --noconfirm
           if command -v yay &>/dev/null; then
-            echo "Updating AUR packages..."
+            echo "📦 Updating AUR packages..."
             yay -Sua --noconfirm
           fi
           ;;
         fedora-desktop|fedora-server|toolbox)
-          echo "Updating dnf packages..."
+          echo "📦 Updating dnf packages..."
           sudo dnf upgrade --refresh -y
           ;;
         fedora-atomic)
-          echo "Updating Fedora Atomic..."
+          echo "🔒 Updating Fedora Atomic..."
           rpm-ostree upgrade
           ;;
       esac
 
       if command -v flatpak &>/dev/null; then
-        echo "Updating Flatpak apps..."
+        echo "📦 Updating Flatpak apps..."
         flatpak update -y
       fi
 
       if command -v brew &>/dev/null; then
         eval "$(brew shellenv)"
-        echo "Updating Linuxbrew packages..."
+        echo "🍺 Updating Linuxbrew packages..."
         brew update && brew upgrade && brew cleanup
       fi
       ;;
     windows)
-      echo "Updating Scoop packages..."
+      echo "🪣 Updating Scoop packages..."
       scoop update --all
       ;;
   esac
@@ -420,7 +420,7 @@ cup() {
   cu "$@"
   sysup
   dcua "$HOME"
-  echo "Update complete!"
+  echo "✅ Update complete!"
 }
 
 # ============================================================================
@@ -475,22 +475,22 @@ dcua() {
       continue
     fi
 
-    echo "Pulling: $(basename "$dir")"
+    echo "📥 Pulling: $(basename "$dir")"
     local pull_output
     pull_output=$($runtime compose -f "$compose_file" pull 2>&1)
 
     if echo "$pull_output" | grep -qE "(Pulling|Downloading|Extracting|Status: Downloaded)"; then
-      echo "  New images found, restarting..."
+      echo "  🔄 New images found, restarting..."
       $runtime compose -f "$compose_file" up -d
       ((updated++)) || true
     else
-      echo "  Up to date"
+      echo "  ✅ Up to date"
     fi
   done
 
-  echo "Pruning unused images..."
+  echo "🧹 Pruning unused images..."
   $runtime image prune -a -f
-  echo "Done. $updated project(s) updated."
+  echo "✨ Done. $updated project(s) updated."
 }
 
 # ============================================================================

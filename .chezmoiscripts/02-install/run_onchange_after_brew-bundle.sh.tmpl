@@ -19,26 +19,26 @@ BREWFILE_DIR="{{ .chezmoi.sourceDir }}/dot_private"
 
 {{- if eq .chezmoi.os "darwin" }}
 {{-   if eq .chezmoi.hostname "jsoyer-macOS" }}
-echo "brew bundle install (mac-pro profile)"
+echo "🍺 brew bundle install (mac-pro profile)"
 cat "$BREWFILE_DIR/Brewfile_macos" "$BREWFILE_DIR/Brewfile_pro" | brew bundle install --file=-
 {{-   else }}
-echo "brew bundle install (mac-personal profile)"
+echo "🍺 brew bundle install (mac-personal profile)"
 cat "$BREWFILE_DIR/Brewfile_macos" "$BREWFILE_DIR/Brewfile_personal" | brew bundle install --file=-
 {{-   end }}
 {{- else if eq .chezmoi.os "linux" }}
 {{-   if or (hasPrefix "bbh-network" .chezmoi.hostname) (hasPrefix "omv-" .chezmoi.hostname) }}
-echo "brew bundle install (rpi profile)"
+echo "🍺 brew bundle install (rpi profile)"
 cat "$BREWFILE_DIR/Brewfile_brew_only" "$BREWFILE_DIR/Brewfile_rpi" | brew bundle install --file=-
 {{-   else }}
 {{-     $mp := index . "machine_profile" }}
 {{-     if eq $mp "rpi" }}
-echo "brew bundle install (rpi profile)"
+echo "🍺 brew bundle install (rpi profile)"
 cat "$BREWFILE_DIR/Brewfile_brew_only" "$BREWFILE_DIR/Brewfile_rpi" | brew bundle install --file=-
 {{-     else if eq $mp "fedora-atomic" }}
-echo "brew bundle install (fedora-atomic profile)"
+echo "🍺 brew bundle install (fedora-atomic profile)"
 brew bundle install --file="$BREWFILE_DIR/Brewfile_fedora_atomic"
 {{-     else }}
-echo "brew bundle install (linux brew-only)"
+echo "🍺 brew bundle install (linux brew-only)"
 brew bundle install --file="$BREWFILE_DIR/Brewfile_brew_only"
 {{-     end }}
 {{-   end }}

@@ -354,7 +354,7 @@ function dcua
     else if command -q podman; and podman info >/dev/null 2>&1
         set runtime "podman"
     else
-        echo "No container runtime found."
+        echo "⚠️ No container runtime found."
         return 1
     end
 
@@ -370,21 +370,21 @@ function dcua
             continue
         end
 
-        echo "Pulling: "(basename $dir)
+        echo "📥 Pulling: "(basename $dir)
         set -l pull_output ($runtime compose -f $compose_file pull 2>&1)
 
         if echo "$pull_output" | grep -qE "(Pulling|Downloading|Extracting|Status: Downloaded)"
-            echo "  New images found, restarting..."
+            echo "  🔄 New images found, restarting..."
             $runtime compose -f $compose_file up -d
             set updated (math $updated + 1)
         else
-            echo "  Up to date"
+            echo "  ✅ Up to date"
         end
     end
 
-    echo "Pruning unused images..."
+    echo "🧹 Pruning unused images..."
     $runtime image prune -a -f
-    echo "Done. $updated project(s) updated."
+    echo "✨ Done. $updated project(s) updated."
 end
 
 # ============================================================================
@@ -534,42 +534,42 @@ function sysup
             bup
             bcu
             if command -q mas
-                echo "Updating App Store apps..."
+                echo "📱 Updating App Store apps..."
                 mas upgrade
             end
         case linux
             set -l _mp "$MACHINE_PROFILE"
             switch $_mp
                 case rpi ubuntu-desktop ubuntu-server debian
-                    echo "Updating apt packages..."
+                    echo "📦 Updating apt packages..."
                     sudo apt-get update; and sudo apt-get dist-upgrade -y; and sudo apt-get autoremove -y
                 case arch-desktop arch-server omarchy
-                    echo "Updating pacman packages..."
+                    echo "📦 Updating pacman packages..."
                     sudo pacman -Syu --noconfirm
                     if command -q yay
-                        echo "Updating AUR packages..."
+                        echo "📦 Updating AUR packages..."
                         yay -Sua --noconfirm
                     end
                 case fedora-desktop fedora-server toolbox
-                    echo "Updating dnf packages..."
+                    echo "📦 Updating dnf packages..."
                     sudo dnf upgrade --refresh -y
                 case fedora-atomic
-                    echo "Updating Fedora Atomic..."
+                    echo "🔒 Updating Fedora Atomic..."
                     rpm-ostree upgrade
             end
 
             if command -q flatpak
-                echo "Updating Flatpak apps..."
+                echo "📦 Updating Flatpak apps..."
                 flatpak update -y
             end
 
             if command -q brew
                 eval (brew shellenv)
-                echo "Updating Linuxbrew packages..."
+                echo "🍺 Updating Linuxbrew packages..."
                 brew update; and brew upgrade; and brew cleanup
             end
         case windows
-            echo "Updating Scoop packages..."
+            echo "🪣 Updating Scoop packages..."
             scoop update --all
     end
 end
@@ -578,7 +578,7 @@ function cup
     chezmoi update -v $argv
     sysup
     dcua $HOME
-    echo "Update complete!"
+    echo "✅ Update complete!"
 end
 
 # ============================================================================
