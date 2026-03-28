@@ -1018,30 +1018,17 @@ def _container_runtime [] {
     }
 }
 
-# Docker/Podman aliases - defined based on available runtime
-if (which docker | is-not-empty) {
-    def dps [] { ^docker ps --format 'table {{.Names}}\t{{.ID}}\t{{.Status}}\t{{.Ports}}\t{{.Image}}' }
-    def dpsa [] { ^docker container ls -a --format 'table {{.Names}}\t{{.ID}}\t{{.State}}\t{{.Status}}\t{{.Ports}}\t{{.Image}}' }
-    alias dcpl = docker compose pull
-    alias dcup = docker compose up -d
-    alias dcl = docker compose logs -f
-    alias dcd = docker compose down
-    alias dcr = docker compose restart
-    alias dcp = docker compose ps
-    alias dce = docker compose exec
-    alias dcb = docker compose build
-} else if (which podman | is-not-empty) {
-    def dps [] { ^podman ps --format 'table {{.Names}}\t{{.ID}}\t{{.Status}}\t{{.Ports}}\t{{.Image}}' }
-    def dpsa [] { ^podman container ls -a --format 'table {{.Names}}\t{{.ID}}\t{{.State}}\t{{.Status}}\t{{.Ports}}\t{{.Image}}' }
-    alias dcpl = podman compose pull
-    alias dcup = podman compose up -d
-    alias dcl = podman compose logs -f
-    alias dcd = podman compose down
-    alias dcr = podman compose restart
-    alias dcp = podman compose ps
-    alias dce = podman compose exec
-    alias dcb = podman compose build
-}
+# Docker/Podman aliases — top-level (def/alias inside if not visible in Nushell)
+def dps [] { ^(_container_runtime) ps --format 'table {{.Names}}\t{{.ID}}\t{{.Status}}\t{{.Ports}}\t{{.Image}}' }
+def dpsa [] { ^(_container_runtime) container ls -a --format 'table {{.Names}}\t{{.ID}}\t{{.State}}\t{{.Status}}\t{{.Ports}}\t{{.Image}}' }
+def dcpl [] { ^(_container_runtime) compose pull }
+def dcup [] { ^(_container_runtime) compose up -d }
+def dcl [...args: string] { ^(_container_runtime) compose logs -f ...$args }
+def dcd [] { ^(_container_runtime) compose down }
+def dcr [] { ^(_container_runtime) compose restart }
+def dcp [] { ^(_container_runtime) compose ps }
+def dce [...args: string] { ^(_container_runtime) compose exec ...$args }
+def dcb [] { ^(_container_runtime) compose build }
 
 def dcua [base?: string] {
     let base_dir = ($base | default ".")
@@ -1097,17 +1084,13 @@ alias ke = kubectl exec -it
 alias kcns = kubectl config set-context --current --namespace
 
 # ============================================================================
-# Security & Pentesting tools (not on mac-pro)
+# Security & Pentesting tools — top-level (fail gracefully if not installed)
 # ============================================================================
-if ($env.MACHINE_PROFILE? | default "") != "mac-pro" {
-    if (which gobuster | is-not-empty) { alias gobust = gobuster dir --wordlist ~/security/wordlists/diccnoext.txt --wildcard --url }
-    if (which dirsearch | is-not-empty) { alias dirsearch = python dirsearch.py -w db/dicc.txt -b -u }
-    if (($env.HOME | path join "hacking/tools/massdns/bin/massdns") | path exists) { alias massdns = ~/hacking/tools/massdns/bin/massdns -r ~/hacking/tools/massdns/lists/resolvers.txt -t A -o S bf-targets.txt -w livehosts.txt -s 4000 }
-    alias server = python -m http.server 4445
-    if (which ngrok | is-not-empty) { alias tunnel = ngrok http 4445 }
-    if (which ffuf | is-not-empty) { alias fuzz = ffuf -w ~/hacking/SecLists/content_discovery_all.txt -mc all -u }
-    if (which nmap | is-not-empty) { alias nm = nmap -sC -sV -oN nmap }
-}
+alias gobust = gobuster dir --wordlist ~/security/wordlists/diccnoext.txt --wildcard --url
+alias server = python -m http.server 4445
+alias tunnel = ngrok http 4445
+alias fuzz = ffuf -w ~/hacking/SecLists/content_discovery_all.txt -mc all -u
+alias nm = nmap -sC -sV -oN nmap
 
 # ============================================================================
 # Homebrew (via breww wrapper)
@@ -1290,15 +1273,13 @@ alias lg = lazygit
 alias ld = lazydocker
 
 # ============================================================================
-# Systemd (Linux only)
+# Systemd (Linux only — commands will fail gracefully on macOS)
 # ============================================================================
-if (^uname | str downcase) == "linux" {
-    alias sc = sudo systemctl
-    alias scs = sudo systemctl status
-    alias scr = sudo systemctl restart
-    alias sce = sudo systemctl enable --now
-    alias jf = journalctl -fu
-}
+alias sc = sudo systemctl
+alias scs = sudo systemctl status
+alias scr = sudo systemctl restart
+alias sce = sudo systemctl enable --now
+alias jf = journalctl -fu
 
 # ============================================================================
 # Tailscale
@@ -1316,10 +1297,12 @@ def tsnet [] { ^tailscale status --json | from json | get Peer | transpose k v |
 # Disk / System
 # ============================================================================
 # ports: ss on Linux, lsof on macOS
-if (^uname | str downcase) == "linux" {
-    alias ports = sudo ss -tlnp
-} else {
-    alias ports = lsof -iTCP -sTCP:LISTEN -n -P
+def ports [] {
+    if (^uname | str downcase) == "linux" {
+        ^sudo ss -tlnp
+    } else {
+        ^lsof -iTCP -sTCP:LISTEN -n -P
+    }
 }
 def myip [] { ^curl -s ifconfig.me }
 def path [] { $env.PATH }
