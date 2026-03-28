@@ -1,0 +1,44 @@
+{{- $mp := index . "machine_profile" -}}
+{{- $skipProfiles := list "fedora-atomic" "fedora-server" "ubuntu-server" "arch-server" "debian" "windows" -}}
+{{- $isOMV := or (hasPrefix "omv-" .chezmoi.hostname) (hasPrefix "bbh-network" .chezmoi.hostname) -}}
+{{- if and (eq .chezmoi.os "linux") (not (has $mp $skipProfiles)) (not $isOMV) -}}
+#!/usr/bin/env bash
+# =============================================================================
+# One-time cleanup: remove Homebrew packages that are now managed natively
+# =============================================================================
+
+set -euo pipefail
+
+if ! command -v brew &>/dev/null; then
+    echo "Homebrew not installed, nothing to dedup."
+    exit 0
+fi
+
+eval "$(brew shellenv)"
+
+# Packages that should be managed by the native package manager (apt/dnf/pacman)
+DUPES=(
+    bat chezmoi curl eza fd fontconfig fzf git jq neovim ripgrep
+    starship tmux unzip vivid wget zoxide zsh atuin htop tree
+)
+
+removed=0
+for pkg in "${DUPES[@]}"; do
+    if brew list "$pkg" &>/dev/null 2>&1; then
+        echo "Removing brew duplicate: $pkg (now managed natively)"
+        brew uninstall --ignore-dependencies "$pkg" 2>/dev/null || true
+        ((removed++)) || true
+    fi
+done
+
+if (( removed > 0 )); then
+    echo "Removed $removed brew duplicate(s)."
+    echo "Reinstalling brew-only packages to fix any broken dependencies..."
+    BREWFILE_DIR="{{ .chezmoi.sourceDir }}/dot_private"
+    if [[ -f "$BREWFILE_DIR/Brewfile_brew_only" ]]; then
+        brew bundle install --file="$BREWFILE_DIR/Brewfile_brew_only"
+    fi
+else
+    echo "No brew duplicates found."
+fi
+{{ end -}}
