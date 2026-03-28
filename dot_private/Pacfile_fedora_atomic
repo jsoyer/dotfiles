@@ -1,6 +1,5 @@
 # Fedora Atomic base layer packages (rpm-ostree)
 # managed by ostreew — do not edit manually
-git
+# Note: git and curl are already in the base OSTree image
 openssh-server
-curl
 chezmoi
