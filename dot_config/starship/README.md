@@ -16,7 +16,7 @@ Starship is a fast, customizable, and cross-shell prompt. This configuration inc
 ~/.config/starship/
 ├── starship-desktop.toml         # Main config (macOS - Catppuccin Mocha)
 ├── starship-ssh.toml     # RPi/Linux config (Snazzy)
-├── starship-nushell.toml # Nushell-specific config
+├── starship-desktop.toml # Nushell-specific config
 └── README.md             # This file
 ```
 
@@ -131,9 +131,9 @@ starship init fish | source
 
 ### Nushell
 
-Uses `starship-nushell.toml`:
+Uses `starship-desktop.toml`:
 ```nushell
-$env.STARSHIP_CONFIG = "~/.config/starship/starship-nushell.toml"
+$env.STARSHIP_CONFIG = "~/.config/starship/starship-desktop.toml"
 starship init nu | save -f ~/.cache/starship/init.nu
 source ~/.cache/starship/init.nu
 ```

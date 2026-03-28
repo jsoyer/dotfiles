@@ -9,7 +9,7 @@ $env.PATH = ($env.PATH | split row (char esep) | prepend '/opt/homebrew/bin' | p
 # ============================================================================
 # Starship Prompt Integration
 # ============================================================================
-$env.STARSHIP_CONFIG = ($env.HOME | path join ".config" "starship" "starship-nushell.toml")
+$env.STARSHIP_CONFIG = ($env.HOME | path join ".config" "starship" "starship-desktop.toml")
 let _starship_cache = ($env.HOME | path join ".cache" "starship" "init.nu")
 let _starship_ver_file = ($env.HOME | path join ".cache" "starship" "version")
 if (which starship | is-not-empty) {

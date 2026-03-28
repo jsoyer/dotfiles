@@ -657,8 +657,7 @@ All tools use **Catppuccin Mocha**:
 │   └── catppuccin_mocha.nu
 ├── starship/
 │   ├── starship-desktop.toml
-│   ├── starship-ssh.toml
-│   └── starship-nushell.toml
+│   └── starship-ssh.toml
 ├── tmux/
 │   └── tmux.conf
 ├── wezterm/

@@ -45,7 +45,7 @@ Main Nushell configuration file that:
 
 ### `env.nu`
 Environment configuration that:
-- Initializes Starship prompt with custom config (`starship-nushell.toml`)
+- Initializes Starship prompt with custom config (`starship-desktop.toml`)
 - Initializes Zoxide for smart directory navigation
 - Initializes Atuin for shell history sync
 - Initializes Carapace for advanced completions
@@ -64,7 +64,7 @@ Complete Catppuccin Mocha color theme with:
 
 ### Starship
 Modern, fast prompt with custom configuration:
-- **Config**: `~/.config/starship/starship-nushell.toml`
+- **Config**: `~/.config/starship/starship-desktop.toml`
 - **Format**: All modules in main prompt (different from ZSH)
 - **Theme**: Catppuccin Mocha palette
 - **Cache**: `~/.cache/starship/init.nu`
@@ -178,7 +178,7 @@ $env.LS_COLORS = (vivid generate catppuccin-mocha)
 
 ### Other Variables
 - `$env.EDITOR = "nvim"`
-- `$env.STARSHIP_CONFIG = "/Users/jeromesoyer/.config/starship/starship-nushell.toml"`
+- `$env.STARSHIP_CONFIG = "/Users/jeromesoyer/.config/starship/starship-desktop.toml"`
 - `$env.NIX_CONF_DIR = "/Users/jeromesoyer/.config/nix"`
 - `$env.CARAPACE_BRIDGES = 'zsh,fish,bash,inshellisense'`
 
