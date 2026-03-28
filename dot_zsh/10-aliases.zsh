@@ -553,7 +553,7 @@ if (( $+commands[tailscale] )); then
   alias tssh='tailscale ssh'
   alias tsip='tailscale ip -4'
   alias tsping='tailscale ping'
-  alias tsnet='tailscale status --json | jq -r ".Peer[] | \"\(.HostName)\t\(.TailscaleIPs[0])\t\(.Online)\"" | column -t'
+  alias tsnet='tailscale status --json | jq -r ".Peer[] | \"\(.HostName)\t\(.TailscaleIPs[0])\t\(if .Online then \"connected\" else \"disconnected\" end)\"" | column -t'
 fi
 
 # ============================================================================
