@@ -50,6 +50,9 @@
 {{- if $isFedoraDesktop }}
 # Dnffile_fedora_gui:     {{ include "dot_private/Dnffile_fedora_gui" | sha256sum }}
 {{- end }}
+{{- if $isRPi }}
+# Aptfile_rpi_gui:        {{ include "dot_private/Aptfile_rpi_gui" | sha256sum }}
+{{- end }}
 {{- if $isArchServer }}
 # Pacfile_arch_server:    {{ include "dot_private/Pacfile_arch_server" | sha256sum }}
 {{- end }}
@@ -498,6 +501,15 @@ if _has_gui; then
         echo "🖊️ Installing Zed Editor..."
         curl -f https://zed.dev/install.sh | sh
     fi
+{{- end }}
+
+{{- if $isRPi }}
+    _guifile="{{ .chezmoi.sourceDir }}/dot_private/Aptfile_rpi_gui"
+    if [[ -f "$_guifile" ]]; then
+        mapfile -t _guipkgs < <(grep -v '^\s*#' "$_guifile" | grep -v '^\s*$')
+        [[ ${#_guipkgs[@]} -gt 0 ]] && sudo apt-get install -y "${_guipkgs[@]}"
+    fi
+    # Pi-Apps GUI apps handled by run_once_install-pi-apps.sh
 {{- end }}
 
 {{- if or $isArchDesktop $isOmArchy }}

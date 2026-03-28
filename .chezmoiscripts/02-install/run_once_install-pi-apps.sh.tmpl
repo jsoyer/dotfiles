@@ -1,0 +1,61 @@
+{{- if eq .chezmoi.os "linux" -}}
+{{- if eq (index . "machine_profile") "rpi" -}}
+#!/usr/bin/env bash
+# =============================================================================
+# Pi-Apps Installation + GUI Apps (Raspberry Pi only, requires display server)
+# =============================================================================
+
+set -euo pipefail
+
+# Only install if a display server is present
+_has_gui() {
+    command -v Xorg &>/dev/null || \
+    command -v Xwayland &>/dev/null || \
+    command -v startx &>/dev/null || \
+    command -v lxsession &>/dev/null || \
+    command -v openbox &>/dev/null || \
+    [[ -d /usr/share/xsessions ]] && [[ -n "$(ls -A /usr/share/xsessions 2>/dev/null)" ]]
+}
+
+if ! _has_gui; then
+    echo "🖥️ No display server detected on RPi, skipping Pi-Apps"
+    exit 0
+fi
+
+# =============================================================================
+# Install Pi-Apps
+# =============================================================================
+if [[ ! -d "${HOME}/pi-apps" ]]; then
+    echo "📦 Installing Pi-Apps..."
+    wget -qO- https://raw.githubusercontent.com/Botspot/pi-apps/master/install | bash
+fi
+
+if [[ ! -x "${HOME}/pi-apps/manage" ]]; then
+    echo "⚠️ Pi-Apps manage script not found, skipping GUI apps"
+    exit 0
+fi
+
+# =============================================================================
+# Install GUI apps via Pi-Apps CLI
+# =============================================================================
+echo "📦 Installing GUI apps via Pi-Apps..."
+
+for app in \
+    "Brave" \
+    "Chromium" \
+    "Signal" \
+    "Telegram" \
+    "Filezilla" \
+    "GitHub Desktop" \
+    "Obsidian" \
+    "Remmina" \
+    "Legcord"
+do
+    echo "  📦 ${app}..."
+    "${HOME}/pi-apps/manage" install-if-not-installed "${app}" || \
+        echo "  ⚠️ ${app} install failed (non-fatal)"
+done
+
+echo "📦 Pi-Apps GUI apps installation complete!"
+{{- end -}}
+{{- end }}
