@@ -59,6 +59,13 @@
 
 set -euo pipefail
 
+# Ensure brew is in PATH if installed (chezmoi scripts run in isolated subshells)
+if [[ -d "/home/linuxbrew/.linuxbrew" ]]; then
+    eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+elif [[ -d "${HOME}/.linuxbrew" ]]; then
+    eval "$("${HOME}/.linuxbrew/bin/brew" shellenv)"
+fi
+
 # Detect if a display server / desktop environment is installed
 _has_gui() {
     command -v Xorg &>/dev/null || \
