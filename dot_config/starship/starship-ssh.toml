@@ -12,7 +12,8 @@ palette = "snazzy"
 # Custom icon based on hostname (set in 00-env.zsh)
 [env_var.STARSHIP_ICON]
 variable = "STARSHIP_ICON"
-format = "[$env_value](bold red)"
+style = "bold"
+format = "[$env_value]($style) "
 disabled = false
 
 [hostname]

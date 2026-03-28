@@ -5,10 +5,10 @@ right_format = """$all"""
 command_timeout = 1000
 scan_timeout = 30
 
-# macOS icon
+# Platform icon (set by 00-env.zsh/bash — color set per-distro)
 [env_var.STARSHIP_ICON]
 variable = "STARSHIP_ICON"
-style = "bold mauve"
+style = "bold"
 format = "[$env_value]($style) "
 disabled = false
 
