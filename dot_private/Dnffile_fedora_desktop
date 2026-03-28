@@ -32,15 +32,7 @@ remmina
 cargo
 rust
 tree
-
-# GUI apps (native via third-party repos added in setup-linux.sh)
 gh
-brave-browser
-google-chrome-stable
-vlc
-filezilla
-obs-studio
-torbrowser-launcher
 
 # installed via cargo (not managed by dnfw)
 # eza

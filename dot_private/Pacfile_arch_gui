@@ -1,0 +1,10 @@
+# Arch Linux GUI apps (pacman) — installed only when display server is present
+zed
+signal-desktop
+vlc
+discord
+obsidian
+telegram-desktop
+filezilla
+obs-studio
+remmina

@@ -41,6 +41,14 @@
 {{- if or $isArchDesktop $isOmArchy }}
 # Pacfile_arch_desktop:   {{ include "dot_private/Pacfile_arch_desktop" | sha256sum }}
 # Pacfile_aur_desktop:    {{ include "dot_private/Pacfile_aur_desktop" | sha256sum }}
+# Pacfile_arch_gui:       {{ include "dot_private/Pacfile_arch_gui" | sha256sum }}
+# Pacfile_aur_gui:        {{ include "dot_private/Pacfile_aur_gui" | sha256sum }}
+{{- end }}
+{{- if $isUbuntuDesktop }}
+# Aptfile_ubuntu_gui:     {{ include "dot_private/Aptfile_ubuntu_gui" | sha256sum }}
+{{- end }}
+{{- if $isFedoraDesktop }}
+# Dnffile_fedora_gui:     {{ include "dot_private/Dnffile_fedora_gui" | sha256sum }}
 {{- end }}
 {{- if $isArchServer }}
 # Pacfile_arch_server:    {{ include "dot_private/Pacfile_arch_server" | sha256sum }}
@@ -50,6 +58,17 @@
 {{- end }}
 
 set -euo pipefail
+
+# Detect if a display server / desktop environment is installed
+_has_gui() {
+    command -v Xorg &>/dev/null || \
+    command -v Xwayland &>/dev/null || \
+    command -v gnome-shell &>/dev/null || \
+    command -v plasmashell &>/dev/null || \
+    command -v hyprctl &>/dev/null || \
+    command -v sway &>/dev/null || \
+    command -v startx &>/dev/null
+}
 
 # =============================================================================
 # Raspberry Pi / Debian - apt packages
@@ -331,11 +350,6 @@ if ! command -v eza &>/dev/null; then
     cargo install eza
 fi
 
-# Zed Editor — no official dnf repo, use native installer
-if ! command -v zed &>/dev/null; then
-    echo "🖊️ Installing Zed Editor..."
-    curl -f https://zed.dev/install.sh | sh
-fi
 {{- end }}
 
 # =============================================================================
@@ -450,6 +464,52 @@ if [[ -f "$_pacfile" ]]; then
     done
 fi
 {{- end }}
+
+# =============================================================================
+# GUI Apps — only install if a display server is present
+# =============================================================================
+if _has_gui; then
+    echo "🖥️ Display server detected, installing GUI apps..."
+
+{{- if $isUbuntuDesktop }}
+    _guifile="{{ .chezmoi.sourceDir }}/dot_private/Aptfile_ubuntu_gui"
+    if [[ -f "$_guifile" ]]; then
+        mapfile -t _guipkgs < <(grep -v '^\s*#' "$_guifile" | grep -v '^\s*$')
+        [[ ${#_guipkgs[@]} -gt 0 ]] && sudo apt-get install -y "${_guipkgs[@]}"
+    fi
+{{- end }}
+
+{{- if $isFedoraDesktop }}
+    _guifile="{{ .chezmoi.sourceDir }}/dot_private/Dnffile_fedora_gui"
+    if [[ -f "$_guifile" ]]; then
+        mapfile -t _guipkgs < <(grep -v '^\s*#' "$_guifile" | grep -v '^\s*$')
+        [[ ${#_guipkgs[@]} -gt 0 ]] && sudo dnf install -y --skip-unavailable "${_guipkgs[@]}"
+    fi
+
+    # Zed Editor — no official dnf repo, use native installer
+    if ! command -v zed &>/dev/null; then
+        echo "🖊️ Installing Zed Editor..."
+        curl -f https://zed.dev/install.sh | sh
+    fi
+{{- end }}
+
+{{- if or $isArchDesktop $isOmArchy }}
+    _guifile="{{ .chezmoi.sourceDir }}/dot_private/Pacfile_arch_gui"
+    if [[ -f "$_guifile" ]]; then
+        mapfile -t _guipkgs < <(grep -v '^\s*#' "$_guifile" | grep -v '^\s*$')
+        [[ ${#_guipkgs[@]} -gt 0 ]] && sudo pacman -S --noconfirm --needed "${_guipkgs[@]}"
+    fi
+
+    _aurguifile="{{ .chezmoi.sourceDir }}/dot_private/Pacfile_aur_gui"
+    if [[ -f "$_aurguifile" ]] && command -v yay &>/dev/null; then
+        mapfile -t _aurguipkgs < <(grep -v '^\s*#' "$_aurguifile" | grep -v '^\s*$')
+        [[ ${#_aurguipkgs[@]} -gt 0 ]] && yay -S --noconfirm --needed "${_aurguipkgs[@]}"
+    fi
+{{- end }}
+
+else
+    echo "🖥️ No display server detected, skipping GUI apps"
+fi
 
 # =============================================================================
 # CLI AI Tools (all profiles except toolbox and fedora-atomic)

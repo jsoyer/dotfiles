@@ -1,0 +1,11 @@
+# Ubuntu GUI apps (apt) — installed only when display server is present
+# Repos added in setup-linux.sh
+brave-browser
+google-chrome-stable
+signal-desktop
+zed
+vlc
+remmina
+filezilla
+obs-studio
+torbrowser-launcher

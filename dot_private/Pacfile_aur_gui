@@ -1,0 +1,8 @@
+# AUR GUI apps (yay) — installed only when display server is present
+brave-bin
+google-chrome
+tor-browser-bin
+github-desktop-bin
+localsend-bin
+chatgpt-desktop-bin
+claude-desktop-bin

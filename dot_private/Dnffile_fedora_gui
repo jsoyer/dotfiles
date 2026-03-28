@@ -1,0 +1,8 @@
+# Fedora GUI apps (dnf) — installed only when display server is present
+# Repos added in setup-linux.sh
+brave-browser
+google-chrome-stable
+vlc
+filezilla
+obs-studio
+torbrowser-launcher
