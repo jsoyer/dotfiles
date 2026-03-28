@@ -1,24 +1,33 @@
 {{- $isRpi := and (eq .chezmoi.os "linux") (or (eq .chezmoi.osRelease.id "raspbian") (stat "/proc/device-tree/model")) -}}
 {{- $sshIcon := "" -}}
+{{- $sshIconColor := "#eff0eb" -}}
 {{- if eq .chezmoi.os "darwin" -}}
 {{-   $sshIcon = "" -}}
+{{-   $sshIconColor = "#ffffff" -}}
 {{- else if eq .chezmoi.os "windows" -}}
 {{-   $sshIcon = "" -}}
+{{-   $sshIconColor = "#00a4ef" -}}
 {{- else if $isRpi -}}
 {{-   $sshIcon = "🍓" -}}
+{{-   $sshIconColor = "#ff5c57" -}}
 {{-   if hasPrefix "bbh-network" .chezmoi.hostname -}}{{- $sshIcon = "🌐" -}}
 {{-   else if hasPrefix "omv-" .chezmoi.hostname -}}{{- $sshIcon = "🐟" -}}
 {{-   end -}}
 {{- else if eq .chezmoi.osRelease.id "arch" -}}
 {{-   $sshIcon = "" -}}
-{{-   else if eq .chezmoi.osRelease.id "omarchy" -}}
+{{-   $sshIconColor = "#1793d1" -}}
+{{- else if eq .chezmoi.osRelease.id "omarchy" -}}
 {{-   $sshIcon = "" -}}
+{{-   $sshIconColor = "#9b59b6" -}}
 {{- else if eq .chezmoi.osRelease.id "fedora" -}}
 {{-   $sshIcon = "" -}}
+{{-   $sshIconColor = "#51a2da" -}}
 {{- else if eq .chezmoi.osRelease.id "ubuntu" -}}
 {{-   $sshIcon = "" -}}
+{{-   $sshIconColor = "#e95420" -}}
 {{- else if eq .chezmoi.osRelease.id "debian" -}}
 {{-   $sshIcon = "" -}}
+{{-   $sshIconColor = "#a80030" -}}
 {{- end -}}
 source-file ~/.config/tmux/tmux.reset.conf
 set-option -g default-terminal 'tmux-256color'
@@ -113,7 +122,7 @@ run '~/.config/tmux/plugins/tpm/tpm'
 # ============================================================================
 # Snazzy override AFTER tpm (catppuccin sets status, we override in SSH)
 # ============================================================================
-if-shell '[ -n "$SSH_TTY" ]' "set -g status-style 'bg=#282a36 fg=#eff0eb'; set -g status-left-length 50; set -g status-right-length 100; set -g status-left '#[fg=#ff5c57,bold]{{ $sshIcon }} #[fg=#f3f99d,bold]#S #[fg=#5af78e]│ '; set -g status-right '#[fg=#5af78e]│ #[fg=#57c7ff]#H #[fg=#5af78e]│ #[fg=#ff6ac1]%d/%m #[fg=#f3f99d]%H:%M '; set -g window-status-format '#[fg=#9aedfe] #I:#W '; set -g window-status-current-format '#[fg=#282a36,bg=#57c7ff,bold] #I:#W#{?window_zoomed_flag, 󰊓,} '; set -g window-status-separator ''; set -g pane-border-style 'fg=#3a3d4d'; set -g pane-active-border-style 'fg=#57c7ff'; set -g message-style 'bg=#57c7ff fg=#282a36'; set -g message-command-style 'bg=#ff6ac1 fg=#282a36'; set -g mode-style 'bg=#3a3d4d fg=#eff0eb'"
+if-shell '[ -n "$SSH_TTY" ]' "set -g status-style 'bg=#282a36 fg=#eff0eb'; set -g status-left-length 50; set -g status-right-length 100; set -g status-left '#[fg={{ $sshIconColor }},bold]{{ $sshIcon }} #[fg=#f3f99d,bold]#S #[fg=#5af78e]│ '; set -g status-right '#[fg=#5af78e]│ #[fg=#57c7ff]#H #[fg=#5af78e]│ #[fg=#ff6ac1]%d/%m #[fg=#f3f99d]%H:%M '; set -g window-status-format '#[fg=#9aedfe] #I:#W '; set -g window-status-current-format '#[fg=#282a36,bg=#57c7ff,bold] #I:#W#{?window_zoomed_flag, 󰊓,} '; set -g window-status-separator ''; set -g pane-border-style 'fg=#3a3d4d'; set -g pane-active-border-style 'fg=#57c7ff'; set -g message-style 'bg=#57c7ff fg=#282a36'; set -g message-command-style 'bg=#ff6ac1 fg=#282a36'; set -g mode-style 'bg=#3a3d4d fg=#eff0eb'"
 
 # ============================================================================
 # Keybindings
