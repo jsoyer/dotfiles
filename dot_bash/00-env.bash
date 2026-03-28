@@ -234,6 +234,11 @@ fi
 
 unset _use_snazzy
 
+# SSH override: use compact Snazzy prompt when connected over SSH on desktops
+if [[ -n "${SSH_TTY:-}" && "${STARSHIP_CONFIG}" == *"/starship.toml" ]]; then
+  export STARSHIP_CONFIG="${HOME}/.config/starship/starship-rpi.toml"
+fi
+
 # ============================================================================
 # FZF default command (platform-agnostic)
 # ============================================================================

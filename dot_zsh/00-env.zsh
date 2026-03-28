@@ -128,6 +128,11 @@ esac
 
 unset _OS _HOST
 
+# SSH override: use compact Snazzy prompt when connected over SSH on desktops
+if [[ -n "${SSH_TTY:-}" && "${STARSHIP_CONFIG}" == *"/starship.toml" ]]; then
+  export STARSHIP_CONFIG="${HOME}/.config/starship/starship-rpi.toml"
+fi
+
 # Convenience boolean flags (compatible with bash env)
 [[ "$OSTYPE" == darwin* ]]               && export IS_MACOS=true   || export IS_MACOS=false
 [[ "$MACHINE_PROFILE" == "rpi" ]]        && export IS_RPI=true     || export IS_RPI=false
