@@ -1414,6 +1414,7 @@ def --wrapped ssh [...args: string] {
         ^ssh ...$args
     }
 }
+def sshpw [...args: string] { ^ssh -o PreferredAuthentications=password ...$args }
 
 # ============================================================================
 # Ruby Configuration

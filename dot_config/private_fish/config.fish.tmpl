@@ -194,6 +194,7 @@ function ssh --wraps=ssh
         command ssh $argv
     end
 end
+alias sshpw='ssh -o PreferredAuthentications=password'
 
 # ============================================================================
 # Development Environment Managers
