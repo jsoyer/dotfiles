@@ -940,6 +940,8 @@ alias as = aerospace
 alias asr = atuin scripts run
 
 # Eza (modern ls replacement)
+# Note: shadowing nushell's built-in ls with eza requires --wrapped
+def --wrapped ls [...args: string] { ^eza --color=always --icons ...$args }
 alias l = eza -l --icons --git -a
 alias ll = eza -l --color=always --icons --git -a
 alias lt = eza --tree --level=2 --long --icons --git
@@ -952,6 +954,15 @@ alias zl = eza -lagX --icons --color=always
 alias cl = clear
 alias bcask = brew cask
 alias tbx = /usr/bin/toolbox run zsh
+
+# ============================================================================
+# Navigation
+# ============================================================================
+alias .. = cd ..
+alias ... = cd ../..
+alias .... = cd ../../..
+alias ..... = cd ../../../..
+alias ...... = cd ../../../../..
 
 # ============================================================================
 # Git
@@ -1264,19 +1275,6 @@ alias jp = jj git push
 alias jf = jj git fetch
 
 # ============================================================================
-# Jujutsu (jj)
-# ============================================================================
-alias j = jj
-alias js = jj st
-alias jl = jj log -r 'all()'
-alias jd = jj diff
-alias jn = jj new
-alias jui = jjui
-alias jundo = jj undo
-alias jp = jj git push
-alias jf = jj git fetch
-
-# ============================================================================
 # Tmux
 # ============================================================================
 alias t = tmux
@@ -1395,6 +1393,21 @@ alias cch = claude --model haiku
 alias dup = fdupes -r
 alias dupsize = fdupes -rS
 alias dupsum = fdupes -rm
+
+def dupdel [...args: string] {
+    let target = if ($args | is-empty) { "." } else { $args | str join " " }
+    print $"WARNING: this will DELETE duplicate files \(keeping one copy\) in: ($target)"
+    let reply = (input "Continue? (y/N) ")
+    if $reply == "y" or $reply == "Y" {
+        if ($args | is-empty) {
+            ^fdupes -rdN "."
+        } else {
+            ^fdupes -rdN ...$args
+        }
+    } else {
+        print "Aborted."
+    }
+}
 
 # ============================================================================
 # Sync local SSH config to 1Password (macOS only)
