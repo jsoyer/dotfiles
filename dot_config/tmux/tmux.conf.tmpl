@@ -1,22 +1,22 @@
 {{- $isRpi := and (eq .chezmoi.os "linux") (or (eq .chezmoi.osRelease.id "raspbian") (stat "/proc/device-tree/model")) -}}
-{{- $sshIcon := "" -}}
+{{- $sshIcon := "🐧" -}}
 {{- if eq .chezmoi.os "darwin" -}}
-{{-   $sshIcon = "" -}}
+{{-   $sshIcon = "🍎" -}}
 {{- else if eq .chezmoi.os "windows" -}}
-{{-   $sshIcon = "" -}}
+{{-   $sshIcon = "🪟" -}}
 {{- else if $isRpi -}}
 {{-   $sshIcon = "🍓" -}}
 {{-   if hasPrefix "bbh-network" .chezmoi.hostname -}}{{- $sshIcon = "🌐" -}}
 {{-   else if hasPrefix "omv-" .chezmoi.hostname -}}{{- $sshIcon = "🐟" -}}
 {{-   end -}}
 {{- else if eq .chezmoi.osRelease.id "arch" -}}
-{{-   $sshIcon = "" -}}
+{{-   $sshIcon = "🏔️" -}}
 {{- else if eq .chezmoi.osRelease.id "fedora" -}}
-{{-   $sshIcon = "" -}}
+{{-   $sshIcon = "🎩" -}}
 {{- else if eq .chezmoi.osRelease.id "ubuntu" -}}
-{{-   $sshIcon = "" -}}
+{{-   $sshIcon = "🟠" -}}
 {{- else if eq .chezmoi.osRelease.id "debian" -}}
-{{-   $sshIcon = "" -}}
+{{-   $sshIcon = "💎" -}}
 {{- end -}}
 source-file ~/.config/tmux/tmux.reset.conf
 set-option -g default-terminal 'tmux-256color'
