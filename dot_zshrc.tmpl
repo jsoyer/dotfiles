@@ -8,6 +8,10 @@ ZSH_THEME=""  # Theme disabled, using Starship instead
 # ============================================================================
 # Platform-specific plugins are conditionally loaded
 
+# Defer ssh-agent to avoid ~100ms fork on startup
+zstyle :omz:plugins:ssh-agent quiet yes
+zstyle :omz:plugins:ssh-agent lazy yes
+
 plugins=(
   colored-man-pages    # Colorful man pages
   copybuffer           # Copy command line to clipboard (Ctrl+O)
@@ -15,12 +19,11 @@ plugins=(
   extract              # Universal archive extraction
   encode64             # Base64 encoding/decoding helpers
   sudo                 # ESC ESC to add sudo
-  ssh-agent            # SSH agent management
+  ssh-agent            # SSH agent management (lazy-loaded)
 
 {{- if eq .chezmoi.os "darwin" }}
   macos                # macOS-specific utilities
-  kubectl              # Kubernetes completion
-  helm                 # Helm completion
+  # kubectl/helm completions handled via _cache_eval in 99-integrations.zsh
 {{- end }}
 )
 
@@ -40,8 +43,8 @@ _cache_eval() {
   local meta="${HOME}/.cache/${name}/meta"
   # Track binary path to invalidate cache when binary moves (e.g., brew -> pacman)
   local bin_name="${cmd%% *}"
-  local cur_path
-  cur_path="$(whence -p "${bin_name}" 2>/dev/null)" || cur_path="${bin_name}"
+  # Use zsh $commands hash table — zero fork (no subshell needed)
+  local cur_path="${commands[$bin_name]:-$bin_name}"
   local prev_path=""
   [[ -f "$meta" ]] && prev_path="$(<"$meta")"
   if [[ ! -f "$cache" ]] || [[ ! -s "$cache" ]] || \

@@ -32,9 +32,12 @@ _cache_eval() {
 
 # Read distro ID from /etc/os-release (source of truth)
 _detect_distro() {
-  local id=""
+  # Read ID= from os-release without forking a subshell
+  local line id=""
   if [[ -f /etc/os-release ]]; then
-    id=$(. /etc/os-release && echo "${ID:-}")
+    while IFS='=' read -r key val; do
+      if [[ "$key" == "ID" ]]; then id="$val"; break; fi
+    done < /etc/os-release
   fi
   echo "$id"
 }
@@ -231,9 +234,14 @@ if [[ "${_use_snazzy}" == "true" ]]; then
 --color=fg:#eff0eb,header:#57c7ff,info:#ff6ac1,pointer:#ff5c57 \
 --color=marker:#f3f99d,fg+:#eff0eb,prompt:#ff6ac1,hl+:#57c7ff"
 
-  # Vivid colors (Snazzy)
+  # Vivid colors (Snazzy) — cached to avoid forking on every startup
   if command -v vivid >/dev/null 2>&1; then
-    export LS_COLORS="$(vivid generate snazzy)"
+    _vivid_cache="${HOME}/.cache/vivid/ls-colors-snazzy.txt"
+    if [[ ! -f "$_vivid_cache" ]] || [[ -n "$(find "$_vivid_cache" -mtime +7 2>/dev/null)" ]]; then
+      mkdir -p "${HOME}/.cache/vivid"
+      vivid generate snazzy > "$_vivid_cache" 2>/dev/null
+    fi
+    [[ -f "$_vivid_cache" ]] && export LS_COLORS="$(<"$_vivid_cache")"
   fi
 
   # Bat theme
@@ -252,9 +260,14 @@ else
 --color=fg:#cdd6f4,header:#f38ba8,info:#cba6f7,pointer:#f5e0dc \
 --color=marker:#f5e0dc,fg+:#cdd6f4,prompt:#cba6f7,hl+:#f38ba8"
 
-  # Vivid colors (Catppuccin Mocha)
+  # Vivid colors (Catppuccin Mocha) — cached
   if command -v vivid >/dev/null 2>&1; then
-    export LS_COLORS="$(vivid generate catppuccin-mocha)"
+    _vivid_cache="${HOME}/.cache/vivid/ls-colors-catppuccin-mocha.txt"
+    if [[ ! -f "$_vivid_cache" ]] || [[ -n "$(find "$_vivid_cache" -mtime +7 2>/dev/null)" ]]; then
+      mkdir -p "${HOME}/.cache/vivid"
+      vivid generate catppuccin-mocha > "$_vivid_cache" 2>/dev/null
+    fi
+    [[ -f "$_vivid_cache" ]] && export LS_COLORS="$(<"$_vivid_cache")"
   fi
 
   # Bat theme (Catppuccin Mocha)

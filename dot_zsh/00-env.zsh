@@ -14,9 +14,10 @@ _HOST="${HOST%%.*}"
 
 # Helper: read distro ID from /etc/os-release
 _detect_distro() {
+  # Read ID= from os-release without forking a subshell
   local id=""
   if [[ -f /etc/os-release ]]; then
-    id=$(. /etc/os-release && echo "${ID:-}")
+    id="${$(grep -m1 '^ID=' /etc/os-release 2>/dev/null)#ID=}"
   fi
   echo "$id"
 }
@@ -227,10 +228,17 @@ esac
 # LS_COLORS via vivid (matches theme per platform)
 # ============================================================================
 if (( $+commands[vivid] )); then
+  local _vivid_theme
   case "${MACHINE_PROFILE:-}" in
-    rpi|fedora-server|fedora-atomic|toolbox|ubuntu-server|debian) export LS_COLORS="$(vivid generate snazzy)" ;;
-    *)                                        export LS_COLORS="$(vivid generate catppuccin-mocha)" ;;
+    rpi|fedora-server|fedora-atomic|toolbox|ubuntu-server|debian) _vivid_theme="snazzy" ;;
+    *) _vivid_theme="catppuccin-mocha" ;;
   esac
+  local _vivid_cache="${HOME}/.cache/vivid/ls-colors-${_vivid_theme}.txt"
+  if [[ ! -f "$_vivid_cache" ]] || [[ -n "$(find "$_vivid_cache" -mtime +7 2>/dev/null)" ]]; then
+    mkdir -p "${HOME}/.cache/vivid"
+    vivid generate "$_vivid_theme" > "$_vivid_cache" 2>/dev/null
+  fi
+  [[ -f "$_vivid_cache" ]] && export LS_COLORS="$(<"$_vivid_cache")"
 fi
 
 # ============================================================================
