@@ -61,8 +61,8 @@ if-shell '[ -n "$SSH_TTY" ]' 'set -g prefix ^B; bind ^B last-window; set -g stat
 
 # Catppuccin config (catppuccin plugin overrides status in local mode)
 set -g @catppuccin_flavour 'mocha'
-set -g @catppuccin_window_left_separator "\ue0b0"
-set -g @catppuccin_window_right_separator "\ue0b2 "
+set -g @catppuccin_window_left_separator "\ue0b6"
+set -g @catppuccin_window_right_separator "\ue0b4\u00a0"
 set -g @catppuccin_window_middle_separator " \u2588"
 set -g @catppuccin_window_number_position "right"
 set -g @catppuccin_window_default_fill "number"
@@ -71,7 +71,7 @@ set -g @catppuccin_window_current_fill "number"
 set -g @catppuccin_window_current_text "#W#{?window_zoomed_flag,(),}"
 set -g @catppuccin_status_modules_right "directory date_time"
 set -g @catppuccin_status_modules_left "session"
-set -g @catppuccin_status_left_separator  "\ue0b6 "
+set -g @catppuccin_status_left_separator  " \ue0b6"
 set -g @catppuccin_status_right_separator "\ue0b4 "
 set -g @catppuccin_status_right_separator_inverse "no"
 set -g @catppuccin_status_fill "icon"
