@@ -1298,7 +1298,7 @@ alias tsd = sudo tailscale down
 alias tssh = tailscale ssh
 alias tsip = tailscale ip -4
 alias tsping = tailscale ping
-def tsnet [] { ^tailscale status --json | from json | get Peer | transpose k v | get v | each { |r| { name: $r.HostName, ip: ($r.TailscaleIPs | first), status: (if $r.Online { "connected" } else { "disconnected" }) } } }
+def tsnet [] { ^tailscale status --json | from json | get Peer | transpose k v | get v | each { |r| { name: $r.HostName, ip: ($r.TailscaleIPs | first), status: (if $r.Online { "connected" } else { "disconnected" }) } } | sort-by name }
 
 # ============================================================================
 # Disk / System
