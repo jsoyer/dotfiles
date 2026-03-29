@@ -1,0 +1,19 @@
+{{- if ne .chezmoi.os "windows" -}}
+{{- $mp := index . "machine_profile" -}}
+{{- $skip := list "fedora-atomic" "toolbox" -}}
+{{- if not (has $mp $skip) -}}
+#!/usr/bin/env bash
+# =============================================================================
+# RTK (Rust Token Killer) — reinitialize global config on every chezmoi apply
+# =============================================================================
+
+set -euo pipefail
+
+if ! command -v rtk &>/dev/null; then
+    exit 0
+fi
+
+echo "🤖 Configuring RTK (rtk init --global)..."
+rtk init --global 2>/dev/null || true
+{{- end -}}
+{{- end }}

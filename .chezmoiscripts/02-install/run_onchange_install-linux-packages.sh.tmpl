@@ -543,7 +543,7 @@ fi
 {{- if or $isArchDesktop $isOmArchy $isArchServer }}
 # Arch/OmArchy — install via AUR (native > script)
 if command -v yay &>/dev/null; then
-    yay -S --noconfirm --needed --answerdiff=None --answerclean=None claude-code github-copilot-cli-bin openai-codex-bin 2>/dev/null || true
+    yay -S --noconfirm --needed --answerdiff=None --answerclean=None claude-code github-copilot-cli-bin openai-codex-bin rtk-bin 2>/dev/null || true
 fi
 {{- else }}
 # Priority: native repos > brew formula > install script (last resort)
@@ -578,6 +578,20 @@ if ! command -v codex &>/dev/null; then
     fi
 fi
 {{- end }}
+
+# RTK (Rust Token Killer) — brew formula available, curl fallback
+if ! command -v rtk &>/dev/null; then
+    if command -v brew &>/dev/null; then
+        echo "🤖 Installing RTK via brew..."
+        brew install rtk 2>/dev/null || {
+            echo "🤖 Brew failed, falling back to installer..."
+            curl -fsSL https://raw.githubusercontent.com/rtk-ai/rtk/master/install.sh | sh
+        }
+    else
+        echo "🤖 Installing RTK via installer..."
+        curl -fsSL https://raw.githubusercontent.com/rtk-ai/rtk/master/install.sh | sh
+    fi
+fi
 
 # OpenCode CLI — handled by brew bundle (Brewfile_brew_only)
 {{- end }}
