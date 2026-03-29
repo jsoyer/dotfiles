@@ -57,8 +57,8 @@ export IS_UBUNTU=false
 export IS_FEDORA=false
 export IS_ARCH=false
 
-case "$(uname -s)" in
-  Darwin)
+case "$OSTYPE" in
+  darwin*)
     export IS_MACOS=true
     export PLATFORM="macos"
     if [[ "$(hostname)" == "jsoyer-macOS" ]]; then
@@ -69,7 +69,7 @@ case "$(uname -s)" in
       export MACHINE_PROFILE="mac-personal"
     fi
     ;;
-  Linux)
+  linux*)
     export IS_LINUX=true
     _DISTRO_ID="$(_detect_distro)"
 

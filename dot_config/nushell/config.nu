@@ -1008,14 +1008,20 @@ alias podman-compose = ^podman compose
 # ============================================================================
 # Docker / Podman Compose
 # ============================================================================
+# Cached container runtime detection (avoids forking docker info on every call)
 def _container_runtime [] {
-    if (which docker | is-not-empty) and (^docker info | complete).exit_code == 0 {
+    if ($env._CONTAINER_RUNTIME? | default "" | is-not-empty) {
+        return ($env._CONTAINER_RUNTIME? | default "")
+    }
+    let rt = if (which docker | is-not-empty) and (^docker info | complete).exit_code == 0 {
         "docker"
     } else if (which podman | is-not-empty) and (^podman info | complete).exit_code == 0 {
         "podman"
     } else {
         ""
     }
+    $env._CONTAINER_RUNTIME = $rt
+    $rt
 }
 
 # Docker/Podman aliases — top-level (def/alias inside if not visible in Nushell)

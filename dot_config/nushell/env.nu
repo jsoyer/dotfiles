@@ -11,18 +11,17 @@ $env.PATH = ($env.PATH | split row (char esep) | prepend '/opt/homebrew/bin' | p
 # ============================================================================
 $env.STARSHIP_CONFIG = ($env.HOME | path join ".config" "starship" "starship-desktop.toml")
 let _starship_cache = ($env.HOME | path join ".cache" "starship" "init.nu")
-let _starship_ver_file = ($env.HOME | path join ".cache" "starship" "version")
+# Regenerate cache if missing or older than 24h (avoids forking starship --version every startup)
 if (which starship | is-not-empty) {
-    let _current_ver = (starship --version | str trim)
-    let _cached_ver = if ($_starship_ver_file | path exists) {
-        open $_starship_ver_file | str trim
+    let _need_regen = if not ($_starship_cache | path exists) {
+        true
     } else {
-        ""
+        let age = (date now) - (ls -l $_starship_cache | get 0.modified)
+        $age > 24hr
     }
-    if not ($_starship_cache | path exists) or $_cached_ver != $_current_ver {
+    if $_need_regen {
         mkdir ($env.HOME | path join ".cache" "starship")
         starship init nu | save -f $_starship_cache
-        $_current_ver | save -f $_starship_ver_file
     }
 } else {
     if not ($_starship_cache | path exists) {
