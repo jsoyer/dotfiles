@@ -564,7 +564,7 @@ cask "sf-symbols"
 cask "shapr3d"
 cask "signal"
 cask "skim"
-cask "skyfonts"
+# cask "skyfonts" # removed: download URL broken (CDN dead)
 cask "slack"
 cask "sonos"
 cask "jsoyer/tap/strawberry-music-player"
