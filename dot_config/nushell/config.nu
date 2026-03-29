@@ -935,6 +935,7 @@ alias vim = nvim
 alias v = nvim
 alias la = tree
 alias cat = bat
+alias catp = bat --plain
 alias http = xh
 alias as = aerospace
 alias asr = atuin scripts run
