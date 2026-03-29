@@ -34,9 +34,7 @@ cargo
 rust
 tree
 gh
-
-# installed via cargo (not managed by dnfw)
-# eza
+eza
 # installed via Flatpak (not managed by dnfw)
 # Discord, Obsidian, LocalSend, Signal, DBeaver
 # installed via script (not managed by dnfw)

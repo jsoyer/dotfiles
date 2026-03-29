@@ -25,6 +25,4 @@ cargo
 rust
 
 gh
-
-# installed via cargo (not managed by dnfw)
-# eza
+eza
