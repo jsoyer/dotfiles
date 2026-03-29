@@ -1,0 +1,27 @@
+{{- if eq .chezmoi.os "linux" -}}
+#!/usr/bin/env bash
+# =============================================================================
+# Cleanup stale shell caches when binaries have moved (brew → native)
+# Runs on every chezmoi apply — fast (only stat checks, no forks)
+# =============================================================================
+
+for cache_dir in "${HOME}/.cache/starship" "${HOME}/.cache/zoxide" "${HOME}/.cache/atuin" "${HOME}/.cache/direnv"; do
+    meta="${cache_dir}/meta"
+    if [[ -f "$meta" ]]; then
+        cached_path="$(<"$meta")"
+        if [[ -n "$cached_path" ]] && [[ ! -x "$cached_path" ]]; then
+            rm -rf "$cache_dir"
+        fi
+    fi
+done
+
+# Also check bash caches
+for meta_file in "${HOME}/.cache/shell"/*.meta; do
+    [[ -f "$meta_file" ]] || continue
+    cached_path="$(<"$meta_file")"
+    if [[ -n "$cached_path" ]] && [[ ! -x "$cached_path" ]]; then
+        base="${meta_file%.meta}"
+        rm -f "$meta_file" "${base}.bash" "${base}.zsh"
+    fi
+done
+{{- end }}
