@@ -284,7 +284,7 @@ brew "nvm"
 brew "nvtop"
 brew "oci-cli"
 brew "oh-my-posh"
-brew "ollama", link: false
+brew "ollama", restart_service: :changed, link: false
 brew "opencode"
 brew "opentofu"
 brew "qrencode"
