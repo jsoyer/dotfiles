@@ -1394,7 +1394,7 @@ def dupdel [...args: string] {
 # Sync local SSH config to 1Password (macOS only)
 # ============================================================================
 def ssh-sync [] {
-    op document edit wf34z662n2u3kn5jhrmrmo3o4u $"($nu.home-dir)/.ssh/config"
+    op document edit --vault "Private" "SSH Config" $"($nu.home-dir)/.ssh/config"
     print "SSH config synced to 1Password"
 }
 

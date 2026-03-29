@@ -15,7 +15,7 @@ chmod 600 "${SSH_CONFIG}"
 {{- else }}
 
 # Fetch SSH config from 1Password (requires desktop app to be running)
-if op document get "wf34z662n2u3kn5jhrmrmo3o4u" > "${SSH_CONFIG}.tmp" 2>/dev/null; then
+if op document get --vault "Private" "SSH Config" > "${SSH_CONFIG}.tmp" 2>/dev/null; then
     mv "${SSH_CONFIG}.tmp" "${SSH_CONFIG}"
     chmod 600 "${SSH_CONFIG}"
     echo "chezmoi: SSH config updated from 1Password"

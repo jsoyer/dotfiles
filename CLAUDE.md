@@ -82,7 +82,7 @@ Git repos auto-refreshed weekly:
 - Source of truth: `dot_agents/skills/` (654 skills)
 - `run_onchange_sync-skill-symlinks.sh` creates symlinks in `~/.claude/skills/`, `~/.qwen/skills/`, `~/.vibe/skills/`
 - Triggered by changes to `dot_agents/dot_skill-lock.json`
-- OpenCode tools (`ocx`, `oh-my-openagent`) install only on desktop profiles: `mac-personal`, `fedora-desktop`, `toolbox`, `ubuntu-desktop`, `arch-desktop`
+- OpenCode tools (`ocx`, `oh-my-openagent`) install only on desktop profiles when `install_ocx` is true (default false, `promptBoolOnce`)
 - Claude Code plugins (`octo@nyldn-plugins`, LSP plugins) install only on desktop profiles via `run_once_install-claude-plugins.sh`
 
 ### Bootstrap Scripts (`scripts/`)
@@ -92,11 +92,16 @@ Git repos auto-refreshed weekly:
 ### Platform Profiles
 Configuration adapts based on:
 - **macOS** (`darwin`): Full setup with Homebrew, pyenv
-- **Fedora** (`linux` + `lookPath "dnf"`): DNF packages, Flatpak
-- **Fedora Atomic** (`lookPath "rpm-ostree"`): Minimal bash, container-focused
+- **Fedora** (`linux` + `lookPath "dnf"`): DNF packages, hybrid native/Flatpak for GUI apps
+- **Fedora Atomic** (`lookPath "rpm-ostree"`): Minimal bash, container-focused, full Flatpak
 - **Toolbox** (`env "TOOLBOX_PATH"`): Container environment, zsh-only
-- **Raspberry Pi** (kernel detection): APT packages, Snazzy theme
+- **Arch Linux** (`osRelease.id "arch"`): Pacman + AUR (yay), GUI apps via pacman/AUR when display server detected
+- **OmArchy** (`osRelease.id "omarchy"`): Arch-based desktop, same packages as arch-desktop, promptBoolOnce overrides for shell/nvim/tmux/git/wm
+- **Ubuntu** (`osRelease.id "ubuntu"`): APT packages, hybrid native/Flatpak for GUI apps
+- **Raspberry Pi** (kernel detection): APT packages, Pi-Apps for GUI apps when display server detected, Snazzy theme
 - **Windows** (`eq .chezmoi.os "windows"`): Scoop packages, minimal config (git, tmux, bash)
+
+GUI apps only install when a display server is detected (`_has_gui()` check). CLI AI tools (Claude Code, Copilot CLI, Codex CLI) install on all profiles via AUR (Arch) or native scripts (others), updated via `update-ai` alias.
 
 ### Key Directories
 - `dot_config/` - XDG config files (nvim, starship, tmux, wezterm, aerospace, sketchybar, etc.) (desktop profiles only)
@@ -112,8 +117,8 @@ Configuration adapts based on:
 - `commands/` - 60 slash commands (from ECC: `/plan`, `/verify`, `/code-review`, `/tdd`, `/build-fix`, language builds/reviews, etc.)
 - `rules/` - 64 rule files (common best practices + 12 language-specific: TypeScript, Python, Rust, Go, Swift, C++, C#, Java, Kotlin, Perl, PHP)
 - Skills are symlinked from `~/.agents/skills/` (654 skills) via `run_onchange_sync-skill-symlinks.sh`
-- `hooks/` - `rtk-rewrite.sh` (token optimization), `claude-island-state.py` (state tracking), `console-log-check.sh`, `config-protection.sh`, `desktop-notify.sh`
-- `private_settings.json.tmpl` - Permissions, hooks, MCP servers (19 configured)
+- `hooks/` - `rtk-rewrite.sh` (token optimization), `claude-island-state.py` (state tracking), `console-log-check.sh`, `config-protection.sh`, `desktop-notify.sh`, `quality-gate.sh`
+- `private_settings.json.tmpl` - Permissions, hooks, MCP servers (26 configured)
 - Plugins: `octo@nyldn-plugins` (Claude Octopus multi-AI orchestrator), LSP plugins (lua, pyright, swift, typescript, gopls)
 
 ### macOS Desktop (`dot_config/aerospace/`, `dot_config/sketchybar/`)
@@ -129,10 +134,15 @@ Configuration adapts based on:
 ### Shell Aliases
 - `ca` - chezmoi apply -v
 - `cu` - chezmoi update -v
-- `cup` - chezmoi update + package updates (all platforms)
+- `cup` - chezmoi update + sysup + docker compose update (all platforms)
+- `sysup` - update all system packages + flatpak + brew + AI tools
+- `update-ai` - update Claude Code, Copilot CLI, Codex CLI
+- `sshpw` - SSH with password-only authentication
 - `c` - chezmoi (shortcut)
 - `apt` → `aptw` (Linux non-Fedora: tracks in Aptfile_*)
 - `dnf`/`yum` → `dnfw` (Fedora desktop/server: tracks in Dnffile_*)
+- `pacman` → `pacmanw` (Arch: tracks in Pacfile_*)
+- `yay` → `yayw` (Arch AUR: tracks in Pacfile_aur_*)
 - `scoop` → `scoopw` (Windows: tracks in Scoopfile.json)
 
 ## Security Notes
