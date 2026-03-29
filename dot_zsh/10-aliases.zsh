@@ -198,11 +198,11 @@ if [[ "${IS_FEDORA:-false}" == "true" ]] && [[ "${MACHINE_PROFILE:-}" != "fedora
 fi
 
 # Arch Linux package manager wrappers
-if [[ "${MACHINE_PROFILE:-}" == arch-desktop || "${MACHINE_PROFILE:-}" == arch-server ]]; then
+if [[ "${MACHINE_PROFILE:-}" == arch-desktop || "${MACHINE_PROFILE:-}" == arch-server || "${MACHINE_PROFILE:-}" == "omarchy" ]]; then
     pacman() { pacmanw "$@"; }
 fi
 
-if [[ "${MACHINE_PROFILE:-}" == arch-desktop ]]; then
+if [[ "${MACHINE_PROFILE:-}" == arch-desktop || "${MACHINE_PROFILE:-}" == "omarchy" ]]; then
     yay() { yayw "$@"; }
 fi
 
@@ -555,13 +555,17 @@ if [[ "$OSTYPE" == linux* ]]; then
   alias scs='sudo systemctl status'
   alias scr='sudo systemctl restart'
   alias sce='sudo systemctl enable --now'
-  alias jf='journalctl -fu'
+  alias jfl='journalctl -fu'
 fi
 
 # ============================================================================
 # Network utilities
 # ============================================================================
-alias ports='sudo ss -tlnp'
+if [[ "$OSTYPE" == linux* ]]; then
+  alias ports='sudo ss -tlnp'
+else
+  alias ports='lsof -iTCP -sTCP:LISTEN -n -P'
+fi
 alias myip='curl -s ifconfig.me'
 
 # ============================================================================

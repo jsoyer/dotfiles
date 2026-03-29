@@ -60,7 +60,7 @@ alias ...='cd ../..'
 alias ....='cd ../../..'
 alias .....='cd ../../../..'
 alias ......='cd ../../../../..'
-alias iclouddrive='cd ~/Library/Mobile\ Documents/com~apple~CloudDocs/'
+[[ "$IS_MACOS" == "true" ]] && alias iclouddrive='cd ~/Library/Mobile\ Documents/com~apple~CloudDocs/'
 
 # ============================================================================
 # Git
@@ -198,11 +198,11 @@ if [[ "${IS_FEDORA:-false}" == "true" ]] && [[ "${MACHINE_PROFILE:-}" != "fedora
 fi
 
 # Arch Linux package manager wrappers
-if [[ "${MACHINE_PROFILE:-}" == arch-desktop || "${MACHINE_PROFILE:-}" == arch-server ]]; then
+if [[ "${MACHINE_PROFILE:-}" == arch-desktop || "${MACHINE_PROFILE:-}" == arch-server || "${MACHINE_PROFILE:-}" == "omarchy" ]]; then
     pacman() { pacmanw "$@"; }
 fi
 
-if [[ "${MACHINE_PROFILE:-}" == arch-desktop ]]; then
+if [[ "${MACHINE_PROFILE:-}" == arch-desktop || "${MACHINE_PROFILE:-}" == "omarchy" ]]; then
     yay() { yayw "$@"; }
 fi
 
@@ -295,7 +295,11 @@ fi
 if command -v procs &>/dev/null; then
   alias ps='procs'
 fi
-alias ports='lsof -iTCP -sTCP:LISTEN -n -P'
+if [[ "$OSTYPE" == linux* ]]; then
+  alias ports='sudo ss -tlnp'
+else
+  alias ports='lsof -iTCP -sTCP:LISTEN -n -P'
+fi
 alias myip='curl -s ifconfig.me && echo'
 alias path='echo "$PATH" | tr ":" "\n"'
 
