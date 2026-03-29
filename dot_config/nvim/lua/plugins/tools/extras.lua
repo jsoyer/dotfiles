@@ -207,7 +207,7 @@ return {
 
   -- Mini.surround — override LazyVim default gz* mappings to gs* prefix
   {
-    "echasnovski/mini.surround",
+    "nvim-mini/mini.surround",
     opts = {
       mappings = {
         add = "gsa",
