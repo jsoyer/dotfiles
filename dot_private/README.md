@@ -55,7 +55,7 @@ The manifest system provides:
 | `Dnffile_fedora_desktop` | Fedora desktop base packages | fedora-desktop | Base |
 | `Dnffile_fedora_gui` | Fedora desktop GUI apps (Brave, Chrome, VLC, etc.) | fedora-desktop | GUI only |
 | `Dnffile_fedora_server` | Fedora server packages | fedora-server | Base |
-| `Pacfile_fedora_atomic` | Fedora Atomic rpm-ostree packages | fedora-atomic | Base |
+| `Rpmfile_fedora_atomic` | Fedora Atomic rpm-ostree packages | fedora-atomic | Base |
 
 **GUI apps only install when:** `_has_gui()` returns true (display server detected)
 

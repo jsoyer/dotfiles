@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# ostreew — rpm-ostree wrapper that keeps Pacfile_fedora_atomic in sync
-# Usage: ostreew install foo   → installs + adds to Pacfile_fedora_atomic
-#        ostreew uninstall foo → removes + removes from Pacfile_fedora_atomic
+# ostreew — rpm-ostree wrapper that keeps Rpmfile_fedora_atomic in sync
+# Usage: ostreew install foo   → installs + adds to Rpmfile_fedora_atomic
+#        ostreew uninstall foo → removes + removes from Rpmfile_fedora_atomic
 #        ostreew upgrade       → passthrough
 
 set -euo pipefail
@@ -13,7 +13,7 @@ RED='\033[0;31m'
 NC='\033[0m'
 
 CHEZMOI_SOURCE_PATH="${CHEZMOI_SOURCE_PATH:-${HOME}/.local/share/chezmoi}"
-MANIFEST="${CHEZMOI_SOURCE_PATH}/dot_private/Pacfile_fedora_atomic"
+MANIFEST="${CHEZMOI_SOURCE_PATH}/dot_private/Rpmfile_fedora_atomic"
 
 validate_pkg() {
     local pkg="$1"
@@ -26,24 +26,24 @@ validate_pkg() {
 add_to_manifest() {
     local pkg="$1"
     if grep -qxF "$pkg" "$MANIFEST" 2>/dev/null; then
-        printf '%b\n' "${YELLOW}${pkg} already in Pacfile_fedora_atomic${NC}"
+        printf '%b\n' "${YELLOW}${pkg} already in Rpmfile_fedora_atomic${NC}"
         return
     fi
     printf '%s\n' "$pkg" >> "$MANIFEST"
-    printf '%b\n' "${GREEN}Added ${pkg} to Pacfile_fedora_atomic${NC}"
+    printf '%b\n' "${GREEN}Added ${pkg} to Rpmfile_fedora_atomic${NC}"
 }
 
 remove_from_manifest() {
     local pkg="$1"
     if ! grep -qxF "$pkg" "$MANIFEST" 2>/dev/null; then
-        printf '%b\n' "${YELLOW}${pkg} not in Pacfile_fedora_atomic${NC}"
+        printf '%b\n' "${YELLOW}${pkg} not in Rpmfile_fedora_atomic${NC}"
         return
     fi
     local tmp
     tmp="$(mktemp)"
     grep -vxF "$pkg" "$MANIFEST" > "$tmp"
     mv "$tmp" "$MANIFEST"
-    printf '%b\n' "${GREEN}Removed ${pkg} from Pacfile_fedora_atomic${NC}"
+    printf '%b\n' "${GREEN}Removed ${pkg} from Rpmfile_fedora_atomic${NC}"
 }
 
 sync_to_git() {

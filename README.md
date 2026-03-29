@@ -525,7 +525,7 @@ chezmoi update  # Pull + apply automatically
 │   ├── Dnffile_*                       # Fedora dnf packages (base + GUI)
 │   ├── Pacfile_*                       # Arch/OmArchy pacman packages (base + GUI)
 │   ├── Pacfile_aur_*                   # Arch AUR packages (via yay, base + GUI)
-│   ├── Pacfile_fedora_atomic           # Fedora Atomic rpm-ostree packages
+│   ├── Rpmfile_fedora_atomic           # Fedora Atomic rpm-ostree packages
 │   ├── Scoopfile.json                  # Windows Scoop packages
 │   └── README.md                       # Package manifest documentation
 ├── dot_ssh/                            # SSH config directory

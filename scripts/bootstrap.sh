@@ -706,8 +706,8 @@ setup_fedora_atomic_base_layer() {
 
     log_info "Setting up Fedora Atomic base layer packages..."
 
-    # Read from Pacfile_fedora_atomic if chezmoi source is available
-    local _pacfile="${HOME}/.local/share/chezmoi/dot_private/Pacfile_fedora_atomic"
+    # Read from Rpmfile_fedora_atomic if chezmoi source is available
+    local _pacfile="${HOME}/.local/share/chezmoi/dot_private/Rpmfile_fedora_atomic"
     local -a BASE_PACKAGES
 
     if [[ -f "$_pacfile" ]]; then

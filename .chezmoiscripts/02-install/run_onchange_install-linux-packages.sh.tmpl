@@ -57,7 +57,7 @@
 # Pacfile_arch_server:    {{ include "dot_private/Pacfile_arch_server" | sha256sum }}
 {{- end }}
 {{- if $isFedoraAtomic }}
-# Pacfile_fedora_atomic:  {{ include "dot_private/Pacfile_fedora_atomic" | sha256sum }}
+# Rpmfile_fedora_atomic:  {{ include "dot_private/Rpmfile_fedora_atomic" | sha256sum }}
 {{- end }}
 
 set -euo pipefail
@@ -467,7 +467,7 @@ fi
 {{- if $isFedoraAtomic }}
 echo "Installing Fedora Atomic base layer packages via rpm-ostree..."
 
-_pacfile="{{ .chezmoi.sourceDir }}/dot_private/Pacfile_fedora_atomic"
+_pacfile="{{ .chezmoi.sourceDir }}/dot_private/Rpmfile_fedora_atomic"
 if [[ -f "$_pacfile" ]]; then
     mapfile -t _pkgs < <(grep -v '^\s*#' "$_pacfile" | grep -v '^\s*$')
     for _pkg in "${_pkgs[@]}"; do

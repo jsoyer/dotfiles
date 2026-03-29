@@ -49,7 +49,7 @@ All packages are declared in `dot_private/` manifest files:
 - **Ubuntu/Debian**: `Aptfile_ubuntu_server`, `Aptfile_ubuntu_desktop`, `Aptfile_debian`, `Aptfile_rpi`, plus `_gui` variants
 - **Fedora**: `Dnffile_fedora_server`, `Dnffile_fedora_desktop`, plus `_gui` variant
 - **Arch/OmArchy**: `Pacfile_arch_desktop`, `Pacfile_arch_server`, `Pacfile_aur_desktop`, `Pacfile_aur_gui`, `Pacfile_omarchy`
-- **Fedora Atomic**: `Pacfile_fedora_atomic`
+- **Fedora Atomic**: `Rpmfile_fedora_atomic`
 
 The scripts detect manifest changes via SHA256 checksums embedded in templates — when a manifest changes, the script automatically reruns.
 
@@ -243,7 +243,7 @@ Located in `dot_private/` (not committed to reduce noise):
 - `Pacfile_aur_gui` — AUR GUI packages
 - `Pacfile_arch_gui` — Arch official GUI packages
 - `Pacfile_omarchy` — OmArchy specific packages
-- `Pacfile_fedora_atomic` — Fedora Atomic/Silverblue
+- `Rpmfile_fedora_atomic` — Fedora Atomic/Silverblue
 - `Brewfile_*` — Homebrew packages (macOS)
 - `Scoopfile.json` — Scoop packages (Windows)
 

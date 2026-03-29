@@ -130,7 +130,7 @@ graph TD
 | `dnfw` | DNF/YUM | `Dnffile_{fedora_desktop,fedora_server}` | Fedora |
 | `pacmanw` | Pacman | `Pacfile_{arch_desktop,arch_server}` | Arch |
 | `yayw` | YAY (AUR) | `Pacfile_aur_desktop` | Arch |
-| `ostreew` | rpm-ostree | `Pacfile_fedora_atomic` | Fedora Atomic |
+| `ostreew` | rpm-ostree | `Rpmfile_fedora_atomic` | Fedora Atomic |
 | `scoopw` | Scoop | `Scoopfile.json` | Windows |
 
 All manifests live in `dot_private/` (mapped to `~/.private/`).
