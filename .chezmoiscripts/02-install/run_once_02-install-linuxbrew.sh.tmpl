@@ -27,10 +27,10 @@ sudo pacman -S --needed --noconfirm base-devel procps-ng curl file gcc
 {{- else }}
 # rpi / debian / ubuntu-*
 sudo apt-get update -q
-sudo apt-get install -y build-essential procps curl file gcc
+sudo apt-get install -y build-essential procps curl file gcc git
 {{- end }}
 
-/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 
 # Add brew to PATH for the rest of this session
 if [[ -d "/home/linuxbrew/.linuxbrew" ]]; then
