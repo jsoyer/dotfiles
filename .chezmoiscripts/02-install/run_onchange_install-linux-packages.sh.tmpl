@@ -585,11 +585,13 @@ if ! command -v rtk &>/dev/null; then
         echo "🤖 Installing RTK via brew..."
         brew install rtk 2>/dev/null || {
             echo "🤖 Brew failed, falling back to installer..."
-            curl -fsSL https://raw.githubusercontent.com/rtk-ai/rtk/master/install.sh | sh
+            curl -fsSL https://raw.githubusercontent.com/rtk-ai/rtk/master/install.sh | sh 2>/dev/null || true
         }
     else
         echo "🤖 Installing RTK via installer..."
-        curl -fsSL https://raw.githubusercontent.com/rtk-ai/rtk/master/install.sh | sh
+        curl -fsSL https://raw.githubusercontent.com/rtk-ai/rtk/master/install.sh | sh 2>/dev/null || {
+            echo "⚠️ RTK install failed (GitHub API rate limit?), will retry next chezmoi apply"
+        }
     fi
 fi
 
