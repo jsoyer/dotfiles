@@ -528,7 +528,6 @@ cask "utm"
 cask "visual-studio-code"
 cask "whatsapp"
 cask "yacreader"
-cask "yubico-authenticator"
 cask "zed"
 cask "zoom"
 mas "Amphetamine", id: 937984704
