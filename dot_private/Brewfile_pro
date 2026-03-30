@@ -347,7 +347,6 @@ cask "obs"
 cask "postman"
 cask "postman-cli"
 cask "rectangle"
-# cask "skyfonts" # removed: download URL broken (CDN dead)
 cask "xquartz"
 cask "zed"
 go "golang.org/x/tools/cmd/callgraph"
