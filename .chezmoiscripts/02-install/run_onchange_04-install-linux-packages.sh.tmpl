@@ -46,6 +46,7 @@
 {{- end }}
 {{- if $isUbuntuDesktop }}
 # Aptfile_ubuntu_gui:     {{ include "dot_private/Aptfile_ubuntu_gui" | sha256sum }}
+# Snapfile_ubuntu_desktop: {{ include "dot_private/Snapfile_ubuntu_desktop" | sha256sum }}
 {{- end }}
 {{- if $isFedoraDesktop }}
 # Dnffile_fedora_gui:     {{ include "dot_private/Dnffile_fedora_gui" | sha256sum }}
@@ -323,6 +324,20 @@ fi
 if command -v flatpak &>/dev/null; then
     if ! flatpak remote-list --user 2>/dev/null | grep -q flathub; then
         flatpak remote-add --user --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+    fi
+fi
+
+# Snap packages (Ubuntu — pre-installed, priority: apt > brew > snap > script)
+if command -v snap &>/dev/null; then
+    _snapfile="{{ .chezmoi.sourceDir }}/dot_private/Snapfile_ubuntu_desktop"
+    if [[ -f "$_snapfile" ]]; then
+        mapfile -t _snappkgs < <(grep -v '^\s*#' "$_snapfile" | grep -v '^\s*$')
+        for _pkg in "${_snappkgs[@]}"; do
+            if ! snap list "$_pkg" &>/dev/null 2>&1; then
+                echo "📦 Installing snap: $_pkg..."
+                sudo snap install "$_pkg" 2>/dev/null || true
+            fi
+        done
     fi
 fi
 {{- end }}

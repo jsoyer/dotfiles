@@ -1488,6 +1488,16 @@ def yay [...args: string] {
     }
 }
 
+# Ubuntu: snap → snapw
+def snap [...args: string] {
+    let mp = ($env.MACHINE_PROFILE? | default "")
+    if ($mp | str starts-with "ubuntu") {
+        ^snapw ...$args
+    } else {
+        ^snap ...$args
+    }
+}
+
 # Fedora Atomic: rpm-ostree → ostreew
 # (nushell does not support hyphens in def names; use an alias instead)
 alias "rpm-ostree" = ostreew

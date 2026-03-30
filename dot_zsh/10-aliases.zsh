@@ -207,6 +207,11 @@ if [[ "${MACHINE_PROFILE:-}" == arch-desktop || "${MACHINE_PROFILE:-}" == "omarc
     yay() { yayw "$@"; }
 fi
 
+# Ubuntu snap wrapper
+if [[ "${IS_UBUNTU:-false}" == "true" ]]; then
+    snap() { command snapw "$@"; }
+fi
+
 # Fedora Atomic wrapper
 if [[ "${MACHINE_PROFILE:-}" == fedora-atomic ]]; then
     function rpm-ostree() { ostreew "$@"; }

@@ -467,6 +467,13 @@ if test "$_mp" = arch-desktop
     end
 end
 
+# Ubuntu snap wrapper
+if string match -q 'ubuntu*' "$_mp"
+    function snap --wraps snapw --description 'snap wrapper with manifest sync'
+        command snapw $argv
+    end
+end
+
 {{ end -}}
 # Fedora Atomic wrapper
 if test "$_mp" = fedora-atomic
