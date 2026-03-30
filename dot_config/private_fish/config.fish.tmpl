@@ -419,10 +419,13 @@ if test "$MACHINE_PROFILE" != "mac-pro"
 end
 
 # ============================================================================
-# Homebrew (via breww wrapper)
+# Homebrew (via breww wrapper) + Mac App Store (via masw)
 # ============================================================================
 {{ if eq .chezmoi.os "darwin" -}}
 alias b='breww'
+function mas --wraps masw --description 'mas wrapper with Brewfile sync'
+    command masw $argv
+end
 alias bi='breww install'
 alias bu='breww update'
 alias bup='breww upgrade'

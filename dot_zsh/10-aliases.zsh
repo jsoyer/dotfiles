@@ -172,9 +172,12 @@ fi
 alias sshpw='ssh -o PreferredAuthentications=password'
 
 # ============================================================================
-# Homebrew (via breww wrapper)
+# Homebrew (via breww wrapper) + Mac App Store (via masw)
 # ============================================================================
 alias b='breww'
+if [[ "$OSTYPE" == darwin* ]]; then
+    mas() { command masw "$@"; }
+fi
 alias bi='breww install'
 alias bu='breww update'
 alias bup='breww upgrade'

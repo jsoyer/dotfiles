@@ -1100,9 +1100,10 @@ alias fuzz = ffuf -w ~/hacking/SecLists/content_discovery_all.txt -mc all -u
 alias nm = nmap -sC -sV -oN nmap
 
 # ============================================================================
-# Homebrew (via breww wrapper)
+# Homebrew (via breww wrapper) + Mac App Store (via masw)
 # ============================================================================
 alias b = breww
+def mas [...args: string] { ^masw ...$args }
 alias bi = breww install
 alias bu = breww update
 alias bup = breww upgrade
