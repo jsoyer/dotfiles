@@ -12,6 +12,19 @@ for cache_dir in "${HOME}/.cache/starship" "${HOME}/.cache/zoxide" "${HOME}/.cac
         if [[ -n "$cached_path" ]] && [[ ! -x "$cached_path" ]]; then
             rm -rf "$cache_dir"
         fi
+    else
+        # No meta file — check cache content for dead paths (e.g., /opt/homebrew on Linux)
+        for init_file in "$cache_dir"/init.*; do
+            [[ -f "$init_file" ]] || continue
+            if grep -q '/opt/homebrew/' "$init_file" 2>/dev/null && [[ ! -d "/opt/homebrew" ]]; then
+                rm -rf "$cache_dir"
+                break
+            fi
+            if grep -q '/home/linuxbrew/' "$init_file" 2>/dev/null && [[ ! -d "/home/linuxbrew" ]]; then
+                rm -rf "$cache_dir"
+                break
+            fi
+        done
     fi
 done
 
