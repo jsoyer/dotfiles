@@ -586,7 +586,7 @@ cask "warp"
 cask "wezterm"
 cask "whatsapp"
 cask "yacreader"
-cask "yubico-yubikey-manager"
+cask "yubico-authenticator"
 cask "zed"
 cask "zoom"
 mas "Amphetamine", id: 937984704

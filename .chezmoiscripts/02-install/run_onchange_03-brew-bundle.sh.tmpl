@@ -12,7 +12,7 @@
 # fedora_atomic:   {{ include "dot_private/Brewfile_fedora_atomic" | sha256sum }}
 {{- end }}
 
-set -euo pipefail
+set -uo pipefail  # no -e: brew bundle returns non-zero if some deps fail (non-fatal)
 eval "$(brew shellenv)"
 
 BREWFILE_DIR="{{ .chezmoi.sourceDir }}/dot_private"
