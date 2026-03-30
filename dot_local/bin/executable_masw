@@ -115,7 +115,6 @@ case "$SUBCOMMAND" in
 
         if [[ -n "$BREWFILE" ]]; then
             if grep -qF "id: ${app_id}" "$BREWFILE" 2>/dev/null; then
-                local tmp
                 tmp="$(mktemp)"
                 grep -vF "id: ${app_id}" "$BREWFILE" > "$tmp"
                 mv "$tmp" "$BREWFILE"

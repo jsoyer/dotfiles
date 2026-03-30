@@ -18,7 +18,9 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@v4
+        env:
+          FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
       - name: Install chezmoi
         run: sh -c "$(curl -fsLS get.chezmoi.io)" -- -b /usr/local/bin
@@ -102,7 +104,7 @@ jobs:
                 ERRORS=$(( ERRORS + 1 ))
               fi
             done < "$f"
-          done < <(find dot_private -name 'Aptfile_*' -o -name 'Dnffile_*' -o -name 'Pacfile_*' 2>/dev/null)
+          done < <(find dot_private -name 'Aptfile_*' -o -name 'Dnffile_*' -o -name 'Pacfile_*' -o -name 'Rpmfile_*' -o -name 'Snapfile_*' 2>/dev/null)
           if [[ "$ERRORS" -gt 0 ]]; then
             echo "Manifest format: FAIL ($ERRORS errors)"
             exit 1
