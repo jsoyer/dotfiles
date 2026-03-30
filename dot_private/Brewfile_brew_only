@@ -14,4 +14,5 @@ brew "stylua"
 brew "xh"
 brew "yq"
 brew "opencode"
+brew "television"
 # rtk: installed via AUR on Arch, brew install in install-linux-packages script on others
