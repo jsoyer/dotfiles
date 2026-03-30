@@ -3,6 +3,7 @@
 
 brew "age"
 brew "dust"
+brew "eza"
 brew "gh"
 brew "glow"
 brew "go"
