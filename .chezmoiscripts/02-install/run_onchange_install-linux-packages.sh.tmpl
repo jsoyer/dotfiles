@@ -63,9 +63,10 @@
 set -euo pipefail
 
 # Ensure brew is in PATH if installed (chezmoi scripts run in isolated subshells)
-if [[ -d "/home/linuxbrew/.linuxbrew" ]]; then
+# Check binary directly — directory may exist before brew is fully installed
+if [[ -x "/home/linuxbrew/.linuxbrew/bin/brew" ]]; then
     eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
-elif [[ -d "${HOME}/.linuxbrew" ]]; then
+elif [[ -x "${HOME}/.linuxbrew/bin/brew" ]]; then
     eval "$("${HOME}/.linuxbrew/bin/brew" shellenv)"
 fi
 
