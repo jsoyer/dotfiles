@@ -91,14 +91,7 @@ if [[ ! -f /etc/apt/sources.list.d/signal-xenial.list ]]; then
         | sudo tee /etc/apt/sources.list.d/signal-xenial.list > /dev/null
 fi
 
-# Zed Editor
-if [[ ! -f /etc/apt/sources.list.d/zed.list ]]; then
-    echo "  Adding Zed Editor repo..."
-    curl -fsSL https://zed.dev/linux/apt/gpg.key \
-        | sudo gpg --yes --dearmor -o /etc/apt/keyrings/zed.gpg
-    echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/zed.gpg] https://zed.dev/linux/apt stable main" \
-        | sudo tee /etc/apt/sources.list.d/zed.list > /dev/null
-fi
+# Zed Editor — no official apt repo, installed via curl script in install-linux-packages
 
 sudo apt update
 {{- end }}

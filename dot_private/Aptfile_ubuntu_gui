@@ -3,7 +3,7 @@
 brave-browser
 google-chrome-stable
 signal-desktop
-zed
+# zed: no apt repo, installed via curl script
 vlc
 remmina
 filezilla

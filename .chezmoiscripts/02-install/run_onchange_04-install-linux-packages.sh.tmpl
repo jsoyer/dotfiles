@@ -508,6 +508,12 @@ if _has_gui; then
         mapfile -t _guipkgs < <(grep -v '^\s*#' "$_guifile" | grep -v '^\s*$')
         [[ ${#_guipkgs[@]} -gt 0 ]] && sudo apt-get install -y "${_guipkgs[@]}"
     fi
+
+    # Zed Editor — no official apt repo, use native installer
+    if ! command -v zed &>/dev/null; then
+        echo "🖊️ Installing Zed Editor..."
+        curl -f https://zed.dev/install.sh | sh 2>/dev/null || true
+    fi
 {{- end }}
 
 {{- if $isFedoraDesktop }}
