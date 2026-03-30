@@ -1368,6 +1368,34 @@ def --env mkd [...args: string] {
     cd ($args | last)
 }
 
+def cpurge [] {
+    print "WARNING: This will remove chezmoi source directory and config."
+    print "  - Deletes: ~/.local/share/chezmoi (source repo)"
+    print "  - Deletes: ~/.config/chezmoi/chezmoi.toml (config)"
+    print "  - Keeps:   All deployed dotfiles in your home directory"
+    let reply = (input "Are you sure? (y/N) ")
+    if $reply == "y" or $reply == "Y" {
+        ^chezmoi purge --force
+        print "chezmoi purged."
+    } else {
+        print "Aborted."
+    }
+}
+
+def cdestroy [] {
+    print "DANGER: This will remove chezmoi AND all managed dotfiles!"
+    print "  - Deletes: ~/.local/share/chezmoi (source repo)"
+    print "  - Deletes: ~/.config/chezmoi/chezmoi.toml (config)"
+    print "  - Deletes: ALL files managed by chezmoi in your home"
+    let reply = (input "Type 'destroy' to confirm: ")
+    if $reply == "destroy" {
+        ^chezmoi destroy --force
+        print "chezmoi destroyed. All managed files removed."
+    } else {
+        print "Aborted."
+    }
+}
+
 # ============================================================================
 # Claude Code
 # ============================================================================
