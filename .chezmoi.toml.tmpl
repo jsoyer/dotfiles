@@ -50,6 +50,9 @@ encryption = "age"
 {{- if has $mp $desktopProfiles }}
     install_ocx = {{ promptBoolOnce . "install_ocx" "Install OpenCode extensions (ocx + npm plugins)?" false }}
 {{- end }}
+{{- if or (eq $mp "mac-personal") (eq $mp "mac-pro") }}
+    install_mas = {{ promptBoolOnce . "install_mas" "Install Mac App Store apps via mas?" false }}
+{{- end }}
 
 {{- if eq $mp "omarchy" }}
 
