@@ -84,3 +84,50 @@ fi
 printf '\n'
 printf '%b\n' "Thresholds: ${GREEN}< 300ms${NC} fast  ${YELLOW}300-500ms${NC} ok  ${RED}> 500ms${NC} slow"
 printf 'To improve: check 99-integrations for slow tool inits, use lazy-loading.\n'
+printf 'Per-file profiling: run zsh-profiler\n'
+
+# --- History tracking ---
+HISTORY_DIR="${HOME}/.cache/cmbench"
+HISTORY_FILE="${HISTORY_DIR}/history.csv"
+mkdir -p "${HISTORY_DIR}"
+
+# Collect current results for history
+_record_bench() {
+    local shell="$1"
+    shift
+    local total_ms=0
+    for (( i = 0; i < RUNS; i++ )); do
+        local elapsed
+        elapsed="$(_time_ms "$@")"
+        total_ms=$(( total_ms + elapsed ))
+    done
+    local avg_ms=$(( total_ms / RUNS ))
+    echo "$avg_ms"
+}
+
+TIMESTAMP="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+HOSTNAME="$(hostname -s 2>/dev/null || echo unknown)"
+
+# Create header if new file
+if [[ ! -f "${HISTORY_FILE}" ]]; then
+    echo "timestamp,hostname,zsh,bash,fish,nu" > "${HISTORY_FILE}"
+fi
+
+ZSH_MS=""; BASH_MS=""; FISH_MS=""; NU_MS=""
+command -v zsh  &>/dev/null && ZSH_MS="$(_record_bench zsh zsh -i -c exit)"
+command -v bash &>/dev/null && BASH_MS="$(_record_bench bash bash -i -c exit)"
+command -v fish &>/dev/null && FISH_MS="$(_record_bench fish fish -c exit)"
+command -v nu   &>/dev/null && NU_MS="$(_record_bench nu nu -c exit)"
+
+echo "${TIMESTAMP},${HOSTNAME},${ZSH_MS},${BASH_MS},${FISH_MS},${NU_MS}" >> "${HISTORY_FILE}"
+
+# Show history if --history flag
+if [[ "${1:-}" == "--history" ]]; then
+    printf '\n%b\n' "${BOLD}Benchmark history (last 10):${NC}"
+    printf '  %-22s %-12s %6s %6s %6s %6s\n' "Date" "Host" "zsh" "bash" "fish" "nu"
+    printf '  %s\n' "--------------------------------------------------------------"
+    tail -10 "${HISTORY_FILE}" | while IFS=',' read -r ts host z b f n; do
+        [[ "$ts" == "timestamp" ]] && continue
+        printf '  %-22s %-12s %5sms %5sms %5sms %5sms\n' "${ts}" "${host}" "${z:-—}" "${b:-—}" "${f:-—}" "${n:-—}"
+    done
+fi

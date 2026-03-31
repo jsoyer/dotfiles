@@ -25,3 +25,8 @@ if (( $+commands[aws_completer] )); then
   bashcompinit
   complete -C aws_completer aws
 fi
+
+# Carapace — multi-shell completion engine (cached init)
+if (( $+commands[carapace] )); then
+  _cache_eval carapace 'carapace _carapace zsh'
+fi

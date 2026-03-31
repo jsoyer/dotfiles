@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+# config-search — FZF-powered search across all config files
+# Usage: config-search [query]
+#   config-search           # interactive browse
+#   config-search "theme"   # pre-filtered search
+
+set -uo pipefail
+
+CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}"
+
+if ! command -v fzf &>/dev/null; then
+    echo "fzf required: brew install fzf / pacman -S fzf"
+    exit 1
+fi
+
+QUERY="${*:-}"
+
+# Search config files with preview
+SELECTED=$(
+    fd --type f --hidden \
+        --exclude .git \
+        --exclude node_modules \
+        --exclude '__pycache__' \
+        --exclude '*.pyc' \
+        . "${CONFIG_DIR}" "${HOME}/.zsh" "${HOME}/.bash" "${HOME}/.tmux.conf" 2>/dev/null \
+    | fzf \
+        --query "${QUERY}" \
+        --preview 'bat --color=always --style=numbers --line-range=:100 {} 2>/dev/null || cat {}' \
+        --preview-window='right:60%:wrap' \
+        --header='Config Search (Enter=edit, Ctrl-Y=copy path)' \
+        --bind='ctrl-y:execute-silent(echo -n {} | pbcopy 2>/dev/null || echo -n {} | wl-copy 2>/dev/null || echo -n {} | xclip -selection clipboard 2>/dev/null)+abort'
+)
+
+if [[ -n "${SELECTED}" ]]; then
+    "${EDITOR:-nvim}" "${SELECTED}"
+fi
