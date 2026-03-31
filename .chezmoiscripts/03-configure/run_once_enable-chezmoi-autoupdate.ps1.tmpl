@@ -1,0 +1,44 @@
+{{- if eq .chezmoi.os "windows" -}}
+# =============================================================================
+# Enable chezmoi-autoupdate — Windows Task Scheduler
+# =============================================================================
+
+$ErrorActionPreference = "Stop"
+
+$taskName = "chezmoi-autoupdate"
+$chezmoiExe = "$env:USERPROFILE\.local\bin\chezmoi-autoupdate"
+$logFile = "$env:TEMP\chezmoi-autoupdate.log"
+
+# Remove existing task if present
+if (Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue) {
+    Unregister-ScheduledTask -TaskName $taskName -Confirm:$false
+}
+
+# Daily at 02:00
+$trigger = New-ScheduledTaskTrigger -Daily -At "02:00"
+
+# Run as current user, non-interactively
+$principal = New-ScheduledTaskPrincipal `
+    -UserId ([System.Security.Principal.WindowsIdentity]::GetCurrent().Name) `
+    -LogonType S4U `
+    -RunLevel Limited
+
+$action = New-ScheduledTaskAction `
+    -Execute "bash.exe" `
+    -Argument "-c `"$chezmoiExe >> '$logFile' 2>&1`""
+
+$settings = New-ScheduledTaskSettingsSet `
+    -StartWhenAvailable `
+    -RunOnlyIfNetworkAvailable `
+    -ExecutionTimeLimit (New-TimeSpan -Minutes 10)
+
+Register-ScheduledTask `
+    -TaskName $taskName `
+    -Trigger $trigger `
+    -Principal $principal `
+    -Action $action `
+    -Settings $settings `
+    -Description "Daily chezmoi dotfiles auto-update"
+
+Write-Host "chezmoi-autoupdate scheduled task registered (daily 02:00)"
+{{- end }}

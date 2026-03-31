@@ -128,3 +128,19 @@ fi
 if command -v terraform >/dev/null 2>&1; then
   complete -C terraform terraform
 fi
+
+# ============================================================================
+# chezmoi background auto-update (login hook — fires if last check > 1h)
+# ============================================================================
+_chezmoi_bg_update() {
+  local stamp="${HOME}/.cache/chezmoi-autoupdate/last-login-check"
+  local now
+  now=$(date +%s)
+  local last=0
+  [[ -f "${stamp}" ]] && last=$(<"${stamp}")
+  if (( now - last > 3600 )); then
+    echo "${now}" > "${stamp}"
+    (chezmoi-autoupdate &>/dev/null &)
+  fi
+}
+command -v chezmoi >/dev/null 2>&1 && _chezmoi_bg_update

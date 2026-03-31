@@ -1,0 +1,16 @@
+[Unit]
+Description=chezmoi auto-update (auto-heal + dotfiles sync)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=%h/.local/bin/chezmoi-autoupdate
+TimeoutStartSec=300
+Environment="PATH=%h/.local/bin:/home/linuxbrew/.linuxbrew/bin:/home/linuxbrew/.linuxbrew/sbin:/usr/local/bin:/usr/bin:/bin"
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=chezmoi-autoupdate
+
+[Install]
+WantedBy=default.target

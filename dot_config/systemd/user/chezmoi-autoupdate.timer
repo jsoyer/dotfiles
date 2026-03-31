@@ -1,0 +1,13 @@
+[Unit]
+Description=chezmoi auto-update — hourly timer
+Requires=chezmoi-autoupdate.service
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=1h
+RandomizedDelaySec=5min
+Persistent=true
+Unit=chezmoi-autoupdate.service
+
+[Install]
+WantedBy=timers.target

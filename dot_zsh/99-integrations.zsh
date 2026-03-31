@@ -89,3 +89,19 @@ if (( $+commands[thefuck] )); then
     fuck "$@"
   }
 fi
+
+# ============================================================================
+# chezmoi background auto-update (login hook — fires if last check > 1h)
+# ============================================================================
+_chezmoi_bg_update() {
+  local stamp="${HOME}/.cache/chezmoi-autoupdate/last-login-check"
+  local now
+  now=$(date +%s)
+  local last=0
+  [[ -f "${stamp}" ]] && last=$(<"${stamp}")
+  if (( now - last > 3600 )); then
+    echo "${now}" > "${stamp}"
+    (chezmoi-autoupdate &>/dev/null &)
+  fi
+}
+(( $+commands[chezmoi] )) && _chezmoi_bg_update

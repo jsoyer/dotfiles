@@ -1,0 +1,33 @@
+{{- $mp := index . "machine_profile" -}}
+{{- $skip := list "mac-pro" "windows" "toolbox" -}}
+{{- if not (has $mp $skip) -}}
+#!/usr/bin/env bash
+# =============================================================================
+# Enable chezmoi-autoupdate timer/agent
+# =============================================================================
+
+set -uo pipefail
+
+{{- if eq .chezmoi.os "linux" }}
+# Linux: enable systemd user timer
+if command -v systemctl >/dev/null 2>&1; then
+    echo "Enabling chezmoi-autoupdate systemd timer..."
+    systemctl --user daemon-reload
+    systemctl --user enable --now chezmoi-autoupdate.timer
+    echo "chezmoi-autoupdate timer enabled"
+else
+    echo "systemctl not available, skipping timer setup"
+fi
+{{- else if eq .chezmoi.os "darwin" }}
+# macOS mac-personal: load launchd agent
+_plist="${HOME}/Library/LaunchAgents/com.jsoyer.chezmoi-autoupdate.plist"
+if [[ -f "${_plist}" ]]; then
+    echo "Loading chezmoi-autoupdate launchd agent..."
+    launchctl unload "${_plist}" 2>/dev/null || true
+    launchctl load "${_plist}"
+    echo "chezmoi-autoupdate launchd agent loaded"
+else
+    echo "LaunchAgent plist not found at ${_plist}, skipping"
+fi
+{{- end }}
+{{- end }}

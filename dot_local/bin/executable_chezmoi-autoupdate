@@ -1,0 +1,268 @@
+#!/usr/bin/env bash
+# =============================================================================
+# chezmoi-autoupdate — Auto-heal + update + notify + heartbeat
+#
+# Phases:
+#   A  Auto-heal (git conflicts, stale caches, SSH perms, brew locks,
+#                 deprecated brew formulas, tmux plugins)
+#   B  chezmoi update --no-tty --keep-going
+#   C  Write status to ~/.cache/chezmoi-autoupdate/status.json
+#   D  Notifications on error only (desktop, ntfy.sh, Telegram, Discord)
+#   E  Heartbeat on success (silent POST to ntfy with hostname + timestamp)
+#   F  Save changelog marker (last-seen-commit)
+#
+# Env vars for notifications:
+#   CHEZMOI_NTFY_TOPIC    — ntfy.sh topic name
+#   TELEGRAM_BOT_TOKEN    — Telegram bot token
+#   TELEGRAM_CHAT_ID      — Telegram chat/channel ID
+#   DISCORD_WEBHOOK_URL   — Discord incoming webhook URL
+# =============================================================================
+
+set -uo pipefail
+
+# ---------------------------------------------------------------------------
+# Constants
+# ---------------------------------------------------------------------------
+readonly SCRIPT_NAME="${0##*/}"
+readonly CACHE_DIR="${HOME}/.cache/chezmoi-autoupdate"
+readonly STATUS_FILE="${CACHE_DIR}/status.json"
+readonly LOG_FILE="${CACHE_DIR}/last-run.log"
+readonly LAST_COMMIT_FILE="${CACHE_DIR}/last-seen-commit"
+readonly CHEZMOI_SOURCE="${HOME}/.local/share/chezmoi"
+
+HOSTNAME_SHORT="$(hostname -s 2>/dev/null || hostname)"
+
+# ---------------------------------------------------------------------------
+# Logging
+# ---------------------------------------------------------------------------
+log() { printf '[%s] %s\n' "$(date '+%H:%M:%S')" "$*" >> "${LOG_FILE}"; }
+log_err() { printf '[%s] ERROR: %s\n' "$(date '+%H:%M:%S')" "$*" | tee -a "${LOG_FILE}" >&2; }
+
+# ---------------------------------------------------------------------------
+# Prep
+# ---------------------------------------------------------------------------
+mkdir -p "${CACHE_DIR}"
+: > "${LOG_FILE}"
+
+START_TS="$(date +%s)"
+ERRORS=()
+
+log "chezmoi-autoupdate started on ${HOSTNAME_SHORT}"
+
+# ---------------------------------------------------------------------------
+# Phase A — Auto-heal
+# ---------------------------------------------------------------------------
+log "Phase A: auto-heal"
+
+## A1. Git conflicts in chezmoi source dir
+if [[ -d "${CHEZMOI_SOURCE}/.git" ]]; then
+    if git -C "${CHEZMOI_SOURCE}" status --porcelain 2>/dev/null | grep -q "^UU\|^AA\|^DD"; then
+        log "A1: Resolving git merge conflicts"
+        git -C "${CHEZMOI_SOURCE}" rebase --abort 2>/dev/null || true
+        git -C "${CHEZMOI_SOURCE}" merge --abort 2>/dev/null || true
+        git -C "${CHEZMOI_SOURCE}" reset --hard "origin/main" 2>/dev/null \
+            || git -C "${CHEZMOI_SOURCE}" reset --hard "origin/master" 2>/dev/null \
+            || ERRORS+=("A1: git reset failed")
+        log "A1: Reset to origin/main"
+    fi
+fi
+
+## A2. Stale cache paths (broken symlinks in completions / plugin dirs)
+_stale_cache_dirs=(
+    "${HOME}/.cache/zsh/completions"
+    "${HOME}/.cache/bash"
+)
+for _dir in "${_stale_cache_dirs[@]}"; do
+    if [[ -d "${_dir}" ]]; then
+        find "${_dir}" -maxdepth 1 -type l ! -e -delete 2>/dev/null || true
+    fi
+done
+log "A2: Stale cache cleanup done"
+
+## A3. SSH directory permissions
+if [[ -d "${HOME}/.ssh" ]]; then
+    chmod 700 "${HOME}/.ssh" 2>/dev/null || true
+    find "${HOME}/.ssh" -maxdepth 1 -type f -name 'id_*' ! -name '*.pub' \
+        -exec chmod 600 {} \; 2>/dev/null || true
+    find "${HOME}/.ssh" -maxdepth 1 -type f -name '*.pub' \
+        -exec chmod 644 {} \; 2>/dev/null || true
+    [[ -f "${HOME}/.ssh/authorized_keys" ]] && chmod 600 "${HOME}/.ssh/authorized_keys" 2>/dev/null || true
+    [[ -f "${HOME}/.ssh/known_hosts" ]] && chmod 644 "${HOME}/.ssh/known_hosts" 2>/dev/null || true
+    log "A3: SSH permissions fixed"
+fi
+
+## A4. Homebrew stale lock files (locks older than 30 minutes)
+if command -v brew >/dev/null 2>&1; then
+    _brew_locks_dir="$(brew --prefix 2>/dev/null)/var/homebrew/locks"
+    if [[ -d "${_brew_locks_dir}" ]]; then
+        find "${_brew_locks_dir}" -maxdepth 1 -name '*.pid' -mmin +30 -delete 2>/dev/null || true
+        log "A4: Stale brew locks cleaned"
+    fi
+fi
+
+## A5. Deprecated Homebrew formulas (auto-uninstall known deprecated)
+if command -v brew >/dev/null 2>&1; then
+    _deprecated_formulae=(
+        "go@1.19"
+        "python@3.10"
+        "temurin@8"
+        "temurin@11"
+        "temurin@19"
+        "temurin@20"
+        "neofetch"
+    )
+    for _formula in "${_deprecated_formulae[@]}"; do
+        if brew list --formula 2>/dev/null | grep -qxF "${_formula}"; then
+            log "A5: Uninstalling deprecated formula: ${_formula}"
+            brew uninstall --ignore-dependencies "${_formula}" 2>>"${LOG_FILE}" || \
+                ERRORS+=("A5: failed to uninstall ${_formula}")
+        fi
+    done
+fi
+
+## A6. Tmux Plugin Manager — install missing plugins
+if [[ -f "${HOME}/.tmux/plugins/tpm/bin/install_plugins" ]]; then
+    if [[ -f "${HOME}/.tmux.conf" ]] || [[ -f "${HOME}/.config/tmux/tmux.conf" ]]; then
+        log "A6: Running TPM install_plugins"
+        "${HOME}/.tmux/plugins/tpm/bin/install_plugins" >>"${LOG_FILE}" 2>&1 || \
+            ERRORS+=("A6: TPM install_plugins failed")
+    fi
+fi
+
+# ---------------------------------------------------------------------------
+# Phase B — chezmoi update
+# ---------------------------------------------------------------------------
+log "Phase B: chezmoi update"
+
+UPDATE_EXIT=0
+if command -v chezmoi >/dev/null 2>&1; then
+    chezmoi update --no-tty --keep-going >>"${LOG_FILE}" 2>&1 || UPDATE_EXIT=$?
+    if [[ ${UPDATE_EXIT} -ne 0 ]]; then
+        ERRORS+=("B: chezmoi update exited with code ${UPDATE_EXIT}")
+        log_err "chezmoi update failed (exit ${UPDATE_EXIT})"
+    else
+        log "Phase B: chezmoi update succeeded"
+    fi
+else
+    ERRORS+=("B: chezmoi not found in PATH")
+    log_err "chezmoi not found"
+fi
+
+# ---------------------------------------------------------------------------
+# Phase C — Write status JSON
+# ---------------------------------------------------------------------------
+log "Phase C: writing status.json"
+
+END_TS="$(date +%s)"
+DURATION=$(( END_TS - START_TS ))
+TIMESTAMP="$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
+
+if [[ ${#ERRORS[@]} -eq 0 ]]; then
+    STATUS="ok"
+else
+    STATUS="error"
+fi
+
+# Build errors JSON array
+ERRORS_JSON="["
+_first=1
+for _err in "${ERRORS[@]}"; do
+    if [[ ${_first} -eq 1 ]]; then
+        _first=0
+    else
+        ERRORS_JSON+=","
+    fi
+    # Escape double quotes in error string
+    _escaped="${_err//\"/\\\"}"
+    ERRORS_JSON+="\"${_escaped}\""
+done
+ERRORS_JSON+="]"
+
+cat > "${STATUS_FILE}" <<EOF
+{
+  "hostname": "${HOSTNAME_SHORT}",
+  "status": "${STATUS}",
+  "timestamp": "${TIMESTAMP}",
+  "duration_seconds": ${DURATION},
+  "errors": ${ERRORS_JSON}
+}
+EOF
+
+log "Phase C: status=${STATUS} duration=${DURATION}s errors=${#ERRORS[@]}"
+
+# ---------------------------------------------------------------------------
+# Phase D — Notifications on error only
+# ---------------------------------------------------------------------------
+if [[ "${STATUS}" == "error" ]]; then
+    _error_summary="chezmoi-autoupdate failed on ${HOSTNAME_SHORT}: $(IFS='; '; echo "${ERRORS[*]}")"
+    log "Phase D: sending error notifications"
+
+    # D1. Desktop notification
+    if [[ "$(uname -s)" == "Darwin" ]]; then
+        osascript -e "display notification \"${_error_summary}\" with title \"chezmoi-autoupdate\"" \
+            2>>"${LOG_FILE}" || true
+    elif command -v notify-send >/dev/null 2>&1; then
+        notify-send --urgency=critical "chezmoi-autoupdate" "${_error_summary}" \
+            2>>"${LOG_FILE}" || true
+    fi
+
+    # D2. ntfy.sh
+    if [[ -n "${CHEZMOI_NTFY_TOPIC:-}" ]]; then
+        curl -s --max-time 10 \
+            -H "Title: chezmoi-autoupdate error" \
+            -H "Priority: high" \
+            -H "Tags: warning,${HOSTNAME_SHORT}" \
+            -d "${_error_summary}" \
+            "https://ntfy.sh/${CHEZMOI_NTFY_TOPIC}" >>"${LOG_FILE}" 2>&1 || true
+    fi
+
+    # D3. Telegram
+    if [[ -n "${TELEGRAM_BOT_TOKEN:-}" ]] && [[ -n "${TELEGRAM_CHAT_ID:-}" ]]; then
+        _tg_msg="*chezmoi-autoupdate error* on \`${HOSTNAME_SHORT}\`%0A${_error_summary}"
+        curl -s --max-time 10 \
+            "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+            -d "chat_id=${TELEGRAM_CHAT_ID}" \
+            -d "parse_mode=Markdown" \
+            -d "text=${_tg_msg}" >>"${LOG_FILE}" 2>&1 || true
+    fi
+
+    # D4. Discord
+    if [[ -n "${DISCORD_WEBHOOK_URL:-}" ]]; then
+        _discord_payload="{\"content\":\"**chezmoi-autoupdate error** on \`${HOSTNAME_SHORT}\`\\n${_error_summary}\"}"
+        curl -s --max-time 10 \
+            -H "Content-Type: application/json" \
+            -d "${_discord_payload}" \
+            "${DISCORD_WEBHOOK_URL}" >>"${LOG_FILE}" 2>&1 || true
+    fi
+fi
+
+# ---------------------------------------------------------------------------
+# Phase E — Heartbeat on success (silent)
+# ---------------------------------------------------------------------------
+if [[ "${STATUS}" == "ok" ]]; then
+    log "Phase E: sending heartbeat"
+    if [[ -n "${CHEZMOI_NTFY_TOPIC:-}" ]]; then
+        curl -s --max-time 10 \
+            -H "Title: chezmoi-autoupdate ok" \
+            -H "Priority: min" \
+            -H "Tags: white_check_mark,${HOSTNAME_SHORT}" \
+            -d "heartbeat ${HOSTNAME_SHORT} ${TIMESTAMP} (${DURATION}s)" \
+            "https://ntfy.sh/${CHEZMOI_NTFY_TOPIC}" >>"${LOG_FILE}" 2>&1 || true
+    fi
+fi
+
+# ---------------------------------------------------------------------------
+# Phase F — Save changelog marker (last-seen-commit)
+# ---------------------------------------------------------------------------
+log "Phase F: saving last-seen-commit"
+if [[ -d "${CHEZMOI_SOURCE}/.git" ]]; then
+    git -C "${CHEZMOI_SOURCE}" rev-parse HEAD 2>/dev/null > "${LAST_COMMIT_FILE}" || true
+fi
+
+log "chezmoi-autoupdate finished: status=${STATUS}"
+
+# Exit with non-zero on errors so callers / systemd can detect failure
+if [[ "${STATUS}" == "error" ]]; then
+    exit 1
+fi
+exit 0

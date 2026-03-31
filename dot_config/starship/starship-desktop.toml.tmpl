@@ -1,5 +1,5 @@
 add_newline = false
-format = """$env_var$directory$character"""
+format = """$env_var$custom.chezmoi_status$directory$character"""
 palette = "catppuccin_mocha"
 right_format = """$all"""
 command_timeout = 1000
@@ -101,6 +101,18 @@ disabled = false
 
 [package]
 disabled = false
+
+[custom.chezmoi_status]
+description = "Show red ✗ if chezmoi-autoupdate last run had errors"
+command = """
+  _f="${HOME}/.cache/chezmoi-autoupdate/status.json"
+  [[ -f "${_f}" ]] || exit 0
+  _s=$(command -v jq >/dev/null 2>&1 && jq -r '.status' "${_f}" 2>/dev/null || grep -o '"status":"[^"]*"' "${_f}" | cut -d'"' -f4)
+  [[ "${_s}" == "error" ]] && echo "✗" || exit 0
+"""
+when = "true"
+format = "[$output]($style) "
+style = "bold red"
 
 [palettes.catppuccin_mocha]
 rosewater = "#f5e0dc"
