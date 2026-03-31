@@ -34,14 +34,24 @@ Complete reference for understanding, using, and extending the chezmoi dotfiles 
   - Disaster recovery procedures
   - Maintenance calendar
 
+- **[PROFILE-MIGRATION.md](PROFILE-MIGRATION.md)** — Changing machine profiles
+  - All 14 available profiles with detection methods
+  - 3 methods to change profiles (direct edit, re-init, hostname)
+  - 5 real-world migration scenarios (server↔desktop, distro changes, OmArchy)
+  - Cleanup procedures after migration
+  - Detailed troubleshooting for profile issues
+
 ## Directory Structure
 
 ```
 docs/
-├── README.md          # This file
-├── ONBOARDING.md      # Setup & customization guide
-├── ARCHITECTURE.md    # System design & component overview
-└── RUNBOOK.md         # Operations & troubleshooting
+├── README.md              # This file (documentation index)
+├── ONBOARDING.md          # Setup & customization guide
+├── ARCHITECTURE.md        # System design & component overview
+├── RUNBOOK.md             # Operations & troubleshooting
+├── PROFILE-MIGRATION.md   # Changing machine profiles
+├── ALIASES.md             # Command aliases reference
+└── CHEZMOISCRIPTS.md      # Lifecycle scripts reference
 ```
 
 ## Quick Start
@@ -116,6 +126,9 @@ See [ONBOARDING.md#working-with-ai-agents-and-skills](ONBOARDING.md#working-with
 | Install a package | [RUNBOOK.md](RUNBOOK.md#install-a-new-package) |
 | Make config platform-specific | [ONBOARDING.md](ONBOARDING.md#understanding-templates) |
 | Add a new machine profile | [ONBOARDING.md](ONBOARDING.md#adding-a-new-platform-profile) |
+| Change machine profile | [PROFILE-MIGRATION.md](PROFILE-MIGRATION.md#changing-your-profile) |
+| Migrate server ↔ desktop | [PROFILE-MIGRATION.md](PROFILE-MIGRATION.md#migration-scenarios) |
+| Migrate to different distro | [PROFILE-MIGRATION.md](PROFILE-MIGRATION.md#scenario-3-ubuntu--arch-distro-change) |
 | Fix chezmoi issues | [RUNBOOK.md](RUNBOOK.md#troubleshooting) |
 | Recover from a bad change | [RUNBOOK.md](RUNBOOK.md#rollback-a-bad-change) |
 

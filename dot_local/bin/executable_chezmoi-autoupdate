@@ -132,6 +132,19 @@ if [[ -f "${HOME}/.tmux/plugins/tpm/bin/install_plugins" ]]; then
 fi
 
 # ---------------------------------------------------------------------------
+# Network check (between Phase A and Phase B)
+# ---------------------------------------------------------------------------
+NETWORK_METERED=false
+if command -v nmcli >/dev/null 2>&1; then
+    _metered=$(nmcli -t -f GENERAL.METERED dev show 2>/dev/null | head -1 | cut -d: -f2)
+    [[ "${_metered}" == "yes" ]] && NETWORK_METERED=true
+    unset _metered
+fi
+if [[ "${NETWORK_METERED}" == "true" ]]; then
+    log "Network is metered — heavy operations will be skipped"
+fi
+
+# ---------------------------------------------------------------------------
 # Phase B — chezmoi update
 # ---------------------------------------------------------------------------
 log "Phase B: chezmoi update"

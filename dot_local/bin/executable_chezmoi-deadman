@@ -1,0 +1,355 @@
+#!/usr/bin/env bash
+# =============================================================================
+# chezmoi-deadman — Alert if any machine in the fleet hasn't updated in N days
+#
+# Run on a hub machine (e.g., RPi always-on) via cron:
+#   0 9 * * * chezmoi-deadman
+#
+# Discovery methods (tried in order per machine):
+#   1. SSH into the machine via Tailscale hostname and read status.json
+#   2. CHEZMOI_FLEET_MACHINES env var (comma-separated hostnames, no Tailscale)
+#
+# Alert channels (enabled by env vars):
+#   CHEZMOI_NTFY_TOPIC   — ntfy topic name
+#   CHEZMOI_NTFY_URL     — ntfy server URL (default: https://ntfy.sh)
+#   CHEZMOI_NTFY_TOKEN   — ntfy auth token (self-hosted with auth)
+#   TELEGRAM_BOT_TOKEN   — Telegram bot token
+#   TELEGRAM_CHAT_ID     — Telegram chat/channel ID
+#   DISCORD_WEBHOOK_URL  — Discord incoming webhook URL
+#
+# Configuration env vars:
+#   CHEZMOI_FLEET_MACHINES — comma-separated fallback hostnames (no Tailscale)
+#   CHEZMOI_DEADMAN_DAYS   — threshold in days before alerting (default: 7)
+#   CHEZMOI_SSH_USER       — SSH user for remote machines (default: current user)
+#   CHEZMOI_SSH_KEY        — path to SSH key (default: ~/.ssh/id_ed25519)
+#   CHEZMOI_SSH_TIMEOUT    — SSH connect timeout in seconds (default: 10)
+# =============================================================================
+
+set -uo pipefail
+
+# ---------------------------------------------------------------------------
+# Constants
+# ---------------------------------------------------------------------------
+readonly SCRIPT_NAME="${0##*/}"
+readonly CACHE_DIR="${HOME}/.cache/chezmoi-autoupdate"
+readonly DEADMAN_LOG="${CACHE_DIR}/deadman-last-run.log"
+readonly DEADMAN_STATE="${CACHE_DIR}/deadman-state.json"
+readonly REMOTE_STATUS_PATH=".cache/chezmoi-autoupdate/status.json"
+
+THRESHOLD_DAYS="${CHEZMOI_DEADMAN_DAYS:-7}"
+readonly THRESHOLD_SECS=$(( THRESHOLD_DAYS * 86400 ))
+readonly NOW="$(date +%s)"
+
+SSH_USER="${CHEZMOI_SSH_USER:-${USER}}"
+SSH_KEY="${CHEZMOI_SSH_KEY:-${HOME}/.ssh/id_ed25519}"
+SSH_TIMEOUT="${CHEZMOI_SSH_TIMEOUT:-10}"
+
+# ---------------------------------------------------------------------------
+# Logging
+# ---------------------------------------------------------------------------
+mkdir -p "${CACHE_DIR}"
+: > "${DEADMAN_LOG}"
+
+log()     { printf '[%s] %s\n'        "$(date '+%H:%M:%S')" "$*" | tee -a "${DEADMAN_LOG}"; }
+log_err() { printf '[%s] ERROR: %s\n' "$(date '+%H:%M:%S')" "$*" | tee -a "${DEADMAN_LOG}" >&2; }
+
+# ---------------------------------------------------------------------------
+# SSH helper — reads remote status.json with timeout, outputs content or empty
+# ---------------------------------------------------------------------------
+_ssh_read_status() {
+    local host="$1"
+    local ssh_key_args=()
+    [[ -f "${SSH_KEY}" ]] && ssh_key_args=(-i "${SSH_KEY}")
+
+    ssh \
+        -o StrictHostKeyChecking=no \
+        -o BatchMode=yes \
+        -o ConnectTimeout="${SSH_TIMEOUT}" \
+        -o ServerAliveInterval=5 \
+        -o ServerAliveCountMax=1 \
+        "${ssh_key_args[@]}" \
+        "${SSH_USER}@${host}" \
+        "cat ~/${REMOTE_STATUS_PATH} 2>/dev/null" \
+        2>/dev/null
+}
+
+# ---------------------------------------------------------------------------
+# Parse ISO8601 or epoch timestamp → epoch seconds
+# Returns 0 on success (prints epoch), non-zero on failure
+# ---------------------------------------------------------------------------
+_parse_timestamp() {
+    local ts="$1"
+    # Plain epoch integer
+    if [[ "${ts}" =~ ^[0-9]+$ ]]; then
+        printf '%s' "${ts}"
+        return 0
+    fi
+    # ISO8601 — try GNU date, then BSD date
+    date -d "${ts}" +%s 2>/dev/null \
+        || date -j -f "%Y-%m-%dT%H:%M:%SZ" "${ts}" +%s 2>/dev/null \
+        || return 1
+}
+
+# ---------------------------------------------------------------------------
+# Human-readable duration from seconds
+# ---------------------------------------------------------------------------
+_human_duration() {
+    local secs="$1"
+    local days=$(( secs / 86400 ))
+    local hours=$(( (secs % 86400) / 3600 ))
+    if (( days > 0 )); then
+        printf '%dd %dh' "${days}" "${hours}"
+    else
+        printf '%dh' "${hours}"
+    fi
+}
+
+# ---------------------------------------------------------------------------
+# Send alert via all configured channels
+# ---------------------------------------------------------------------------
+_send_alert() {
+    local host="$1"
+    local reason="$2"
+    local age_str="$3"
+
+    local message="chezmoi-deadman: machine '${host}' has not updated in ${age_str} (${reason})"
+    log "ALERT: ${message}"
+
+    # ntfy
+    if [[ -n "${CHEZMOI_NTFY_TOPIC:-}" ]]; then
+        local ntfy_url="${CHEZMOI_NTFY_URL:-https://ntfy.sh}"
+        local ntfy_auth=()
+        [[ -n "${CHEZMOI_NTFY_TOKEN:-}" ]] && ntfy_auth=(-H "Authorization: Bearer ${CHEZMOI_NTFY_TOKEN}")
+        curl -s --max-time 15 \
+            "${ntfy_auth[@]}" \
+            -H "Title: chezmoi fleet alert: ${host}" \
+            -H "Priority: high" \
+            -H "Tags: warning,skull,${host}" \
+            -d "${message}" \
+            "${ntfy_url}/${CHEZMOI_NTFY_TOPIC}" >> "${DEADMAN_LOG}" 2>&1 || true
+    fi
+
+    # Telegram
+    if [[ -n "${TELEGRAM_BOT_TOKEN:-}" ]] && [[ -n "${TELEGRAM_CHAT_ID:-}" ]]; then
+        local tg_msg
+        tg_msg="$(printf '*chezmoi deadman alert*\nMachine: \`%s\`\nAge: %s\nReason: %s' \
+            "${host}" "${age_str}" "${reason}")"
+        curl -s --max-time 15 \
+            "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+            -d "chat_id=${TELEGRAM_CHAT_ID}" \
+            -d "parse_mode=Markdown" \
+            --data-urlencode "text=${tg_msg}" >> "${DEADMAN_LOG}" 2>&1 || true
+    fi
+
+    # Discord
+    if [[ -n "${DISCORD_WEBHOOK_URL:-}" ]]; then
+        local escaped_msg="${message//\"/\\\"}"
+        local discord_payload="{\"content\":\"**chezmoi deadman alert** — \`${host}\` — ${escaped_msg}\"}"
+        curl -s --max-time 15 \
+            -H "Content-Type: application/json" \
+            -d "${discord_payload}" \
+            "${DISCORD_WEBHOOK_URL}" >> "${DEADMAN_LOG}" 2>&1 || true
+    fi
+}
+
+# ---------------------------------------------------------------------------
+# Check a single machine — returns exit code and prints JSON result object
+# ---------------------------------------------------------------------------
+_check_machine() {
+    local host="$1"
+    local result_status=""
+    local result_last_update="unknown"
+    local result_age_secs=0
+    local result_profile="unknown"
+    local result_errors="[]"
+
+    log "Checking machine: ${host}"
+
+    # Attempt SSH read
+    local raw_json
+    raw_json="$(_ssh_read_status "${host}")" || true
+
+    if [[ -z "${raw_json}" ]]; then
+        log "  ${host}: SSH failed or status.json missing — marking as unreachable"
+        result_status="unreachable"
+        printf '{"host":"%s","status":"unreachable","last_update":"unknown","age_secs":-1,"age_human":"unknown","profile":"unknown","errors":[]}\n' \
+            "${host}"
+        return 0
+    fi
+
+    # Parse timestamp from JSON (prefer .timestamp for compatibility with chezmoi-autoupdate)
+    local ts
+    ts="$(printf '%s' "${raw_json}" | grep -o '"timestamp":"[^"]*"' | head -1 | sed 's/"timestamp":"//;s/"//')" || true
+
+    # Fallback: check .last_success field (older format)
+    if [[ -z "${ts}" ]]; then
+        ts="$(printf '%s' "${raw_json}" | grep -o '"last_success":"[^"]*"' | head -1 | sed 's/"last_success":"//;s/"//')" || true
+    fi
+
+    local profile
+    profile="$(printf '%s' "${raw_json}" | grep -o '"machine_profile":"[^"]*"' | head -1 | sed 's/"machine_profile":"//;s/"//')" || true
+    [[ -n "${profile}" ]] && result_profile="${profile}"
+
+    local remote_status
+    remote_status="$(printf '%s' "${raw_json}" | grep -o '"status":"[^"]*"' | head -1 | sed 's/"status":"//;s/"//')" || true
+
+    if [[ -z "${ts}" ]]; then
+        log "  ${host}: no parseable timestamp in status.json — marking as stale"
+        result_status="stale"
+        printf '{"host":"%s","status":"stale","last_update":"unknown","age_secs":-1,"age_human":"unknown","profile":"%s","errors":[]}\n' \
+            "${host}" "${result_profile}"
+        return 0
+    fi
+
+    local ts_epoch
+    ts_epoch="$(_parse_timestamp "${ts}")" || {
+        log "  ${host}: cannot parse timestamp '${ts}'"
+        result_status="stale"
+        printf '{"host":"%s","status":"stale","last_update":"%s","age_secs":-1,"age_human":"unknown","profile":"%s","errors":[]}\n' \
+            "${host}" "${ts}" "${result_profile}"
+        return 0
+    }
+
+    result_age_secs=$(( NOW - ts_epoch ))
+    result_last_update="${ts}"
+
+    local age_human
+    age_human="$(_human_duration "${result_age_secs}")"
+
+    if (( result_age_secs > THRESHOLD_SECS )); then
+        log "  ${host}: STALE — last update ${age_human} ago (threshold: ${THRESHOLD_DAYS}d)"
+        result_status="stale"
+        _send_alert "${host}" "last update ${age_human} ago" "${age_human}"
+    elif [[ "${remote_status}" == "error" ]]; then
+        log "  ${host}: remote status=error — last update ${age_human} ago"
+        result_status="error"
+    else
+        log "  ${host}: OK — last update ${age_human} ago"
+        result_status="ok"
+    fi
+
+    printf '{"host":"%s","status":"%s","last_update":"%s","age_secs":%d,"age_human":"%s","profile":"%s","errors":[]}\n' \
+        "${host}" "${result_status}" "${result_last_update}" "${result_age_secs}" "${age_human}" "${result_profile}"
+}
+
+# ---------------------------------------------------------------------------
+# Discover fleet via tailscale status --json
+# Returns newline-separated hostnames (short names, no domain)
+# ---------------------------------------------------------------------------
+_discover_tailscale_fleet() {
+    if ! command -v tailscale >/dev/null 2>&1; then
+        return 1
+    fi
+
+    local ts_json
+    ts_json="$(tailscale status --json 2>/dev/null)" || return 1
+
+    # Extract DNS names from Peers — strip trailing dots and domain
+    # Works without jq: grep + sed on the JSON
+    if command -v jq >/dev/null 2>&1; then
+        printf '%s' "${ts_json}" \
+            | jq -r '.Peer[] | select(.Online == true) | .DNSName' 2>/dev/null \
+            | sed 's/\.$//; s/\..*//' \
+            | sort -u
+    else
+        # Fallback: grep DNSName values, strip domain
+        printf '%s' "${ts_json}" \
+            | grep -o '"DNSName":"[^"]*"' \
+            | sed 's/"DNSName":"//; s/\.$//; s/\..*//' \
+            | sort -u
+    fi
+}
+
+# ---------------------------------------------------------------------------
+# Main
+# ---------------------------------------------------------------------------
+main() {
+    log "${SCRIPT_NAME} started (threshold: ${THRESHOLD_DAYS} days)"
+
+    local machines=()
+
+    # 1. Try Tailscale peer discovery
+    log "Discovering fleet via Tailscale..."
+    local ts_machines
+    if ts_machines="$(_discover_tailscale_fleet 2>/dev/null)" && [[ -n "${ts_machines}" ]]; then
+        while IFS= read -r m; do
+            [[ -n "${m}" ]] && machines+=("${m}")
+        done <<< "${ts_machines}"
+        log "Tailscale discovered ${#machines[@]} online peer(s): ${machines[*]:-none}"
+    else
+        log "Tailscale not available or no online peers found"
+    fi
+
+    # 2. Fallback: CHEZMOI_FLEET_MACHINES env var
+    if [[ ${#machines[@]} -eq 0 ]] && [[ -n "${CHEZMOI_FLEET_MACHINES:-}" ]]; then
+        IFS=',' read -ra machines <<< "${CHEZMOI_FLEET_MACHINES}"
+        log "Using CHEZMOI_FLEET_MACHINES fallback: ${machines[*]:-none}"
+    fi
+
+    if [[ ${#machines[@]} -eq 0 ]]; then
+        log_err "No machines to check. Set CHEZMOI_FLEET_MACHINES or install Tailscale."
+        exit 1
+    fi
+
+    # 3. Check each machine
+    local results_json="["
+    local stale_count=0
+    local unreachable_count=0
+    local error_count=0
+    local ok_count=0
+    local first=1
+
+    for machine in "${machines[@]}"; do
+        [[ -z "${machine}" ]] && continue
+
+        local result
+        result="$(_check_machine "${machine}")"
+
+        if [[ ${first} -eq 1 ]]; then
+            first=0
+        else
+            results_json+=","
+        fi
+        results_json+="${result}"
+
+        local status
+        status="$(printf '%s' "${result}" | grep -o '"status":"[^"]*"' | sed 's/"status":"//;s/"//')"
+        case "${status}" in
+            stale)       (( stale_count++ ))       || true ;;
+            unreachable) (( unreachable_count++ ))  || true ;;
+            error)       (( error_count++ ))        || true ;;
+            *)           (( ok_count++ ))           || true ;;
+        esac
+    done
+    results_json+="]"
+
+    # 4. Write state file
+    local run_ts
+    run_ts="$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
+    cat > "${DEADMAN_STATE}" <<EOF
+{
+  "run_timestamp": "${run_ts}",
+  "threshold_days": ${THRESHOLD_DAYS},
+  "summary": {
+    "ok": ${ok_count},
+    "stale": ${stale_count},
+    "unreachable": ${unreachable_count},
+    "error": ${error_count},
+    "total": ${#machines[@]}
+  },
+  "machines": ${results_json}
+}
+EOF
+
+    # 5. Summary
+    log "Summary: ${ok_count} ok, ${stale_count} stale, ${unreachable_count} unreachable, ${error_count} error — ${#machines[@]} total"
+    log "State written to: ${DEADMAN_STATE}"
+    log "${SCRIPT_NAME} finished"
+
+    if (( stale_count > 0 || unreachable_count > 0 )); then
+        exit 1
+    fi
+    exit 0
+}
+
+main "$@"
