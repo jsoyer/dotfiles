@@ -6,7 +6,7 @@ command_timeout = 500
 scan_timeout = 30
 
 # Compact format: icon hostname:path ❯
-format = """$env_var$custom.chezmoi_status$hostname$directory$git_branch$git_status$character"""
+format = """$env_var${custom.chezmoi_status}$hostname$directory$git_branch$git_status$character"""
 palette = "snazzy"
 
 # Platform icon — color set per machine_profile via chezmoi template
