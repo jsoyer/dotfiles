@@ -163,6 +163,143 @@ tbx-export-apps arch-rolling
 3. Updates desktop database
 4. All apps now available in your application menu
 
+## Auto-Update & Health Monitoring
+
+Central auto-update system with notifications, auto-healing, and fleet monitoring.
+
+### Core Auto-Update Script
+
+**`chezmoi-autoupdate`** (Primary daemon)
+
+Runs periodically (every 1 hour on Linux/macOS) via systemd timer or launchd. Performs:
+
+1. **Auto-update**: `git pull --rebase` in chezmoi source, `chezmoi apply`
+2. **Auto-heal**: Git conflict resolution, stale cache cleanup, SSH permissions fix, deprecated brew removal, TPM plugin sync
+3. **Notifications**: Desktop (osascript/notify-send), ntfy.sh, Telegram, Discord (on error only)
+4. **Post-apply validation**: Test zsh/bash startup, starship version, tmux launch
+5. **Auto-rollback**: If validation fails, revert to previous commit
+6. **Status tracking**: Save result JSON to `~/.cache/chezmoi-autoupdate/status.json`
+7. **Heartbeat**: Silent POST to ntfy.sh with hostname + timestamp (fleet tracking)
+
+**Usage:**
+```bash
+chezmoi-autoupdate             # Run once manually
+chezmoi-autoupdate --dry-run   # Preview without applying
+chezmoi-autoupdate --rollback  # Force rollback to previous commit
+```
+
+### Configuration Validation
+
+**`chezmoi-validate`** (Pre-apply validation)
+
+Run before applying changes to catch errors early:
+```bash
+chezmoi-validate               # Full validation suite
+chezmoi-validate --strict      # Fail on warnings
+```
+
+### Health & Diagnostics
+
+**`cmhealth`** — Complete system health check
+
+Validates:
+- Git repository clean (no uncommitted changes)
+- Auto-update timer active and running
+- Last update < 2 hours ago
+- No deprecated brew packages
+- No stale caches
+- SSH permissions correct (700 dirs, 600 files)
+- Required environment variables present (MCP server tokens)
+- Nerd Fonts installed
+- No config drift (`chezmoi verify`)
+- Network connectivity (ping)
+- Shell startup time < 1s
+- Tmux/zsh/bash can launch
+
+**Usage:**
+```bash
+cmhealth                       # Full check
+cmhealth --machine-profile     # Show detected profile
+```
+
+**`cmwho`** — Show last pusher
+
+```bash
+cmwho                          # "Author (hash) 5 hours ago: commit message"
+```
+
+**`cminventory`** — Fleet status (if heartbeats collected)
+
+```bash
+cminventory                    # List all machines with last update time
+```
+
+### Performance & Auditing
+
+**`cmbench`** — Shell startup performance
+
+Measures startup time for multiple shells and alerts if > 1 second:
+
+```bash
+cmbench                        # Benchmark zsh, bash, fish, nushell
+```
+
+**`cmaudit`** — Audit missing command dependencies
+
+Parses all alias files, extracts referenced commands, checks if they're installed:
+
+```bash
+cmaudit                        # List missing commands referenced in aliases
+```
+
+### Maintenance & Recovery
+
+**`cmrollback`** — Interactive commit rollback
+
+Shows last 5 commits, choose one to revert:
+
+```bash
+cmrollback                     # Interactive menu to select commit
+```
+
+After rollback, automatically re-applies configuration.
+
+**`cmreload`** — Live reload of modified configs
+
+Sources changed files in active shell, reloads tmux, restarts shell:
+
+```bash
+cmreload                       # Source modified files + reload shell
+cmreload --tmux-only          # Just reload tmux sessions
+```
+
+### Package Management Enhancements
+
+**Wrapper updates** (`breww`, `masw`, `snapw`, `aptw`, `dnfw`, `pacmanw`, `yayw`, `ostreew`)
+
+All wrappers now include:
+
+1. **Blacklist checking** (`breww` only): Skip packages in `Brewfile_blacklist`
+2. **Git pull before push**: Sync latest from remote before updating manifest
+3. **Conflict resolution**: Auto-rebase if remote has changes
+
+**Blacklist example** (`dot_private/Brewfile_blacklist`):
+```
+go@1.19
+python@3.10
+neofetch
+temurin@8
+```
+
+Prevents these packages from being automatically re-added.
+
+### Starship Integration
+
+Custom Chezmoi status indicator in prompt:
+- Starship modules: `starship-desktop.toml.tmpl` + `starship-ssh.toml.tmpl`
+- Shows `✗` in red if last auto-update failed
+- No indicator if everything is healthy
+
 ## Related Documentation
 
 - [RUNBOOK.md](../docs/RUNBOOK.md#script-reference) — Script reference

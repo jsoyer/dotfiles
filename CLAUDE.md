@@ -145,6 +145,94 @@ GUI apps only install when a display server is detected (`_has_gui()` check). CL
 - `yay` → `yayw` (Arch AUR: tracks in Pacfile_aur_*)
 - `scoop` → `scoopw` (Windows: tracks in Scoopfile.json)
 
+### Auto-Update System (`cm*` commands)
+Auto-update monitoring and fleet management via background daemon:
+- `cmstatus` - Show last auto-update status (JSON)
+- `cmlog` - View last auto-update execution log
+- `cmdiff` - Show pending changes with syntax highlighting
+- `cmchangelog` - Show recent dotfile updates
+- `cmwho` - Show who made last push
+- `cmhealth` - Comprehensive system health check
+- `cmbench` - Benchmark shell startup performance
+- `cmaudit` - Audit missing command dependencies
+- `cmrollback` - Interactive rollback to previous commit
+- `cmreload` - Reload modified configs in active shell
+- `cminventory` - Fleet status (if heartbeats configured)
+
+## Auto-Update System
+
+Autonomous background daemon that keeps configurations current with periodic updates, auto-healing, notifications, and fleet monitoring.
+
+### Timers & Activation
+
+| Platform | Mechanism | Interval | Activation | Machines |
+|----------|-----------|----------|------------|----------|
+| **macOS** | launchd agent (`com.jsoyer.chezmoi-autoupdate`) | 1 hour | `run_once_enable-chezmoi-autoupdate.sh` | `mac-personal` only (not `mac-pro`) |
+| **Linux** | systemd user timer + service | 1 hour | `run_once_enable-chezmoi-autoupdate.sh` | Desktop, server, RPi, Fedora Atomic, Toolbox |
+| **Windows** | Task Scheduler | 1x daily | `run_once_enable-chezmoi-autoupdate.ps1` | All Windows profiles |
+
+### Auto-Healing
+
+When `chezmoi-autoupdate` runs, it auto-heals:
+- **Git conflicts**: `rebase --abort` + `reset --hard origin/main`
+- **Stale caches**: Purge old package manager caches
+- **SSH permissions**: Fix 700 (dirs) / 600 (files) automatically
+- **Brew lock stale**: Remove locks older than 30 minutes
+- **Deprecated brew**: Auto-uninstall blacklisted packages (see `Brewfile_blacklist`)
+- **Missing TPM plugins**: Run `~/.tmux/plugins/tpm/bin/install_plugins`
+
+### Notifications
+
+Errors (only, no noise on success):
+- **Desktop**: osascript (macOS) / notify-send (Linux)
+- **ntfy.sh**: Silent heartbeat POST (fleet tracking)
+- **Telegram**: API sendMessage (if token in `secrets.zsh`)
+- **Discord**: Webhook POST (if webhook URL in `secrets.zsh`)
+
+Tokens stored in environment variables, never in repo.
+
+### Post-Apply Validation & Auto-Rollback
+
+After `chezmoi apply`:
+1. Test `zsh -i -c 'exit 0'` — shell starts?
+2. Test `starship --version` — prompt works?
+3. Test `tmux -c 'exit'` — tmux launches?
+
+If any test fails → `git reset --hard HEAD~1 && chezmoi apply` (automatic rollback with notification).
+
+### Status Tracking
+
+Save to `~/.cache/chezmoi-autoupdate/`:
+- `status.json` — Last run: timestamp, duration, exit code, result
+- `last-run.log` — Full output including errors
+- `last-seen-commit` — Baseline for `cmchangelog`
+
+Queryable via `cmstatus` and `cmlog` aliases.
+
+### Heartbeat & Fleet Monitoring
+
+Silent POST to ntfy.sh after successful update:
+```
+POST https://ntfy.sh/chezmoi-fleet-<org>
+hostname=macbook-pro&timestamp=2026-03-28T10:30:00Z
+```
+
+Enables dashboard/deadman-switch detection (machine offline > 7 days).
+
+### Starship Integration
+
+Custom module in `starship-desktop.toml.tmpl` + `starship-ssh.toml.tmpl`:
+- **✗ (red)** if last auto-update failed
+- **silent** if healthy
+
+Shows visual status at command prompt.
+
+### Configuration
+
+**Enable/disable**: Pass `chezmoi_autoupdate_enabled` during init or edit `chezmoi.toml`
+**Timers**: View status with `systemctl --user status chezmoi-autoupdate.timer` (Linux) or `launchctl list com.jsoyer.chezmoi-autoupdate` (macOS)
+**Logs**: `journalctl --user -u chezmoi-autoupdate -f` (Linux) or Console.app (macOS)
+
 ## Security Notes
 
 - Secrets are managed via 1Password CLI (`op`) or environment variables -- never hardcoded
@@ -152,6 +240,7 @@ GUI apps only install when a display server is detected (`_has_gui()` check). CL
 - SSH config is generated via `run_onchange_` script, skips gracefully when 1Password is unavailable
 - MCP server tokens use `${ENV_VAR}` references resolved at runtime
 - `secrets.zsh` is excluded from chezmoi tracking via `.chezmoiignore.tmpl`
+- Auto-update notifications use environment variables for API keys, no secrets in code
 
 ## Lua Diagnostics Note
 

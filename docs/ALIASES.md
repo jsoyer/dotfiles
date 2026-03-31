@@ -174,6 +174,31 @@ Dotfiles management aliases and functions.
 
 ---
 
+## Chezmoi Auto-Update & Monitoring (`cm*` Commands)
+
+Fleet management aliases and utilities for checking health, status, and performing maintenance.
+
+### Monitoring Aliases
+| Alias | Command | Purpose | Notes |
+|-------|---------|---------|-------|
+| `cmstatus` | `jq . ~/.cache/chezmoi-autoupdate/status.json` | Show last auto-update status | JSON output with timestamp, duration, result |
+| `cmlog` | Display `~/.cache/chezmoi-autoupdate/last-run.log` | View last auto-update execution log | Full output including errors |
+| `cmdiff` | `chezmoi diff \| delta` | Show pending changes with colors | Uses delta for syntax highlighting |
+| `cmchangelog` | Git log since last seen commit | Show recent dotfile updates | 20 most recent commits |
+| `cmwho` | `git -C ~/.local/share/chezmoi log -1` | Show who made last push | Author, commit hash, timestamp |
+
+### Maintenance & Diagnostics Scripts
+| Script | Purpose | Usage |
+|--------|---------|-------|
+| `cmhealth` | Comprehensive health check | `cmhealth` - validates git, timer, caches, permissions, secrets, fonts, drift |
+| `cmbench` | Benchmark shell startup time | `cmbench` - test zsh/bash/fish/nu startup performance |
+| `cmaudit` | Audit missing command dependencies | `cmaudit` - check if aliased commands are installed |
+| `cmrollback` | Interactive rollback to previous commit | `cmrollback` - choose from last 5 commits to revert |
+| `cmreload` | Reload modified configs in active shell | `cmreload` - source changed files + reload tmux sessions + restart shell |
+| `cminventory` | Fleet status (if heartbeats configured) | `cminventory` - show all machines' last update status |
+
+---
+
 ## Package Manager Wrappers
 
 All package managers are wrapped to track installations in manifest files (`Brewfile*`, `Aptfile*`, `Dnffile*`, `Pacfile*`, `Scoopfile.json`).

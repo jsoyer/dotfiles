@@ -454,6 +454,62 @@ This performs:
 3. **CLI AI Tools**: `update-ai` updates Claude Code, Copilot CLI, Codex CLI
 4. **Docker/Podman** (if running): Update containers and prune images
 
+### Automatic Updates & Fleet Management
+
+**Background Daemon (Auto-Update)**
+
+The dotfiles include an autonomous background daemon that:
+- **Runs every 1 hour** (systemd timer on Linux, launchd on macOS, Task Scheduler on Windows)
+- **Auto-heals**: Fixes git conflicts, stale caches, SSH permissions, deprecated packages, missing plugins
+- **Post-validation**: Tests shell/starship/tmux after apply, auto-rollback if broken
+- **Notifications**: Desktop alerts and webhooks on errors (ntfy.sh, Telegram, Discord)
+- **Fleet tracking**: Silent heartbeat to ntfy.sh for fleet monitoring (deadman-switch)
+- **Starship integration**: Red ✗ in prompt if last update failed
+
+**Manual Triggers:**
+
+```bash
+chezmoi-autoupdate           # Run once immediately
+chezmoi-autoupdate --dry-run # Preview without applying
+```
+
+**Monitoring & Control:**
+
+| Command | Purpose |
+|---------|---------|
+| `cmhealth` | Full system health check |
+| `cmstatus` | Last auto-update status |
+| `cmlog` | View execution log |
+| `cmwho` | Show last pusher |
+| `cmchangelog` | Recent updates |
+| `cmbench` | Shell startup performance |
+| `cmaudit` | Missing command audit |
+| `cmrollback` | Interactive rollback |
+| `cmreload` | Live reload configs |
+| `cminventory` | Fleet status (if heartbeats) |
+
+**Configuration:**
+
+Managed by systemd/launchd/Task Scheduler. To disable:
+
+```bash
+# Linux
+systemctl --user disable chezmoi-autoupdate.timer
+
+# macOS
+launchctl unload ~/Library/LaunchAgents/com.jsoyer.chezmoi-autoupdate.plist
+
+# View logs
+journalctl --user -u chezmoi-autoupdate -f  # Linux
+```
+
+**Package Manager Safety:**
+
+All wrappers (`breww`, `aptw`, `dnfw`, etc.) now:
+1. Check blacklist (`Brewfile_blacklist`) before re-adding
+2. Perform `git pull --rebase` before pushing changes
+3. Auto-resolve conflicts with remote
+
 ### Syncing Multiple Machines
 
 ```bash

@@ -316,3 +316,207 @@ chezmoi re-add --encrypt <each encrypted file>
 | `claude-init` | Generate CLAUDE.md for new projects | `claude-init` |
 | `tbx-app` | Create .desktop wrapper for toolbox app | `tbx-app <container> <app>` |
 | `tbx-export-apps` | Bulk export toolbox apps | `tbx-export-apps <container>` |
+| `chezmoi-autoupdate` | Central auto-update + auto-heal daemon | `chezmoi-autoupdate [--dry-run] [--rollback]` |
+| `chezmoi-validate` | Pre-apply validation suite | `chezmoi-validate [--strict]` |
+| `cmhealth` | Full system health check | `cmhealth` |
+| `cmbench` | Shell startup performance benchmark | `cmbench` |
+| `cmaudit` | Audit missing command dependencies | `cmaudit` |
+| `cmrollback` | Interactive commit rollback | `cmrollback` |
+| `cmreload` | Live reload configs in active shell | `cmreload [--tmux-only]` |
+| `cmwho` | Show last dotfile pusher | `cmwho` |
+| `cminventory` | Fleet status from heartbeats | `cminventory` |
+
+---
+
+## Auto-Update System Troubleshooting
+
+### Check Timer Status
+
+**Linux (systemd):**
+```bash
+# View timer
+systemctl --user list-timers chezmoi-autoupdate.timer
+
+# View service status
+systemctl --user status chezmoi-autoupdate.service
+
+# View logs (last 50 lines, follow in real-time)
+journalctl --user -u chezmoi-autoupdate -n 50 -f
+
+# Check timer enabled
+systemctl --user is-enabled chezmoi-autoupdate.timer
+```
+
+**macOS (launchd):**
+```bash
+# View agent
+launchctl list | grep chezmoi
+
+# Check if running
+launchctl list com.jsoyer.chezmoi-autoupdate
+
+# View logs
+log stream --predicate 'process == "chezmoi-autoupdate"'
+
+# Manually trigger
+launchctl start com.jsoyer.chezmoi-autoupdate
+```
+
+**Windows (Task Scheduler):**
+```powershell
+# View task
+Get-ScheduledTask -TaskName "ChezmoidAutoupdate" | fl
+
+# View recent runs
+Get-ScheduledTaskInfo -TaskName "ChezmoidAutoupdate"
+
+# Manually trigger
+Start-ScheduledTask -TaskName "ChezmoidAutoupdate"
+```
+
+### View Auto-Update Status
+
+```bash
+# Last run status (JSON)
+cmstatus
+
+# Full execution log
+cmlog
+
+# Human-readable health check
+cmhealth
+
+# Recent changes
+cmchangelog
+```
+
+### Disable Auto-Update
+
+**Temporarily** (until next system reboot):
+```bash
+# Linux
+systemctl --user stop chezmoi-autoupdate.timer
+
+# macOS
+launchctl stop com.jsoyer.chezmoi-autoupdate
+```
+
+**Permanently**:
+```bash
+# Linux
+systemctl --user disable chezmoi-autoupdate.timer
+
+# macOS
+launchctl unload ~/Library/LaunchAgents/com.jsoyer.chezmoi-autoupdate.plist
+
+# Windows (in PowerShell as admin)
+Disable-ScheduledTask -TaskName "ChezmoidAutoupdate"
+```
+
+### Force Manual Update
+
+```bash
+# Run once immediately
+chezmoi-autoupdate
+
+# Preview what would happen
+chezmoi-autoupdate --dry-run
+
+# Force rollback to previous commit
+chezmoi-autoupdate --rollback
+```
+
+### Debug Notification Failures
+
+**Check notification environment variables:**
+```bash
+# Required for Telegram
+echo $TELEGRAM_BOT_TOKEN $TELEGRAM_CHAT_ID
+
+# Required for Discord
+echo $DISCORD_WEBHOOK_URL
+
+# ntfy.sh topic
+echo $NTFY_TOPIC
+```
+
+Set in `~/.zsh/secrets.zsh` (excluded from git):
+```bash
+export TELEGRAM_BOT_TOKEN="xxx"
+export TELEGRAM_CHAT_ID="xxx"
+export DISCORD_WEBHOOK_URL="https://discord.com/api/webhooks/..."
+export NTFY_TOPIC="chezmoi-fleet-myname"
+```
+
+**Test notification manually:**
+```bash
+# Test desktop notification
+notify-send "Test" "This is a test notification"
+
+# Test ntfy.sh
+curl -d "Testing" https://ntfy.sh/my-topic
+
+# Test Discord webhook
+curl -X POST -H "Content-Type: application/json" \
+  -d '{"content":"Test from chezmoi"}' \
+  $DISCORD_WEBHOOK_URL
+```
+
+### Rollback a Bad Update
+
+```bash
+# Interactive: choose from last 5 commits
+cmrollback
+
+# Or manually:
+cd ~/.local/share/chezmoi
+git log --oneline -5          # find commit to revert
+git reset --hard <commit>     # go back to that state
+chezmoi apply -v              # re-apply configuration
+```
+
+### Auto-Heal Not Working
+
+**Check git status:**
+```bash
+cd ~/.local/share/chezmoi
+git status                     # should be clean
+git log -1 --oneline          # should be recent
+```
+
+**Manually trigger auto-heal:**
+```bash
+chezmoi-autoupdate --dry-run  # preview what would be fixed
+chezmoi-autoupdate            # actually fix it
+```
+
+**Common auto-heal issues:**
+- **Merge conflicts**: Auto-resolved via `rebase --abort` + `reset --hard origin/main`
+- **Stale brew locks**: Removed if > 30 minutes old
+- **SSH permissions**: Fixed to 700 (dirs) / 600 (files)
+- **Deprecated packages**: Auto-uninstalled if in `Brewfile_blacklist`
+- **Missing TPM plugins**: Installed via `~/.tmux/plugins/tpm/bin/install_plugins`
+
+### Test Validation
+
+After update, auto-validation tests:
+```bash
+# Manually test what auto-update validates
+zsh -i -c 'exit 0'           # Shell starts?
+starship --version           # Prompt works?
+tmux -c 'exit'               # Tmux launches?
+```
+
+If any fails, auto-update auto-rolls back with notification.
+
+### Deadman Switch (Fleet Monitoring)
+
+If using heartbeats, monitor fleet health:
+```bash
+cminventory                   # Show all machines' last update time
+```
+
+Dashboard (if configured):
+- Checks ntfy.sh topic for heartbeats
+- Alerts if machine offline > 7 days
+- Tracks hostname, profile, OS, last update time
