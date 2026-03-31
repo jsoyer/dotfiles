@@ -1,0 +1,86 @@
+#!/usr/bin/env bash
+# cmbench — benchmark interactive shell startup times
+
+set -euo pipefail
+
+# --- Colors ---
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+RED='\033[0;31m'
+BOLD='\033[1m'
+NC='\033[0m'
+
+RUNS="${CMBENCH_RUNS:-3}"
+
+# --- Time a shell invocation in milliseconds using bash TIMEFORMAT ---
+_time_ms() {
+    local cmd=("$@")
+    # TIMEFORMAT outputs seconds with decimals; capture via subshell
+    # We use a temp file to avoid a subshell swallowing stderr
+    local tmpfile
+    tmpfile="$(mktemp)"
+    TIMEFORMAT='%R'
+    { time "${cmd[@]}" 2>/dev/null ; } 2>"${tmpfile}"
+    local real_s
+    real_s="$(cat "${tmpfile}")"
+    rm -f "${tmpfile}"
+    # Convert seconds (e.g. 0.234) to integer milliseconds
+    printf '%s\n' "${real_s}" | awk '{ printf "%.0f", $1 * 1000 }'
+}
+
+# --- Time a command, print colored result ---
+bench_shell() {
+    local label="$1"
+    local cmd=("${@:2}")
+    local total_ms=0
+    local i
+
+    for (( i = 0; i < RUNS; i++ )); do
+        local elapsed
+        elapsed="$(_time_ms "${cmd[@]}")"
+        total_ms=$(( total_ms + elapsed ))
+    done
+
+    local avg_ms=$(( total_ms / RUNS ))
+
+    local color="${GREEN}"
+    local rating="fast"
+    if (( avg_ms >= 300 && avg_ms < 500 )); then
+        color="${YELLOW}"
+        rating="ok"
+    elif (( avg_ms >= 500 )); then
+        color="${RED}"
+        rating="slow"
+    fi
+
+    printf '  %-10s %b%4dms%b  (%s)\n' "${label}" "${color}" "${avg_ms}" "${NC}" "${rating}"
+}
+
+printf '%b\n' "${BOLD}Shell startup benchmarks${NC} (${RUNS} runs each)"
+printf '\n'
+printf '  %-10s %6s  %s\n' "Shell" "Avg" "Rating"
+printf '  %s\n' "-------------------------------"
+
+# zsh
+if command -v zsh &>/dev/null; then
+    bench_shell "zsh" zsh -i -c exit
+fi
+
+# bash
+if command -v bash &>/dev/null; then
+    bench_shell "bash" bash -i -c exit
+fi
+
+# fish
+if command -v fish &>/dev/null; then
+    bench_shell "fish" fish -c exit
+fi
+
+# nushell
+if command -v nu &>/dev/null; then
+    bench_shell "nu" nu -c exit
+fi
+
+printf '\n'
+printf '%b\n' "Thresholds: ${GREEN}< 300ms${NC} fast  ${YELLOW}300-500ms${NC} ok  ${RED}> 500ms${NC} slow"
+printf 'To improve: check 99-integrations for slow tool inits, use lazy-loading.\n'

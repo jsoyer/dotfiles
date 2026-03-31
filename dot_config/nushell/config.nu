@@ -1131,6 +1131,37 @@ alias creadd = chezmoi re-add
 alias cs = chezmoi status
 alias ccd = chezmoi cd
 
+# Auto-update monitoring
+def cmstatus [] {
+    let path = ($env.HOME | path join ".cache" "chezmoi-autoupdate" "status.json")
+    if ($path | path exists) {
+        open $path
+    } else {
+        print "No status yet"
+    }
+}
+
+def cmlog [] {
+    let path = ($env.HOME | path join ".cache" "chezmoi-autoupdate" "last-run.log")
+    if ($path | path exists) {
+        open $path
+    } else {
+        print "No logs yet"
+    }
+}
+
+def cmdiff [] {
+    if (which delta | is-not-empty) {
+        ^chezmoi diff | ^delta
+    } else {
+        ^chezmoi diff
+    }
+}
+
+def cmchangelog [] {
+    ^git -C ($env.HOME | path join ".local" "share" "chezmoi") log --oneline -20
+}
+
 # Chezmoi apply/update with verbose mode
 def ca [...args: string] {
     ^chezmoi apply -v ...$args

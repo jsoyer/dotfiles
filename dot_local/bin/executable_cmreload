@@ -1,0 +1,74 @@
+#!/usr/bin/env bash
+# cmreload — reload shell configs and running tmux sessions
+
+set -euo pipefail
+
+# --- Colors ---
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BOLD='\033[1m'
+NC='\033[0m'
+
+reloaded=()
+skipped=()
+
+printf '%b\n' "${BOLD}cmreload — reloading configs${NC}"
+printf '\n'
+
+# --- Tmux config ---
+TMUX_CONF="${HOME}/.config/tmux/tmux.conf"
+if [[ -n "${TMUX:-}" ]]; then
+    if [[ -f "${TMUX_CONF}" ]]; then
+        tmux source-file "${TMUX_CONF}"
+        printf '%b✓%b Reloaded tmux config: %s\n' "${GREEN}" "${NC}" "${TMUX_CONF}"
+        reloaded+=("tmux config")
+    else
+        printf '%b!%b tmux config not found at %s\n' "${YELLOW}" "${NC}" "${TMUX_CONF}"
+        skipped+=("tmux config (not found)")
+    fi
+elif command -v tmux &>/dev/null && tmux list-sessions &>/dev/null 2>&1; then
+    # Not inside tmux but sessions are running — reload each session's config
+    session_count=0
+    while IFS= read -r session; do
+        session_name="${session%%:*}"
+        if [[ -f "${TMUX_CONF}" ]]; then
+            tmux source-file "${TMUX_CONF}" -t "${session_name}" 2>/dev/null || true
+            ((session_count++)) || true
+        fi
+    done < <(tmux list-sessions 2>/dev/null || true)
+    if (( session_count > 0 )); then
+        printf '%b✓%b Reloaded tmux config in %d session(s)\n' "${GREEN}" "${NC}" "${session_count}"
+        reloaded+=("tmux config (${session_count} sessions)")
+    fi
+else
+    skipped+=("tmux (not running)")
+fi
+
+# --- Shell config hint ---
+current_shell="$(basename "${SHELL:-/bin/sh}")"
+printf '\n'
+printf '%b!%b To fully reload %s, run:\n' "${YELLOW}" "${NC}" "${current_shell}"
+case "${current_shell}" in
+    zsh)
+        printf '    exec zsh\n'
+        ;;
+    bash)
+        printf '    exec bash\n'
+        ;;
+    fish)
+        printf '    exec fish\n'
+        ;;
+    *)
+        printf '    exec %s\n' "${current_shell}"
+        ;;
+esac
+printf '  (cmreload cannot source your shell from a subprocess)\n'
+
+# --- Summary ---
+printf '\n%b\n' "${BOLD}Summary${NC}"
+for item in "${reloaded[@]}"; do
+    printf '  %b✓%b %s\n' "${GREEN}" "${NC}" "${item}"
+done
+for item in "${skipped[@]}"; do
+    printf '  %b-%b %s\n' "${YELLOW}" "${NC}" "${item}"
+done

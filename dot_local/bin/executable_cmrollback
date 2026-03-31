@@ -1,0 +1,80 @@
+#!/usr/bin/env bash
+# cmrollback — interactively roll back chezmoi to a previous commit
+
+set -euo pipefail
+
+# --- Colors ---
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+RED='\033[0;31m'
+BOLD='\033[1m'
+NC='\033[0m'
+
+CHEZMOI_SOURCE="${HOME}/.local/share/chezmoi"
+SHOW_COMMITS=10
+
+if [[ ! -d "${CHEZMOI_SOURCE}/.git" ]]; then
+    printf '%bError:%b %s is not a git repository\n' "${RED}" "${NC}" "${CHEZMOI_SOURCE}" >&2
+    exit 1
+fi
+
+if ! command -v chezmoi &>/dev/null; then
+    printf '%bError:%b chezmoi not found in PATH\n' "${RED}" "${NC}" >&2
+    exit 1
+fi
+
+# --- Show recent commits ---
+printf '%b\n' "${BOLD}Last ${SHOW_COMMITS} commits in chezmoi source:${NC}"
+printf '\n'
+
+mapfile -t commits < <(
+    git -C "${CHEZMOI_SOURCE}" log --oneline -"${SHOW_COMMITS}" --format="%h %s"
+)
+
+for i in "${!commits[@]}"; do
+    printf '  %b[%d]%b  %s\n' "${YELLOW}" "$((i + 1))" "${NC}" "${commits[$i]}"
+done
+
+printf '\n'
+printf '%b' "Enter number to roll back to [1-${#commits[@]}], or q to quit: "
+read -r choice
+
+if [[ "${choice}" == "q" || "${choice}" == "Q" ]]; then
+    printf 'Aborted.\n'
+    exit 0
+fi
+
+if ! [[ "${choice}" =~ ^[0-9]+$ ]] || (( choice < 1 || choice > ${#commits[@]} )); then
+    printf '%bError:%b Invalid selection: %s\n' "${RED}" "${NC}" "${choice}" >&2
+    exit 1
+fi
+
+selected_line="${commits[$((choice - 1))]}"
+target_hash="${selected_line%% *}"
+target_desc="${selected_line#* }"
+
+printf '\n'
+printf '%bRollback target:%b %s — %s\n' "${BOLD}" "${NC}" "${target_hash}" "${target_desc}"
+printf '\n'
+printf '%bThis will:%b\n' "${YELLOW}" "${NC}"
+printf '  1. git reset --hard %s in %s\n' "${target_hash}" "${CHEZMOI_SOURCE}"
+printf '  2. chezmoi apply --force\n'
+printf '\n'
+printf '%bWARNING:%b This is destructive and cannot be undone (unless you push first).\n' "${RED}" "${NC}"
+printf '%b' "Type 'yes' to confirm: "
+read -r confirm
+
+if [[ "${confirm}" != "yes" ]]; then
+    printf 'Aborted.\n'
+    exit 0
+fi
+
+printf '\n'
+printf '%b→%b git reset --hard %s\n' "${GREEN}" "${NC}" "${target_hash}"
+git -C "${CHEZMOI_SOURCE}" reset --hard "${target_hash}"
+
+printf '%b→%b chezmoi apply --force\n' "${GREEN}" "${NC}"
+chezmoi apply --force
+
+printf '\n%b✓ Rollback to %s complete.%b\n' "${GREEN}" "${target_hash}" "${NC}"
+printf 'Run %bcmhealth%b to verify the environment.\n' "${BOLD}" "${NC}"

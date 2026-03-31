@@ -1,0 +1,94 @@
+#!/usr/bin/env bash
+# cmaudit — audit alias files and report missing referenced commands
+
+set -euo pipefail
+
+# --- Colors ---
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+RED='\033[0;31m'
+BOLD='\033[1m'
+NC='\033[0m'
+
+ALIAS_FILES=(
+    "${HOME}/.zsh/10-aliases.zsh"
+    "${HOME}/.bash/10-aliases.bash"
+)
+
+missing=()
+found=()
+skipped=()
+
+# Commands that are shell builtins or functions — skip checking
+BUILTINS=(
+    "cd" "echo" "printf" "read" "source" "." "exit" "return"
+    "export" "unset" "alias" "unalias" "set" "eval" "exec"
+    "command" "type" "which" "builtin" "function" "local" "declare"
+    "typeset" "test" "[" "[[" "true" "false" "shift" "trap" "wait"
+    "sudo" "time" "env"
+)
+
+is_builtin() {
+    local cmd="$1"
+    for b in "${BUILTINS[@]}"; do
+        [[ "${cmd}" == "${b}" ]] && return 0
+    done
+    return 1
+}
+
+extract_commands_from_alias_file() {
+    local file="$1"
+    # Extract the RHS of alias lines: alias foo='cmd args'
+    # Capture the first word after the '=' (the actual command being aliased)
+    grep -E "^alias " "${file}" 2>/dev/null \
+        | sed "s/^alias [^=]*='\([^ ']*\).*/\1/" \
+        | sed "s/^alias [^=]*=\"\([^ \"]*\).*/\1/" \
+        | grep -v '^alias' \
+        | sort -u || true
+}
+
+printf '%b\n' "${BOLD}cmaudit — alias dependency check${NC}"
+printf '\n'
+
+for alias_file in "${ALIAS_FILES[@]}"; do
+    if [[ ! -f "${alias_file}" ]]; then
+        printf '  %b  Alias file not found (skipping): %s%b\n' "${YELLOW}" "${alias_file}" "${NC}"
+        continue
+    fi
+
+    printf '%b%s%b\n' "${BOLD}" "${alias_file}" "${NC}"
+
+    while IFS= read -r cmd; do
+        [[ -z "${cmd}" ]] && continue
+
+        # Skip if it starts with special chars
+        [[ "${cmd}" == -* ]] && continue
+        [[ "${cmd}" == /* ]] && continue
+
+        # Skip builtins
+        is_builtin "${cmd}" && continue
+
+        if command -v "${cmd}" &>/dev/null; then
+            found+=("${cmd}")
+        else
+            missing+=("${cmd}")
+            printf '  %b✗%b  %s (not found)\n' "${RED}" "${NC}" "${cmd}"
+        fi
+    done < <(extract_commands_from_alias_file "${alias_file}")
+done
+
+printf '\n'
+printf '%b\n' "${BOLD}Summary${NC}"
+printf '  %-12s %d\n' "Found:" "${#found[@]}"
+printf '  %-12s %d\n' "Missing:" "${#missing[@]}"
+
+if (( ${#missing[@]} > 0 )); then
+    printf '\n%b\n' "${YELLOW}Missing commands:${NC}"
+    for cmd in "${missing[@]}"; do
+        printf '  - %s\n' "${cmd}"
+    done
+    printf '\nInstall missing tools or remove stale aliases.\n'
+    exit 1
+else
+    printf '\n%b\n' "${GREEN}All aliased commands are available.${NC}"
+fi

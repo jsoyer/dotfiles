@@ -1,0 +1,77 @@
+#!/usr/bin/env bash
+# cminventory — display local chezmoi auto-update status from status.json
+
+set -euo pipefail
+
+# --- Colors ---
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+RED='\033[0;31m'
+BLUE='\033[0;34m'
+BOLD='\033[1m'
+NC='\033[0m'
+
+CACHE_DIR="${HOME}/.cache/chezmoi-autoupdate"
+STATUS_JSON="${CACHE_DIR}/status.json"
+LAST_LOG="${CACHE_DIR}/last-run.log"
+
+printf '%b\n' "${BOLD}chezmoi auto-update inventory${NC}"
+printf '%b\n' "${BLUE}$(hostname)${NC}"
+printf '\n'
+
+# --- Status JSON ---
+if [[ ! -f "${STATUS_JSON}" ]]; then
+    printf '%b\n' "${YELLOW}No status.json found at ${STATUS_JSON}${NC}"
+    printf 'Auto-update has not run yet on this machine.\n'
+    printf 'Check that the timer is enabled: cmhealth\n'
+    exit 0
+fi
+
+if ! command -v jq &>/dev/null; then
+    printf '%b\n' "${YELLOW}jq not found — showing raw status.json:${NC}"
+    cat "${STATUS_JSON}"
+    exit 0
+fi
+
+# Parse fields
+last_success="$(jq -r '.last_success // "never"' "${STATUS_JSON}")"
+last_failure="$(jq -r '.last_failure // "never"' "${STATUS_JSON}")"
+last_commit="$(jq -r '.last_commit // "unknown"' "${STATUS_JSON}")"
+hostname_stored="$(jq -r '.hostname // "unknown"' "${STATUS_JSON}")"
+machine_profile="$(jq -r '.machine_profile // "unknown"' "${STATUS_JSON}")"
+run_count="$(jq -r '.run_count // 0' "${STATUS_JSON}")"
+fail_count="$(jq -r '.fail_count // 0' "${STATUS_JSON}")"
+duration_last="$(jq -r '.last_duration_seconds // "unknown"' "${STATUS_JSON}")"
+
+printf '  %-20s %s\n' "Hostname:" "${hostname_stored}"
+printf '  %-20s %s\n' "Machine profile:" "${machine_profile}"
+printf '\n'
+
+if [[ "${last_success}" != "never" ]]; then
+    printf '%b' "  ${GREEN}✓${NC} "
+else
+    printf '%b' "  ${YELLOW}!${NC} "
+fi
+printf '  %-18s %s\n' "Last success:" "${last_success}"
+
+if [[ "${last_failure}" != "never" ]]; then
+    printf '%b  %-18s %s\n' "  ${RED}✗${NC}" "Last failure:" "${last_failure}"
+fi
+
+printf '  %-20s %s\n' "Last commit:" "${last_commit}"
+printf '  %-20s %s\n' "Run count:" "${run_count}"
+printf '  %-20s %s\n' "Fail count:" "${fail_count}"
+printf '  %-20s %s\n' "Last duration (s):" "${duration_last}"
+
+# --- Last log tail ---
+if [[ -f "${LAST_LOG}" ]]; then
+    printf '\n%b\n' "${BOLD}Last run log (tail -20):${NC}"
+    tail -20 "${LAST_LOG}"
+fi
+
+# --- Ntfy hint ---
+ntfy_topic="${NTFY_TOPIC:-${CHEZMOI_NTFY_TOPIC:-}}"
+if [[ -n "${ntfy_topic}" ]]; then
+    printf '\n%b\n' "${BLUE}Fleet status:${NC} https://ntfy.sh/${ntfy_topic}"
+    printf 'Subscribe with: ntfy subscribe %s\n' "${ntfy_topic}"
+fi

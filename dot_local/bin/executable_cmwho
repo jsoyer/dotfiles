@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# cmwho — show who/what made the last push to the chezmoi source repo
+
+set -euo pipefail
+
+CHEZMOI_SOURCE="${HOME}/.local/share/chezmoi"
+
+if [[ ! -d "${CHEZMOI_SOURCE}/.git" ]]; then
+    printf 'Error: %s is not a git repository\n' "${CHEZMOI_SOURCE}" >&2
+    exit 1
+fi
+
+git -C "${CHEZMOI_SOURCE}" log -1 \
+    --format="%C(yellow)%h%Creset %C(green)%ar%Creset %C(bold)%an%Creset: %s"

@@ -232,6 +232,12 @@ alias creadd='chezmoi re-add'
 alias cs='chezmoi status'
 alias ccd='chezmoi cd'
 
+# Auto-update monitoring
+alias cmstatus='jq . ~/.cache/chezmoi-autoupdate/status.json 2>/dev/null || echo "No status yet"'
+alias cmlog='cat ~/.cache/chezmoi-autoupdate/last-run.log 2>/dev/null || echo "No logs yet"'
+alias cmdiff='chezmoi diff | delta 2>/dev/null || chezmoi diff'
+alias cmchangelog='git -C ~/.local/share/chezmoi log --oneline -20'
+
 # Chezmoi apply/update with verbose mode
 ca() {
   chezmoi apply -v "$@"
