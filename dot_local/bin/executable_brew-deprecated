@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+# brew-deprecated — list deprecated/disabled formulas and casks
+set -euo pipefail
+
+if ! command -v brew &>/dev/null; then
+    echo "brew not found"
+    exit 1
+fi
+
+echo "📦 Checking installed formulas..."
+brew info --json=v2 --installed 2>/dev/null | python3 -c "
+import sys, json
+data = json.load(sys.stdin)
+found = 0
+for f in data.get('formulae', []):
+    if f.get('deprecated') or f.get('disabled'):
+        reason = f.get('deprecation_reason') or f.get('disable_reason') or 'deprecated'
+        status = 'disabled' if f.get('disabled') else 'deprecated'
+        print(f'  ⚠️  {f[\"name\"]} ({status}: {reason})')
+        found += 1
+for c in data.get('casks', []):
+    if c.get('deprecated') or c.get('disabled'):
+        reason = c.get('deprecation_reason') or c.get('disable_reason') or 'deprecated'
+        status = 'disabled' if c.get('disabled') else 'deprecated'
+        print(f'  ⚠️  {c[\"token\"]} ({status}: {reason})')
+        found += 1
+if found == 0:
+    print('  ✅ No deprecated packages found')
+else:
+    print(f'\n  {found} deprecated/disabled package(s) found')
+"
