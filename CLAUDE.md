@@ -185,11 +185,16 @@ When `chezmoi-autoupdate` runs, it auto-heals:
 
 Errors (only, no noise on success):
 - **Desktop**: osascript (macOS) / notify-send (Linux)
-- **ntfy.sh**: Silent heartbeat POST (fleet tracking)
-- **Telegram**: API sendMessage (if token in `secrets.zsh`)
-- **Discord**: Webhook POST (if webhook URL in `secrets.zsh`)
+- **ntfy**: Self-hosted or ntfy.sh — error alerts + silent heartbeats
+- **Telegram**: API sendMessage
+- **Discord**: Webhook POST
 
-Tokens stored in environment variables, never in repo.
+Environment variables (in `secrets.zsh`, never in repo):
+- `CHEZMOI_NTFY_TOPIC` — ntfy topic name
+- `CHEZMOI_NTFY_URL` — ntfy server URL (default: `https://ntfy.sh`, use Tailscale IP for self-hosted)
+- `CHEZMOI_NTFY_TOKEN` — ntfy auth token (for self-hosted with `auth-default-access: deny-all`)
+- `TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID`
+- `DISCORD_WEBHOOK_URL`
 
 ### Post-Apply Validation & Auto-Rollback
 

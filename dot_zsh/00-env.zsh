@@ -258,6 +258,17 @@ fi
 # See secrets.zsh for the list of required variables per MCP server.
 
 # ============================================================================
+# chezmoi-autoupdate notifications (in secrets.zsh)
+# ============================================================================
+# CHEZMOI_NTFY_TOPIC      — ntfy topic name (e.g., chezmoi-fleet-xxxx)
+# CHEZMOI_NTFY_URL        — ntfy server URL (default: https://ntfy.sh)
+#                            Use Tailscale IP for self-hosted: http://100.x.x.x:8080
+# CHEZMOI_NTFY_TOKEN      — ntfy auth token (for self-hosted with auth-default-access: deny-all)
+# TELEGRAM_BOT_TOKEN      — Telegram bot token
+# TELEGRAM_CHAT_ID        — Telegram chat/channel ID
+# DISCORD_WEBHOOK_URL     — Discord incoming webhook URL
+
+# ============================================================================
 # Telemetry opt-out
 # ============================================================================
 export OPENSPEC_TELEMETRY=0

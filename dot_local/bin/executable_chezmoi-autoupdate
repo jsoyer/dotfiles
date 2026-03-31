@@ -12,7 +12,9 @@
 #   F  Save changelog marker (last-seen-commit)
 #
 # Env vars for notifications:
-#   CHEZMOI_NTFY_TOPIC    — ntfy.sh topic name
+#   CHEZMOI_NTFY_TOPIC    — ntfy topic name
+#   CHEZMOI_NTFY_URL      — ntfy server URL (default: https://ntfy.sh)
+#   CHEZMOI_NTFY_TOKEN    — ntfy auth token (for self-hosted with auth)
 #   TELEGRAM_BOT_TOKEN    — Telegram bot token
 #   TELEGRAM_CHAT_ID      — Telegram chat/channel ID
 #   DISCORD_WEBHOOK_URL   — Discord incoming webhook URL
@@ -206,14 +208,18 @@ if [[ "${STATUS}" == "error" ]]; then
             2>>"${LOG_FILE}" || true
     fi
 
-    # D2. ntfy.sh
+    # D2. ntfy (self-hosted or ntfy.sh)
     if [[ -n "${CHEZMOI_NTFY_TOPIC:-}" ]]; then
+        _ntfy_url="${CHEZMOI_NTFY_URL:-https://ntfy.sh}"
+        _ntfy_auth=()
+        [[ -n "${CHEZMOI_NTFY_TOKEN:-}" ]] && _ntfy_auth=(-H "Authorization: Bearer ${CHEZMOI_NTFY_TOKEN}")
         curl -s --max-time 10 \
+            "${_ntfy_auth[@]}" \
             -H "Title: chezmoi-autoupdate error" \
             -H "Priority: high" \
             -H "Tags: warning,${HOSTNAME_SHORT}" \
             -d "${_error_summary}" \
-            "https://ntfy.sh/${CHEZMOI_NTFY_TOPIC}" >>"${LOG_FILE}" 2>&1 || true
+            "${_ntfy_url}/${CHEZMOI_NTFY_TOPIC}" >>"${LOG_FILE}" 2>&1 || true
     fi
 
     # D3. Telegram
@@ -242,12 +248,16 @@ fi
 if [[ "${STATUS}" == "ok" ]]; then
     log "Phase E: sending heartbeat"
     if [[ -n "${CHEZMOI_NTFY_TOPIC:-}" ]]; then
+        _ntfy_url="${CHEZMOI_NTFY_URL:-https://ntfy.sh}"
+        _ntfy_auth=()
+        [[ -n "${CHEZMOI_NTFY_TOKEN:-}" ]] && _ntfy_auth=(-H "Authorization: Bearer ${CHEZMOI_NTFY_TOKEN}")
         curl -s --max-time 10 \
+            "${_ntfy_auth[@]}" \
             -H "Title: chezmoi-autoupdate ok" \
             -H "Priority: min" \
             -H "Tags: white_check_mark,${HOSTNAME_SHORT}" \
             -d "heartbeat ${HOSTNAME_SHORT} ${TIMESTAMP} (${DURATION}s)" \
-            "https://ntfy.sh/${CHEZMOI_NTFY_TOPIC}" >>"${LOG_FILE}" 2>&1 || true
+            "${_ntfy_url}/${CHEZMOI_NTFY_TOPIC}" >>"${LOG_FILE}" 2>&1 || true
     fi
 fi
 
