@@ -42,7 +42,7 @@ jobs:
               echo "  FAIL: $f"
               ERRORS=$(( ERRORS + 1 ))
             fi
-          done < <(find . -name '*.tmpl' -not -path './.git/*' -not -path './dot_agents/*')
+          done < <(find . -name '*.tmpl' -not -path './.git/*' -not -path './dot_agents/*' -not -name '.chezmoi.toml.tmpl' -not -name '.commit_message.tmpl')
           echo "Template lint: $ERRORS errors"
           if [[ "$ERRORS" -gt 0 ]]; then
             exit 1
