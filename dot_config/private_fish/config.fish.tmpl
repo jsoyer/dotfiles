@@ -372,20 +372,24 @@ function dcua
             continue
         end
 
-        echo "📥 Pulling: "(basename $dir)
-        set -l pull_output ($runtime compose -f $compose_file pull 2>&1)
+        set -l name (basename $dir)
+        echo "📥 $name"
 
-        if echo "$pull_output" | grep -qE "(Pulling|Downloading|Extracting|Status: Downloaded)"
-            echo "  🔄 New images found, restarting..."
-            $runtime compose -f $compose_file up -d
+        set -l before ($runtime compose -f $compose_file images -q 2>/dev/null | sort)
+        $runtime compose -f $compose_file pull --quiet 2>/dev/null
+        set -l after ($runtime compose -f $compose_file images -q 2>/dev/null | sort)
+
+        if test "$before" != "$after"
+            echo "  🔄 Updated, restarting..."
+            $runtime compose -f $compose_file up -d --quiet-pull
             set updated (math $updated + 1)
         else
             echo "  ✅ Up to date"
         end
     end
 
-    echo "🧹 Pruning unused images..."
-    $runtime image prune -a -f
+    echo "🧹 Pruning dangling images..."
+    $runtime image prune -f --filter "dangling=true" 2>/dev/null
     echo "✨ Done. $updated project(s) updated."
 end
 

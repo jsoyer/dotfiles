@@ -510,21 +510,26 @@ dcua() {
       continue
     fi
 
-    echo "📥 Pulling: $(basename "$dir")"
-    local pull_output
-    pull_output=$($runtime compose -f "$compose_file" pull 2>&1)
+    local name
+    name="$(basename "$dir")"
+    echo "📥 $name"
 
-    if echo "$pull_output" | grep -qE "(Pulling|Downloading|Extracting|Status: Downloaded)"; then
-      echo "  🔄 New images found, restarting..."
-      $runtime compose -f "$compose_file" up -d
+    local before after
+    before=$($runtime compose -f "$compose_file" images -q 2>/dev/null | sort)
+    $runtime compose -f "$compose_file" pull --quiet 2>/dev/null
+    after=$($runtime compose -f "$compose_file" images -q 2>/dev/null | sort)
+
+    if [[ "$before" != "$after" ]]; then
+      echo "  🔄 Updated, restarting..."
+      $runtime compose -f "$compose_file" up -d --quiet-pull
       ((updated++)) || true
     else
       echo "  ✅ Up to date"
     fi
   done
 
-  echo "🧹 Pruning unused images..."
-  $runtime image prune -a -f
+  echo "🧹 Pruning dangling images..."
+  $runtime image prune -f --filter "dangling=true" 2>/dev/null
   echo "✨ Done. $updated project(s) updated."
 }
 

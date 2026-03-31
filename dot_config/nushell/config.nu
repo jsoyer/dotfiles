@@ -1057,20 +1057,24 @@ def dcua [base?: string] {
             continue
         }
 
-        print $"📥 Pulling: ($dir | path basename)"
-        let pull_output = (^$runtime compose -f $compose_file pull out+err>| complete)
+        let name = ($dir | path basename)
+        print $"📥 ($name)"
 
-        if ($pull_output.stdout | str contains "Pulling") or ($pull_output.stdout | str contains "Downloading") {
-            print "  🔄 New images found, restarting..."
-            ^$runtime compose -f $compose_file up -d
+        let before = (^$runtime compose -f $compose_file images -q | complete | get stdout | str trim)
+        ^$runtime compose -f $compose_file pull --quiet out+err>| complete
+        let after = (^$runtime compose -f $compose_file images -q | complete | get stdout | str trim)
+
+        if $before != $after {
+            print "  🔄 Updated, restarting..."
+            ^$runtime compose -f $compose_file up -d --quiet-pull
             $updated = $updated + 1
         } else {
             print "  ✅ Up to date"
         }
     }
 
-    print "🧹 Pruning unused images..."
-    ^$runtime image prune -a -f
+    print "🧹 Pruning dangling images..."
+    ^$runtime image prune -f --filter "dangling=true" out+err>| complete
     print $"✨ Done. ($updated) project\(s\) updated."
 }
 
