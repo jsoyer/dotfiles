@@ -1,0 +1,118 @@
+#!/usr/bin/env bash
+# chezmoi-state-backup — Backup chezmoi state + age key (encrypted with age)
+# Usage: chezmoi-state-backup [--restore FILE]
+
+set -euo pipefail
+
+# --- Colors ---
+GREEN='\033[0;32m'
+RED='\033[0;31m'
+BLUE='\033[0;34m'
+BOLD='\033[1m'
+NC='\033[0m'
+
+BACKUP_DIR="${HOME}/.cache/chezmoi-backups"
+AGE_KEY="${HOME}/.config/chezmoi/key.txt"
+TIMESTAMP="$(date +%Y%m%d-%H%M%S)"
+HOSTNAME="$(hostname -s 2>/dev/null || echo unknown)"
+BACKUP_NAME="chezmoi-state-${HOSTNAME}-${TIMESTAMP}"
+
+mkdir -p "${BACKUP_DIR}"
+
+# --- Restore mode ---
+if [[ "${1:-}" == "--restore" ]]; then
+    RESTORE_FILE="${2:-}"
+    if [[ -z "${RESTORE_FILE}" ]]; then
+        echo -e "${RED}Usage: chezmoi-state-backup --restore FILE${NC}"
+        exit 1
+    fi
+
+    if [[ "${RESTORE_FILE}" == *.age ]]; then
+        if [[ ! -f "${AGE_KEY}" ]]; then
+            echo -e "${RED}Age key not found at ${AGE_KEY}${NC}"
+            echo "Restore the age key first, then re-run."
+            exit 1
+        fi
+        TMPDIR="$(mktemp -d)"
+        age -d -i "${AGE_KEY}" "${RESTORE_FILE}" | tar xz -C "${TMPDIR}"
+        RESTORE_FILE="${TMPDIR}"
+    fi
+
+    echo -e "${BLUE}Restoring chezmoi state...${NC}"
+    if [[ -f "${RESTORE_FILE}/state.json" ]]; then
+        chezmoi state reset
+        # Import state dump - chezmoi doesn't have direct import,
+        # so we copy the state database
+        echo -e "${GREEN}State dump available at: ${RESTORE_FILE}/state.json${NC}"
+        echo "Manual restore: chezmoi state set-bucket --bucket=scriptState < extracted data"
+    fi
+    if [[ -f "${RESTORE_FILE}/key.txt" ]]; then
+        mkdir -p "$(dirname "${AGE_KEY}")"
+        cp "${RESTORE_FILE}/key.txt" "${AGE_KEY}"
+        chmod 600 "${AGE_KEY}"
+        echo -e "${GREEN}Age key restored to ${AGE_KEY}${NC}"
+    fi
+    echo -e "${GREEN}Restore complete. Run 'chezmoi doctor' to verify.${NC}"
+    exit 0
+fi
+
+# --- Backup mode ---
+echo -e "${BOLD}Backing up chezmoi state...${NC}"
+
+TMPDIR="$(mktemp -d)"
+BACKUP_PATH="${TMPDIR}/${BACKUP_NAME}"
+mkdir -p "${BACKUP_PATH}"
+
+# 1. State dump
+echo -e "  ${BLUE}Dumping state...${NC}"
+chezmoi state dump > "${BACKUP_PATH}/state.json" 2>/dev/null || echo "{}" > "${BACKUP_PATH}/state.json"
+
+# 2. Age key (critical for recovery)
+if [[ -f "${AGE_KEY}" ]]; then
+    echo -e "  ${BLUE}Backing up age key...${NC}"
+    cp "${AGE_KEY}" "${BACKUP_PATH}/key.txt"
+fi
+
+# 3. Chezmoi config (cached prompt values)
+CHEZMOI_CONFIG="${HOME}/.config/chezmoi/chezmoi.toml"
+if [[ -f "${CHEZMOI_CONFIG}" ]]; then
+    echo -e "  ${BLUE}Backing up config...${NC}"
+    cp "${CHEZMOI_CONFIG}" "${BACKUP_PATH}/chezmoi.toml"
+fi
+
+# 4. Metadata
+cat > "${BACKUP_PATH}/metadata.json" << METADATA
+{
+  "hostname": "${HOSTNAME}",
+  "timestamp": "${TIMESTAMP}",
+  "chezmoi_version": "$(chezmoi --version 2>/dev/null || echo unknown)",
+  "os": "$(uname -s)",
+  "arch": "$(uname -m)"
+}
+METADATA
+
+# 5. Create archive
+ARCHIVE="${BACKUP_DIR}/${BACKUP_NAME}.tar.gz"
+tar czf "${ARCHIVE}" -C "${TMPDIR}" "${BACKUP_NAME}"
+
+# 6. Encrypt with age if key available
+if [[ -f "${AGE_KEY}" ]]; then
+    RECIPIENT="$(grep -v '^#' "${AGE_KEY}" | grep 'public key:' | awk '{print $NF}' 2>/dev/null || true)"
+    if [[ -n "${RECIPIENT}" ]]; then
+        echo -e "  ${BLUE}Encrypting with age...${NC}"
+        age -r "${RECIPIENT}" -o "${ARCHIVE}.age" "${ARCHIVE}"
+        rm -f "${ARCHIVE}"
+        ARCHIVE="${ARCHIVE}.age"
+    fi
+fi
+
+# 7. Cleanup temp
+rm -rf "${TMPDIR}"
+
+# 8. Prune old backups (keep last 5)
+ls -1t "${BACKUP_DIR}"/chezmoi-state-*.tar.gz* 2>/dev/null | tail -n +6 | xargs rm -f 2>/dev/null || true
+
+SIZE="$(du -h "${ARCHIVE}" | awk '{print $1}')"
+echo ""
+echo -e "${GREEN}Backup saved: ${ARCHIVE} (${SIZE})${NC}"
+echo -e "Restore with: chezmoi-state-backup --restore ${ARCHIVE}"

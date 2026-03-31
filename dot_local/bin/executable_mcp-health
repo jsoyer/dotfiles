@@ -1,0 +1,98 @@
+#!/usr/bin/env bash
+# mcp-health — Check MCP server health (env vars + HTTP endpoints)
+# Usage: mcp-health
+
+set -uo pipefail
+
+# --- Colors ---
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+RED='\033[0;31m'
+BOLD='\033[1m'
+NC='\033[0m'
+
+echo -e "${BOLD}MCP Server Health Check${NC}"
+echo ""
+
+PASS=0
+WARN=0
+FAIL=0
+
+_check() {
+    local label="$1" status="$2" detail="${3:-}"
+    if [[ "${status}" == "ok" ]]; then
+        printf "  ${GREEN}%-30s OK${NC}\n" "${label}"
+        PASS=$((PASS + 1))
+    elif [[ "${status}" == "warn" ]]; then
+        printf "  ${YELLOW}%-30s WARN${NC}  %s\n" "${label}" "${detail}"
+        WARN=$((WARN + 1))
+    else
+        printf "  ${RED}%-30s FAIL${NC}  %s\n" "${label}" "${detail}"
+        FAIL=$((FAIL + 1))
+    fi
+}
+
+# --- Check env var based servers ---
+echo -e "${BOLD}Environment Variables:${NC}"
+
+_check_env() {
+    local server="$1" var="$2"
+    if [[ -n "${!var:-}" ]]; then
+        _check "${server} (${var})" "ok"
+    else
+        _check "${server} (${var})" "fail" "not set"
+    fi
+}
+
+_check_env "github" "GITHUB_TOKEN"
+_check_env "slack" "SLACK_BOT_TOKEN"
+_check_env "slack" "SLACK_TEAM_ID"
+_check_env "brave-search" "BRAVE_API_KEY"
+_check_env "linear" "LINEAR_API_KEY"
+_check_env "discord" "DISCORD_TOKEN"
+_check_env "obsidian" "OBSIDIAN_API_KEY"
+_check_env "notion" "NOTION_API_KEY"
+
+# --- Check HTTP servers ---
+echo ""
+echo -e "${BOLD}HTTP Endpoints:${NC}"
+
+_check_http() {
+    local name="$1" url="$2"
+    local status
+    status=$(curl -s -o /dev/null -w "%{http_code}" --connect-timeout 5 "${url}" 2>/dev/null || echo "000")
+    if [[ "${status}" == "200" || "${status}" == "405" || "${status}" == "404" ]]; then
+        _check "${name}" "ok"
+    elif [[ "${status}" == "000" ]]; then
+        _check "${name}" "fail" "unreachable"
+    else
+        _check "${name}" "warn" "HTTP ${status}"
+    fi
+}
+
+_check_http "cloudflare-docs" "https://docs.mcp.cloudflare.com/mcp"
+_check_http "cloudflare-builds" "https://builds.mcp.cloudflare.com/mcp"
+_check_http "cloudflare-bindings" "https://bindings.mcp.cloudflare.com/mcp"
+_check_http "cloudflare-observability" "https://observability.mcp.cloudflare.com/mcp"
+
+# --- Check stdio tools available ---
+echo ""
+echo -e "${BOLD}CLI Tools (stdio servers):${NC}"
+
+_check_cmd() {
+    local name="$1" cmd="$2"
+    if command -v "${cmd}" &>/dev/null; then
+        _check "${name} (${cmd})" "ok"
+    else
+        _check "${name} (${cmd})" "warn" "not installed"
+    fi
+}
+
+_check_cmd "context7/fetch/etc" "npx"
+_check_cmd "1password" "op"
+_check_cmd "playwright" "npx"
+
+# --- Summary ---
+echo ""
+TOTAL=$((PASS + WARN + FAIL))
+echo -e "${BOLD}Results: ${GREEN}${PASS} ok${NC} / ${YELLOW}${WARN} warn${NC} / ${RED}${FAIL} fail${NC} (${TOTAL} checks)"
