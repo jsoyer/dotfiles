@@ -1,0 +1,29 @@
+# Packages removed from Brewfiles — breww will skip these during dump
+# Add one package per line. Comments (#) and blank lines are ignored.
+
+# Deprecated/removed from Homebrew
+go@1.19
+python-requests
+python-tk@3.11
+python@3.10
+neofetch
+codex
+
+# Dead CDN / discontinued
+skyfonts
+container
+yubico-yubikey-manager
+
+# EOL Java (use temurin@21 or temurin LTS instead)
+temurin@8
+temurin@11
+temurin@19
+temurin@20
+
+# Deprecated taps (brew tap entries — not packages, tracked for reference)
+# homebrew/aliases
+# homebrew/bundle
+# homebrew/cask
+# homebrew/command-not-found
+# homebrew/core
+# homebrew/services

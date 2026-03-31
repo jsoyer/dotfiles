@@ -80,14 +80,58 @@ def run_brew_command(args):
     return result.returncode
 
 
+def load_blacklist() -> set:
+    """Load the set of blacklisted package names from Brewfile_blacklist."""
+    blacklist_path = BREWFILE_DIR / "Brewfile_blacklist"
+    if not blacklist_path.exists():
+        return set()
+    packages = set()
+    with blacklist_path.open() as f:
+        for line in f:
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+            packages.add(line)
+    return packages
+
+
+def filter_brewfile_blacklist(brewfile_path: Path, blacklist: set) -> int:
+    """Remove blacklisted entries from the Brewfile. Returns count of removed lines."""
+    if not brewfile_path.exists() or not blacklist:
+        return 0
+    lines = brewfile_path.read_text().splitlines(keepends=True)
+    filtered = []
+    removed = 0
+    for line in lines:
+        # Match brew/cask/mas lines: brew "pkg", cask "pkg", tap "pkg/repo"
+        stripped = line.strip()
+        matched = False
+        for pkg in blacklist:
+            # e.g. brew "go@1.19" or cask "skyfonts"
+            if f'"{pkg}"' in stripped or f"'{pkg}'" in stripped:
+                matched = True
+                break
+        if matched:
+            removed += 1
+        else:
+            filtered.append(line)
+    if removed > 0:
+        brewfile_path.write_text("".join(filtered))
+        print(f"{YELLOW}Blacklist: removed {removed} entries from {brewfile_path.name}{NC}")
+    return removed
+
+
 def update_brewfile(target_brewfile):
-    """Update the specified Brewfile with 'brew bundle dump'."""
+    """Update the specified Brewfile with 'brew bundle dump', then apply blacklist."""
     print(f"\n{YELLOW}Updating Brewfile: {target_brewfile.name}{NC}")
     cmd = ["brew", "bundle", "dump", "--file", str(target_brewfile), "--force"]
     result = subprocess.run(cmd, capture_output=True, text=True)
 
     if result.returncode == 0:
         print(f"{GREEN}Brewfile updated successfully.{NC}")
+        blacklist = load_blacklist()
+        if blacklist:
+            filter_brewfile_blacklist(target_brewfile, blacklist)
     else:
         print(f"Warning: failed to update Brewfile: {result.stderr}")
 
@@ -103,6 +147,11 @@ def sync_to_git():
         )
         if result.returncode not in (0, 1):
             raise subprocess.CalledProcessError(result.returncode, "git commit")
+        # Pull --rebase before push to avoid "rejected: fetch first" errors
+        subprocess.run(
+            ["git", "pull", "--rebase", "origin", "main"],
+            cwd=CHEZMOI_SOURCE_PATH,
+        )
         subprocess.run(["git", "push"], cwd=CHEZMOI_SOURCE_PATH, check=True)
         print(f"{GREEN}Pushed to remote.{NC}")
     except subprocess.CalledProcessError as e:

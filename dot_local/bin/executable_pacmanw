@@ -65,6 +65,7 @@ check_brew_duplicate() {
 
 sync_to_git() {
     local manifest="$1"
+    git -C "$CHEZMOI_SOURCE_PATH" pull --rebase origin main 2>/dev/null || true
     if command -v chezmoi &>/dev/null; then
         chezmoi re-add "$manifest" 2>/dev/null || true
     fi

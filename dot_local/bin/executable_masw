@@ -35,6 +35,7 @@ sync_to_git() {
     if ! git -C "$CHEZMOI_SOURCE_PATH" diff --quiet "$brewfile" 2>/dev/null; then
         git -C "$CHEZMOI_SOURCE_PATH" add "$brewfile"
         git -C "$CHEZMOI_SOURCE_PATH" commit -m "feat(masw): ${action} ${app}"
+        git -C "$CHEZMOI_SOURCE_PATH" pull --rebase origin main 2>/dev/null || true
         git -C "$CHEZMOI_SOURCE_PATH" push || printf '%b\n' "${YELLOW}Warning: Git push failed (will sync later)${NC}"
         printf '%b\n' "${GREEN}Pushed to remote.${NC}"
     else

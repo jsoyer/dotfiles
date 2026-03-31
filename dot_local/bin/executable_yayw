@@ -53,6 +53,7 @@ remove_from_manifest() {
 }
 
 sync_to_git() {
+    git -C "$CHEZMOI_SOURCE_PATH" pull --rebase origin main 2>/dev/null || true
     if command -v chezmoi &>/dev/null; then
         chezmoi re-add "$MANIFEST" 2>/dev/null || true
     fi
