@@ -1,0 +1,76 @@
+#!/usr/bin/env bash
+# cmaudit-packages — Find brew packages not used in 30+ days
+# Usage: cmaudit-packages [--days N]
+
+set -uo pipefail
+
+if ! command -v brew &>/dev/null; then
+    echo "brew not found"
+    exit 1
+fi
+
+# --- Config ---
+THRESHOLD_DAYS="${1:-30}"
+[[ "$1" == "--days" ]] && THRESHOLD_DAYS="${2:-30}"
+NOW=$(date +%s)
+THRESHOLD_SECS=$((THRESHOLD_DAYS * 86400))
+
+# --- Colors ---
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+RED='\033[0;31m'
+BLUE='\033[0;34m'
+NC='\033[0m'
+
+echo -e "${BLUE}📦 Auditing brew package usage (threshold: ${THRESHOLD_DAYS} days)...${NC}"
+echo ""
+
+unused=0
+old=0
+total=0
+IS_MACOS=false
+[[ "$(uname)" == "Darwin" ]] && IS_MACOS=true
+
+CELLAR="$(brew --cellar 2>/dev/null)"
+[[ -z "$CELLAR" ]] && { echo "Cannot find brew cellar"; exit 1; }
+
+while read -r formula; do
+    total=$((total + 1))
+    cellar_path="${CELLAR}/${formula}"
+    [[ -d "$cellar_path" ]] || continue
+
+    # Find the most recently accessed executable
+    latest_access=0
+    while IFS= read -r bin; do
+        [[ -f "$bin" ]] || continue
+        if [[ "$IS_MACOS" == "true" ]]; then
+            access=$(stat -f %a "$bin" 2>/dev/null || echo 0)
+        else
+            access=$(stat -c %X "$bin" 2>/dev/null || echo 0)
+        fi
+        (( access > latest_access )) && latest_access=$access
+    done < <(find "$cellar_path" -maxdepth 4 -type f \( -perm +111 -o -name '*.dylib' -o -name '*.so' \) 2>/dev/null | head -5)
+
+    # Skip if no binaries found
+    (( latest_access == 0 )) && continue
+
+    age_days=$(( (NOW - latest_access) / 86400 ))
+
+    if (( age_days > THRESHOLD_DAYS )); then
+        printf "${RED}  %-35s %4d days since last use${NC}\n" "$formula" "$age_days"
+        unused=$((unused + 1))
+    elif (( age_days > 14 )); then
+        printf "${YELLOW}  %-35s %4d days since last use${NC}\n" "$formula" "$age_days"
+        old=$((old + 1))
+    fi
+done < <(brew list --formula -1 2>/dev/null)
+
+echo ""
+if (( unused > 0 )); then
+    echo -e "${RED}📊 ${total} formulas checked: ${unused} unused (>${THRESHOLD_DAYS}d), ${old} aging (14-${THRESHOLD_DAYS}d)${NC}"
+    echo ""
+    echo "To remove unused packages:"
+    echo "  brew uninstall <package>"
+else
+    echo -e "${GREEN}📊 ${total} formulas checked: all used within ${THRESHOLD_DAYS} days${NC}"
+fi

@@ -5,11 +5,11 @@
 # Installs git, chezmoi, and gh (GitHub CLI) on any platform, then applies dotfiles.
 #
 # Usage:
-#   curl -sL https://raw.githubusercontent.com/jsoyer/dotfiles/main/scripts/bootstrap.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/jsoyer/dotfiles/main/scripts/bootstrap.sh | bash
 #
 # Supported platforms:
 #   - macOS (Homebrew)
-#   - Arch Linux (pacman + yay)
+#   - Arch Linux / OmArchy (pacman + yay)
 #   - Fedora Standard (dnf)
 #   - Fedora Atomic (rpm-ostree)
 #   - Fedora Toolbox (container)
@@ -17,6 +17,24 @@
 #
 # For Windows, use bootstrap.ps1 instead:
 #   irm https://raw.githubusercontent.com/jsoyer/dotfiles/main/scripts/bootstrap.ps1 | iex
+#
+# =============================================================================
+# SECURITY MODEL
+# =============================================================================
+# This script downloads and executes code from external sources:
+#
+# Trusted sources (all HTTPS, maintained by reputable orgs):
+#   - get.chezmoi.io          — chezmoi official installer (Go binary)
+#   - Homebrew/install         — Homebrew official installer (GitHub)
+#   - astral.sh/uv            — uv Python package manager (Astral)
+#   - downloads.1password.com — 1Password CLI (AgileBits, GPG-signed repo)
+#   - cli.github.com          — GitHub CLI (GitHub, GPG-signed repo)
+#
+# All curl calls use -fsSL (fail on HTTP errors, silent, follow redirects, HTTPS).
+# GPG keys are verified for apt/dnf repos (1Password, GitHub CLI).
+# No checksums on installer scripts (standard industry practice for these tools).
+#
+# To audit: grep -n 'curl' scripts/bootstrap.sh
 # =============================================================================
 
 set -euo pipefail
