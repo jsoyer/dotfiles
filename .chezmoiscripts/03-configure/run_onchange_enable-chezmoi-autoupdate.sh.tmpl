@@ -4,7 +4,10 @@
 #!/usr/bin/env bash
 # =============================================================================
 # Enable chezmoi-autoupdate timer/agent
+# Reruns when timer/service/plist files change
 # =============================================================================
+# service hash: {{ include "dot_config/systemd/user/chezmoi-autoupdate.service" | sha256sum }}
+# timer hash:   {{ include "dot_config/systemd/user/chezmoi-autoupdate.timer" | sha256sum }}
 
 set -uo pipefail
 
