@@ -14,10 +14,10 @@ NC='\033[0m'
 BACKUP_DIR="${HOME}/.cache/chezmoi-backups"
 AGE_KEY="${HOME}/.config/chezmoi/key.txt"
 TIMESTAMP="$(date +%Y%m%d-%H%M%S)"
-HOSTNAME="$(hostname -s 2>/dev/null || echo unknown)"
-BACKUP_NAME="chezmoi-state-${HOSTNAME}-${TIMESTAMP}"
+THIS_HOST="$(hostname -s 2>/dev/null || echo unknown)"
+BACKUP_NAME="chezmoi-state-${THIS_HOST}-${TIMESTAMP}"
 
-mkdir -p "${BACKUP_DIR}"
+mkdir -p -m 700 "${BACKUP_DIR}"
 
 # --- Restore mode ---
 if [[ "${1:-}" == "--restore" ]]; then
@@ -33,16 +33,15 @@ if [[ "${1:-}" == "--restore" ]]; then
             echo "Restore the age key first, then re-run."
             exit 1
         fi
-        TMPDIR="$(mktemp -d)"
-        age -d -i "${AGE_KEY}" "${RESTORE_FILE}" | tar xz -C "${TMPDIR}"
-        RESTORE_FILE="${TMPDIR}"
+        WORK_DIR="$(mktemp -d)"
+        trap 'rm -rf "${WORK_DIR}"' EXIT
+        age -d -i "${AGE_KEY}" "${RESTORE_FILE}" | tar xz -C "${WORK_DIR}"
+        RESTORE_FILE="${WORK_DIR}"
     fi
 
     echo -e "${BLUE}Restoring chezmoi state...${NC}"
     if [[ -f "${RESTORE_FILE}/state.json" ]]; then
         chezmoi state reset
-        # Import state dump - chezmoi doesn't have direct import,
-        # so we copy the state database
         echo -e "${GREEN}State dump available at: ${RESTORE_FILE}/state.json${NC}"
         echo "Manual restore: chezmoi state set-bucket --bucket=scriptState < extracted data"
     fi
@@ -59,8 +58,9 @@ fi
 # --- Backup mode ---
 echo -e "${BOLD}Backing up chezmoi state...${NC}"
 
-TMPDIR="$(mktemp -d)"
-BACKUP_PATH="${TMPDIR}/${BACKUP_NAME}"
+WORK_DIR="$(mktemp -d)"
+trap 'rm -rf "${WORK_DIR}"' EXIT
+BACKUP_PATH="${WORK_DIR}/${BACKUP_NAME}"
 mkdir -p "${BACKUP_PATH}"
 
 # 1. State dump
@@ -80,12 +80,13 @@ if [[ -f "${CHEZMOI_CONFIG}" ]]; then
     cp "${CHEZMOI_CONFIG}" "${BACKUP_PATH}/chezmoi.toml"
 fi
 
-# 4. Metadata
+# 4. Metadata (sanitize version string for valid JSON)
+CHEZMOI_VER="$(chezmoi --version 2>/dev/null | tr -d '"\\' || echo unknown)"
 cat > "${BACKUP_PATH}/metadata.json" << METADATA
 {
-  "hostname": "${HOSTNAME}",
+  "hostname": "${THIS_HOST}",
   "timestamp": "${TIMESTAMP}",
-  "chezmoi_version": "$(chezmoi --version 2>/dev/null || echo unknown)",
+  "chezmoi_version": "${CHEZMOI_VER}",
   "os": "$(uname -s)",
   "arch": "$(uname -m)"
 }
@@ -93,7 +94,7 @@ METADATA
 
 # 5. Create archive
 ARCHIVE="${BACKUP_DIR}/${BACKUP_NAME}.tar.gz"
-tar czf "${ARCHIVE}" -C "${TMPDIR}" "${BACKUP_NAME}"
+tar czf "${ARCHIVE}" -C "${WORK_DIR}" "${BACKUP_NAME}"
 
 # 6. Encrypt with age if key available
 if [[ -f "${AGE_KEY}" ]]; then
@@ -106,11 +107,8 @@ if [[ -f "${AGE_KEY}" ]]; then
     fi
 fi
 
-# 7. Cleanup temp
-rm -rf "${TMPDIR}"
-
-# 8. Prune old backups (keep last 5)
-ls -1t "${BACKUP_DIR}"/chezmoi-state-*.tar.gz* 2>/dev/null | tail -n +6 | xargs rm -f 2>/dev/null || true
+# 7. Prune old backups (keep last 5)
+find "${BACKUP_DIR}" -name 'chezmoi-state-*.tar.gz*' -type f | sort -r | tail -n +6 | xargs rm -f 2>/dev/null || true
 
 SIZE="$(du -h "${ARCHIVE}" | awk '{print $1}')"
 echo ""

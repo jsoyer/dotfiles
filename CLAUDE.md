@@ -155,9 +155,15 @@ Auto-update monitoring and fleet management via background daemon:
 - `cmhealth` - Comprehensive system health check
 - `cmbench` - Benchmark shell startup performance
 - `cmaudit` - Audit missing command dependencies
+- `cmaudit-packages` - Audit unused brew packages (30+ days)
 - `cmrollback` - Interactive rollback to previous commit
 - `cmreload` - Reload modified configs in active shell
 - `cminventory` - Fleet status (if heartbeats configured)
+- `zsh-profiler` - Per-file zsh startup profiler
+- `config-search` - FZF search across all config files
+- `chezmoi-state-backup` - Backup/restore chezmoi state (age-encrypted)
+- `mcp-health` - MCP server health check (env vars + HTTP endpoints)
+- `secret-age` - Audit staleness of secrets/tokens/SSH keys
 
 ## Auto-Update System
 
@@ -222,7 +228,7 @@ POST https://ntfy.sh/chezmoi-fleet-<org>
 hostname=macbook-pro&timestamp=2026-03-28T10:30:00Z
 ```
 
-Enables dashboard/deadman-switch detection (machine offline > 7 days).
+Enables fleet monitoring (machine offline detection).
 
 ### Starship Integration
 
@@ -237,6 +243,14 @@ Shows visual status at command prompt.
 **Enable/disable**: Pass `chezmoi_autoupdate_enabled` during init or edit `chezmoi.toml`
 **Timers**: View status with `systemctl --user status chezmoi-autoupdate.timer` (Linux) or `launchctl list com.jsoyer.chezmoi-autoupdate` (macOS)
 **Logs**: `journalctl --user -u chezmoi-autoupdate -f` (Linux) or Console.app (macOS)
+
+## Secret Management
+
+- `secrets.zsh` is auto-generated from 1Password (`op://Private/Shell Secrets`) via `run_onchange_generate-secrets.sh.tmpl`
+- If `op` CLI is available and authenticated, `chezmoi apply` regenerates `~/.zsh/secrets.zsh` automatically
+- Secrets are single-quoted to prevent shell injection
+- File is created with `umask 077` (0600 from creation, no race window)
+- Fallback: if 1Password unavailable, existing `secrets.zsh` is preserved
 
 ## Security Notes
 

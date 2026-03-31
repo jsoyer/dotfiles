@@ -768,6 +768,10 @@ All tools are configured with consistent Catppuccin Mocha colors:
 
 ## 📚 Documentation
 
+### Quick Reference
+
+See [docs/QUICKREF.md](docs/QUICKREF.md) for a 1-page cheat sheet of all commands and aliases.
+
 ### Per-Tool Documentation
 
 Detailed documentation is available in each configuration directory:
@@ -777,6 +781,7 @@ Detailed documentation is available in each configuration directory:
 - `~/.config/tmux/README.md` - Tmux configuration and usage
 - `~/.config/wezterm/README.md` - WezTerm setup and features
 - `~/.config/zellij/README.md` - Zellij layouts and keybindings
+- `~/.local/bin/README.md` - Custom scripts and utilities
 
 ### External Resources
 

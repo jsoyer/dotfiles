@@ -49,7 +49,13 @@ while read -r formula; do
             access=$(stat -c %X "$bin" 2>/dev/null || echo 0)
         fi
         (( access > latest_access )) && latest_access=$access
-    done < <(find "$cellar_path" -maxdepth 4 -type f \( -perm +111 -o -name '*.dylib' -o -name '*.so' \) 2>/dev/null | head -5)
+    done < <(
+        if [[ "$IS_MACOS" == "true" ]]; then
+            find "$cellar_path" -maxdepth 4 -type f \( -perm +111 -o -name '*.dylib' -o -name '*.so' \) 2>/dev/null | head -5
+        else
+            find "$cellar_path" -maxdepth 4 -type f \( -perm /111 -o -name '*.dylib' -o -name '*.so' \) 2>/dev/null | head -5
+        fi
+    )
 
     # Skip if no binaries found
     (( latest_access == 0 )) && continue

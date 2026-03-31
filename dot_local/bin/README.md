@@ -198,59 +198,6 @@ chezmoi-validate               # Full validation suite
 chezmoi-validate --strict      # Fail on warnings
 ```
 
-### Fleet Dead-Man Switch
-
-**`chezmoi-deadman`** — Alert if any machine hasn't updated in N days
-
-Runs on a hub machine (e.g., a Raspberry Pi that is always on) via cron. It discovers fleet machines through Tailscale and SSHes into each to read their `status.json`. If a machine hasn't updated within the threshold (default 7 days) or is unreachable, it fires alerts via ntfy/Telegram/Discord.
-
-**Cron example:**
-```cron
-0 9 * * * chezmoi-deadman
-```
-
-**Usage:**
-```bash
-chezmoi-deadman                    # Check all fleet machines
-CHEZMOI_DEADMAN_DAYS=3 chezmoi-deadman  # Custom threshold
-```
-
-**Env vars:**
-```
-CHEZMOI_DEADMAN_DAYS   — stale threshold in days (default: 7)
-CHEZMOI_FLEET_MACHINES — comma-separated fallback hostnames (no Tailscale)
-CHEZMOI_SSH_USER       — SSH user for remote machines (default: current user)
-CHEZMOI_SSH_KEY        — path to SSH key (default: ~/.ssh/id_ed25519)
-CHEZMOI_SSH_TIMEOUT    — SSH connect timeout in seconds (default: 10)
-CHEZMOI_NTFY_TOPIC     — ntfy topic for alerts
-TELEGRAM_BOT_TOKEN     — Telegram bot token
-TELEGRAM_CHAT_ID       — Telegram chat ID
-DISCORD_WEBHOOK_URL    — Discord webhook URL
-```
-
-State is written to `~/.cache/chezmoi-autoupdate/deadman-state.json` and consumed by `chezmoi-dashboard`.
-
-### Fleet Dashboard
-
-**`chezmoi-dashboard`** — Generate a static HTML fleet status page
-
-Collects `status.json` from all machines (local + Tailscale peers via SSH, or from a recent `deadman-state.json`) and renders a self-contained HTML page with Catppuccin Mocha styling.
-
-**Output:** `~/.cache/chezmoi-autoupdate/dashboard.html` (path is printed to stdout)
-
-**Usage:**
-```bash
-chezmoi-dashboard                  # Generate dashboard.html
-chezmoi-dashboard --open           # Generate and open in browser
-chezmoi-dashboard --local-only     # Only include this machine (no SSH)
-chezmoi-dashboard --output /tmp/fleet.html  # Custom output path
-```
-
-The page auto-refreshes every 5 minutes. Fleet data sources are tried in order:
-1. Recent `deadman-state.json` (< 30 min old) — zero additional SSH calls
-2. Tailscale peer discovery + live SSH into each peer
-3. `CHEZMOI_FLEET_MACHINES` env var fallback
-
 ### Health & Diagnostics
 
 **`cmhealth`** — Complete system health check
@@ -303,6 +250,60 @@ Parses all alias files, extracts referenced commands, checks if they're installe
 
 ```bash
 cmaudit                        # List missing commands referenced in aliases
+```
+
+**`cmaudit-packages`** — Audit unused brew packages
+
+Checks last access time of brew formula binaries and flags packages unused for 30+ days:
+
+```bash
+cmaudit-packages               # Default 30-day threshold
+cmaudit-packages --days 60     # Custom threshold
+```
+
+**`zsh-profiler`** — Per-file zsh startup profiler
+
+Measures and ranks each config file's load time using `EPOCHREALTIME`:
+
+```bash
+zsh-profiler                   # Profile all zsh config files
+```
+
+**`config-search`** — FZF-powered config search
+
+Search across all `~/.config/` files with bat preview:
+
+```bash
+config-search                  # Interactive browse
+config-search "theme"          # Pre-filtered
+```
+
+### Security & State
+
+**`chezmoi-state-backup`** — Backup chezmoi state (age-encrypted)
+
+Dumps state, age key, and config into an encrypted archive. Auto-prunes old backups (keeps 5):
+
+```bash
+chezmoi-state-backup                    # Create backup
+chezmoi-state-backup --restore FILE     # Restore from archive
+```
+
+**`mcp-health`** — MCP server health check
+
+Validates env vars, HTTP endpoints, and CLI tools for all 20 MCP servers:
+
+```bash
+mcp-health                     # Full health check
+```
+
+**`secret-age`** — Secret staleness audit
+
+Checks age of SSH keys, age encryption keys, tokens, and warns if older than threshold:
+
+```bash
+secret-age                     # Default 90-day threshold
+secret-age --days 60           # Custom threshold
 ```
 
 ### Maintenance & Recovery

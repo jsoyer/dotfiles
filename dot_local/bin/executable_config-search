@@ -13,6 +13,11 @@ if ! command -v fzf &>/dev/null; then
     exit 1
 fi
 
+if ! command -v fd &>/dev/null; then
+    echo "fd required: brew install fd / pacman -S fd"
+    exit 1
+fi
+
 QUERY="${*:-}"
 
 # Search config files with preview
