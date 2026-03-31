@@ -436,16 +436,29 @@ echo $TELEGRAM_BOT_TOKEN $TELEGRAM_CHAT_ID
 # Required for Discord
 echo $DISCORD_WEBHOOK_URL
 
-# ntfy.sh topic
-echo $NTFY_TOPIC
+# ntfy (self-hosted)
+echo $CHEZMOI_NTFY_TOPIC
+echo $CHEZMOI_NTFY_URL
+echo $CHEZMOI_NTFY_TOKEN
 ```
 
-Set in `~/.zsh/secrets.zsh` (excluded from git):
+Set in `~/.zsh/secrets.zsh` (auto-generated from 1Password via `chezmoi apply`):
 ```bash
+export CHEZMOI_NTFY_TOPIC="chezmoi-fleet"
+export CHEZMOI_NTFY_URL="https://ntfy.bbhome.wf"
+export CHEZMOI_NTFY_TOKEN="tk_xxx"
 export TELEGRAM_BOT_TOKEN="xxx"
 export TELEGRAM_CHAT_ID="xxx"
 export DISCORD_WEBHOOK_URL="https://discord.com/api/webhooks/..."
-export NTFY_TOPIC="chezmoi-fleet-myname"
+```
+
+**ntfy user/topic setup (on the ntfy host):**
+```bash
+docker exec -it ntfy ntfy user add --role=admin jsoyer
+docker exec -it ntfy ntfy token add jsoyer
+docker exec -it ntfy ntfy access jsoyer 'chezmoi-fleet' rw
+docker exec -it ntfy ntfy access jsoyer 'watchtower-updates' rw
+docker exec -it ntfy ntfy access jsoyer 'diun-updates' rw
 ```
 
 **Test notification manually:**
@@ -453,13 +466,14 @@ export NTFY_TOPIC="chezmoi-fleet-myname"
 # Test desktop notification
 notify-send "Test" "This is a test notification"
 
-# Test ntfy.sh
-curl -d "Testing" https://ntfy.sh/my-topic
+# Test ntfy (self-hosted with auth)
+curl -H "Authorization: Bearer $CHEZMOI_NTFY_TOKEN" \
+  -d "Testing" "$CHEZMOI_NTFY_URL/$CHEZMOI_NTFY_TOPIC"
 
 # Test Discord webhook
 curl -X POST -H "Content-Type: application/json" \
   -d '{"content":"Test from chezmoi"}' \
-  $DISCORD_WEBHOOK_URL
+  "$DISCORD_WEBHOOK_URL"
 ```
 
 ### Rollback a Bad Update

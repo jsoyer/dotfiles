@@ -191,16 +191,39 @@ When `chezmoi-autoupdate` runs, it auto-heals:
 
 Errors (only, no noise on success):
 - **Desktop**: osascript (macOS) / notify-send (Linux)
-- **ntfy**: Self-hosted or ntfy.sh — error alerts + silent heartbeats
+- **ntfy**: Self-hosted (`ntfy.bbhome.wf`) — error alerts + silent heartbeats
 - **Telegram**: API sendMessage
 - **Discord**: Webhook POST
 
-Environment variables (in `secrets.zsh`, never in repo):
-- `CHEZMOI_NTFY_TOPIC` — ntfy topic name
-- `CHEZMOI_NTFY_URL` — ntfy server URL (default: `https://ntfy.sh`, use Tailscale IP for self-hosted)
-- `CHEZMOI_NTFY_TOKEN` — ntfy auth token (for self-hosted with `auth-default-access: deny-all`)
+Environment variables (in `secrets.zsh` via 1Password, never in repo):
+- `CHEZMOI_NTFY_TOPIC` — ntfy topic name (e.g., `chezmoi-fleet`)
+- `CHEZMOI_NTFY_URL` — ntfy server URL (e.g., `https://ntfy.bbhome.wf`)
+- `CHEZMOI_NTFY_TOKEN` — ntfy bearer token for auth
 - `TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID`
 - `DISCORD_WEBHOOK_URL`
+
+#### ntfy Setup (self-hosted)
+
+The ntfy instance runs as a Docker container with `auth-default-access: deny-all`.
+
+**Initial setup (on the ntfy host):**
+```bash
+docker exec -it ntfy ntfy user add --role=admin jsoyer
+docker exec -it ntfy ntfy token add jsoyer
+# Grant access to notification topics:
+docker exec -it ntfy ntfy access jsoyer 'chezmoi-fleet' rw
+docker exec -it ntfy ntfy access jsoyer 'watchtower-updates' rw
+docker exec -it ntfy ntfy access jsoyer 'diun-updates' rw
+```
+
+**Phone app setup:**
+1. Install ntfy app (iOS/Android)
+2. Settings → Add server → `https://ntfy.bbhome.wf` (user: `jsoyer`, password from `ntfy user add`)
+3. Subscribe to topics: `chezmoi-fleet`, `watchtower-updates`, `diun-updates`
+
+**Store the token in 1Password:**
+Add `CHEZMOI_NTFY_TOKEN` field to `op://Private/Shell Secrets` with the `tk_xxx` token.
+All machines pick it up automatically on next `chezmoi apply`.
 
 ### Post-Apply Validation & Auto-Rollback
 
