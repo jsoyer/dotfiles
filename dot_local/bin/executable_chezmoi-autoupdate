@@ -144,6 +144,20 @@ if [[ "${NETWORK_METERED}" == "true" ]]; then
     log "Network is metered — heavy operations will be skipped"
 fi
 
+## A7. Ensure git remote is reachable (fallback SSH → HTTPS for headless machines)
+if [[ -d "${CHEZMOI_SOURCE}/.git" ]]; then
+    _remote_url="$(git -C "${CHEZMOI_SOURCE}" remote get-url origin 2>/dev/null || true)"
+    if [[ "${_remote_url}" == git@* ]]; then
+        # Test SSH connectivity to GitHub (2s timeout)
+        if ! ssh -o BatchMode=yes -o ConnectTimeout=2 -o StrictHostKeyChecking=accept-new git@github.com 2>&1 | grep -qi "successfully"; then
+            # SSH failed — switch to HTTPS (works for public repos without auth)
+            _https_url="$(echo "${_remote_url}" | sed 's|git@github.com:|https://github.com/|')"
+            git -C "${CHEZMOI_SOURCE}" remote set-url origin "${_https_url}"
+            log "A7: SSH unavailable, switched remote to HTTPS (${_https_url})"
+        fi
+    fi
+fi
+
 # ---------------------------------------------------------------------------
 # Phase B — chezmoi update
 # ---------------------------------------------------------------------------

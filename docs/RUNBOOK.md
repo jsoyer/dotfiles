@@ -179,6 +179,30 @@ chezmoi apply ~/.ssh/config
 
 **Linux**: A minimal config is generated automatically. For full config, install 1Password CLI and authenticate.
 
+### Auto-update fails with SSH "Permission denied" on headless machines
+
+**Cause**: No SSH key for GitHub on this machine (common on RPi/servers).
+
+The auto-update script auto-heals this by switching the git remote from SSH to HTTPS. HTTPS works without auth for public repos. After the next run, the status should turn green.
+
+**Manual fix** (if auto-heal hasn't run yet):
+```bash
+cd ~/.local/share/chezmoi
+git remote set-url origin https://github.com/jsoyer/dotfiles.git
+chezmoi-autoupdate
+```
+
+**To set up SSH properly instead** (optional, enables push from this machine):
+```bash
+ssh-keygen -t ed25519 -C "$(hostname)" -f ~/.ssh/id_ed25519 -N ""
+ssh-keyscan github.com >> ~/.ssh/known_hosts
+cat ~/.ssh/id_ed25519.pub
+# Add the public key to GitHub: Settings → SSH and GPG keys → New SSH key
+# Then switch back to SSH:
+cd ~/.local/share/chezmoi
+git remote set-url origin git@github.com:jsoyer/dotfiles.git
+```
+
 ### Git conflicts on secondary machine
 
 ```bash
