@@ -1187,6 +1187,23 @@ def cpurge [] {
     }
 }
 
+# Monitoring & diagnostics (scripts in ~/.local/bin/)
+def cmhealth [...args: string] { ^cmhealth ...$args }
+def cmbench [...args: string] { ^cmbench ...$args }
+def cmaudit [...args: string] { ^cmaudit ...$args }
+def cmaudit-packages [...args: string] { ^cmaudit-packages ...$args }
+def cmrollback [...args: string] { ^cmrollback ...$args }
+def cmreload [...args: string] { ^cmreload ...$args }
+def cmwho [] { ^cmwho }
+def cminventory [] { ^cminventory }
+
+# Security & tools
+def mcp-health [] { ^mcp-health }
+def secret-age [...args: string] { ^secret-age ...$args }
+def config-search [...args: string] { ^config-search ...$args }
+def zsh-profiler [] { ^zsh-profiler }
+def chezmoi-state-backup [...args: string] { ^chezmoi-state-backup ...$args }
+
 # Chezmoi destroy (purge + remove ALL managed files)
 def cdestroy [] {
     print "DANGER: This will remove chezmoi AND all managed dotfiles!"
