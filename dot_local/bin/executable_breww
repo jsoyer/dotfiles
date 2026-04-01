@@ -159,6 +159,11 @@ def sync_to_git():
 
 
 def main():
+    import shutil
+    if not shutil.which("brew"):
+        print(f"{RED}brew not found. Install Homebrew first: https://brew.sh{NC}")
+        sys.exit(1)
+
     args = sys.argv[1:]
 
     if not args:

@@ -7,7 +7,7 @@ Wants=network-online.target
 Type=oneshot
 ExecStart=%h/.local/bin/chezmoi-autoupdate
 TimeoutStartSec=300
-Environment="PATH=%h/.local/bin:/home/linuxbrew/.linuxbrew/bin:/home/linuxbrew/.linuxbrew/sbin:/usr/local/bin:/usr/bin:/bin"
+Environment="PATH=%h/.local/bin:%h/bin:/home/linuxbrew/.linuxbrew/bin:/home/linuxbrew/.linuxbrew/sbin:/usr/local/bin:/usr/bin:/bin:/snap/bin"
 StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=chezmoi-autoupdate
