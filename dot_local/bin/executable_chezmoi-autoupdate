@@ -52,6 +52,18 @@ ERRORS=()
 log "chezmoi-autoupdate started on ${HOSTNAME_SHORT}"
 
 # ---------------------------------------------------------------------------
+# Phase A0 — Ensure systemd timer is active (Linux only)
+# ---------------------------------------------------------------------------
+if [[ "$(uname)" == "Linux" ]] && command -v systemctl >/dev/null 2>&1; then
+    _timer_file="${HOME}/.config/systemd/user/chezmoi-autoupdate.timer"
+    if [[ -f "${_timer_file}" ]] && ! systemctl --user is-enabled chezmoi-autoupdate.timer &>/dev/null; then
+        systemctl --user daemon-reload
+        systemctl --user enable --now chezmoi-autoupdate.timer 2>/dev/null || true
+        log "A0: systemd timer enabled"
+    fi
+fi
+
+# ---------------------------------------------------------------------------
 # Phase A — Auto-heal
 # ---------------------------------------------------------------------------
 log "Phase A: auto-heal"
