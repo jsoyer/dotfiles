@@ -164,6 +164,7 @@ fi
 log "Phase B: chezmoi update"
 
 UPDATE_EXIT=0
+export CHEZMOI_AUTOUPDATE=1
 if command -v chezmoi >/dev/null 2>&1; then
     chezmoi update --no-tty --keep-going >>"${LOG_FILE}" 2>&1 || UPDATE_EXIT=$?
     if [[ ${UPDATE_EXIT} -ne 0 ]]; then
