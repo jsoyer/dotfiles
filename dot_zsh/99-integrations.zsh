@@ -94,7 +94,9 @@ fi
 # chezmoi background auto-update (login hook — fires if last check > 1h)
 # ============================================================================
 _chezmoi_bg_update() {
-  local stamp="${HOME}/.cache/chezmoi-autoupdate/last-login-check"
+  local stampdir="${HOME}/.cache/chezmoi-autoupdate"
+  local stamp="${stampdir}/last-login-check"
+  [[ -d "${stampdir}" ]] || mkdir -p "${stampdir}"
   local now
   now=$(date +%s)
   local last=0
