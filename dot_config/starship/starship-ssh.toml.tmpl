@@ -99,7 +99,7 @@ command = """
   [[ "${_s}" == "ok" ]] && echo "✓" || exit 1
 """
 when = "test -f ~/.cache/chezmoi-autoupdate/status.json"
-format = "[$output]($style) "
+format = "[$output]($style)"
 style = "bold green"
 shell = ["bash", "--noprofile", "--norc"]
 
@@ -112,7 +112,7 @@ command = """
   [[ "${_s}" == "error" ]] && echo "✗" || exit 1
 """
 when = "test -f ~/.cache/chezmoi-autoupdate/status.json"
-format = "[$output]($style) "
+format = "[$output]($style)"
 style = "bold red"
 shell = ["bash", "--noprofile", "--norc"]
 
