@@ -13,13 +13,21 @@ set -uo pipefail
 
 {{- if eq .chezmoi.os "linux" }}
 # Linux: enable systemd user timer
-if command -v systemctl >/dev/null 2>&1; then
+# Wait for chezmoi to finish deploying the files (run_onchange can fire mid-apply)
+_timer_file="${HOME}/.config/systemd/user/chezmoi-autoupdate.timer"
+_retries=0
+while [[ ! -f "${_timer_file}" ]] && (( _retries < 10 )); do
+    sleep 1
+    _retries=$(( _retries + 1 ))
+done
+
+if command -v systemctl >/dev/null 2>&1 && [[ -f "${_timer_file}" ]]; then
     echo "Enabling chezmoi-autoupdate systemd timer..."
     systemctl --user daemon-reload
     systemctl --user enable --now chezmoi-autoupdate.timer
     echo "chezmoi-autoupdate timer enabled"
 else
-    echo "systemctl not available, skipping timer setup"
+    echo "systemctl or timer file not available, skipping timer setup"
 fi
 {{- else if eq .chezmoi.os "darwin" }}
 # macOS mac-personal: load launchd agent
