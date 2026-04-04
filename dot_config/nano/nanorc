@@ -1,0 +1,26 @@
+# Nano configuration
+
+# Display line numbers
+set linenumbers
+
+# Enable syntax highlighting
+include "/usr/share/nano/*.nanorc"
+
+# Show cursor position in status bar
+set constantshow
+
+# Use smooth scrolling
+set smooth
+
+# Enable mouse support
+set mouse
+
+# Convert tabs to spaces
+set tabsize 4
+set tabstospaces
+
+# Auto-indent new lines
+set autoindent
+
+# Enable soft line wrapping
+set softwrap
