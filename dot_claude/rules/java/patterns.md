@@ -4,7 +4,7 @@ paths:
 ---
 # Java Patterns
 
-> This file extends [common/patterns.md](../common/patterns.md) with Java-specific content.
+> This file extends [common/coding-style.md](../common/coding-style.md) with Java-specific content.
 
 ## Repository Pattern
 

@@ -5,7 +5,7 @@ paths:
 ---
 # Rust Hooks
 
-> This file extends [common/hooks.md](../common/hooks.md) with Rust-specific content.
+> This file extends [common/coding-style.md](../common/coding-style.md) with Rust-specific content.
 
 ## PostToolUse Hooks
 
