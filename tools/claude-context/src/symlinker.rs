@@ -96,11 +96,57 @@ pub fn preview(
     Ok(ApplyPreview { actions })
 }
 
+/// Check if a directory looks like a project
+pub fn is_project_dir(dir: &Path) -> bool {
+    let signals = [
+        ".git",
+        "CLAUDE.md",
+        ".claude",
+        "package.json",
+        "Cargo.toml",
+        "go.mod",
+        "pyproject.toml",
+        "setup.py",
+        "Gemfile",
+        "composer.json",
+        "pom.xml",
+        "build.gradle",
+        "CMakeLists.txt",
+        "Makefile",
+        "flake.nix",
+        "mix.exs",
+        "pubspec.yaml",
+    ];
+    signals.iter().any(|s| dir.join(s).exists())
+}
+
 pub fn apply(
     config: &AppConfig,
     project_dir: &Path,
     selections: &Recommendations,
 ) -> Result<()> {
+    let home = dirs::home_dir().unwrap_or_default();
+    let is_home = project_dir == home;
+
+    // If not in home and not a detected project, ask
+    if !is_home && !is_project_dir(project_dir) {
+        if !dialoguer::Confirm::new()
+            .with_prompt(format!(
+                "No project detected in {}. Apply anyway?",
+                project_dir.display()
+            ))
+            .default(false)
+            .interact()?
+        {
+            println!("Cancelled.");
+            return Ok(());
+        }
+    }
+
+    if is_home {
+        println!("Applying global configuration...");
+    }
+
     for cli in config.detected_clis() {
         let cli_project_dir = project_dir.join(&cli.project_dir);
 
@@ -114,21 +160,29 @@ pub fn apply(
         }
 
         if cli.supports.contains(&"agents".to_string()) {
-            create_symlinks(
-                &cli_project_dir.join("agents"),
-                &config.paths.agents_dir,
-                &selections.agent_names(),
-                false, // agents are .md files
-            )?;
+            let target = cli_project_dir.join("agents");
+            // Skip if target == source (global mode: agents already in ~/.agents/ -> ~/.claude/agents/ via sync script)
+            if target != config.paths.agents_dir {
+                create_symlinks(
+                    &target,
+                    &config.paths.agents_dir,
+                    &selections.agent_names(),
+                    false, // agents are .md files
+                )?;
+            }
         }
 
         if cli.supports.contains(&"commands".to_string()) {
-            create_symlinks(
-                &cli_project_dir.join("commands"),
-                &config.paths.commands_dir,
-                &selections.command_names(),
-                false,
-            )?;
+            let target = cli_project_dir.join("commands");
+            // Skip if target == source (global mode: commands already in ~/.claude/commands/)
+            if target != config.paths.commands_dir {
+                create_symlinks(
+                    &target,
+                    &config.paths.commands_dir,
+                    &selections.command_names(),
+                    false,
+                )?;
+            }
         }
 
         if cli.supports.contains(&"rules".to_string()) {
