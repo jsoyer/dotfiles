@@ -45,13 +45,6 @@ fi
 unset _zsh_syntax_path _brew_prefix
 
 # ============================================================================
-# Zoxide - Smarter cd command (cached init)
-# ============================================================================
-if (( $+commands[zoxide] )); then
-  _cache_eval zoxide 'zoxide init --cmd cd zsh'
-fi
-
-# ============================================================================
 # Atuin - Magical shell history (cached init)
 # ============================================================================
 if (( $+commands[atuin] )); then
@@ -63,6 +56,14 @@ fi
 # ============================================================================
 if (( $+commands[direnv] )); then
   _cache_eval direnv 'direnv hook zsh'
+fi
+
+# ============================================================================
+# Zoxide - Smarter cd command (cached init)
+# Must be initialized LAST among cd-hooking tools
+# ============================================================================
+if (( $+commands[zoxide] )); then
+  _cache_eval zoxide 'zoxide init --cmd cd zsh'
 fi
 
 # ============================================================================

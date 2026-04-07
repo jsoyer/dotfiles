@@ -61,13 +61,6 @@ if command -v starship >/dev/null 2>&1; then
 fi
 
 # ============================================================================
-# Zoxide - Smarter cd command (cached)
-# ============================================================================
-if command -v zoxide >/dev/null 2>&1; then
-  _cache_eval zoxide 'zoxide init --cmd cd bash'
-fi
-
-# ============================================================================
 # Atuin - Magical shell history (cached)
 # ============================================================================
 if command -v atuin >/dev/null 2>&1; then
@@ -79,6 +72,14 @@ fi
 # ============================================================================
 if command -v direnv >/dev/null 2>&1; then
   _cache_eval direnv 'direnv hook bash'
+fi
+
+# ============================================================================
+# Zoxide - Smarter cd command (cached)
+# Must be initialized LAST among cd-hooking tools
+# ============================================================================
+if command -v zoxide >/dev/null 2>&1; then
+  _cache_eval zoxide 'zoxide init --cmd cd bash'
 fi
 
 # ============================================================================

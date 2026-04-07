@@ -872,13 +872,6 @@ function fv --description 'Open file in nvim via FZF'
 end
 
 # ============================================================================
-# Zoxide (smart cd) -- cached init with 24h TTL
-# ============================================================================
-if command -q zoxide
-    _fish_cache_eval zoxide 'zoxide init --cmd cd fish'
-end
-
-# ============================================================================
 # Atuin - Magical shell history -- cached init with 24h TTL
 # ============================================================================
 if command -q atuin
@@ -890,6 +883,14 @@ end
 # ============================================================================
 if command -q direnv
     _fish_cache_eval direnv 'direnv hook fish'
+end
+
+# ============================================================================
+# Zoxide (smart cd) -- cached init with 24h TTL
+# Must be initialized LAST among cd-hooking tools
+# ============================================================================
+if command -q zoxide
+    _fish_cache_eval zoxide 'zoxide init --cmd cd fish'
 end
 
 # ============================================================================
