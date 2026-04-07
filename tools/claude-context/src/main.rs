@@ -8,6 +8,7 @@ mod matcher;
 mod multi_cli;
 mod profile;
 mod scanner;
+mod scope;
 mod symlinker;
 mod trim;
 mod tui;
@@ -20,25 +21,31 @@ use config::AppConfig;
 use indexer::Index;
 use profile::ProfileManager;
 use scanner::Scanner;
+use scope::ResolvedScope;
 
 fn main() -> Result<()> {
     let cli = Cli::parse();
 
     let config = AppConfig::load()?;
+    let cwd = std::env::current_dir()?;
+    let resolved = scope::resolve(&cwd, cli.scope)?;
 
     match cli.command.unwrap_or(Command::Tui { smart: false }) {
-        Command::Tui { smart } => run_tui(&config, smart),
+        Command::Tui { smart } => run_tui(&config, &resolved, smart),
         Command::Scan => run_scan(),
-        Command::Apply { profile, auto: _, smart, yes } => {
-            run_apply(&config, profile, smart, yes)
-        }
-        Command::Status => run_status(&config),
-        Command::Diff => run_diff(&config),
-        Command::Cost => run_cost(&config),
-        Command::Save { name } => run_save(&config, &name),
+        Command::Apply {
+            profile,
+            auto: _,
+            smart,
+            yes,
+        } => run_apply(&config, &resolved, profile, smart, yes),
+        Command::Status => run_status(&config, &resolved),
+        Command::Diff => run_diff(&config, &resolved),
+        Command::Cost => run_cost(&config, &resolved),
+        Command::Save { name } => run_save(&config, &resolved, &name),
         Command::Profiles => run_profiles(&config),
-        Command::Reset { yes } => run_reset(&config, yes),
-        Command::Init => run_init(&config),
+        Command::Reset { yes } => run_reset(&config, &resolved, yes),
+        Command::Init => run_init(&config, &resolved),
         Command::Trim { file, auto, yes } => run_trim(file, auto, yes),
         Command::Index => run_index(&config),
         Command::Doctor => run_doctor(&config),
@@ -48,12 +55,13 @@ fn main() -> Result<()> {
     }
 }
 
-fn run_tui(config: &AppConfig, smart: bool) -> Result<()> {
+fn run_tui(config: &AppConfig, resolved: &ResolvedScope, smart: bool) -> Result<()> {
     let index = Index::build(config)?;
-    let fingerprint = Scanner::scan(&std::env::current_dir()?)?;
+    let cwd = std::env::current_dir()?;
+    let fingerprint = Scanner::scan(&cwd)?;
     let recommendations = matcher::recommend(&fingerprint, &index, smart)?;
 
-    tui::run(config, &index, &fingerprint, &recommendations)
+    tui::run(config, resolved, &index, &fingerprint, &recommendations)
 }
 
 fn run_scan() -> Result<()> {
@@ -64,23 +72,24 @@ fn run_scan() -> Result<()> {
 
 fn run_apply(
     config: &AppConfig,
+    resolved: &ResolvedScope,
     profile: Option<String>,
     smart: bool,
     yes: bool,
 ) -> Result<()> {
-    let project_dir = std::env::current_dir()?;
     let index = Index::build(config)?;
 
     let selections = if let Some(name) = profile {
         let pm = ProfileManager::new(config)?;
         pm.load(&name)?
     } else {
-        let fingerprint = Scanner::scan(&project_dir)?;
+        let cwd = std::env::current_dir()?;
+        let fingerprint = Scanner::scan(&cwd)?;
         matcher::recommend(&fingerprint, &index, smart)?
     };
 
     if !yes {
-        let preview = symlinker::preview(config, &project_dir, &selections)?;
+        let preview = symlinker::preview(config, resolved, &selections)?;
         preview.print();
 
         if !dialoguer::Confirm::new()
@@ -93,39 +102,36 @@ fn run_apply(
         }
     }
 
-    symlinker::apply(config, &project_dir, &selections)?;
+    symlinker::apply(config, resolved, &selections)?;
     println!("Applied successfully.");
     Ok(())
 }
 
-fn run_status(config: &AppConfig) -> Result<()> {
-    let project_dir = std::env::current_dir()?;
-    let status = symlinker::status(config, &project_dir)?;
+fn run_status(config: &AppConfig, resolved: &ResolvedScope) -> Result<()> {
+    let status = symlinker::status(config, resolved)?;
     status.print();
     Ok(())
 }
 
-fn run_diff(config: &AppConfig) -> Result<()> {
-    let project_dir = std::env::current_dir()?;
+fn run_diff(config: &AppConfig, resolved: &ResolvedScope) -> Result<()> {
     let index = Index::build(config)?;
-    let fingerprint = Scanner::scan(&project_dir)?;
+    let cwd = std::env::current_dir()?;
+    let fingerprint = Scanner::scan(&cwd)?;
     let recommended = matcher::recommend(&fingerprint, &index, false)?;
-    let current = symlinker::status(config, &project_dir)?;
+    let current = symlinker::status(config, resolved)?;
 
     cost::print_diff(&current, &recommended);
     Ok(())
 }
 
-fn run_cost(config: &AppConfig) -> Result<()> {
-    let project_dir = std::env::current_dir()?;
-    let status = symlinker::status(config, &project_dir)?;
+fn run_cost(config: &AppConfig, resolved: &ResolvedScope) -> Result<()> {
+    let status = symlinker::status(config, resolved)?;
     cost::print(&status);
     Ok(())
 }
 
-fn run_save(config: &AppConfig, name: &str) -> Result<()> {
-    let project_dir = std::env::current_dir()?;
-    let status = symlinker::status(config, &project_dir)?;
+fn run_save(config: &AppConfig, resolved: &ResolvedScope, name: &str) -> Result<()> {
+    let status = symlinker::status(config, resolved)?;
     let pm = ProfileManager::new(config)?;
     pm.save(name, &status)?;
     println!("Profile '{}' saved.", name);
@@ -138,12 +144,13 @@ fn run_profiles(config: &AppConfig) -> Result<()> {
     Ok(())
 }
 
-fn run_reset(config: &AppConfig, yes: bool) -> Result<()> {
-    let project_dir = std::env::current_dir()?;
-
+fn run_reset(config: &AppConfig, resolved: &ResolvedScope, yes: bool) -> Result<()> {
     if !yes {
         if !dialoguer::Confirm::new()
-            .with_prompt("Remove all per-project config?")
+            .with_prompt(format!(
+                "Remove per-{} config?",
+                resolved.scope
+            ))
             .default(false)
             .interact()?
         {
@@ -152,14 +159,14 @@ fn run_reset(config: &AppConfig, yes: bool) -> Result<()> {
         }
     }
 
-    symlinker::reset(config, &project_dir)?;
-    println!("Project config reset.");
+    symlinker::reset(config, resolved)?;
+    println!("Config reset (scope: {}).", resolved.scope);
     Ok(())
 }
 
-fn run_init(config: &AppConfig) -> Result<()> {
-    let project_dir = std::env::current_dir()?;
-    let fingerprint = Scanner::scan(&project_dir)?;
+fn run_init(config: &AppConfig, resolved: &ResolvedScope) -> Result<()> {
+    let cwd = std::env::current_dir()?;
+    let fingerprint = Scanner::scan(&cwd)?;
 
     if fingerprint.is_empty() {
         let choices = &[
@@ -194,10 +201,13 @@ fn run_init(config: &AppConfig) -> Result<()> {
 
         let pm = ProfileManager::new(config)?;
         if let Ok(selections) = pm.load(profile_name) {
-            symlinker::apply(config, &project_dir, &selections)?;
-            println!("Applied '{}' profile.", profile_name);
+            symlinker::apply(config, resolved, &selections)?;
+            println!("Applied '{}' profile (scope: {}).", profile_name, resolved.scope);
         } else {
-            println!("No '{}' profile found. Run `cctx` to configure manually.", profile_name);
+            println!(
+                "No '{}' profile found. Run `cctx` to configure manually.",
+                profile_name
+            );
         }
     } else {
         fingerprint.print();
@@ -304,6 +314,30 @@ mod tests {
     }
 
     #[test]
+    fn config_has_claude_cli() {
+        let config = AppConfig::load().unwrap();
+        let names: Vec<&str> = config.cli_registry.iter().map(|c| c.name.as_str()).collect();
+        assert!(names.contains(&"claude"));
+    }
+
+    #[test]
+    fn cli_entries_have_scopes_field() {
+        let config = AppConfig::load().unwrap();
+        for cli in &config.cli_registry {
+            assert!(
+                !cli.scopes.is_empty(),
+                "CLI '{}' has empty scopes",
+                cli.name
+            );
+            assert!(
+                cli.scopes.contains(&"global".to_string()),
+                "CLI '{}' must support at least global scope",
+                cli.name
+            );
+        }
+    }
+
+    #[test]
     fn cost_estimation_nonzero_for_nonempty_status() {
         let status = symlinker::ProjectStatus {
             skills: vec!["test-skill".to_string()],
@@ -313,6 +347,7 @@ mod tests {
             mcp: vec!["context7".to_string()],
             plugins: vec![],
             detected_clis: vec!["claude".to_string()],
+            scope: scope::Scope::Project,
         };
         let estimate = cost::estimate(&status);
         assert!(estimate.project_total > 0);
@@ -329,6 +364,7 @@ mod tests {
             mcp: vec![],
             plugins: vec![],
             detected_clis: vec![],
+            scope: scope::Scope::Project,
         };
         let estimate = cost::estimate(&status);
         assert_eq!(estimate.project_total, 0);
@@ -342,9 +378,7 @@ mod tests {
             let fingerprint = Scanner::scan(&dir).unwrap();
             let recs = matcher::recommend(&fingerprint, &index, false).unwrap();
 
-            // Rust project should recommend rust-related skills higher
             if !recs.skills.is_empty() {
-                // At least some recommendations should exist
                 assert!(recs.skills.len() > 0);
             }
         }

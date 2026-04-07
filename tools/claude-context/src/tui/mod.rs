@@ -7,9 +7,11 @@ use crate::config::AppConfig;
 use crate::indexer::Index;
 use crate::matcher::Recommendations;
 use crate::scanner::ProjectFingerprint;
+use crate::scope::ResolvedScope;
 
 pub fn run(
     config: &AppConfig,
+    resolved: &ResolvedScope,
     index: &Index,
     fingerprint: &ProjectFingerprint,
     recommendations: &Recommendations,
@@ -21,17 +23,18 @@ pub fn run(
     ratatui::restore();
 
     if let Some(selections) = result? {
-        println!("\nApplying {} skills, {} agents, {} commands, {} rules, {} MCP, {} plugins...",
+        println!(
+            "\nApplying {} skills, {} agents, {} commands, {} rules, {} MCP, {} plugins (scope: {})...",
             selections.skills.len(),
             selections.agents.len(),
             selections.commands.len(),
             selections.rules.len(),
             selections.mcp.len(),
             selections.plugins.len(),
+            resolved.scope,
         );
 
-        let project_dir = std::env::current_dir()?;
-        crate::symlinker::apply(config, &project_dir, &selections)?;
+        crate::symlinker::apply(config, resolved, &selections)?;
         println!("Applied successfully.");
     }
 

@@ -3,10 +3,12 @@ use std::path::{Path, PathBuf};
 
 use crate::config::AppConfig;
 use crate::matcher::Recommendations;
+use crate::scope::{scope_str, ResolvedScope, Scope};
 
 #[derive(Debug)]
 pub struct ApplyPreview {
     pub actions: Vec<PreviewAction>,
+    pub scope: Scope,
 }
 
 #[derive(Debug)]
@@ -26,52 +28,75 @@ pub struct ProjectStatus {
     pub mcp: Vec<String>,
     pub plugins: Vec<String>,
     pub detected_clis: Vec<String>,
+    pub scope: Scope,
+}
+
+/// Resolve the CLI target directory based on scope.
+/// - Global: cli.config_dir (e.g., ~/.claude/)
+/// - Project: <project_root>/<cli.project_dir> (e.g., ./myproject/.claude/)
+/// - UserProject: resolved.target_dir (e.g., ~/.claude/projects/<hash>/)
+fn cli_target_dir(
+    cli: &crate::config::CliEntry,
+    resolved: &ResolvedScope,
+) -> PathBuf {
+    match resolved.scope {
+        Scope::Global => cli.config_dir.clone(),
+        Scope::Project => resolved.target_dir.join(&cli.project_dir),
+        Scope::UserProject => resolved.target_dir.clone(),
+    }
 }
 
 pub fn preview(
     config: &AppConfig,
-    project_dir: &Path,
+    resolved: &ResolvedScope,
     selections: &Recommendations,
 ) -> Result<ApplyPreview> {
     let mut actions = Vec::new();
+    let scope_s = scope_str(resolved.scope);
 
     for cli in config.detected_clis() {
-        let cli_project_dir = project_dir.join(&cli.project_dir);
-
-        if cli.supports.contains(&"skills".to_string()) {
-            actions.push(PreviewAction {
-                cli_name: cli.name.clone(),
-                resource_type: "skills".to_string(),
-                count: selections.skills.len(),
-                target_dir: cli_project_dir.join("skills"),
-            });
+        if !cli.scopes.contains(&scope_s.to_string()) {
+            continue;
         }
 
-        if cli.supports.contains(&"agents".to_string()) {
-            actions.push(PreviewAction {
-                cli_name: cli.name.clone(),
-                resource_type: "agents".to_string(),
-                count: selections.agents.len(),
-                target_dir: cli_project_dir.join("agents"),
-            });
-        }
+        let target = cli_target_dir(cli, resolved);
 
-        if cli.supports.contains(&"commands".to_string()) {
-            actions.push(PreviewAction {
-                cli_name: cli.name.clone(),
-                resource_type: "commands".to_string(),
-                count: selections.commands.len(),
-                target_dir: cli_project_dir.join("commands"),
-            });
-        }
+        if resolved.supports_symlinks {
+            if cli.supports.contains(&"skills".to_string()) && !selections.skills.is_empty() {
+                actions.push(PreviewAction {
+                    cli_name: cli.name.clone(),
+                    resource_type: "skills".to_string(),
+                    count: selections.skills.len(),
+                    target_dir: target.join("skills"),
+                });
+            }
 
-        if cli.supports.contains(&"rules".to_string()) && !selections.rules.is_empty() {
-            actions.push(PreviewAction {
-                cli_name: cli.name.clone(),
-                resource_type: "rules".to_string(),
-                count: selections.rules.len(),
-                target_dir: cli_project_dir.join("rules"),
-            });
+            if cli.supports.contains(&"agents".to_string()) && !selections.agents.is_empty() {
+                actions.push(PreviewAction {
+                    cli_name: cli.name.clone(),
+                    resource_type: "agents".to_string(),
+                    count: selections.agents.len(),
+                    target_dir: target.join("agents"),
+                });
+            }
+
+            if cli.supports.contains(&"commands".to_string()) && !selections.commands.is_empty() {
+                actions.push(PreviewAction {
+                    cli_name: cli.name.clone(),
+                    resource_type: "commands".to_string(),
+                    count: selections.commands.len(),
+                    target_dir: target.join("commands"),
+                });
+            }
+
+            if cli.supports.contains(&"rules".to_string()) && !selections.rules.is_empty() {
+                actions.push(PreviewAction {
+                    cli_name: cli.name.clone(),
+                    resource_type: "rules".to_string(),
+                    count: selections.rules.len(),
+                    target_dir: target.join("rules"),
+                });
+            }
         }
 
         if cli.supports.contains(&"mcp".to_string()) && !selections.mcp.is_empty() {
@@ -79,7 +104,7 @@ pub fn preview(
                 cli_name: cli.name.clone(),
                 resource_type: "mcp".to_string(),
                 count: selections.mcp.len(),
-                target_dir: cli_project_dir.clone(),
+                target_dir: target.clone(),
             });
         }
 
@@ -88,12 +113,15 @@ pub fn preview(
                 cli_name: cli.name.clone(),
                 resource_type: "plugins".to_string(),
                 count: selections.plugins.len(),
-                target_dir: cli_project_dir,
+                target_dir: target,
             });
         }
     }
 
-    Ok(ApplyPreview { actions })
+    Ok(ApplyPreview {
+        actions,
+        scope: resolved.scope,
+    })
 }
 
 /// Check if a directory looks like a project
@@ -122,95 +150,89 @@ pub fn is_project_dir(dir: &Path) -> bool {
 
 pub fn apply(
     config: &AppConfig,
-    project_dir: &Path,
+    resolved: &ResolvedScope,
     selections: &Recommendations,
 ) -> Result<()> {
-    let home = dirs::home_dir().unwrap_or_default();
-    let is_home = project_dir == home;
+    let scope_s = scope_str(resolved.scope);
 
-    // If not in home and not a detected project, ask
-    if !is_home && !is_project_dir(project_dir) {
-        if !dialoguer::Confirm::new()
-            .with_prompt(format!(
-                "No project detected in {}. Apply anyway?",
-                project_dir.display()
-            ))
-            .default(false)
-            .interact()?
-        {
-            println!("Cancelled.");
-            return Ok(());
-        }
-    }
-
-    if is_home {
-        println!("Applying global configuration...");
-    }
+    println!("Applying configuration (scope: {})...", resolved.scope);
 
     for cli in config.detected_clis() {
-        let cli_project_dir = project_dir.join(&cli.project_dir);
-
-        if cli.supports.contains(&"skills".to_string()) {
-            create_symlinks(
-                &cli_project_dir.join("skills"),
-                &config.paths.skills_dir,
-                &selections.skill_names(),
-                true, // skills are directories
-            )?;
+        if !cli.scopes.contains(&scope_s.to_string()) {
+            continue;
         }
 
-        if cli.supports.contains(&"agents".to_string()) {
-            let target = cli_project_dir.join("agents");
-            // Skip if target == source (global mode: agents already in ~/.agents/ -> ~/.claude/agents/ via sync script)
-            if target != config.paths.agents_dir {
-                create_symlinks(
-                    &target,
-                    &config.paths.agents_dir,
-                    &selections.agent_names(),
-                    false, // agents are .md files
-                )?;
-            }
-        }
+        let target = cli_target_dir(cli, resolved);
 
-        if cli.supports.contains(&"commands".to_string()) {
-            let target = cli_project_dir.join("commands");
-            // Skip if target == source (global mode: commands already in ~/.claude/commands/)
-            if target != config.paths.commands_dir {
-                create_symlinks(
-                    &target,
-                    &config.paths.commands_dir,
-                    &selections.command_names(),
-                    false,
-                )?;
-            }
-        }
-
-        if cli.supports.contains(&"rules".to_string()) {
-            for lang in &selections.rules {
-                let rule_name = match lang.as_str() {
-                    "go" => "golang",
-                    other => other,
-                };
-                let source = config.paths.rules_dir.join(rule_name);
-                if source.exists() {
-                    let target = cli_project_dir.join("rules").join(rule_name);
-                    std::fs::create_dir_all(target.parent().unwrap())?;
-                    symlink_dir(&source, &target)?;
+        // Symlink-based resources (only for scopes that support it)
+        if resolved.supports_symlinks {
+            if cli.supports.contains(&"skills".to_string()) {
+                let skills_target = target.join("skills");
+                // Skip if target == source (global mode: avoid self-symlinks)
+                if skills_target != config.paths.skills_dir {
+                    create_symlinks(
+                        &skills_target,
+                        &config.paths.skills_dir,
+                        &selections.skill_names(),
+                        true,
+                    )?;
                 }
             }
-            // Always include common rules
-            let common_source = config.paths.rules_dir.join("common");
-            if common_source.exists() {
-                let common_target = cli_project_dir.join("rules").join("common");
-                std::fs::create_dir_all(common_target.parent().unwrap())?;
-                symlink_dir(&common_source, &common_target)?;
+
+            if cli.supports.contains(&"agents".to_string()) {
+                let agents_target = target.join("agents");
+                if agents_target != config.paths.agents_dir {
+                    create_symlinks(
+                        &agents_target,
+                        &config.paths.agents_dir,
+                        &selections.agent_names(),
+                        false,
+                    )?;
+                }
+            }
+
+            if cli.supports.contains(&"commands".to_string()) {
+                let commands_target = target.join("commands");
+                if commands_target != config.paths.commands_dir {
+                    create_symlinks(
+                        &commands_target,
+                        &config.paths.commands_dir,
+                        &selections.command_names(),
+                        false,
+                    )?;
+                }
+            }
+
+            if cli.supports.contains(&"rules".to_string()) {
+                for lang in &selections.rules {
+                    let rule_name = match lang.as_str() {
+                        "go" => "golang",
+                        other => other,
+                    };
+                    let source = config.paths.rules_dir.join(rule_name);
+                    if source.exists() {
+                        let rule_target = target.join("rules").join(rule_name);
+                        std::fs::create_dir_all(rule_target.parent().unwrap())?;
+                        symlink_dir(&source, &rule_target)?;
+                    }
+                }
+                // Always include common rules
+                let common_source = config.paths.rules_dir.join("common");
+                if common_source.exists() {
+                    let common_target = target.join("rules").join("common");
+                    std::fs::create_dir_all(common_target.parent().unwrap())?;
+                    symlink_dir(&common_source, &common_target)?;
+                }
             }
         }
 
-        if cli.supports.contains(&"mcp".to_string()) || cli.supports.contains(&"plugins".to_string()) {
-            generate_settings_local(
-                &cli_project_dir,
-                &config.base.mcp,
+        // Settings-based resources (MCP, plugins) — all scopes
+        if cli.supports.contains(&"mcp".to_string())
+            || cli.supports.contains(&"plugins".to_string())
+        {
+            let settings_path = settings_path_for_scope(&target, resolved.scope);
+            merge_settings_file(
+                &settings_path,
                 &selections.mcp,
                 &selections.plugins,
             )?;
@@ -220,51 +242,92 @@ pub fn apply(
     Ok(())
 }
 
-pub fn reset(config: &AppConfig, project_dir: &Path) -> Result<()> {
-    for cli in &config.cli_registry {
-        let cli_dir = project_dir.join(&cli.project_dir);
+pub fn reset(config: &AppConfig, resolved: &ResolvedScope) -> Result<()> {
+    let scope_s = scope_str(resolved.scope);
 
-        for subdir in ["skills", "agents", "commands", "rules"] {
-            let dir = cli_dir.join(subdir);
-            if dir.exists() {
-                // Only remove symlinks, not real files
-                if let Ok(entries) = std::fs::read_dir(&dir) {
-                    for entry in entries.filter_map(|e| e.ok()) {
-                        let path = entry.path();
-                        if path.read_link().is_ok() {
-                            std::fs::remove_file(&path)?;
+    for cli in &config.cli_registry {
+        if !cli.scopes.contains(&scope_s.to_string()) {
+            continue;
+        }
+
+        let target = cli_target_dir(cli, resolved);
+
+        if resolved.supports_symlinks {
+            for subdir in ["skills", "agents", "commands", "rules"] {
+                let dir = target.join(subdir);
+                if dir.exists() {
+                    // Only remove symlinks, not real files
+                    if let Ok(entries) = std::fs::read_dir(&dir) {
+                        for entry in entries.filter_map(|e| e.ok()) {
+                            let path = entry.path();
+                            if path.read_link().is_ok() {
+                                std::fs::remove_file(&path)?;
+                            }
                         }
                     }
-                }
-                // Remove dir if empty
-                if dir.read_dir().map(|mut d| d.next().is_none()).unwrap_or(true) {
-                    let _ = std::fs::remove_dir(&dir);
+                    // Remove dir if empty
+                    if dir
+                        .read_dir()
+                        .map(|mut d| d.next().is_none())
+                        .unwrap_or(true)
+                    {
+                        let _ = std::fs::remove_dir(&dir);
+                    }
                 }
             }
         }
 
-        let settings_local = cli_dir.join("settings.local.json");
+        // Remove settings file (settings.local.json for backward compat, settings.json for user-project)
+        let settings_local = target.join("settings.local.json");
         if settings_local.exists() {
             std::fs::remove_file(&settings_local)?;
+        }
+
+        // For user-project scope, also clean the settings.json managed keys
+        if resolved.scope == Scope::UserProject {
+            let settings = target.join("settings.json");
+            if settings.exists() {
+                remove_cctx_keys_from_settings(&settings)?;
+            }
         }
     }
 
     Ok(())
 }
 
-pub fn status(config: &AppConfig, project_dir: &Path) -> Result<ProjectStatus> {
-    let claude_dir = project_dir.join(".claude");
+pub fn status(config: &AppConfig, resolved: &ResolvedScope) -> Result<ProjectStatus> {
+    let scope_s = scope_str(resolved.scope);
 
-    let skills = list_symlinks(&claude_dir.join("skills"));
-    let agents = list_symlinks(&claude_dir.join("agents"));
-    let commands = list_symlinks(&claude_dir.join("commands"));
-    let rules = list_symlinks(&claude_dir.join("rules"));
+    // Find the claude CLI entry to read status from
+    let claude_cli = config
+        .cli_registry
+        .iter()
+        .find(|c| c.name == "claude");
 
-    let (mcp, plugins) = read_settings_local(&claude_dir);
+    let target = match claude_cli {
+        Some(cli) if cli.scopes.contains(&scope_s.to_string()) => {
+            cli_target_dir(cli, resolved)
+        }
+        _ => resolved.target_dir.clone(),
+    };
+
+    let (skills, agents, commands, rules) = if resolved.supports_symlinks {
+        (
+            list_symlinks(&target.join("skills")),
+            list_symlinks(&target.join("agents")),
+            list_symlinks(&target.join("commands")),
+            list_symlinks(&target.join("rules")),
+        )
+    } else {
+        (Vec::new(), Vec::new(), Vec::new(), Vec::new())
+    };
+
+    let (mcp, plugins) = read_settings(&target, resolved.scope);
 
     let detected_clis: Vec<String> = config
         .detected_clis()
         .iter()
+        .filter(|c| c.scopes.contains(&scope_s.to_string()))
         .map(|c| c.name.clone())
         .collect();
 
@@ -276,6 +339,7 @@ pub fn status(config: &AppConfig, project_dir: &Path) -> Result<ProjectStatus> {
         mcp,
         plugins,
         detected_clis,
+        scope: resolved.scope,
     })
 }
 
@@ -318,8 +382,13 @@ fn create_symlinks(
             };
 
             #[cfg(unix)]
-            std::os::unix::fs::symlink(&source, &target)
-                .with_context(|| format!("Failed to symlink {} -> {}", source.display(), target.display()))?;
+            std::os::unix::fs::symlink(&source, &target).with_context(|| {
+                format!(
+                    "Failed to symlink {} -> {}",
+                    source.display(),
+                    target.display()
+                )
+            })?;
 
             #[cfg(windows)]
             {
@@ -349,23 +418,41 @@ fn symlink_dir(source: &Path, target: &Path) -> Result<()> {
     Ok(())
 }
 
-fn generate_settings_local(
-    cli_dir: &Path,
-    _base_mcp: &[String],
+/// Determine the settings file path based on scope.
+fn settings_path_for_scope(cli_dir: &Path, scope: Scope) -> PathBuf {
+    match scope {
+        // For global and project, use settings.local.json (backward compatible, doesn't
+        // overwrite user's settings.json)
+        Scope::Global | Scope::Project => cli_dir.join("settings.local.json"),
+        // For user-project, we write directly to settings.json
+        // (this is the Claude Code user-project dir, cctx manages it)
+        Scope::UserProject => cli_dir.join("settings.json"),
+    }
+}
+
+/// Merge MCP and plugin settings into a settings file (atomic write).
+fn merge_settings_file(
+    path: &Path,
     extra_mcp: &[String],
     plugins: &[String],
 ) -> Result<()> {
-    std::fs::create_dir_all(cli_dir)?;
-
-    let mut settings = serde_json::Map::new();
-
-    // MCP: only add extra servers beyond base
-    if !extra_mcp.is_empty() {
-        // Note: we don't need to disable base MCP (they're always on)
-        // Just document what's active for this project
+    if extra_mcp.is_empty() && plugins.is_empty() {
+        return Ok(());
     }
 
-    // Plugins: enable only selected ones
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+
+    // Read existing settings if any
+    let mut settings: serde_json::Map<String, serde_json::Value> = if path.exists() {
+        let content = std::fs::read_to_string(path)?;
+        serde_json::from_str(&content).unwrap_or_default()
+    } else {
+        serde_json::Map::new()
+    };
+
+    // Merge plugins
     if !plugins.is_empty() {
         let mut enabled = serde_json::Map::new();
         for plugin in plugins {
@@ -377,9 +464,28 @@ fn generate_settings_local(
         );
     }
 
-    if !settings.is_empty() {
+    // Atomic write via temp file
+    let json = serde_json::to_string_pretty(&settings)?;
+    let tmp_path = path.with_extension("json.tmp");
+    std::fs::write(&tmp_path, &json)?;
+    std::fs::rename(&tmp_path, path)?;
+
+    Ok(())
+}
+
+/// Remove cctx-managed keys from a settings.json without touching other keys.
+fn remove_cctx_keys_from_settings(path: &Path) -> Result<()> {
+    let content = std::fs::read_to_string(path)?;
+    let mut settings: serde_json::Map<String, serde_json::Value> =
+        serde_json::from_str(&content).unwrap_or_default();
+
+    settings.remove("enabledPlugins");
+
+    if settings.is_empty() {
+        std::fs::remove_file(path)?;
+    } else {
         let json = serde_json::to_string_pretty(&settings)?;
-        std::fs::write(cli_dir.join("settings.local.json"), json)?;
+        std::fs::write(path, json)?;
     }
 
     Ok(())
@@ -408,13 +514,26 @@ fn list_symlinks(dir: &Path) -> Vec<String> {
         .unwrap_or_default()
 }
 
-fn read_settings_local(cli_dir: &Path) -> (Vec<String>, Vec<String>) {
-    let path = cli_dir.join("settings.local.json");
+/// Read settings from the appropriate file for the given scope.
+fn read_settings(cli_dir: &Path, scope: Scope) -> (Vec<String>, Vec<String>) {
+    let path = settings_path_for_scope(cli_dir, scope);
     if !path.exists() {
+        // Fallback: try the other filename for backward compat
+        let fallback = match scope {
+            Scope::Global | Scope::Project => cli_dir.join("settings.json"),
+            Scope::UserProject => cli_dir.join("settings.local.json"),
+        };
+        if fallback.exists() {
+            return read_settings_from_file(&fallback);
+        }
         return (Vec::new(), Vec::new());
     }
 
-    let content = std::fs::read_to_string(&path).unwrap_or_default();
+    read_settings_from_file(&path)
+}
+
+fn read_settings_from_file(path: &Path) -> (Vec<String>, Vec<String>) {
+    let content = std::fs::read_to_string(path).unwrap_or_default();
     let json: serde_json::Value = serde_json::from_str(&content).unwrap_or_default();
 
     let plugins = json
@@ -433,13 +552,15 @@ fn read_settings_local(cli_dir: &Path) -> (Vec<String>, Vec<String>) {
 
 impl ApplyPreview {
     pub fn print(&self) {
-        println!("Will create:");
+        println!("Will create (scope: {}):", self.scope);
         for action in &self.actions {
             println!(
                 "  {}/{:<12} {} {}",
-                action.cli_name, action.resource_type, action.count,
+                action.cli_name,
+                action.resource_type,
+                action.count,
                 if action.resource_type == "mcp" || action.resource_type == "plugins" {
-                    "entries in settings.local.json"
+                    "entries in settings"
                 } else {
                     "symlinks"
                 }
@@ -450,19 +571,20 @@ impl ApplyPreview {
 
 impl ProjectStatus {
     pub fn print(&self) {
-        println!("Skills:   {}", self.skills.len());
-        println!("Agents:   {}", self.agents.len());
-        println!("Commands: {}", self.commands.len());
-        println!("Rules:    {}", self.rules.len());
-        println!("MCP:      {}", self.mcp.len());
-        println!("Plugins:  {}", self.plugins.len());
-        println!("CLIs:     {}", self.detected_clis.join(", "));
+        println!("Status (scope: {}):", self.scope);
+        println!("  Skills:   {}", self.skills.len());
+        println!("  Agents:   {}", self.agents.len());
+        println!("  Commands: {}", self.commands.len());
+        println!("  Rules:    {}", self.rules.len());
+        println!("  MCP:      {}", self.mcp.len());
+        println!("  Plugins:  {}", self.plugins.len());
+        println!("  CLIs:     {}", self.detected_clis.join(", "));
 
         if !self.skills.is_empty() {
-            println!("\nActive skills: {}", self.skills.join(", "));
+            println!("\n  Active skills: {}", self.skills.join(", "));
         }
         if !self.agents.is_empty() {
-            println!("Active agents: {}", self.agents.join(", "));
+            println!("  Active agents: {}", self.agents.join(", "));
         }
     }
 }

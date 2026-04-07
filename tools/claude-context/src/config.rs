@@ -69,7 +69,13 @@ pub struct CliEntry {
     pub config_dir: PathBuf,
     pub project_dir: String,
     pub supports: Vec<String>,
+    #[serde(default = "default_scopes")]
+    pub scopes: Vec<String>,
     pub detect: Option<String>,
+}
+
+fn default_scopes() -> Vec<String> {
+    vec!["global".to_string()]
 }
 
 impl AppConfig {
@@ -83,6 +89,7 @@ impl AppConfig {
             let mut config: AppConfig = serde_yaml::from_str(&content)
                 .with_context(|| "Failed to parse defaults.yaml")?;
             config.paths.expand_tildes();
+            config.expand_cli_tildes();
             Ok(config)
         } else {
             Ok(Self::default())
@@ -174,6 +181,10 @@ impl AppConfig {
                     .into_iter()
                     .map(String::from)
                     .collect(),
+                    scopes: vec!["global", "project", "user-project"]
+                        .into_iter()
+                        .map(String::from)
+                        .collect(),
                     detect: None,
                 },
                 CliEntry {
@@ -181,6 +192,7 @@ impl AppConfig {
                     config_dir: home.join(".qwen"),
                     project_dir: ".qwen".to_string(),
                     supports: vec!["skills".to_string()],
+                    scopes: vec!["global".to_string()],
                     detect: Some("which qwen".to_string()),
                 },
                 CliEntry {
@@ -188,6 +200,7 @@ impl AppConfig {
                     config_dir: home.join(".vibe"),
                     project_dir: ".vibe".to_string(),
                     supports: vec!["skills".to_string()],
+                    scopes: vec!["global".to_string()],
                     detect: Some("which vibe".to_string()),
                 },
                 CliEntry {
@@ -195,6 +208,7 @@ impl AppConfig {
                     config_dir: home.join(".codex"),
                     project_dir: ".codex".to_string(),
                     supports: vec!["skills".to_string()],
+                    scopes: vec!["global".to_string()],
                     detect: Some("which codex".to_string()),
                 },
                 CliEntry {
@@ -202,6 +216,7 @@ impl AppConfig {
                     config_dir: home.join(".kimi"),
                     project_dir: ".kimi".to_string(),
                     supports: vec!["skills".to_string()],
+                    scopes: vec!["global".to_string()],
                     detect: Some("which kimi".to_string()),
                 },
                 CliEntry {
@@ -209,9 +224,39 @@ impl AppConfig {
                     config_dir: home.join(".config").join("opencode"),
                     project_dir: ".opencode".to_string(),
                     supports: vec!["skills".to_string()],
+                    scopes: vec!["global".to_string()],
                     detect: Some("which opencode".to_string()),
                 },
+                CliEntry {
+                    name: "gemini-cli".to_string(),
+                    config_dir: home.join(".gemini"),
+                    project_dir: ".gemini".to_string(),
+                    supports: vec!["skills".to_string()],
+                    scopes: vec!["global".to_string()],
+                    detect: Some("which gemini".to_string()),
+                },
+                CliEntry {
+                    name: "copilot-cli".to_string(),
+                    config_dir: home.join(".copilot"),
+                    project_dir: ".copilot".to_string(),
+                    supports: vec!["skills".to_string()],
+                    scopes: vec!["global".to_string()],
+                    detect: Some("which github-copilot-cli".to_string()),
+                },
             ],
+        }
+    }
+
+    /// Expand ~ in cli_registry config_dir paths
+    pub fn expand_cli_tildes(&mut self) {
+        let home = dirs::home_dir().unwrap_or_else(|| PathBuf::from("/tmp"));
+        for cli in &mut self.cli_registry {
+            let s = cli.config_dir.to_string_lossy();
+            if s.starts_with("~/") {
+                cli.config_dir = home.join(&s[2..]);
+            } else if s == "~" {
+                cli.config_dir = home.clone();
+            }
         }
     }
 

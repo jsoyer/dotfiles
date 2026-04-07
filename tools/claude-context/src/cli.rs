@@ -1,5 +1,7 @@
 use clap::{Parser, Subcommand};
 
+use crate::scope::Scope;
+
 #[derive(Parser)]
 #[command(
     name = "claude-context",
@@ -14,6 +16,10 @@ pub struct Cli {
     /// Enable AI-powered recommendations (requires Ollama or API key)
     #[arg(long, global = true)]
     pub smart: bool,
+
+    /// Resource scope: global, project, or user-project
+    #[arg(long, global = true, value_enum)]
+    pub scope: Option<Scope>,
 }
 
 #[derive(Subcommand)]
