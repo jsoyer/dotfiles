@@ -9,6 +9,8 @@ metadata:
     requires:
       bins: ["gws"]
       skills: ["gws-calendar"]
+match:
+  languages: ['typescript']
 ---
 
 # Plan Your Weekly Google Calendar Schedule

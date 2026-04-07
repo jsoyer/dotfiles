@@ -13,6 +13,9 @@ description: >
 
   Use when data analysts want Claude to understand their company's specific data warehouse,
   terminology, metrics definitions, and common query patterns.
+match:
+  languages: ['typescript', 'sql']
+  tags: ['database', 'ml', 'data', 'monitoring']
 ---
 
 # Data Context Extractor

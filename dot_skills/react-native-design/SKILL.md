@@ -1,6 +1,10 @@
 ---
 name: react-native-design
 description: Master React Native styling, navigation, and Reanimated animations for cross-platform mobile development. Use when building React Native apps, implementing navigation patterns, or creating performant animations.
+match:
+  languages: ['typescript']
+  tags: ['frontend', 'database', 'mobile']
+  deps: ['react']
 ---
 
 # React Native Design

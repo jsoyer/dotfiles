@@ -8,6 +8,8 @@ metadata:
     requires:
       bins: ["gws"]
     cliHelp: "gws gmail +reply-all --help"
+match:
+  tags: ['ml']
 ---
 
 # gmail +reply-all

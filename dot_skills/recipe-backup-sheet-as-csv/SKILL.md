@@ -9,6 +9,8 @@ metadata:
     requires:
       bins: ["gws"]
       skills: ["gws-sheets", "gws-drive"]
+match:
+  languages: ['typescript']
 ---
 
 # Export a Google Sheet as CSV

@@ -16,6 +16,9 @@ metadata:
   author: evos
   clawdbot:
     emoji: "🔍"
+match:
+  languages: ['go', 'ruby']
+  tags: ['database', 'security', 'data']
 ---
 
 # Quality & Non-Conformance Management

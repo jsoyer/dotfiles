@@ -9,6 +9,8 @@ metadata:
     requires:
       bins: ["gws"]
       skills: ["gws-drive", "gws-gmail"]
+match:
+  tags: ['ml']
 ---
 
 # Email a Google Drive File Link

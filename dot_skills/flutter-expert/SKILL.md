@@ -11,6 +11,10 @@ metadata:
   scope: implementation
   output-format: code
   related-skills: react-native-expert, test-master, fullstack-guardian
+match:
+  languages: ['typescript', 'ruby', 'dart']
+  tags: ['frontend', 'fullstack', 'database', 'testing', 'mobile']
+  deps: ['react']
 ---
 
 # Flutter Expert

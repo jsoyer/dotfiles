@@ -2,6 +2,8 @@
 name: journal-entry-prep
 description: Prepare journal entries with proper debits, credits, and supporting documentation for month-end close. Use when booking accruals, prepaid amortization, fixed asset depreciation, payroll entries, revenue recognition, or any manual journal entry.
 user-invocable: false
+match:
+  tags: ['ml']
 ---
 
 # Journal Entry Preparation

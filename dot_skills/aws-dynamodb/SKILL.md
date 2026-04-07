@@ -1,6 +1,9 @@
 ---
 name: aws-dynamodb
 description: AWS DynamoDB single-table design, GSI patterns, SDK v3 TypeScript/Python
+match:
+  languages: ['typescript', 'python', 'shell']
+  tags: ['aws']
 ---
 
 # AWS DynamoDB Skill

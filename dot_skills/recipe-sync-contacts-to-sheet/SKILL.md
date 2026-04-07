@@ -9,6 +9,8 @@ metadata:
     requires:
       bins: ["gws"]
       skills: ["gws-people", "gws-sheets"]
+match:
+  languages: ['typescript']
 ---
 
 # Export Google Contacts to Sheets

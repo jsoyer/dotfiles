@@ -9,6 +9,8 @@ metadata:
     requires:
       bins: ["gws"]
       skills: ["gws-forms"]
+match:
+  tags: ['database']
 ---
 
 # Check Form Responses

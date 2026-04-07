@@ -11,6 +11,9 @@ metadata:
   scope: implementation
   output-format: code
   related-skills: php-pro, laravel-specialist, fullstack-guardian, security-reviewer
+match:
+  languages: ['typescript', 'go', 'php', 'sql']
+  tags: ['frontend', 'backend', 'fullstack', 'database', 'api', 'security']
 ---
 
 # WordPress Pro

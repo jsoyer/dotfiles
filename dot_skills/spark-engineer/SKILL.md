@@ -11,6 +11,9 @@ metadata:
   scope: implementation
   output-format: code
   related-skills: python-pro, sql-pro, devops-engineer
+match:
+  languages: ['python', 'go', 'sql']
+  tags: ['frontend', 'backend', 'devops', 'database', 'api', 'ml', 'data', 'cicd']
 ---
 
 # Spark Engineer

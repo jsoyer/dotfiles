@@ -9,6 +9,8 @@ metadata:
     requires:
       bins: ["gws"]
       skills: ["gws-forms", "gws-gmail"]
+match:
+  tags: ['database', 'ml']
 ---
 
 # Create and Share a Google Form

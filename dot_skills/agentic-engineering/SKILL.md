@@ -2,6 +2,9 @@
 name: agentic-engineering
 description: Operate as an agentic engineer using eval-first execution, decomposition, and cost-aware model routing.
 origin: ECC
+match:
+  languages: ['go']
+  tags: ['ml']
 ---
 
 # Agentic Engineering

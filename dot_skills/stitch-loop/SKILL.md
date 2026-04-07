@@ -7,6 +7,9 @@ allowed-tools:
   - "Read"
   - "Write"
   - "Bash"
+match:
+  languages: ['typescript']
+  tags: ['frontend']
 ---
 
 # Stitch Build Loop

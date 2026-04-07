@@ -16,6 +16,9 @@ metadata:
   author: evos
   clawdbot:
     emoji: "🔄"
+match:
+  languages: ['ruby']
+  tags: ['database', 'security', 'ml']
 ---
 
 # Returns & Reverse Logistics

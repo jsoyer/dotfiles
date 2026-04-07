@@ -11,6 +11,9 @@ metadata:
   scope: implementation
   output-format: code
   related-skills: python-pro
+match:
+  languages: ['python', 'go']
+  tags: ['database', 'ml', 'data']
 ---
 
 # Pandas Pro

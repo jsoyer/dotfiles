@@ -9,6 +9,8 @@ allowed-tools:
   - Write
   - Edit
   - Bash(gcloud:*)
+match:
+  tags: ['gcp', 'database']
 ---
 
 # Google Cloud Platform Expert

@@ -5,6 +5,8 @@ license: MIT
 metadata:
   author: Microsoft
   version: "1.0.0"
+match:
+  tags: ['devops', 'azure', 'database', 'security', 'ml', 'cicd']
 ---
 
 # Azure Resource Visualizer - Architecture Diagram Generator

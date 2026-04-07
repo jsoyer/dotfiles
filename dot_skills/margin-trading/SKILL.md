@@ -5,6 +5,9 @@ metadata:
   version: 1.0.0
   author: Binance
 license: MIT
+match:
+  languages: ['go']
+  tags: ['frontend', 'backend', 'api', 'security']
 ---
 
 # Binance Margin-trading Skill

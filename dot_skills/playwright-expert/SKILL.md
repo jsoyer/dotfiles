@@ -11,6 +11,10 @@ metadata:
   scope: testing
   output-format: code
   related-skills: test-master, react-expert, devops-engineer
+match:
+  languages: ['typescript', 'go', 'shell']
+  tags: ['frontend', 'backend', 'devops', 'database', 'api', 'testing', 'ml']
+  deps: ['react', 'playwright']
 ---
 
 # Playwright Expert

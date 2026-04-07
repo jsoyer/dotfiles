@@ -12,6 +12,9 @@ metadata:
   scope: review
   output-format: document
   related-skills: feature-forge, fullstack-guardian, architecture-designer
+match:
+  languages: ['typescript', 'go']
+  tags: ['backend', 'fullstack', 'api']
 ---
 
 # Spec Miner

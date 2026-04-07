@@ -16,6 +16,8 @@ metadata:
   author: evos
   clawdbot:
     emoji: "🏭"
+match:
+  tags: ['database']
 ---
 
 # Production Scheduling

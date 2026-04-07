@@ -8,6 +8,8 @@ metadata:
     requires:
       bins: ["gws"]
     cliHelp: "gws people --help"
+match:
+  languages: ['typescript']
 ---
 
 # people (v1)

@@ -2,6 +2,10 @@
 name: django-patterns
 description: Django architecture patterns, REST API design with DRF, ORM best practices, caching, signals, middleware, and production-grade Django apps.
 origin: ECC
+match:
+  languages: ['python']
+  tags: ['backend', 'database', 'api']
+  deps: ['django']
 ---
 
 # Django Development Patterns

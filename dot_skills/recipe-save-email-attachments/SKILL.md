@@ -9,6 +9,9 @@ metadata:
     requires:
       bins: ["gws"]
       skills: ["gws-gmail", "gws-drive"]
+match:
+  languages: ['typescript']
+  tags: ['ml']
 ---
 
 # Save Gmail Attachments to Google Drive

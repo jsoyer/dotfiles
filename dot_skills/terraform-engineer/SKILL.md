@@ -11,6 +11,9 @@ metadata:
   scope: implementation
   output-format: code
   related-skills: cloud-architect, devops-engineer, kubernetes-specialist
+match:
+  languages: ['go', 'ruby']
+  tags: ['backend', 'devops', 'kubernetes', 'terraform', 'aws', 'azure', 'gcp', 'database', 'testing']
 ---
 
 # Terraform Engineer

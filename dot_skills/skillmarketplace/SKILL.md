@@ -9,6 +9,9 @@ metadata:
     skillKey: skillmarketplace
 
 user-invocable: true
+match:
+  languages: ['shell']
+  tags: ['ml']
 ---
 
 # Skill Market

@@ -1,6 +1,9 @@
 ---
 name: news-aggregator-skill
 description: "Comprehensive news aggregator that fetches, filters, and deeply analyzes real-time content from 28 sources including Hacker News, GitHub, Hugging Face Papers, AI Newsletters, WallStreetCN, Weibo, and Podcasts. Use when user requests 'daily scans', 'tech news', 'finance updates', 'AI briefings', 'deep analysis', or says '如意如意' to open the interactive menu."
+match:
+  languages: ['typescript', 'go']
+  tags: ['ml']
 ---
 
 # News Aggregator Skill

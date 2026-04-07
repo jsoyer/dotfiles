@@ -11,6 +11,10 @@ metadata:
   scope: implementation
   output-format: code
   related-skills: fastapi-expert, typescript-pro, security-reviewer, devops-engineer
+match:
+  languages: ['typescript', 'python', 'go', 'shell']
+  tags: ['frontend', 'backend', 'devops', 'api', 'security', 'ml', 'data', 'cli']
+  deps: ['fastapi']
 ---
 
 # MCP Developer

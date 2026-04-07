@@ -6,6 +6,9 @@ metadata:
   author: Microsoft
   version: "3.0.1"
 compatibility: Requires Azure CLI (az) for configuration and testing
+match:
+  languages: ['ruby']
+  tags: ['backend', 'azure', 'api', 'testing', 'ml', 'monitoring']
 ---
 
 # Azure AI Gateway

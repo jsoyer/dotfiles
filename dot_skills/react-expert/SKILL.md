@@ -11,6 +11,10 @@ metadata:
   scope: implementation
   output-format: code
   related-skills: fullstack-guardian, playwright-expert, test-master
+match:
+  languages: ['typescript', 'javascript', 'ruby', 'sql']
+  tags: ['frontend', 'backend', 'fullstack', 'database', 'testing', 'game']
+  deps: ['next', 'react', 'playwright']
 ---
 
 # React Expert

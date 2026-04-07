@@ -9,6 +9,8 @@ metadata:
     requires:
       bins: ["gws"]
       skills: ["gws-calendar"]
+match:
+  languages: ['sql']
 ---
 
 # Find Free Time Across Calendars

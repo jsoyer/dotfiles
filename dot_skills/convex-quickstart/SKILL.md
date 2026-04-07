@@ -1,6 +1,8 @@
 ---
 name: convex-quickstart
 description: Initialize a new Convex backend from scratch with schema, auth, and basic CRUD operations. Use when starting a new project or adding Convex to an existing app.
+match:
+  tags: ['frontend', 'backend', 'security']
 ---
 
 # Convex Quickstart

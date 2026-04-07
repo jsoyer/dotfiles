@@ -3,6 +3,9 @@ name: desktop-computer-automation
 description: Vision-driven desktop automation using Midscene. Control your desktop (macOS, Windows, Linux) with natural language commands. Operates entirely from screenshots. WARNING - takes over real mouse and keyboard. For web apps, prefer Browser Automation skill instead. Use for desktop-native apps (Electron, Qt, native) only. Triggers - open app, press key, desktop, click on screen, type text, screenshot desktop, launch application, switch window, desktop automation, control computer, mouse click, keyboard shortcut, screen capture, test desktop app, test Electron app, test native UI. Powered by Midscene.js.
 allowed-tools:
   - Bash
+match:
+  languages: ['swift']
+  tags: ['frontend', 'testing', 'cli']
 ---
 
 # Desktop Computer Automation

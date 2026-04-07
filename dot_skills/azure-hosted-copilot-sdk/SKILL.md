@@ -5,6 +5,8 @@ license: MIT
 metadata:
   author: Microsoft
   version: "1.0.1"
+match:
+  tags: ['frontend', 'backend', 'devops', 'azure', 'api', 'ml', 'cli', 'cicd']
 ---
 
 # GitHub Copilot SDK on Azure

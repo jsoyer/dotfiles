@@ -8,6 +8,8 @@ metadata:
     requires:
       bins: ["gws"]
     cliHelp: "gws events +subscribe --help"
+match:
+  languages: ['typescript']
 ---
 
 # events +subscribe

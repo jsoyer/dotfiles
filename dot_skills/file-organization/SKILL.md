@@ -5,6 +5,8 @@ allowed-tools: Read Write Glob Bash
 metadata:
   tags: file-organization, project-structure, folder-structure, naming-conventions
   platforms: Claude, ChatGPT, Gemini
+match:
+  tags: ['ml']
 ---
 
 

@@ -16,6 +16,9 @@ origin: community
 metadata:
   author: YannJY02
   version: "1.0.0"
+match:
+  languages: ['typescript']
+  tags: ['frontend', 'database']
 ---
 
 # Prompt Optimizer

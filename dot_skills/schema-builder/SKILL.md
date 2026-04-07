@@ -1,6 +1,9 @@
 ---
 name: schema-builder
 description: Design and generate Convex database schemas with proper validation, indexes, and relationships. Use when creating schema.ts or modifying table definitions.
+match:
+  languages: ['typescript', 'sql']
+  tags: ['frontend', 'database', 'data']
 ---
 
 # Convex Schema Builder

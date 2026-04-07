@@ -4,7 +4,9 @@ description: "Embeds native Android, iOS, or macOS views into a Flutter app. Use
 metadata:
   model: "models/gemini-3.1-pro-preview"
   last_modified: "Thu, 12 Mar 2026 22:20:28 GMT"
-
+match:
+  languages: ['typescript', 'kotlin', 'swift', 'dart']
+  tags: ['frontend', 'mobile']
 ---
 # Integrating Platform Views and Web Content
 

@@ -2,6 +2,8 @@
 name: openclaw-config
 description: Manage OpenClaw bot configuration - channels, agents, security, and autopilot settings
 version: 3.0.0
+match:
+  tags: ['security']
 ---
 
 # OpenClaw Operations Runbook

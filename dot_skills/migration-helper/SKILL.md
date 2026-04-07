@@ -1,6 +1,8 @@
 ---
 name: migration-helper
 description: Plan and execute Convex schema migrations safely, including adding fields, creating tables, and data transformations. Use when schema changes affect existing data.
+match:
+  tags: ['database', 'data']
 ---
 
 # Convex Migration Helper

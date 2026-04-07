@@ -11,6 +11,9 @@ metadata:
   scope: implementation
   output-format: code
   related-skills: fullstack-guardian, microservices-architect, cloud-architect, test-master
+match:
+  languages: ['csharp']
+  tags: ['frontend', 'backend', 'fullstack', 'api', 'security', 'testing']
 ---
 
 # .NET Core Expert

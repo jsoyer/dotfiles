@@ -11,6 +11,9 @@ metadata:
   scope: infrastructure
   output-format: architecture
   related-skills: devops-engineer, kubernetes-specialist, terraform-engineer, security-reviewer, microservices-architect, monitoring-expert
+match:
+  languages: ['go']
+  tags: ['backend', 'devops', 'kubernetes', 'terraform', 'aws', 'azure', 'gcp', 'database', 'security', 'monitoring', 'cicd']
 ---
 
 # Cloud Architect

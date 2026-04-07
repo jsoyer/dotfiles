@@ -1,6 +1,8 @@
 ---
 name: firebase-basics
 description: This skill demonstrates the core principles and workflow of using Firebase with AI agents.
+match:
+  tags: ['ml']
 ---
 ## Prerequisites
 

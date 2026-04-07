@@ -5,6 +5,8 @@ license: MIT
 metadata:
   author: web-quality-skills
   version: "1.0"
+match:
+  tags: ['database', 'security']
 ---
 
 # Web quality audit

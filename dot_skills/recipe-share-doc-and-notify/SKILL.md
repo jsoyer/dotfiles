@@ -9,6 +9,8 @@ metadata:
     requires:
       bins: ["gws"]
       skills: ["gws-drive", "gws-docs", "gws-gmail"]
+match:
+  tags: ['ml']
 ---
 
 # Share a Google Doc and Notify Collaborators

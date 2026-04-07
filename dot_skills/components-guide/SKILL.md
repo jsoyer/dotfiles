@@ -1,6 +1,9 @@
 ---
 name: components-guide
 description: Guide to using Convex components for feature encapsulation. Learn about sibling components, creating your own, and when to use components vs monolithic code.
+match:
+  languages: ['typescript']
+  tags: ['frontend']
 ---
 
 # Convex Components Guide

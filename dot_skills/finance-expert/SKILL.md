@@ -9,6 +9,8 @@ allowed-tools:
   - Write
   - Edit
   - Bash(*)
+match:
+  tags: ['ml']
 ---
 
 # Finance Expert

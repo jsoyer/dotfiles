@@ -2,6 +2,10 @@
 name: pytorch-patterns
 description: PyTorch deep learning patterns and best practices for building robust, efficient, and reproducible training pipelines, model architectures, and data loading.
 origin: ECC
+match:
+  languages: ['python']
+  tags: ['frontend', 'devops', 'ml', 'data', 'cicd']
+  deps: ['pytorch']
 ---
 
 # PyTorch Development Patterns

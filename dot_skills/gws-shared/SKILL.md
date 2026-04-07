@@ -7,6 +7,8 @@ metadata:
     category: "productivity"
     requires:
       bins: ["gws"]
+match:
+  tags: ['database', 'security', 'cli']
 ---
 
 # gws — Shared Reference

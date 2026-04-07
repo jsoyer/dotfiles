@@ -10,7 +10,11 @@ metadata:
   role: engineer
   scope: implementation
   output-format: code
-  related-skills: 
+  related-skills:
+match:
+  languages: ['python', 'go']
+  tags: ['devops', 'docker', 'kubernetes', 'terraform', 'database', 'ml', 'data', 'cicd']
+  deps: ['docker']
 ---
 
 # DevOps Engineer

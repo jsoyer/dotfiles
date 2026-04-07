@@ -8,6 +8,8 @@ metadata:
     requires:
       bins: ["gws"]
     cliHelp: "gws workflow +weekly-digest --help"
+match:
+  tags: ['ml']
 ---
 
 # workflow +weekly-digest

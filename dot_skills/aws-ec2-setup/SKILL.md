@@ -3,6 +3,8 @@ name: aws-ec2-setup
 description: >
   Launch and configure EC2 instances with security groups, IAM roles, key pairs,
   AMIs, and auto-scaling. Use for virtual servers and managed infrastructure.
+match:
+  tags: ['backend', 'devops', 'aws', 'security', 'ml']
 ---
 
 # AWS EC2 Setup

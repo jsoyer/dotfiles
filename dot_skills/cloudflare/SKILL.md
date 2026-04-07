@@ -7,6 +7,9 @@ references:
   - d1
   - durable-objects
   - workers-ai
+match:
+  languages: ['typescript']
+  tags: ['devops', 'terraform', 'database', 'security', 'ml']
 ---
 
 # Cloudflare Platform Skill

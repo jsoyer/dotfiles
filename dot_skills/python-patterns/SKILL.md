@@ -2,6 +2,9 @@
 name: python-patterns
 description: Pythonic idioms, PEP 8 standards, type hints, and best practices for building robust, efficient, and maintainable Python applications.
 origin: ECC
+match:
+  languages: ['python']
+  tags: ['frontend', 'ml']
 ---
 
 # Python Development Patterns

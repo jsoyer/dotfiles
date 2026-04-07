@@ -11,6 +11,9 @@ metadata:
   scope: analysis
   output-format: analysis
   related-skills: test-master, fullstack-guardian, monitoring-expert
+match:
+  languages: ['go']
+  tags: ['fullstack', 'database', 'testing', 'ml', 'monitoring']
 ---
 
 # Debugging Wizard

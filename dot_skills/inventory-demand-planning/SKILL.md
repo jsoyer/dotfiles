@@ -16,6 +16,9 @@ metadata:
   author: evos
   clawdbot:
     emoji: "📊"
+match:
+  languages: ['go', 'ruby']
+  tags: ['database', 'ml']
 ---
 
 # Inventory Demand Planning

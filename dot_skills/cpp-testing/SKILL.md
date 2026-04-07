@@ -2,6 +2,9 @@
 name: cpp-testing
 description: Use only when writing/updating/fixing C++ tests, configuring GoogleTest/CTest, diagnosing failing or flaky tests, or adding coverage/sanitizers.
 origin: ECC
+match:
+  languages: ['cpp']
+  tags: ['testing', 'ml']
 ---
 
 # C++ Testing (Agent Skill)

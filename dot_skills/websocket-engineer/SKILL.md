@@ -11,6 +11,10 @@ metadata:
   scope: implementation
   output-format: code
   related-skills: fastapi-expert, nestjs-expert, devops-engineer, monitoring-expert, security-reviewer
+match:
+  languages: ['typescript', 'python', 'go', 'ruby']
+  tags: ['frontend', 'backend', 'devops', 'database', 'api', 'security', 'monitoring']
+  deps: ['fastapi']
 ---
 
 # WebSocket Engineer

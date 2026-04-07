@@ -2,6 +2,9 @@
 name: codex
 description: Provides Codex CLI delegation workflows for complex code generation and development tasks using OpenAI's GPT-5.3-codex models, including English prompt formulation, execution flags, sandbox modes, and safe result handling. Use when the user explicitly asks to use Codex for complex programming tasks such as code generation, refactoring, or architectural analysis. Triggers on "use codex", "delegate to codex", "run codex cli", "ask codex", "codex exec", "codex review".
 allowed-tools: Bash, Read, Write
+match:
+  languages: ['shell']
+  tags: ['database', 'ml', 'cli']
 ---
 
 # Codex CLI Delegation

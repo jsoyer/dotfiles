@@ -1,6 +1,9 @@
 ---
 name: seo-geo
 description: SEO & GEO (Generative Engine Optimization) for websites. Analyze keywords, generate schema markup, optimize for AI search engines (ChatGPT, Perplexity, Gemini, Copilot, Claude) and traditional search (Google, Bing). Use when user wants to improve search visibility, search optimization, search ranking, AI visibility, ChatGPT ranking, Google AI Overview, indexing, JSON-LD, meta tags, or keyword research.
+match:
+  languages: ['typescript', 'go', 'ruby']
+  tags: ['ml']
 ---
 
 # SEO/GEO Optimization Skill

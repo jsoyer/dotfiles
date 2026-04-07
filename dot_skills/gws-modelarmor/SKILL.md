@@ -8,6 +8,8 @@ metadata:
     requires:
       bins: ["gws"]
     cliHelp: "gws modelarmor --help"
+match:
+  tags: ['ml']
 ---
 
 # modelarmor (v1)

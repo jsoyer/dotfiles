@@ -5,6 +5,10 @@ license: MIT
 metadata:
   author: Microsoft
   version: "1.0.5"
+match:
+  languages: ['typescript', 'lua']
+  tags: ['frontend', 'devops', 'docker', 'azure', 'ml', 'data', 'monitoring', 'cicd']
+  deps: ['docker']
 ---
 
 # Microsoft Foundry Skill

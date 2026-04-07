@@ -4,7 +4,9 @@ description: "Architects a Flutter application using the recommended layered app
 metadata:
   model: "models/gemini-3.1-pro-preview"
   last_modified: "Thu, 12 Mar 2026 22:13:42 GMT"
-
+match:
+  languages: ['typescript', 'dart']
+  tags: ['frontend', 'data', 'mobile']
 ---
 # Architecting Flutter Applications
 

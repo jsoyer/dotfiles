@@ -7,6 +7,8 @@ allowed-tools:
   - Bash(claude mcp *)
   - Bash(cat *mcp.json*)
   - Bash(cat *claude.json*)
+match:
+  tags: ['frontend', 'backend', 'aws', 'api', 'security']
 ---
 
 # AWS MCP Server Configuration Guide

@@ -7,6 +7,9 @@ description: |
 metadata:
   author: binance-web3-team
   version: "1.0"
+match:
+  languages: ['lua']
+  tags: ['ml', 'monitoring']
 ---
 
 # Trading Signal Skill

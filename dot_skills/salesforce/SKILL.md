@@ -10,6 +10,9 @@ metadata:
   author: membrane
   version: "1.0"
   categories: "CRM, Marketing Automation"
+match:
+  languages: ['typescript']
+  tags: ['data']
 ---
 
 # Salesforce

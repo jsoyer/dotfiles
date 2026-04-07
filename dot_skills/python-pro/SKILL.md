@@ -11,6 +11,10 @@ metadata:
   scope: implementation
   output-format: code
   related-skills: fastapi-expert, devops-engineer
+match:
+  languages: ['python', 'go']
+  tags: ['frontend', 'backend', 'devops', 'api', 'security', 'testing', 'ml', 'data', 'monitoring']
+  deps: ['fastapi']
 ---
 
 # Python Pro

@@ -4,6 +4,9 @@ description: See, Understand, Act on video and audio. See- ingest from local fil
 origin: ECC
 allowed-tools: Read Grep Glob Bash(python:*)
 argument-hint: "[task description]"
+match:
+  languages: ['typescript']
+  tags: ['frontend', 'database', 'cli']
 ---
 
 # VideoDB Skill

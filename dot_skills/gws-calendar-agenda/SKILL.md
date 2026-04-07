@@ -8,6 +8,8 @@ metadata:
     requires:
       bins: ["gws"]
     cliHelp: "gws calendar +agenda --help"
+match:
+  languages: ['typescript']
 ---
 
 # calendar +agenda

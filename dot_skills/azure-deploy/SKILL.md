@@ -5,6 +5,9 @@ license: MIT
 metadata:
   author: Microsoft
   version: "1.0.5"
+match:
+  languages: ['typescript', 'shell']
+  tags: ['frontend', 'devops', 'terraform', 'azure', 'database', 'cicd']
 ---
 
 # Azure Deploy

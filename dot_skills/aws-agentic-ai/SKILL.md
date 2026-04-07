@@ -22,6 +22,9 @@ hooks:
     - matcher: Bash(aws bedrock-agentcore-control create-*)
       command: aws sts get-caller-identity --query Account --output text
       once: true
+match:
+  languages: ['go', 'ruby']
+  tags: ['frontend', 'devops', 'aws', 'ml', 'cicd']
 ---
 
 # AWS Bedrock AgentCore

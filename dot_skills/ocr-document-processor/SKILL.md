@@ -1,6 +1,8 @@
 ---
 name: ocr-document-processor
 description: Extract text from images and scanned PDFs using OCR. Supports 100+ languages, table detection, structured output (markdown/JSON), and batch processing.
+match:
+  languages: ['typescript']
 ---
 
 # OCR Document Processor

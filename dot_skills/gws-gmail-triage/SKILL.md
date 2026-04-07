@@ -8,6 +8,8 @@ metadata:
     requires:
       bins: ["gws"]
     cliHelp: "gws gmail +triage --help"
+match:
+  tags: ['ml']
 ---
 
 # gmail +triage

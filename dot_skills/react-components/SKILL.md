@@ -7,6 +7,10 @@ allowed-tools:
   - "Read"
   - "Write"
   - "web_fetch"
+match:
+  languages: ['typescript', 'javascript']
+  tags: ['frontend']
+  deps: ['react']
 ---
 
 # Stitch to React Components

@@ -8,6 +8,9 @@ metadata:
   version: "1.0.0"
   author: Eraser Labs
   tags: aws, diagram, cloudformation, ec2, vpc, s3, rds, lambda, infrastructure
+match:
+  languages: ['shell']
+  tags: ['devops', 'aws', 'database', 'cli']
 ---
 
 # AWS Diagram Generator

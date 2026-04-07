@@ -11,6 +11,9 @@ metadata:
   scope: optimization
   output-format: analysis-and-code
   related-skills: devops-engineer
+match:
+  languages: ['go', 'sql']
+  tags: ['devops', 'database', 'ml', 'data']
 ---
 
 # Database Optimizer

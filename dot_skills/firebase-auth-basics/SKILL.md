@@ -2,6 +2,9 @@
 name: firebase-auth-basics
 description: Guide for setting up and using Firebase Authentication. Use this skill when the user's app requires user sign-in, user management, or secure data access using auth rules.
 compatibility: This skill is best used with the Firebase CLI, but does not require it. Install it by running `npm install -g firebase-tools`.
+match:
+  languages: ['ruby']
+  tags: ['frontend', 'security', 'data']
 ---
 
 ## Prerequisites

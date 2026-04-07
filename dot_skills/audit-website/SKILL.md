@@ -7,6 +7,9 @@ metadata:
   author: squirrelscan
   version: "1.22"
 allowed-tools: Bash(squirrel:*) Read Edit Grep Glob
+match:
+  languages: ['typescript']
+  tags: ['frontend', 'database', 'security', 'ml', 'cli']
 ---
 
 # Website Audit Skill

@@ -2,6 +2,9 @@
 name: claude-automation-recommender
 description: Analyze a codebase and recommend Claude Code automations (hooks, subagents, skills, plugins, MCP servers). Use when user asks for automation recommendations, wants to optimize their Claude Code setup, mentions improving Claude Code workflows, asks how to first set up Claude Code for a project, or wants to know what Claude Code features they should use.
 tools: Read, Glob, Grep, Bash
+match:
+  languages: ['typescript', 'go']
+  tags: ['backend']
 ---
 
 # Claude Automation Recommender

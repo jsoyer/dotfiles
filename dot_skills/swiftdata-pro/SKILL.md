@@ -5,6 +5,9 @@ license: MIT
 metadata:
   author: Paul Hudson
   version: "1.0"
+match:
+  languages: ['typescript', 'swift']
+  tags: ['backend', 'api', 'data', 'mobile']
 ---
 
 Write and review SwiftData code for correctness, modern API usage, and adherence to project conventions. Report only genuine problems - do not nitpick or invent issues.

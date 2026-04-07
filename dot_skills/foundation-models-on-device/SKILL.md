@@ -1,6 +1,9 @@
 ---
 name: foundation-models-on-device
 description: Apple FoundationModels framework for on-device LLM — text generation, guided generation with @Generable, tool calling, and snapshot streaming in iOS 26+.
+match:
+  languages: ['swift']
+  tags: ['frontend', 'ml', 'mobile']
 ---
 
 # FoundationModels: On-Device LLM (iOS 26)

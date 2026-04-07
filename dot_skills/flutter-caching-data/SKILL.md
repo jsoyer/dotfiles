@@ -4,7 +4,9 @@ description: "Implements caching strategies for Flutter apps to improve performa
 metadata:
   model: "models/gemini-3.1-pro-preview"
   last_modified: "Thu, 12 Mar 2026 22:19:54 GMT"
-
+match:
+  languages: ['typescript', 'dart']
+  tags: ['database', 'ml', 'data', 'mobile']
 ---
 # Implementing Flutter Caching and Offline-First Architectures
 

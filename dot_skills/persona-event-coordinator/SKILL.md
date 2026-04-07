@@ -8,6 +8,8 @@ metadata:
     requires:
       bins: ["gws"]
       skills: ["gws-calendar", "gws-gmail", "gws-drive", "gws-chat", "gws-sheets"]
+match:
+  languages: ['typescript']
 ---
 
 # Event Coordinator

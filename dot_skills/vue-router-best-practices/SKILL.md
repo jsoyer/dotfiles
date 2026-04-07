@@ -4,6 +4,10 @@ description: "Vue Router 4 patterns, navigation guards, route params, and route-
 version: 1.0.0
 license: MIT
 author: github.com/vuejs-ai
+match:
+  languages: ['typescript']
+  tags: ['frontend']
+  deps: ['vue']
 ---
 
 Vue Router best practices, common gotchas, and navigation patterns.

@@ -11,6 +11,9 @@ metadata:
   scope: system-design
   output-format: architecture
   related-skills: python-pro, database-optimizer, monitoring-expert, api-designer
+match:
+  languages: ['typescript', 'python', 'lua', 'sql']
+  tags: ['frontend', 'backend', 'devops', 'database', 'api', 'ml', 'data', 'monitoring', 'cicd']
 ---
 
 # RAG Architect

@@ -5,6 +5,9 @@ license: MIT
 metadata:
   author: Kadajett
   version: "1.1.0"
+match:
+  languages: ['javascript']
+  tags: ['frontend', 'database', 'security']
 ---
 
 # NestJS Best Practices

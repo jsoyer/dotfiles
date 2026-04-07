@@ -10,6 +10,8 @@ metadata:
     requires:
       env: ["LISTENHUB_API_KEY"]
     primaryEnv: "LISTENHUB_API_KEY"
+match:
+  languages: ['typescript']
 ---
 
 ## When to Use

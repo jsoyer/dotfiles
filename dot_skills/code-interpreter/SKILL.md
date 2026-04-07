@@ -1,6 +1,9 @@
 ---
 name: code-interpreter
 description: Test and prototype code in a sandboxed environment. Use for debugging, verifying logic, or installing packages.
+match:
+  languages: ['go']
+  tags: ['testing']
 ---
 
 # Code Interpreter

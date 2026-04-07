@@ -5,6 +5,9 @@ description: >
   Use when: customize plugin, set up plugin, configure plugin, tailor plugin, adjust plugin settings,
   customize plugin connectors, customize plugin skill, tweak plugin, modify plugin configuration.
 compatibility: Requires Cowork desktop app environment with access to mounted plugin directories (mnt/.local-plugins, mnt/.plugins).
+match:
+  languages: ['go']
+  tags: ['ml']
 ---
 
 # Cowork Plugin Customization

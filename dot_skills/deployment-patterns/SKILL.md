@@ -2,6 +2,10 @@
 name: deployment-patterns
 description: Deployment workflows, CI/CD pipeline patterns, Docker containerization, health checks, rollback strategies, and production readiness checklists for web applications.
 origin: ECC
+match:
+  languages: ['typescript', 'python']
+  tags: ['devops', 'docker', 'ml', 'data', 'cicd']
+  deps: ['docker']
 ---
 
 # Deployment Patterns

@@ -1,6 +1,8 @@
 ---
 name: aws-aurora
 description: AWS Aurora Serverless v2, RDS Proxy, Data API, connection pooling
+match:
+  tags: ['backend', 'aws', 'api', 'data']
 ---
 
 # AWS Aurora Skill

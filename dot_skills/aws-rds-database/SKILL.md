@@ -3,6 +3,9 @@ name: aws-rds-database
 description: >
   Deploy and manage relational databases using RDS with Multi-AZ, read replicas,
   backups, and encryption. Use for PostgreSQL, MySQL, MariaDB, and Oracle.
+match:
+  languages: ['sql']
+  tags: ['devops', 'aws', 'database', 'data', 'cicd']
 ---
 
 # AWS RDS Database

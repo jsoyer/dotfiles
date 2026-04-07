@@ -2,6 +2,10 @@
 name: django-verification
 description: "Verification loop for Django projects: migrations, linting, tests with coverage, security scans, and deployment readiness checks before release or PR."
 origin: ECC
+match:
+  languages: ['typescript', 'python']
+  tags: ['devops', 'database', 'security', 'testing', 'ml', 'cicd']
+  deps: ['django']
 ---
 
 # Django Verification Loop

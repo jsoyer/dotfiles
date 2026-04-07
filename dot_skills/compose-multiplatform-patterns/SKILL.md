@@ -2,6 +2,9 @@
 name: compose-multiplatform-patterns
 description: Compose Multiplatform and Jetpack Compose patterns for KMP projects — state management, navigation, theming, performance, and platform-specific UI.
 origin: ECC
+match:
+  languages: ['typescript', 'kotlin', 'ruby']
+  tags: ['frontend', 'docker', 'database']
 ---
 
 # Compose Multiplatform Patterns

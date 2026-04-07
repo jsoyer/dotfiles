@@ -5,6 +5,8 @@ metadata:
   author: vercel
   version: "1.0.0"
   argument-hint: <file-or-pattern>
+match:
+  tags: ['frontend', 'security', 'ml']
 ---
 
 # Web Interface Guidelines

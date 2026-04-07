@@ -1,6 +1,8 @@
 ---
 name: aws-development
 description: AWS development best practices for Lambda, SAM, CDK, DynamoDB, IAM, and serverless architecture using Infrastructure as Code.
+match:
+  tags: ['backend', 'devops', 'terraform', 'aws']
 ---
 
 # AWS Development Best Practices

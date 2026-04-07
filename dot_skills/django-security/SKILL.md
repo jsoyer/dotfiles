@@ -2,6 +2,10 @@
 name: django-security
 description: Django security best practices, authentication, authorization, CSRF protection, SQL injection prevention, XSS prevention, and secure deployment configurations.
 origin: ECC
+match:
+  languages: ['python', 'sql']
+  tags: ['devops', 'database', 'security', 'cicd']
+  deps: ['django']
 ---
 
 # Django Security Best Practices

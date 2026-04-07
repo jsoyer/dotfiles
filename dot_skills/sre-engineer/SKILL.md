@@ -11,6 +11,9 @@ metadata:
   scope: implementation
   output-format: code
   related-skills: devops-engineer, cloud-architect, kubernetes-specialist
+match:
+  languages: ['typescript', 'go', 'ruby', 'shell']
+  tags: ['frontend', 'devops', 'kubernetes', 'ml', 'monitoring']
 ---
 
 # SRE Engineer

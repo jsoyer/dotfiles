@@ -1,6 +1,10 @@
 ---
 name: app-store-screenshots
 description: Use when building App Store screenshot pages, generating exportable marketing screenshots for iOS apps, or creating programmatic screenshot generators with Next.js. Triggers on app store, screenshots, marketing assets, html-to-image, phone mockup.
+match:
+  languages: ['typescript', 'swift']
+  tags: ['frontend', 'ml', 'mobile']
+  deps: ['next']
 ---
 
 # App Store Screenshots Generator

@@ -10,6 +10,9 @@ metadata:
   author: membrane
   version: "1.0"
   categories: "File Storage, Document Management"
+match:
+  languages: ['typescript']
+  tags: ['data']
 ---
 
 # MS OneDrive

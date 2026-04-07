@@ -11,6 +11,10 @@ metadata:
   scope: implementation
   output-format: code
   related-skills: java-architect, database-optimizer, microservices-architect, devops-engineer
+match:
+  languages: ['typescript', 'go', 'java', 'sql']
+  tags: ['frontend', 'backend', 'devops', 'database', 'api', 'security', 'data']
+  deps: ['react']
 ---
 
 # Spring Boot Engineer

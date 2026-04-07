@@ -18,6 +18,8 @@ metadata:
           ],
       },
   }
+match:
+  languages: ['python']
 ---
 
 # Office 自动化技能

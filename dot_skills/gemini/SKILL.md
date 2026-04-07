@@ -2,6 +2,9 @@
 name: gemini
 description: Provides Gemini CLI delegation workflows for large-context analysis tasks, including English prompt formulation, execution flags, and safe result handling. Use when the user explicitly asks to use Gemini for a specific task such as broad codebase analysis or long-document processing. Triggers on "use gemini", "delegate to gemini", "run gemini cli", "ask gemini", "use gemini for this task".
 allowed-tools: Bash, Read, Write
+match:
+  languages: ['ruby', 'shell']
+  tags: ['database', 'cli']
 ---
 
 # Gemini CLI Delegation

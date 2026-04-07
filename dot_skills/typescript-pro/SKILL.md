@@ -11,6 +11,9 @@ metadata:
   scope: implementation
   output-format: code
   related-skills: fullstack-guardian, api-designer
+match:
+  languages: ['typescript', 'shell']
+  tags: ['frontend', 'backend', 'fullstack', 'api']
 ---
 
 # TypeScript Pro

@@ -4,6 +4,8 @@ description: Create responsive web designs that work across all devices and scre
 metadata:
   tags: responsive, mobile-first, CSS, Flexbox, Grid, media-query, viewport
   platforms: Claude, ChatGPT, Gemini
+match:
+  tags: ['frontend', 'mobile']
 ---
 
 

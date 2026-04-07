@@ -5,6 +5,10 @@ metadata:
   author: Anthony Fu
   version: "2026.1.31"
   source: Generated from https://github.com/vuejs/docs, scripts at https://github.com/antfu/skills
+match:
+  languages: ['typescript', 'shell']
+  tags: ['frontend', 'backend', 'api', 'ml']
+  deps: ['react', 'vue']
 ---
 
 # Vue

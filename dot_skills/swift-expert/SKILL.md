@@ -10,7 +10,10 @@ metadata:
   role: specialist
   scope: implementation
   output-format: code
-  related-skills: 
+  related-skills:
+match:
+  languages: ['typescript', 'swift', 'ruby']
+  tags: ['frontend', 'backend', 'ml', 'mobile']
 ---
 
 # Swift Expert

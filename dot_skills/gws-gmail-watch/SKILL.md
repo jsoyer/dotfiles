@@ -8,6 +8,8 @@ metadata:
     requires:
       bins: ["gws"]
     cliHelp: "gws gmail +watch --help"
+match:
+  tags: ['ml']
 ---
 
 # gmail +watch

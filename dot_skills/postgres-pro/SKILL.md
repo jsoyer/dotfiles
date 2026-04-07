@@ -11,6 +11,9 @@ metadata:
   scope: implementation
   output-format: code
   related-skills: database-optimizer, devops-engineer, sre-engineer
+match:
+  languages: ['go', 'sql']
+  tags: ['devops', 'database', 'ml', 'data', 'monitoring']
 ---
 
 # PostgreSQL Pro

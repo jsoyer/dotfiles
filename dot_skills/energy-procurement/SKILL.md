@@ -16,6 +16,9 @@ metadata:
   author: evos
   clawdbot:
     emoji: "⚡"
+match:
+  languages: ['go', 'ruby', 'lua']
+  tags: ['database', 'ml']
 ---
 
 # Energy Procurement

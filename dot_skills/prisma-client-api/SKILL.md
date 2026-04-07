@@ -5,6 +5,10 @@ license: MIT
 metadata:
   author: prisma
   version: "7.0.0"
+match:
+  languages: ['sql']
+  tags: ['backend', 'database', 'api', 'ml', 'data', 'cli']
+  deps: ['@prisma/client']
 ---
 
 # Prisma Client API Reference

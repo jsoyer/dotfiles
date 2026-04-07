@@ -11,6 +11,9 @@ metadata:
   scope: design
   output-format: schema
   related-skills: api-designer, microservices-architect, database-optimizer
+match:
+  languages: ['shell', 'sql']
+  tags: ['frontend', 'backend', 'database', 'api', 'data']
 ---
 
 # GraphQL Architect

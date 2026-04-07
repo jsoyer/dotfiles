@@ -11,6 +11,9 @@ metadata:
   scope: infrastructure
   output-format: manifests
   related-skills: devops-engineer, cloud-architect, sre-engineer
+match:
+  languages: ['python', 'go', 'ruby']
+  tags: ['frontend', 'devops', 'docker', 'kubernetes', 'database', 'security', 'ml', 'data', 'cicd']
 ---
 
 # Kubernetes Specialist

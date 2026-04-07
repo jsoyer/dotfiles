@@ -11,6 +11,9 @@ metadata:
   scope: implementation
   output-format: code
   related-skills: fullstack-guardian, security-reviewer, architecture-designer
+match:
+  languages: ['ruby', 'sql']
+  tags: ['frontend', 'fullstack', 'database', 'security']
 ---
 
 # Secure Code Guardian

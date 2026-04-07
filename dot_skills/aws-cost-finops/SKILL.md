@@ -1,6 +1,9 @@
 ---
 name: aws-cost-finops
 description: AWS cost optimization and FinOps workflows. Use for finding unused resources, analyzing Reserved Instance opportunities, detecting cost anomalies, rightsizing instances, evaluating Spot instances, migrating to newer generation instances, implementing FinOps best practices, optimizing storage/network/database costs, and managing cloud financial operations. Includes automated analysis scripts and comprehensive reference documentation.
+match:
+  languages: ['typescript', 'go', 'lua', 'shell', 'sql']
+  tags: ['aws', 'database', 'ml', 'data']
 ---
 
 # AWS Cost Optimization & FinOps

@@ -9,6 +9,8 @@ metadata:
     requires:
       bins: ["gws"]
       skills: ["gws-drive"]
+match:
+  tags: ['ml']
 ---
 
 # Find Largest Files in Drive

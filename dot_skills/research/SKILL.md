@@ -1,6 +1,8 @@
 ---
 name: research  
 description: "Comprehensive research grounded in web data with explicit citations. Use when you need multi-source synthesis—comparisons, current events, market analysis, detailed reports. "
+match:
+  tags: ['ml', 'data']
 ---
 # Research Skill
 

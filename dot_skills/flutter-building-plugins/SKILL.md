@@ -4,7 +4,9 @@ description: "Builds Flutter plugins that provide native interop for other apps 
 metadata:
   model: "models/gemini-3.1-pro-preview"
   last_modified: "Thu, 12 Mar 2026 22:21:35 GMT"
-
+match:
+  languages: ['go', 'dart']
+  tags: ['frontend', 'database', 'mobile']
 ---
 # Developing Flutter Plugins
 

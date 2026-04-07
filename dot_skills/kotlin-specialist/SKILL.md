@@ -11,6 +11,9 @@ metadata:
   scope: implementation
   output-format: code
   related-skills: test-master
+match:
+  languages: ['kotlin']
+  tags: ['frontend', 'backend', 'docker', 'database', 'api', 'testing', 'mobile']
 ---
 
 # Kotlin Specialist

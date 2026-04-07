@@ -9,6 +9,9 @@ license: MIT
 metadata:
   author: awesome-llm-apps
   version: "1.0.0"
+match:
+  languages: ['go', 'ruby']
+  tags: ['monitoring']
 ---
 
 # Content Creator

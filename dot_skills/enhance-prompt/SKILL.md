@@ -4,6 +4,9 @@ description: Transforms vague UI ideas into polished, Stitch-optimized prompts. 
 allowed-tools:
   - "Read"
   - "Write"
+match:
+  languages: ['typescript']
+  tags: ['frontend', 'database']
 ---
 
 # Enhance Prompt for Stitch

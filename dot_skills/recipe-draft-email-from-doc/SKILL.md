@@ -9,6 +9,8 @@ metadata:
     requires:
       bins: ["gws"]
       skills: ["gws-docs", "gws-gmail"]
+match:
+  tags: ['ml']
 ---
 
 # Draft a Gmail Message from a Google Doc

@@ -10,6 +10,8 @@ license: MIT
 metadata:
   author: awesome-llm-apps
   version: "1.1.0"
+match:
+  tags: ['frontend', 'database', 'testing']
 ---
 
 # UX Designer

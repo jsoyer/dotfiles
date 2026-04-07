@@ -1,0 +1,125 @@
+# Unified package manifest — single source of truth
+# Platform-specific manifests (Brewfile_*, Aptfile_*, etc.) are generated from this file.
+#
+# Format: each package has a name and optional per-platform overrides.
+# If a platform key is missing, the package name is used as-is.
+# Set a platform to null to skip on that platform.
+#
+# Profiles: core (all machines), desktop (gui machines), server (servers), macos (macOS only)
+
+core:
+  # Shell & terminal
+  - name: zsh
+  - name: tmux
+  - name: starship
+    apt: null            # installed via brew on linux
+    dnf: null
+    pacman: null
+  - name: atuin
+  - name: direnv
+
+  # Modern CLI tools
+  - name: bat
+  - name: eza
+    apt: null            # installed via brew on linux
+  - name: fd
+    apt: fd-find
+  - name: fzf
+  - name: ripgrep
+  - name: jq
+  - name: vivid
+    apt: null
+    dnf: null
+  - name: zoxide
+
+  # Core tools
+  - name: git
+  - name: curl
+  - name: wget
+  - name: unzip
+  - name: neovim
+  - name: fontconfig
+  - name: htop
+  - name: tree
+
+  # Dev tools (brew-only on linux, native on arch)
+  - name: gh
+    apt: null
+    dnf: null
+  - name: lazygit
+    apt: null
+    dnf: null
+  - name: dust
+    apt: null
+    dnf: null
+  - name: procs
+    apt: null
+    dnf: null
+  - name: glow
+    apt: null
+    dnf: null
+  - name: xh
+    apt: null
+    dnf: null
+  - name: yq
+    apt: null
+    dnf: null
+  - name: age
+    apt: null
+    dnf: null
+  - name: go
+    apt: null
+    dnf: null
+  - name: node
+    apt: null
+    dnf: null
+  - name: television
+    apt: null
+    dnf: null
+
+  # Language servers
+  - name: lua-language-server
+    apt: null
+    dnf: null
+    pacman: lua-language-server
+  - name: stylua
+    apt: null
+    dnf: null
+
+desktop:
+  # Terminal emulators (handled by cask/flatpak/pacman separately)
+  # GUI tools
+  - name: btop
+  - name: duf
+    apt: null
+  - name: locales
+    brew: null
+    dnf: null
+    pacman: null
+
+server:
+  # Server-specific packages
+  - name: locales
+    brew: null
+    dnf: null
+    pacman: null
+
+macos:
+  # macOS-only (Brewfile_personal and Brewfile_pro handle casks/taps separately)
+  - name: chezmoi
+  - name: pyenv
+
+arch_aur:
+  # AUR packages (installed via yay)
+  - name: rtk-bin
+  - name: wezterm-git
+  - name: claude-code
+
+# GUI apps are managed separately:
+# - macOS: Brewfile_personal / Brewfile_pro (cask apps)
+# - Linux: Aptfile_*_gui / Dnffile_*_gui / Pacfile_*_gui / Flatpak
+# - Windows: Scoopfile.json
+#
+# Reason: GUI apps vary wildly per platform and can't be unified easily.
+# The package wrappers (breww, aptw, dnfw, pacmanw) track additions to the
+# platform-specific manifests automatically.

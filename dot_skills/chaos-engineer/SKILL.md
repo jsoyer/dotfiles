@@ -11,6 +11,9 @@ metadata:
   scope: implementation
   output-format: code
   related-skills: sre-engineer, devops-engineer, kubernetes-specialist
+match:
+  languages: ['go']
+  tags: ['devops', 'kubernetes', 'security', 'testing', 'ml', 'game']
 ---
 
 # Chaos Engineer

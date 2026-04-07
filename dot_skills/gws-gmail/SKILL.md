@@ -8,6 +8,8 @@ metadata:
     requires:
       bins: ["gws"]
     cliHelp: "gws gmail --help"
+match:
+  tags: ['ml']
 ---
 
 # gmail (v1)

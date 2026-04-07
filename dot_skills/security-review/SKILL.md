@@ -2,6 +2,8 @@
 name: security-review
 description: Use this skill when adding authentication, handling user input, working with secrets, creating API endpoints, or implementing payment/sensitive features. Provides comprehensive security checklist and patterns.
 origin: ECC
+match:
+  tags: ['backend', 'api', 'security']
 ---
 
 # Security Review Skill

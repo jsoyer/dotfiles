@@ -1,6 +1,9 @@
 ---
 name: postgresql-table-design
 description: Design a PostgreSQL-specific schema. Covers best-practices, data types, indexing, constraints, performance patterns, and advanced features
+match:
+  languages: ['sql']
+  tags: ['database', 'ml', 'data']
 ---
 
 # PostgreSQL Table Design

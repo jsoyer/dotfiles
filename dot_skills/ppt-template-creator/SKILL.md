@@ -1,6 +1,9 @@
 ---
 name: ppt-template-creator
 description: Creates self-contained PPT template SKILLS (not presentations) from user-provided PowerPoint templates. Use ONLY when a user wants to create a reusable skill from their template. For creating actual presentations, use the pptx skill instead.
+match:
+  languages: ['typescript']
+  tags: ['ml']
 ---
 
 # PPT Template Creator

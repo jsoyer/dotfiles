@@ -11,6 +11,10 @@ metadata:
   scope: implementation
   output-format: code
   related-skills: fullstack-guardian, fastapi-expert, test-master
+match:
+  languages: ['python']
+  tags: ['frontend', 'backend', 'fullstack', 'database', 'api', 'security', 'testing', 'ml']
+  deps: ['django', 'fastapi']
 ---
 
 # Django Expert

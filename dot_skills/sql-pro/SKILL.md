@@ -11,6 +11,9 @@ metadata:
   scope: implementation
   output-format: code
   related-skills: devops-engineer
+match:
+  languages: ['typescript', 'go', 'sql']
+  tags: ['backend', 'devops', 'database', 'ml', 'data']
 ---
 
 # SQL Pro

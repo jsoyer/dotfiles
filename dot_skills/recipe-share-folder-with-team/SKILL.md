@@ -9,6 +9,8 @@ metadata:
     requires:
       bins: ["gws"]
       skills: ["gws-drive"]
+match:
+  languages: ['typescript']
 ---
 
 # Share a Google Drive Folder with a Team

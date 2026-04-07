@@ -4,7 +4,9 @@ description: "Customizes the visual appearance of a Flutter app using the themin
 metadata:
   model: "models/gemini-3.1-pro-preview"
   last_modified: "Thu, 12 Mar 2026 22:14:47 GMT"
-
+match:
+  languages: ['dart']
+  tags: ['mobile']
 ---
 # Implementing Flutter Theming and Adaptive Design
 

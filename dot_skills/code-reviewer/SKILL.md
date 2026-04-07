@@ -8,6 +8,8 @@ license: MIT
 metadata:
   author: awesome-llm-apps
   version: "2.0.0"
+match:
+  tags: ['database', 'security']
 ---
 
 # Code Reviewer

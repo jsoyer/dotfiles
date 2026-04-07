@@ -5,6 +5,8 @@ risk: unknown
 source: community
 author: zebbern
 date_added: "2026-02-27"
+match:
+  tags: ['devops', 'aws', 'security', 'testing']
 ---
 
 # AWS Penetration Testing

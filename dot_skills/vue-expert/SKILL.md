@@ -11,6 +11,10 @@ metadata:
   scope: implementation
   output-format: code
   related-skills: typescript-pro, fullstack-guardian
+match:
+  languages: ['typescript', 'javascript', 'go', 'shell']
+  tags: ['frontend', 'backend', 'fullstack', 'api', 'mobile']
+  deps: ['react', 'vue', 'fastify']
 ---
 
 # Vue Expert

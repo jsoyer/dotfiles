@@ -9,6 +9,8 @@ metadata:
     requires:
       bins: ["gws"]
       skills: ["gws-gmail", "gws-docs"]
+match:
+  tags: ['ml']
 ---
 
 # Save a Gmail Message to Google Docs

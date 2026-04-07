@@ -8,6 +8,8 @@ metadata:
     requires:
       bins: ["gws"]
     cliHelp: "gws forms --help"
+match:
+  tags: ['database']
 ---
 
 # forms (v1)

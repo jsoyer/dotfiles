@@ -1,6 +1,10 @@
 ---
 name: fastapi-python
 description: Expert in FastAPI Python development with best practices for APIs and async operations
+match:
+  languages: ['python']
+  tags: ['backend', 'api']
+  deps: ['fastapi']
 ---
 
 # FastAPI Python

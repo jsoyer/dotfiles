@@ -11,6 +11,10 @@ metadata:
   scope: implementation
   output-format: code
   related-skills: fullstack-guardian, test-master, devops-engineer
+match:
+  languages: ['typescript', 'javascript', 'python', 'go', 'shell']
+  tags: ['frontend', 'backend', 'fullstack', 'devops', 'database', 'api', 'security', 'testing']
+  deps: ['@prisma/client']
 ---
 
 # NestJS Expert

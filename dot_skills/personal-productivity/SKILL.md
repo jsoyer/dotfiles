@@ -1,6 +1,8 @@
 ---
 name: personal-productivity
 description: Help users manage their time and tasks more effectively. Use when someone is overwhelmed with work, struggling with focus, trying to balance multiple responsibilities, or asking how to get more done.
+match:
+  tags: ['kubernetes']
 ---
 
 # Personal Productivity

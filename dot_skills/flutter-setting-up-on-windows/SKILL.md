@@ -4,7 +4,9 @@ description: "Sets up a Windows environment for Flutter development. Use when co
 metadata:
   model: "models/gemini-3.1-pro-preview"
   last_modified: "Thu, 12 Mar 2026 22:13:13 GMT"
-
+match:
+  languages: ['typescript', 'kotlin', 'dart']
+  tags: ['frontend', 'devops', 'mobile', 'cicd']
 ---
 # Setting Up Flutter for Windows Development
 

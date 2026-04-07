@@ -5,6 +5,10 @@ license: MIT
 metadata:
   author: currents.dev
   version: "1.0"
+match:
+  languages: ['typescript', 'go', 'shell']
+  tags: ['frontend', 'backend', 'devops', 'database', 'api', 'security', 'testing', 'ml', 'mobile', 'monitoring', 'cicd']
+  deps: ['playwright']
 ---
 
 # Playwright Best Practices

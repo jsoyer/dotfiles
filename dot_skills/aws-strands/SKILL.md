@@ -1,6 +1,10 @@
 ---
 name: aws-strands
 description: Build AI agents with Strands Agents SDK. Use when developing model-agnostic agents, implementing ReAct patterns, creating multi-agent systems, or building production agents on AWS. Triggers on Strands, Strands SDK, model-agnostic agent, ReAct agent.
+match:
+  languages: ['typescript']
+  tags: ['frontend', 'aws', 'ml']
+  deps: ['react']
 ---
 
 # Strands Agents SDK

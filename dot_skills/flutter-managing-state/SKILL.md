@@ -4,7 +4,9 @@ description: "Manages application and ephemeral state in a Flutter app. Use when
 metadata:
   model: "models/gemini-3.1-pro-preview"
   last_modified: "Thu, 12 Mar 2026 22:18:06 GMT"
-
+match:
+  languages: ['typescript', 'go', 'dart']
+  tags: ['frontend', 'data', 'mobile']
 ---
 # Managing State in Flutter
 

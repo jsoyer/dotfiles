@@ -8,6 +8,8 @@ metadata:
     requires:
       bins: ["gws"]
       skills: ["gws-drive", "gws-sheets", "gws-calendar", "gws-gmail", "gws-chat"]
+match:
+  languages: ['typescript']
 ---
 
 # Project Manager

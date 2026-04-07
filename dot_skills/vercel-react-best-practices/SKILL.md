@@ -5,6 +5,10 @@ license: MIT
 metadata:
   author: vercel
   version: "1.0.0"
+match:
+  languages: ['typescript', 'javascript', 'go']
+  tags: ['frontend', 'database', 'data']
+  deps: ['next', 'react']
 ---
 
 # Vercel React Best Practices

@@ -5,6 +5,9 @@ license: MIT
 metadata:
   author: Paul Hudson
   version: "1.0"
+match:
+  languages: ['swift']
+  tags: ['frontend', 'backend', 'database', 'api', 'ml', 'mobile']
 ---
 
 Review Swift and SwiftUI code for correctness, modern API usage, and adherence to project conventions. Report only genuine problems - do not nitpick or invent issues.

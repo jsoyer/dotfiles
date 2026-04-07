@@ -11,6 +11,10 @@ metadata:
   scope: design
   output-format: specification
   related-skills: graphql-architect, fastapi-expert, nestjs-expert, spring-boot-engineer, security-reviewer
+match:
+  languages: ['python', 'go', 'java']
+  tags: ['backend', 'api', 'security', 'ml']
+  deps: ['fastapi']
 ---
 
 # API Designer

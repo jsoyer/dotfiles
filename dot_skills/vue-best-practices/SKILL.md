@@ -5,6 +5,10 @@ license: MIT
 metadata:
   author: github.com/vuejs-ai
   version: "18.0.0"
+match:
+  languages: ['typescript', 'javascript', 'shell']
+  tags: ['frontend', 'backend', 'api']
+  deps: ['vue']
 ---
 
 # Vue Best Practices Workflow

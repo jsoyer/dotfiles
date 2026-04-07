@@ -8,6 +8,9 @@ metadata:
   keyword: copilotview
   version: 1.0.0
   source: "https://docs.github.com/en/copilot/how-tos/use-copilot-agents/coding-agent"
+match:
+  languages: ['python']
+  tags: ['backend', 'devops', 'api', 'ml', 'data', 'cli', 'cicd']
 ---
 
 

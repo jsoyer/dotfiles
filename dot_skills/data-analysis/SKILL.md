@@ -5,6 +5,9 @@ allowed-tools: Read Grep Glob Bash
 metadata:
   tags: data, analysis, pandas, statistics, visualization, csv, sql
   platforms: Claude, ChatGPT, Gemini
+match:
+  languages: ['typescript', 'python', 'sql']
+  tags: ['database', 'data']
 ---
 
 

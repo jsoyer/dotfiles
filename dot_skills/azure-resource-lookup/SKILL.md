@@ -5,6 +5,9 @@ license: MIT
 metadata:
   author: Microsoft
   version: "1.0.0"
+match:
+  languages: ['shell', 'sql']
+  tags: ['backend', 'devops', 'docker', 'azure', 'database', 'ml', 'cicd']
 ---
 
 # Azure Resource Lookup

@@ -11,6 +11,9 @@ metadata:
   scope: implementation
   output-format: code
   related-skills: devops-engineer, kubernetes-specialist, cloud-architect, python-pro
+match:
+  languages: ['typescript', 'python', 'go']
+  tags: ['frontend', 'devops', 'kubernetes', 'ml', 'data', 'cicd']
 ---
 
 # ML Pipeline Expert

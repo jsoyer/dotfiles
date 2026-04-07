@@ -8,6 +8,9 @@ metadata:
     requires:
       bins: ["gws"]
     cliHelp: "gws events +renew --help"
+match:
+  languages: ['typescript', 'shell']
+  deps: ['react']
 ---
 
 # events +renew

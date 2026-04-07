@@ -1,6 +1,9 @@
 ---
 name: create-auth-skill
 description: Scaffold and implement authentication in TypeScript/JavaScript apps using Better Auth. Detect frameworks, configure database adapters, set up route handlers, add OAuth providers, and create auth UI pages. Use when users want to add login, sign-up, or authentication to a new or existing project with Better Auth.
+match:
+  languages: ['typescript', 'javascript', 'go', 'java', 'shell', 'sql']
+  tags: ['frontend', 'database', 'security', 'data']
 ---
 
 # Create Auth Skill

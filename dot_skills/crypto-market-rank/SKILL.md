@@ -8,6 +8,8 @@ description: |
 metadata:
   author: binance-web3-team
   version: "2.0"
+match:
+  languages: ['sql']
 ---
 
 # Crypto Market Rank Skill

@@ -11,6 +11,10 @@ metadata:
   scope: implementation
   output-format: code
   related-skills: react-expert, graphql-architect, api-designer
+match:
+  languages: ['typescript']
+  tags: ['frontend', 'backend', 'database', 'api', 'security', 'ml', 'cli']
+  deps: ['react']
 ---
 
 # Shopify Expert

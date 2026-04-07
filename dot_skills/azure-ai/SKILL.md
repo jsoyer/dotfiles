@@ -5,6 +5,9 @@ license: MIT
 metadata:
   author: Microsoft
   version: "1.0.1"
+match:
+  languages: ['shell', 'sql']
+  tags: ['azure', 'ml']
 ---
 
 # Azure AI Services

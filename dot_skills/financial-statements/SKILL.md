@@ -2,6 +2,9 @@
 name: financial-statements
 description: Generate financial statements (income statement, balance sheet, cash flow) with period-over-period comparison and variance analysis. Use when preparing a monthly or quarterly P&L, closing the books and need to flag material variances, comparing actuals to budget, building a financial summary for leadership review, or looking up GAAP presentation requirements and period-end adjustments.
 argument-hint: "<frequency> <period>"
+match:
+  languages: ['typescript', 'shell']
+  tags: ['frontend']
 ---
 
 # /financial-statements

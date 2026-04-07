@@ -1,6 +1,9 @@
 ---
 name: dataverse-python-production-code
 description: 'Generate production-ready Python code using Dataverse SDK with error handling, optimization, and best practices'
+match:
+  languages: ['python']
+  tags: ['data']
 ---
 
 # System Instructions

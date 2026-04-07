@@ -9,6 +9,8 @@ metadata:
     requires:
       bins: ["gws"]
       skills: ["gws-sheets"]
+match:
+  tags: ['data']
 ---
 
 # Compare Two Google Sheets Tabs

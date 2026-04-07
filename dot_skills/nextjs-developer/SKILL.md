@@ -11,6 +11,10 @@ metadata:
   scope: implementation
   output-format: code
   related-skills: typescript-pro
+match:
+  languages: ['typescript', 'javascript', 'shell']
+  tags: ['frontend', 'backend', 'devops', 'database', 'api', 'data', 'cicd']
+  deps: ['next', 'react']
 ---
 
 # Next.js Developer

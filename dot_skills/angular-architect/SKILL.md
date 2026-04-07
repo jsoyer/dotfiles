@@ -11,6 +11,10 @@ metadata:
   scope: implementation
   output-format: code
   related-skills: typescript-pro, test-master
+match:
+  languages: ['typescript', 'javascript', 'ruby', 'shell']
+  tags: ['frontend', 'database', 'testing']
+  deps: ['react', 'angular']
 ---
 
 # Angular Architect

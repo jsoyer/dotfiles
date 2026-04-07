@@ -5,6 +5,9 @@ category: framework
 risk: unknown
 source: community
 date_added: '2026-02-27'
+match:
+  languages: ['typescript', 'javascript', 'java', 'ruby', 'shell']
+  tags: ['database']
 ---
 
 # TypeScript Expert

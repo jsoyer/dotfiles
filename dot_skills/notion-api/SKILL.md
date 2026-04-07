@@ -5,6 +5,9 @@ description: >
   This skill should be used whenever the user asks to interact with Notion, including reading, creating,
   updating, or deleting pages, databases, blocks, comments, or any other Notion content. The skill
   covers authentication, all available endpoints, pagination, error handling, and best practices.
+match:
+  languages: ['go', 'sql']
+  tags: ['backend', 'database', 'api', 'security', 'ml', 'data']
 ---
 
 # Notion API Skill

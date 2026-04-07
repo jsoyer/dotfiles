@@ -2,6 +2,9 @@
 name: aws-lambda-java-integration
 description: Provides AWS Lambda integration patterns for Java with cold start optimization. Use when deploying Java functions to AWS Lambda, choosing between Micronaut and Raw Java approaches, optimizing cold starts below 1 second, configuring API Gateway or ALB integration, or implementing serverless Java applications. Triggers include "create lambda java", "deploy java lambda", "micronaut lambda aws", "java lambda cold start", "aws lambda java performance", "java serverless framework".
 allowed-tools: Read, Write, Edit, Bash, Glob, Grep
+match:
+  languages: ['typescript', 'java']
+  tags: ['backend', 'devops', 'aws', 'database', 'api', 'cicd']
 ---
 
 # AWS Lambda Java Integration

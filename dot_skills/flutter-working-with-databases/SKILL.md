@@ -4,7 +4,9 @@ description: "Manages local data persistence using SQLite or other database solu
 metadata:
   model: "models/gemini-3.1-pro-preview"
   last_modified: "Thu, 12 Mar 2026 22:19:15 GMT"
-
+match:
+  languages: ['typescript', 'dart', 'sql']
+  tags: ['database', 'data', 'mobile']
 ---
 # Architecting the Data Layer
 

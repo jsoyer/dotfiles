@@ -11,6 +11,9 @@ metadata:
   scope: implementation
   output-format: code
   related-skills: mcp-developer, api-designer, security-reviewer
+match:
+  languages: ['typescript', 'go', 'ruby', 'sql']
+  tags: ['backend', 'database', 'api', 'security']
 ---
 
 # Atlassian MCP Expert

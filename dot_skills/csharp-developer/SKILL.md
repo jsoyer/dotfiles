@@ -11,6 +11,9 @@ metadata:
   scope: implementation
   output-format: code
   related-skills: api-designer, database-optimizer, devops-engineer
+match:
+  languages: ['typescript', 'go', 'csharp', 'ruby', 'sql']
+  tags: ['frontend', 'backend', 'devops', 'database', 'api', 'data']
 ---
 
 # C# Developer

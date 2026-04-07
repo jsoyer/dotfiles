@@ -8,6 +8,8 @@ metadata:
     requires:
       bins: ["gws"]
       skills: ["gws-gmail", "gws-drive", "gws-calendar"]
+match:
+  tags: ['security', 'monitoring']
 ---
 
 # IT Administrator

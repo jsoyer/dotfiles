@@ -24,6 +24,9 @@ hooks:
     - matcher: Bash(sam deploy*)
       command: aws sts get-caller-identity --query Account --output text
       once: true
+match:
+  languages: ['typescript', 'python', 'shell']
+  tags: ['frontend', 'backend', 'aws', 'api']
 ---
 
 # AWS Serverless & Event-Driven Architecture

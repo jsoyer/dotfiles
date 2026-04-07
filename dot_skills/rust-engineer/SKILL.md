@@ -11,6 +11,9 @@ metadata:
   scope: implementation
   output-format: code
   related-skills: test-master
+match:
+  languages: ['typescript', 'rust', 'go']
+  tags: ['frontend', 'backend', 'database', 'api', 'testing', 'ml']
 ---
 
 # Rust Engineer

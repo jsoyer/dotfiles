@@ -12,6 +12,9 @@ metadata:
   scope: review
   output-format: report
   related-skills: secure-code-guardian, code-reviewer, devops-engineer, cloud-architect, kubernetes-specialist
+match:
+  languages: ['typescript', 'go']
+  tags: ['frontend', 'devops', 'kubernetes', 'security', 'testing']
 ---
 
 # Security Reviewer

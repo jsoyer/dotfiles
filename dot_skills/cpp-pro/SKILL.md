@@ -11,6 +11,9 @@ metadata:
   scope: implementation
   output-format: code
   related-skills: rust-engineer, embedded-systems
+match:
+  languages: ['rust', 'go', 'kotlin', 'cpp', 'ruby']
+  tags: ['frontend', 'database']
 ---
 
 # C++ Pro

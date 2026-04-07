@@ -11,6 +11,9 @@ metadata:
   scope: design
   output-format: document
   related-skills: test-master
+match:
+  languages: ['typescript', 'go', 'ruby', 'lua']
+  tags: ['frontend', 'database', 'testing', 'ml', 'data']
 ---
 
 # Prompt Engineer

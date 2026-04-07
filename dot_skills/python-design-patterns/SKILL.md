@@ -1,6 +1,8 @@
 ---
 name: python-design-patterns
 description: Python design patterns including KISS, Separation of Concerns, Single Responsibility, and composition over inheritance. Use when making architecture decisions, refactoring code structure, or evaluating when abstractions are appropriate.
+match:
+  languages: ['python', 'lua']
 ---
 
 # Python Design Patterns

@@ -9,6 +9,8 @@ metadata:
     requires:
       bins: ["gws"]
       skills: ["gws-meet"]
+match:
+  languages: ['typescript']
 ---
 
 # Review Google Meet Attendance

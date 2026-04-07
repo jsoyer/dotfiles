@@ -11,6 +11,9 @@ metadata:
   scope: implementation
   output-format: code
   related-skills: devops-engineer, debugging-wizard, architecture-designer
+match:
+  languages: ['typescript', 'python', 'go']
+  tags: ['devops', 'database', 'testing', 'data', 'monitoring', 'cicd']
 ---
 
 # Monitoring Expert

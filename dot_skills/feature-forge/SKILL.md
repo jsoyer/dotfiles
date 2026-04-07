@@ -11,6 +11,9 @@ metadata:
   scope: design
   output-format: document
   related-skills: fullstack-guardian, spec-miner, test-master
+match:
+  languages: ['typescript']
+  tags: ['frontend', 'fullstack', 'database', 'testing']
 ---
 
 # Feature Forge

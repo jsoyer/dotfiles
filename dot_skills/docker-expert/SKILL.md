@@ -5,6 +5,10 @@ category: devops
 risk: unknown
 source: community
 date_added: "2026-02-27"
+match:
+  languages: ['kotlin']
+  tags: ['frontend', 'devops', 'docker', 'security', 'ml', 'cicd']
+  deps: ['docker']
 ---
 
 # Docker Expert

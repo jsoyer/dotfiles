@@ -5,6 +5,9 @@ description: |
 allowed-tools:
   - Bash(firecrawl *)
   - Bash(npx firecrawl *)
+match:
+  languages: ['typescript']
+  tags: ['frontend']
 ---
 
 # firecrawl search

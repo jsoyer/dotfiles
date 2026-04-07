@@ -5,6 +5,8 @@ license: MIT
 metadata:
   author: Microsoft
   version: "1.0.3"
+match:
+  tags: ['docker', 'azure', 'ml']
 ---
 
 # Azure Diagnostics

@@ -9,6 +9,8 @@ metadata:
     requires:
       bins: ["gws"]
       skills: ["gws-gmail"]
+match:
+  tags: ['ml']
 ---
 
 # Label and Archive Gmail Threads

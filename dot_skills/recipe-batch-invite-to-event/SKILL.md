@@ -9,6 +9,8 @@ metadata:
     requires:
       bins: ["gws"]
       skills: ["gws-calendar"]
+match:
+  languages: ['javascript']
 ---
 
 # Add Multiple Attendees to a Calendar Event

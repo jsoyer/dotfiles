@@ -1,6 +1,9 @@
 ---
 name: bash-defensive-patterns
 description: Master defensive Bash programming techniques for production-grade scripts. Use when writing robust shell scripts, CI/CD pipelines, or system utilities requiring fault tolerance and safety.
+match:
+  languages: ['python', 'shell']
+  tags: ['frontend', 'devops', 'data', 'cli', 'cicd']
 ---
 
 # Bash Defensive Patterns

@@ -4,6 +4,8 @@ description: Manage Git workflows including commits, branches, merges, and colla
 metadata:
   tags: git, version-control, branching, commits, collaboration
   platforms: Claude, ChatGPT, Gemini
+match:
+  languages: ['go']
 ---
 
 

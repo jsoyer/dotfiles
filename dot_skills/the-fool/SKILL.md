@@ -11,6 +11,9 @@ metadata:
   scope: review
   output-format: report
   related-skills: architecture-designer, code-reviewer, feature-forge
+match:
+  languages: ['go']
+  tags: ['security', 'testing']
 ---
 
 # The Fool

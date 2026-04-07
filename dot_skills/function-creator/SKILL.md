@@ -1,6 +1,8 @@
 ---
 name: function-creator
 description: Create Convex queries, mutations, and actions with proper validation, authentication, and error handling. Use when implementing new API endpoints.
+match:
+  tags: ['backend', 'api', 'security']
 ---
 
 # Convex Function Creator

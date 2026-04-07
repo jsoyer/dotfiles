@@ -27,6 +27,9 @@ metadata:
 
 user-invocable: true
 disable-model-invocation: false
+match:
+  languages: ['typescript']
+  tags: ['backend', 'ml']
 ---
 
 # Wallet

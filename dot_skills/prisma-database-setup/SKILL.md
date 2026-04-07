@@ -5,6 +5,10 @@ license: MIT
 metadata:
   author: prisma
   version: "1.0.0"
+match:
+  languages: ['go', 'sql']
+  tags: ['frontend', 'database', 'data']
+  deps: ['@prisma/client']
 ---
 
 # Prisma Database Setup

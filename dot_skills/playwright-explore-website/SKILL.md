@@ -1,6 +1,9 @@
 ---
 name: playwright-explore-website
 description: 'Website exploration for testing using Playwright MCP'
+match:
+  tags: ['testing']
+  deps: ['playwright']
 ---
 
 # Website Exploration for Testing

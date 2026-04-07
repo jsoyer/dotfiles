@@ -6,6 +6,8 @@ license: MIT
 metadata:
   author: claudekit
   version: "1.0.0"
+match:
+  tags: ['frontend']
 ---
 
 # Design System

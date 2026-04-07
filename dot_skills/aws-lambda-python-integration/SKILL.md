@@ -2,6 +2,9 @@
 name: aws-lambda-python-integration
 description: Provides AWS Lambda integration patterns for Python with cold start optimization. Use when deploying Python functions to AWS Lambda, choosing between AWS Chalice and raw Python approaches, optimizing cold starts, configuring API Gateway or ALB integration, or implementing serverless Python applications. Triggers include "create lambda python", "deploy python lambda", "chalice lambda aws", "python lambda cold start", "aws lambda python performance", "python serverless framework".
 allowed-tools: Read, Write, Edit, Bash, Glob, Grep
+match:
+  languages: ['python']
+  tags: ['backend', 'devops', 'aws', 'database', 'api', 'cicd']
 ---
 
 # AWS Lambda Python Integration

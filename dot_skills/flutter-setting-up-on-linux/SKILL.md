@@ -4,7 +4,9 @@ description: "Sets up a Linux environment for Flutter development. Use when conf
 metadata:
   model: "models/gemini-3.1-pro-preview"
   last_modified: "Thu, 12 Mar 2026 22:12:22 GMT"
-
+match:
+  languages: ['typescript', 'dart']
+  tags: ['frontend', 'devops', 'mobile', 'cicd']
 ---
 # Setting Up a Linux Environment for Flutter Development
 

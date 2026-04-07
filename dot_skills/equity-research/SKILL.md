@@ -1,6 +1,9 @@
 ---
 name: equity-research
 description: Generate comprehensive equity research snapshots combining analyst consensus estimates, company fundamentals, historical prices, and macroeconomic context. Use when researching stocks, comparing estimates to actuals, analyzing company financials, assessing equity valuations, or building investment cases.
+match:
+  languages: ['typescript', 'lua']
+  tags: ['frontend']
 ---
 
 # Equity Research Analysis

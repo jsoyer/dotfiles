@@ -9,6 +9,10 @@ license: MIT
 metadata:
   author: awesome-llm-apps
   version: "1.0.0"
+match:
+  languages: ['typescript', 'javascript', 'sql']
+  tags: ['frontend', 'backend', 'fullstack', 'devops', 'database', 'api', 'data', 'cicd']
+  deps: ['next', 'react', 'express']
 ---
 
 # Full-Stack Developer

@@ -8,6 +8,8 @@ metadata:
     requires:
       bins: ["gws"]
     cliHelp: "gws sheets --help"
+match:
+  languages: ['typescript']
 ---
 
 # sheets (v4)

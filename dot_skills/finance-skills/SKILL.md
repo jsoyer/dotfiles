@@ -14,6 +14,9 @@ agents:
   - claude-code
   - codex-cli
   - openclaw
+match:
+  languages: ['python', 'lua']
+  tags: ['cli']
 ---
 
 # Finance Skills

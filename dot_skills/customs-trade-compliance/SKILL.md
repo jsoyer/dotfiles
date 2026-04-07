@@ -16,6 +16,9 @@ metadata:
   author: evos
   clawdbot:
     emoji: "🌐"
+match:
+  languages: ['typescript']
+  tags: ['backend', 'database', 'api']
 ---
 
 # Customs & Trade Compliance

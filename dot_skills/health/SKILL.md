@@ -2,6 +2,8 @@
 name: health
 description: Audit Claude Code configuration health across all layers (CLAUDE.md, rules, skills, hooks, MCP). Run periodically or when collaboration feels off.
 version: "1.3.0"
+match:
+  tags: ['security']
 ---
 
 # Claude Code Configuration Health Audit

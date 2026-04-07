@@ -4,6 +4,9 @@ description: >
   Distribute content globally using CloudFront with caching, security headers,
   WAF integration, and origin configuration. Use for low-latency content
   delivery.
+match:
+  languages: ['go']
+  tags: ['aws', 'security']
 ---
 
 # AWS CloudFront CDN

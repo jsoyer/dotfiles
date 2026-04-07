@@ -9,6 +9,9 @@ metadata:
     requires:
       bins: ["gws"]
       skills: ["gws-sheets", "gws-calendar"]
+match:
+  languages: ['typescript']
+  tags: ['data']
 ---
 
 # Create Google Calendar Events from a Sheet

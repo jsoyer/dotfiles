@@ -2,6 +2,9 @@
 name: coding-standards
 description: Universal coding standards, best practices, and patterns for TypeScript, JavaScript, React, and Node.js development.
 origin: ECC
+match:
+  languages: ['typescript', 'javascript', 'java', 'shell']
+  deps: ['react']
 ---
 
 # Coding Standards & Best Practices

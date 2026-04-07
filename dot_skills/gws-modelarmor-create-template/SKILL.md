@@ -8,6 +8,8 @@ metadata:
     requires:
       bins: ["gws"]
     cliHelp: "gws modelarmor +create-template --help"
+match:
+  tags: ['ml']
 ---
 
 # modelarmor +create-template

@@ -4,6 +4,9 @@ description: >
   Manage S3 buckets with versioning, encryption, access control, lifecycle
   policies, and replication. Use for object storage, static sites, and data
   lakes.
+match:
+  languages: ['typescript', 'ruby']
+  tags: ['aws', 'ml', 'data']
 ---
 
 # AWS S3 Management

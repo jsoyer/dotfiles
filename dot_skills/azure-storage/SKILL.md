@@ -5,6 +5,9 @@ license: MIT
 metadata:
   author: Microsoft
   version: "1.0.0"
+match:
+  languages: ['go', 'ruby', 'sql']
+  tags: ['azure', 'database', 'ml', 'data']
 ---
 
 # Azure Storage Services

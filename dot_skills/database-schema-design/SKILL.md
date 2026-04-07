@@ -4,6 +4,9 @@ description: Design and optimize database schemas for SQL and NoSQL databases. U
 metadata:
   tags: database, schema, SQL, NoSQL, PostgreSQL, MySQL, MongoDB, migration
   platforms: Claude, ChatGPT, Gemini
+match:
+  languages: ['sql']
+  tags: ['database', 'data']
 ---
 
 

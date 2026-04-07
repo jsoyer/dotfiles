@@ -4,7 +4,9 @@ description: "Interoperates with native platform APIs on Android, iOS, and the w
 metadata:
   model: "models/gemini-3.1-pro-preview"
   last_modified: "Thu, 12 Mar 2026 22:21:02 GMT"
-
+match:
+  languages: ['kotlin', 'swift', 'dart']
+  tags: ['backend', 'database', 'api', 'ml', 'mobile']
 ---
 # Integrating Platform-Specific Code in Flutter
 

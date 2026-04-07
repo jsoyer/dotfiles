@@ -5,6 +5,10 @@ license: MIT
 metadata:
   author: Microsoft
   version: "1.0.6"
+match:
+  languages: ['typescript', 'javascript']
+  tags: ['frontend', 'backend', 'devops', 'docker', 'terraform', 'azure', 'database', 'api', 'security', 'ml', 'cicd']
+  deps: ['docker']
 ---
 
 # Azure Prepare

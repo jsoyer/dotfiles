@@ -11,6 +11,9 @@ metadata:
   scope: implementation
   output-format: code
   related-skills: fullstack-guardian
+match:
+  languages: ['typescript', 'javascript', 'java', 'shell']
+  tags: ['frontend', 'backend', 'fullstack', 'database', 'api', 'ml']
 ---
 
 # JavaScript Pro

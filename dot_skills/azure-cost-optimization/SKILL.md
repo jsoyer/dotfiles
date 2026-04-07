@@ -5,6 +5,9 @@ license: MIT
 metadata:
   author: Microsoft
   version: "1.0.0"
+match:
+  languages: ['shell']
+  tags: ['devops', 'azure', 'database', 'security', 'monitoring', 'cicd']
 ---
 
 # Azure Cost Optimization Skill

@@ -8,6 +8,8 @@ metadata:
     requires:
       bins: ["gws"]
       skills: ["gws-gmail", "gws-calendar", "gws-sheets", "gws-drive"]
+match:
+  tags: ['cli']
 ---
 
 # Sales Operations

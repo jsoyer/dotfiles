@@ -5,6 +5,9 @@ license: MIT
 metadata:
   author: Microsoft
   version: "1.0.1"
+match:
+  languages: ['sql']
+  tags: ['azure', 'database', 'data']
 ---
 
 # Azure Data Explorer (Kusto) Query & Analytics

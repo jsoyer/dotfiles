@@ -11,6 +11,9 @@ metadata:
   scope: implementation
   output-format: code
   related-skills: fullstack-guardian, database-optimizer
+match:
+  languages: ['typescript', 'ruby', 'sql']
+  tags: ['frontend', 'backend', 'fullstack', 'database', 'testing', 'ml', 'data']
 ---
 
 # Rails Expert

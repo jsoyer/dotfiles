@@ -4,6 +4,10 @@ description: "Next.js App Router principles. Server Components, data fetching, r
 risk: unknown
 source: community
 date_added: "2026-02-27"
+match:
+  languages: ['typescript', 'javascript']
+  tags: ['frontend', 'backend', 'data']
+  deps: ['next']
 ---
 
 # Next.js Best Practices

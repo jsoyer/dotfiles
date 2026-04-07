@@ -8,6 +8,8 @@ metadata:
     requires:
       bins: ["gws"]
     cliHelp: "gws workflow +meeting-prep --help"
+match:
+  deps: ['next']
 ---
 
 # workflow +meeting-prep

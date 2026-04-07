@@ -11,6 +11,10 @@ metadata:
   scope: testing
   output-format: report
   related-skills: fullstack-guardian, playwright-expert, devops-engineer
+match:
+  languages: ['typescript', 'go']
+  tags: ['fullstack', 'devops', 'database', 'security', 'testing', 'ml', 'monitoring']
+  deps: ['playwright']
 ---
 
 # Test Master

@@ -11,6 +11,10 @@ metadata:
   scope: implementation
   output-format: code
   related-skills: vue-expert, javascript-pro
+match:
+  languages: ['typescript', 'javascript', 'java', 'ruby', 'shell']
+  tags: ['frontend', 'backend', 'api', 'ml']
+  deps: ['vue']
 ---
 
 # Vue Expert (JavaScript)

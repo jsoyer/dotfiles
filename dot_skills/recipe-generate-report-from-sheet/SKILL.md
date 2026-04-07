@@ -9,6 +9,8 @@ metadata:
     requires:
       bins: ["gws"]
       skills: ["gws-sheets", "gws-docs", "gws-drive"]
+match:
+  tags: ['database', 'data']
 ---
 
 # Generate a Google Docs Report from Sheet Data

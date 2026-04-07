@@ -8,6 +8,8 @@ metadata:
     requires:
       bins: ["gws"]
     cliHelp: "gws modelarmor +sanitize-prompt --help"
+match:
+  tags: ['ml']
 ---
 
 # modelarmor +sanitize-prompt

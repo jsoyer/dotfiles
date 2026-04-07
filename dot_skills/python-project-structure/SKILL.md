@@ -1,6 +1,9 @@
 ---
 name: python-project-structure
 description: Python project organization, module architecture, and public API design. Use when setting up new projects, organizing modules, defining public interfaces with __all__, or planning directory layouts.
+match:
+  languages: ['python']
+  tags: ['backend', 'api']
 ---
 
 # Python Project Structure & Module Architecture

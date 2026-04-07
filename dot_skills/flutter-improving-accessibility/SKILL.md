@@ -4,7 +4,9 @@ description: "Configures a Flutter app to support assistive technologies like Sc
 metadata:
   model: "models/gemini-3.1-pro-preview"
   last_modified: "Thu, 12 Mar 2026 22:17:37 GMT"
-
+match:
+  languages: ['dart']
+  tags: ['mobile']
 ---
 # Implementing Flutter Accessibility
 

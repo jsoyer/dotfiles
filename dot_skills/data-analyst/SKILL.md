@@ -8,6 +8,9 @@ license: MIT
 metadata:
   author: awesome-llm-apps
   version: "1.0.0"
+match:
+  languages: ['python', 'sql']
+  tags: ['database', 'data']
 ---
 
 # Data Analyst

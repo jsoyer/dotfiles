@@ -8,6 +8,9 @@ metadata:
     requires:
       bins: ["gws"]
     cliHelp: "gws admin-reports --help"
+match:
+  languages: ['typescript']
+  tags: ['security']
 ---
 
 # admin-reports (reports_v1)

@@ -9,6 +9,8 @@ metadata:
     requires:
       bins: ["gws"]
       skills: ["gws-gmail", "gws-chat"]
+match:
+  tags: ['ml']
 ---
 
 # Announce via Gmail and Google Chat

@@ -1,6 +1,9 @@
 ---
 name: playwright-automation-fill-in-form
 description: 'Automate filling in a form using Playwright MCP'
+match:
+  tags: ['database', 'testing']
+  deps: ['playwright']
 ---
 
 # Automating Filling in a Form with Playwright MCP

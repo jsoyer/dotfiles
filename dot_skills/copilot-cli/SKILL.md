@@ -2,6 +2,9 @@
 name: copilot-cli
 description: Provides GitHub Copilot CLI task delegation in non-interactive mode with multi-model support (Claude, GPT, Gemini), permission controls, output sharing, and session resume. Use when users ask to hand work to Copilot, compare models, or run Copilot programmatically from Claude Code.
 allowed-tools: Bash, Read, Write
+match:
+  languages: ['ruby']
+  tags: ['ml', 'cli']
 ---
 
 # Copilot CLI Delegation

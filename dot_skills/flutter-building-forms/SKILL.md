@@ -4,7 +4,9 @@ description: "Builds Flutter forms with validation and user input handling. Use 
 metadata:
   model: "models/gemini-3.1-pro-preview"
   last_modified: "Thu, 12 Mar 2026 22:15:24 GMT"
-
+match:
+  languages: ['go', 'dart']
+  tags: ['frontend', 'database', 'data', 'mobile']
 ---
 # Building Validated Forms
 

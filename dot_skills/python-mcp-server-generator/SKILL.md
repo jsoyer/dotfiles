@@ -1,6 +1,9 @@
 ---
 name: python-mcp-server-generator
 description: 'Generate a complete MCP server project in Python with tools, resources, and proper configuration'
+match:
+  languages: ['python']
+  tags: ['backend']
 ---
 
 # Generate Python MCP Server

@@ -6,6 +6,9 @@ allowed-tools:
   - "Read"
   - "Write"
   - "web_fetch"
+match:
+  languages: ['typescript']
+  tags: ['frontend']
 ---
 
 # Stitch DESIGN.md Skill

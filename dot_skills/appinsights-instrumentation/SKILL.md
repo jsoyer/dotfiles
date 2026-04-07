@@ -5,6 +5,9 @@ license: MIT
 metadata:
   author: Microsoft
   version: "1.0.2"
+match:
+  languages: ['typescript']
+  tags: ['frontend', 'azure']
 ---
 
 # AppInsights Instrumentation Guide

@@ -15,6 +15,9 @@ agents:
   - claude-code
   - codex-cli
   - openclaw
+match:
+  languages: ['ruby']
+  tags: ['cli']
 ---
 
 # Project Management Skills

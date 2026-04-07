@@ -4,6 +4,9 @@ description: "Browser automation powers web testing, scraping, and AI agent inte
 risk: unknown
 source: "vibeship-spawner-skills (Apache 2.0)"
 date_added: "2026-02-27"
+match:
+  languages: ['shell']
+  tags: ['backend', 'api', 'testing', 'ml']
 ---
 
 # Browser Automation

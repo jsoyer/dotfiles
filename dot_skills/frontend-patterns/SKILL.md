@@ -2,6 +2,10 @@
 name: frontend-patterns
 description: Frontend development patterns for React, Next.js, state management, performance optimization, and UI best practices.
 origin: ECC
+match:
+  languages: ['typescript', 'ruby']
+  tags: ['frontend', 'database']
+  deps: ['next', 'react']
 ---
 
 # Frontend Development Patterns

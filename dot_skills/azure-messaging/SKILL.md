@@ -5,6 +5,9 @@ license: MIT
 metadata:
   author: Microsoft
   version: "1.0.2"
+match:
+  languages: ['javascript', 'python', 'go', 'java', 'csharp', 'shell']
+  tags: ['azure', 'security', 'ml', 'monitoring']
 ---
 
 # Azure Messaging SDK Troubleshooting

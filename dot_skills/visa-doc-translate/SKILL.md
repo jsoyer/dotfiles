@@ -1,6 +1,8 @@
 ---
 name: visa-doc-translate
 description: Translate visa application documents (images) to English and create a bilingual PDF with original and translation
+match:
+  languages: ['typescript', 'go', 'shell']
 ---
 
 You are helping translate visa application documents for visa applications.

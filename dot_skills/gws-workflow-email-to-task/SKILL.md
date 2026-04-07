@@ -8,6 +8,8 @@ metadata:
     requires:
       bins: ["gws"]
     cliHelp: "gws workflow +email-to-task --help"
+match:
+  tags: ['ml']
 ---
 
 # workflow +email-to-task

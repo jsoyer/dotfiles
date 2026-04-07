@@ -11,6 +11,9 @@ metadata:
   scope: implementation
   output-format: code
   related-skills: devops-engineer
+match:
+  languages: ['go']
+  tags: ['devops', 'ml', 'data', 'cicd']
 ---
 
 # Fine-Tuning Expert

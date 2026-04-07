@@ -2,6 +2,8 @@
 name: tavily-search
 description: |
   Tavily AI search API - Optimized search for AI agents. Use when searching the web for current information, news, facts, or any task requiring real-time data.
+match:
+  tags: ['frontend', 'backend', 'database', 'api', 'ml', 'data']
 ---
 
 # Tavily Search

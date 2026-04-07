@@ -1,6 +1,9 @@
 ---
 name: framework-selection
 description: "INVOKE THIS SKILL at the START of any LangChain/LangGraph/Deep Agents project, before writing any agent code. Determines which framework layer is right for the task: LangChain, LangGraph, Deep Agents, or a combination. Must be consulted before other agent skills."
+match:
+  languages: ['typescript']
+  tags: ['ml']
 ---
 
 <overview>

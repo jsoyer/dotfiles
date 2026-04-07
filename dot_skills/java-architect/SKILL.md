@@ -11,6 +11,10 @@ metadata:
   scope: implementation
   output-format: code
   related-skills: fullstack-guardian, api-designer, devops-engineer, database-optimizer
+match:
+  languages: ['typescript', 'go', 'java', 'sql']
+  tags: ['frontend', 'backend', 'fullstack', 'devops', 'database', 'api', 'security', 'data']
+  deps: ['react']
 ---
 
 # Java Architect

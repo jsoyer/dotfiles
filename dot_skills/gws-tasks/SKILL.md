@@ -8,6 +8,8 @@ metadata:
     requires:
       bins: ["gws"]
     cliHelp: "gws tasks --help"
+match:
+  languages: ['typescript']
 ---
 
 # tasks (v1)

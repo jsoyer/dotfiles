@@ -15,6 +15,9 @@ metadata:
   author: evos
   clawdbot:
     emoji: "📦"
+match:
+  languages: ['ruby']
+  tags: ['database', 'ml']
 ---
 
 # Logistics Exception Management

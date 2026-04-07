@@ -5,6 +5,9 @@ license: MIT
 metadata:
   author: Microsoft
   version: "1.0.2"
+match:
+  languages: ['lua']
+  tags: ['azure', 'security', 'cli', 'monitoring']
 ---
 
 # Azure Compliance & Security Auditing

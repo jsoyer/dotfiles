@@ -11,6 +11,9 @@ metadata:
   scope: design
   output-format: document
   related-skills: fullstack-guardian, devops-engineer, secure-code-guardian
+match:
+  languages: ['go', 'lua', 'sql']
+  tags: ['frontend', 'backend', 'fullstack', 'devops', 'database', 'api', 'security', 'data']
 ---
 
 # Architecture Designer

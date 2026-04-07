@@ -3,6 +3,9 @@ name: proactive-agent
 version: 3.0.0
 description: "Transform AI agents from task-followers into proactive partners that anticipate needs and continuously improve. Now with WAL Protocol, Working Buffer for context survival, Compaction Recovery, and battle-tested security patterns. Part of the Hal Stack 🦞"
 author: halthelobster
+match:
+  languages: ['typescript']
+  tags: ['database', 'security', 'testing', 'ml']
 ---
 
 # Proactive Agent 🦞

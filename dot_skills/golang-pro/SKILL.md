@@ -11,6 +11,9 @@ metadata:
   scope: implementation
   output-format: code
   related-skills: devops-engineer, microservices-architect, test-master
+match:
+  languages: ['typescript', 'go']
+  tags: ['frontend', 'backend', 'devops', 'database', 'api', 'testing', 'cli']
 ---
 
 # Golang Pro

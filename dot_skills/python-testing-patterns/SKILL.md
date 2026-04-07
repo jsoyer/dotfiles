@@ -1,6 +1,9 @@
 ---
 name: python-testing-patterns
 description: Implement comprehensive testing strategies with pytest, fixtures, mocking, and test-driven development. Use when writing Python tests, setting up test suites, or implementing testing best practices.
+match:
+  languages: ['python']
+  tags: ['frontend', 'testing']
 ---
 
 # Python Testing Patterns

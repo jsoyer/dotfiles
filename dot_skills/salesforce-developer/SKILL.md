@@ -11,6 +11,9 @@ metadata:
   scope: implementation
   output-format: code
   related-skills: api-designer, java-architect, cloud-architect, devops-engineer
+match:
+  languages: ['typescript', 'python', 'go', 'java']
+  tags: ['frontend', 'backend', 'devops', 'database', 'api', 'data', 'cicd']
 ---
 
 # Salesforce Developer

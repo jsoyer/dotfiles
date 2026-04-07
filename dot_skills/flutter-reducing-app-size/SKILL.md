@@ -4,7 +4,9 @@ description: "Measures and optimizes the size of Flutter application bundles for
 metadata:
   model: "models/gemini-3.1-pro-preview"
   last_modified: "Thu, 12 Mar 2026 22:22:44 GMT"
-
+match:
+  languages: ['dart']
+  tags: ['devops', 'ml', 'mobile', 'cicd']
 ---
 # Reducing Flutter App Size
 

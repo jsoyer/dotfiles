@@ -1,6 +1,9 @@
 ---
 name: memory-merger
 description: 'Merges mature lessons from a domain memory file into its instruction file. Syntax: `/memory-merger >domain [scope]` where scope is `global` (default), `user`, `workspace`, or `ws`.'
+match:
+  languages: ['typescript']
+  tags: ['ml']
 ---
 
 # Memory Merger

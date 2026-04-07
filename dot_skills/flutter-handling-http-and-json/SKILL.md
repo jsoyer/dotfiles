@@ -4,7 +4,9 @@ description: "Executes HTTP requests and handles JSON serialization in a Flutter
 metadata:
   model: "models/gemini-3.1-pro-preview"
   last_modified: "Thu, 12 Mar 2026 22:18:44 GMT"
-
+match:
+  languages: ['typescript', 'dart']
+  tags: ['backend', 'api', 'data', 'mobile']
 ---
 # Handling HTTP and JSON
 

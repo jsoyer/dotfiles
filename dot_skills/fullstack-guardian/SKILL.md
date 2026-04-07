@@ -11,6 +11,9 @@ metadata:
   scope: implementation
   output-format: code
   related-skills: feature-forge, test-master, devops-engineer
+match:
+  languages: ['typescript', 'python', 'go', 'sql']
+  tags: ['frontend', 'backend', 'fullstack', 'devops', 'database', 'api', 'security', 'testing', 'data', 'cicd']
 ---
 
 # Fullstack Guardian

@@ -4,6 +4,9 @@ description: >
   Create and deploy serverless functions using AWS Lambda with event sources,
   permissions, layers, and environment configuration. Use for event-driven
   computing without managing servers.
+match:
+  languages: ['go']
+  tags: ['backend', 'devops', 'aws', 'cicd']
 ---
 
 # AWS Lambda Functions

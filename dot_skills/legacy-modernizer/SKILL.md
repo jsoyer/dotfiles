@@ -11,6 +11,9 @@ metadata:
   scope: architecture
   output-format: code+analysis
   related-skills: test-master, devops-engineer
+match:
+  languages: ['go']
+  tags: ['backend', 'devops', 'database', 'api', 'testing']
 ---
 
 # Legacy Modernizer

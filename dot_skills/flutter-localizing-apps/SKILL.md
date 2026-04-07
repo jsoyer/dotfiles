@@ -4,7 +4,9 @@ description: "Configures a Flutter app to support multiple languages and regions
 metadata:
   model: "models/gemini-3.1-pro-preview"
   last_modified: "Thu, 12 Mar 2026 22:17:07 GMT"
-
+match:
+  languages: ['typescript', 'dart']
+  tags: ['mobile']
 ---
 # Localizing Flutter Applications
 

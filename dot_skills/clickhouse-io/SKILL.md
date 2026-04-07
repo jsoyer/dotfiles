@@ -2,6 +2,9 @@
 name: clickhouse-io
 description: ClickHouse database patterns, query optimization, analytics, and data engineering best practices for high-performance analytical workloads.
 origin: ECC
+match:
+  languages: ['go', 'sql']
+  tags: ['database', 'data', 'cli']
 ---
 
 # ClickHouse Analytics Patterns

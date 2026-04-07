@@ -8,6 +8,8 @@ metadata:
     requires:
       bins: ["gws"]
     cliHelp: "gws drive +upload --help"
+match:
+  tags: ['data']
 ---
 
 # drive +upload

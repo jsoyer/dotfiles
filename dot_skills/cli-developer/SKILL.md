@@ -11,6 +11,9 @@ metadata:
   scope: implementation
   output-format: code
   related-skills: devops-engineer
+match:
+  languages: ['go', 'shell']
+  tags: ['frontend', 'devops', 'database', 'cli']
 ---
 
 # CLI Developer

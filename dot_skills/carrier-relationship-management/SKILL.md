@@ -15,6 +15,9 @@ metadata:
   author: evos
   clawdbot:
     emoji: "🤝"
+match:
+  languages: ['go', 'swift', 'ruby', 'lua']
+  tags: ['frontend', 'database', 'ml', 'mobile']
 ---
 
 # Carrier Relationship Management
