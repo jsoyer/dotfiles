@@ -1,0 +1,43 @@
+name: devops
+description: Docker, Terraform, Kubernetes, CI/CD, cloud infrastructure
+
+skills:
+  - docker-expert
+  - docker-patterns
+  - kubernetes-specialist
+  - terraform-engineer
+  - terraform-module-library
+  - github-actions-templates
+  - deployment-pipeline-design
+  - monitoring-observability
+  - aws-infrastructure
+  - cloud-architect
+  - security-best-practices
+  - secrets-management
+  - cost-optimization
+
+agents:
+  - devops-engineer
+  - docker-expert
+  - kubernetes-specialist
+  - terraform-engineer
+  - ci-cd-engineer
+  - sre-engineer
+  - security-engineer
+  - cloud-architect
+  - planner
+
+commands:
+  - plan
+  - verify
+  - code-review
+  - build-fix
+
+mcp:
+  - slack
+  - linear
+  - sequential-thinking
+
+rules: []
+
+plugins: []

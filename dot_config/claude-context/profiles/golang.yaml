@@ -1,0 +1,37 @@
+name: golang
+description: Go services, microservices, CLI tools
+
+skills:
+  - golang-pro
+  - golang-patterns
+  - golang-testing
+  - microservices-patterns
+  - api-design-principles
+  - docker-patterns
+  - testing-strategy
+  - code-review
+
+agents:
+  - golang-pro
+  - go-reviewer
+  - go-build-resolver
+  - microservices-architect
+  - code-reviewer
+  - planner
+
+commands:
+  - plan
+  - verify
+  - code-review
+  - go-build
+  - go-review
+  - go-test
+  - tdd
+
+mcp:
+  - sequential-thinking
+
+rules:
+  - golang
+
+plugins: []

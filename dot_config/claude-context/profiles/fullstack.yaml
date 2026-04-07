@@ -1,0 +1,50 @@
+name: fullstack
+description: Full-stack TypeScript (Next.js + Node + Prisma + PostgreSQL)
+
+skills:
+  - react-expert
+  - react-state-management
+  - nextjs-developer
+  - nextjs-best-practices
+  - typescript-expert
+  - typescript-pro
+  - tailwind-design-system
+  - shadcn-ui
+  - nodejs-backend-patterns
+  - prisma-client-api
+  - postgres-pro
+  - api-design-principles
+  - graphql-architect
+  - e2e-testing
+  - testing-strategy
+  - docker-patterns
+  - security-best-practices
+
+agents:
+  - react-specialist
+  - nextjs-developer
+  - typescript-pro
+  - typescript-reviewer
+  - fullstack-developer
+  - frontend-developer
+  - backend-developer
+  - database-optimizer
+  - code-reviewer
+  - planner
+
+commands:
+  - plan
+  - verify
+  - code-review
+  - tdd
+  - e2e
+  - build-fix
+
+mcp:
+  - playwright
+  - sequential-thinking
+
+rules:
+  - typescript
+
+plugins: []

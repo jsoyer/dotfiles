@@ -1,0 +1,36 @@
+name: dotfiles
+description: Shell scripting, chezmoi, CLI tools
+
+skills:
+  - bash-defensive-patterns
+  - cli-developer
+  - shell-script-engineer
+  - dotfiles-engineer
+  - docker-patterns
+  - git-advanced-workflows
+  - git-workflow
+  - code-review
+  - debugging-wizard
+  - self-improvement
+
+agents:
+  - shell-script-engineer
+  - dotfiles-engineer
+  - code-reviewer
+  - debugger
+  - planner
+
+commands:
+  - plan
+  - verify
+  - code-review
+  - build-fix
+  - learn
+  - checkpoint
+
+mcp: []
+
+rules:
+  - shell
+
+plugins: []
