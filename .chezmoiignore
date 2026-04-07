@@ -1,0 +1,4 @@
+# Build artifacts and development-only directories
+tools/
+.omc/
+.serena/

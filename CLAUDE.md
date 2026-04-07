@@ -58,9 +58,6 @@ macOS, Fedora, Fedora Atomic, Toolbox, Arch, OmArchy, Ubuntu, RPi, Windows. GUI 
 - 6 hooks (rtk-rewrite, claude-island-state, config-protection, console-log-check, desktop-notify, quality-gate)
 - 19 MCP servers, statusline with usage bars
 
-### Auto-Update System
-Background daemon (`chezmoi-autoupdate`) runs hourly via launchd (macOS) / systemd (Linux). Auto-heals git conflicts, stale caches, SSH permissions. Notifications via ntfy/Telegram/Discord on errors only. `cm*` commands for monitoring.
-
 ### Secret Management
 `secrets.zsh` auto-generated from 1Password (`op://Private/Shell Secrets`). Secrets single-quoted, file created with umask 077. Fallback: preserves existing file if 1Password unavailable.
 
