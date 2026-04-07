@@ -40,6 +40,29 @@ pub struct PathsConfig {
     pub profiles_dir: PathBuf,
 }
 
+impl PathsConfig {
+    /// Expand ~ to home directory in all paths
+    pub fn expand_tildes(&mut self) {
+        let home = dirs::home_dir().unwrap_or_else(|| PathBuf::from("/tmp"));
+        let expand = |p: &PathBuf| -> PathBuf {
+            let s = p.to_string_lossy();
+            if s.starts_with("~/") {
+                home.join(&s[2..])
+            } else if s == "~" {
+                home.clone()
+            } else {
+                p.clone()
+            }
+        };
+        self.skills_dir = expand(&self.skills_dir);
+        self.agents_dir = expand(&self.agents_dir);
+        self.commands_dir = expand(&self.commands_dir);
+        self.rules_dir = expand(&self.rules_dir);
+        self.config_dir = expand(&self.config_dir);
+        self.profiles_dir = expand(&self.profiles_dir);
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CliEntry {
     pub name: String,
@@ -57,8 +80,9 @@ impl AppConfig {
         if defaults_path.exists() {
             let content = std::fs::read_to_string(&defaults_path)
                 .with_context(|| format!("Failed to read {}", defaults_path.display()))?;
-            let config: AppConfig = serde_yaml::from_str(&content)
+            let mut config: AppConfig = serde_yaml::from_str(&content)
                 .with_context(|| "Failed to parse defaults.yaml")?;
+            config.paths.expand_tildes();
             Ok(config)
         } else {
             Ok(Self::default())
