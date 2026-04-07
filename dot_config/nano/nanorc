@@ -9,9 +9,6 @@ include "/usr/share/nano/*.nanorc"
 # Show cursor position in status bar
 set constantshow
 
-# Use smooth scrolling
-set smooth
-
 # Enable mouse support
 set mouse
 
