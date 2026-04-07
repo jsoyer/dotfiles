@@ -8,6 +8,9 @@ metadata:
     requires:
       bins: ["gws"]
     cliHelp: "gws sheets +read --help"
+match:
+  languages: ['typescript', 'shell']
+  tags: ['frontend', 'gcp', 'security', 'data', 'cli']
 ---
 
 # sheets +read

@@ -9,6 +9,8 @@ metadata:
     requires:
       bins: ["gws"]
       skills: ["gws-drive"]
+match:
+  tags: ['frontend', 'gcp', 'ml', 'productivity', 'automation']
 ---
 
 # Create and Configure a Shared Drive

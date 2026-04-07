@@ -1,6 +1,8 @@
 ---
 name: langgraph-persistence
 description: "INVOKE THIS SKILL when your LangGraph needs to persist state, remember conversations, travel through history, or configure subgraph checkpointer scoping. Covers checkpointers, thread_id, time travel, Store, and subgraph persistence modes."
+match:
+  tags: ['ml']
 ---
 
 <overview>

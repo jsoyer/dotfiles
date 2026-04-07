@@ -1,6 +1,9 @@
 ---
 name: account-research
 description: Research a company or person and get actionable sales intel. Works standalone with web search, supercharged when you connect enrichment tools or your CRM. Trigger with "research [company]", "look up [person]", "intel on [prospect]", "who is [name] at [company]", or "tell me about [company]".
+match:
+  languages: ['typescript']
+  tags: ['data', 'research']
 ---
 
 # Account Research

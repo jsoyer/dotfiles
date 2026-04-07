@@ -8,6 +8,9 @@ metadata:
     requires:
       bins: ["gws"]
     cliHelp: "gws drive --help"
+match:
+  languages: ['typescript', 'shell']
+  tags: ['frontend', 'backend', 'gcp', 'database', 'api', 'security', 'data', 'cli', 'productivity', 'automation']
 ---
 
 # drive (v3)

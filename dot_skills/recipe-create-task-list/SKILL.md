@@ -9,6 +9,9 @@ metadata:
     requires:
       bins: ["gws"]
       skills: ["gws-tasks"]
+match:
+  languages: ['typescript']
+  tags: ['frontend', 'gcp', 'data', 'monitoring', 'productivity', 'automation']
 ---
 
 # Create a Task List and Add Tasks

@@ -8,6 +8,9 @@ metadata:
     requires:
       bins: ["gws"]
     cliHelp: "gws workflow +standup-report --help"
+match:
+  languages: ['shell']
+  tags: ['frontend', 'gcp', 'database', 'security', 'ml', 'data', 'cli', 'productivity', 'automation']
 ---
 
 # workflow +standup-report

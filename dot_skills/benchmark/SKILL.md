@@ -1,3 +1,9 @@
+---
+name: benchmark
+description: Performance baseline and regression detection
+match:
+  tags: ['testing', 'monitoring']
+---
 # Benchmark — Performance Baseline & Regression Detection
 
 ## When to Use

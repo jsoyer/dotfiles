@@ -9,6 +9,9 @@ metadata:
     requires:
       bins: ["gws"]
       skills: ["gws-calendar"]
+match:
+  languages: ['typescript']
+  tags: ['frontend', 'gcp', 'ml', 'productivity', 'automation']
 ---
 
 # Reschedule a Google Calendar Meeting

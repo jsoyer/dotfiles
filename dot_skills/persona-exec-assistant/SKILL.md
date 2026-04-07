@@ -8,6 +8,8 @@ metadata:
     requires:
       bins: ["gws"]
       skills: ["gws-gmail", "gws-calendar", "gws-drive", "gws-chat"]
+match:
+  tags: ['frontend', 'gcp', 'ml', 'productivity', 'automation']
 ---
 
 # Executive Assistant

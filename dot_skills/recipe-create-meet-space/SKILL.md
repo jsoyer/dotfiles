@@ -9,6 +9,8 @@ metadata:
     requires:
       bins: ["gws"]
       skills: ["gws-meet", "gws-gmail"]
+match:
+  tags: ['frontend', 'gcp', 'ml', 'productivity', 'automation']
 ---
 
 # Create a Google Meet Conference

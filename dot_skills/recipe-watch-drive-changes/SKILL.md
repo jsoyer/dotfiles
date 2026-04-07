@@ -9,6 +9,9 @@ metadata:
     requires:
       bins: ["gws"]
       skills: ["gws-events"]
+match:
+  languages: ['typescript', 'shell']
+  tags: ['frontend', 'backend', 'gcp', 'api', 'productivity', 'automation']
 ---
 
 # Watch for Drive Changes

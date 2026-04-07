@@ -1,3 +1,9 @@
+---
+name: canary-watch
+description: Post-deploy monitoring and canary analysis
+match:
+  tags: ['devops', 'monitoring', 'cicd']
+---
 # Canary Watch — Post-Deploy Monitoring
 
 ## When to Use

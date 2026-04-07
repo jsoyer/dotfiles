@@ -9,6 +9,9 @@ metadata:
     requires:
       bins: ["gws"]
       skills: ["gws-calendar"]
+match:
+  languages: ['typescript', 'shell']
+  tags: ['frontend', 'gcp', 'productivity', 'automation']
 ---
 
 # Block Focus Time on Google Calendar

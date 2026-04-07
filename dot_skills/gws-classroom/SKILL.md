@@ -8,6 +8,9 @@ metadata:
     requires:
       bins: ["gws"]
     cliHelp: "gws classroom --help"
+match:
+  languages: ['shell']
+  tags: ['frontend', 'backend', 'gcp', 'api', 'security', 'ml', 'cli']
 ---
 
 # classroom (v1)

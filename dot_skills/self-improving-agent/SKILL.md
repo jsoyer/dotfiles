@@ -22,6 +22,9 @@ metadata:
       - trigger: session-logger
         mode: auto
         context: "Error captured in {skill_name}"
+match:
+  languages: ['typescript']
+  tags: ['frontend', 'ml', 'research', 'automation']
 ---
 
 # Self-Improving Agent

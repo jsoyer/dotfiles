@@ -30,28 +30,34 @@ LANG_KEYWORDS = {
 }
 
 TAG_KEYWORDS = {
-    "frontend": ["frontend", "ui", "ux", "component", "css", "tailwind", "design system", "responsive"],
+    "frontend": ["frontend", "ui", "ux", "component", "css", "tailwind", "design system", "responsive", "design critique"],
     "backend": ["backend", "api", "server", "microservice", "rest", "graphql", "grpc"],
-    "fullstack": ["fullstack", "full-stack", "full stack"],
+    "fullstack": ["fullstack", "full-stack", "full stack", "convex"],
     "devops": ["devops", "ci/cd", "pipeline", "deploy", "infrastructure"],
     "docker": ["docker", "container", "dockerfile", "compose"],
     "kubernetes": ["kubernetes", "k8s", "helm", "kubectl"],
     "terraform": ["terraform", "iac", "infrastructure as code"],
     "aws": ["aws", "amazon", "s3", "lambda", "ec2", "dynamodb", "cloudformation"],
     "azure": ["azure", "entra", "microsoft cloud"],
-    "gcp": ["gcp", "google cloud", "bigquery", "cloud run"],
+    "gcp": ["gcp", "google cloud", "bigquery", "cloud run", "google workspace", "gws"],
     "database": ["database", "sql", "postgres", "mysql", "mongo", "redis", "orm", "migration"],
     "api": ["api", "rest", "graphql", "openapi", "swagger", "endpoint"],
     "security": ["security", "auth", "oauth", "jwt", "csrf", "xss", "injection", "penetration", "audit", "vulnerability"],
-    "testing": ["test", "tdd", "jest", "pytest", "vitest", "playwright", "cypress", "e2e", "unit test"],
-    "ml": ["machine learning", "ml", "ai", "model", "training", "pytorch", "tensorflow", "llm", "rag", "fine-tun"],
-    "data": ["data", "analytics", "pandas", "spark", "etl", "pipeline", "warehouse"],
+    "testing": ["test", "tdd", "jest", "pytest", "vitest", "playwright", "cypress", "e2e", "unit test", "verification", "verify"],
+    "ml": ["machine learning", "ml", "ai", "model", "training", "pytorch", "tensorflow", "llm", "rag", "fine-tun", "langgraph", "langchain", "agent loop"],
+    "data": ["data", "analytics", "pandas", "spark", "etl", "pipeline", "warehouse", "spreadsheet", "excel", "sheets", "csv"],
     "mobile": ["mobile", "ios", "android", "react native", "flutter", "swift", "kotlin"],
     "cli": ["cli", "command-line", "terminal", "shell", "bash"],
-    "monitoring": ["monitor", "observability", "logging", "metrics", "grafana", "prometheus"],
+    "monitoring": ["monitor", "observability", "logging", "metrics", "grafana", "prometheus", "canary"],
     "cicd": ["ci/cd", "github actions", "gitlab", "jenkins", "pipeline", "deploy"],
     "blockchain": ["blockchain", "solidity", "smart contract", "web3", "ethereum"],
     "game": ["game", "unity", "unreal", "godot", "rendering"],
+    "productivity": ["calendar", "meeting", "email", "drive", "docs", "slides", "task", "schedule", "agenda", "standup", "persona", "briefing", "notes", "obsidian", "notion"],
+    "content": ["content", "seo", "marketing", "copywriting", "blog", "newsletter", "social media"],
+    "research": ["research", "search", "literature", "academic", "customer research", "account research"],
+    "embedded": ["embedded", "firmware", "rtos", "microcontroller", "iot", "hardware"],
+    "editor": ["editor", "refactor", "code quality", "linting", "formatting", "simplif"],
+    "automation": ["automat", "workflow", "recipe", "cron", "schedule", "recurring", "self-improv", "continuous learn"],
 }
 
 DEP_KEYWORDS = {
@@ -74,12 +80,13 @@ DEP_KEYWORDS = {
 }
 
 
-def extract_text(frontmatter):
-    """Extract searchable text from frontmatter."""
+def extract_text(frontmatter, body=""):
+    """Extract searchable text from frontmatter + first 500 chars of body."""
     parts = [
         frontmatter.get("name", ""),
         frontmatter.get("description", ""),
         frontmatter.get("category", ""),
+        body[:500],  # include beginning of body for context
     ]
     meta = frontmatter.get("metadata", {})
     if isinstance(meta, dict):
@@ -89,9 +96,9 @@ def extract_text(frontmatter):
     return " ".join(str(p) for p in parts).lower()
 
 
-def infer_match(frontmatter):
-    """Infer match rules from frontmatter content."""
-    text = extract_text(frontmatter)
+def infer_match(frontmatter, body=""):
+    """Infer match rules from frontmatter content + body."""
+    text = extract_text(frontmatter, body)
 
     languages = []
     for lang, keywords in LANG_KEYWORDS.items():
@@ -149,7 +156,7 @@ def process_skill(skill_dir):
         return False
 
     # Infer match rules
-    match_rules = infer_match(frontmatter)
+    match_rules = infer_match(frontmatter, body)
 
     # Skip if nothing inferred
     if not match_rules["languages"] and not match_rules["tags"] and not match_rules["deps"]:

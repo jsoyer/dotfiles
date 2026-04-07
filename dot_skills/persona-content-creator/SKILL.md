@@ -8,6 +8,9 @@ metadata:
     requires:
       bins: ["gws"]
       skills: ["gws-docs", "gws-drive", "gws-gmail", "gws-chat", "gws-slides"]
+match:
+  languages: ['typescript']
+  tags: ['frontend', 'gcp', 'ml', 'productivity', 'content', 'automation']
 ---
 
 # Content Creator

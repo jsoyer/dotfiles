@@ -8,6 +8,9 @@ metadata:
     requires:
       bins: ["gws"]
       skills: ["gws-drive", "gws-docs", "gws-sheets", "gws-gmail"]
+match:
+  languages: ['typescript', 'go']
+  tags: ['frontend', 'gcp', 'ml', 'data', 'monitoring', 'productivity', 'research', 'automation']
 ---
 
 # Researcher

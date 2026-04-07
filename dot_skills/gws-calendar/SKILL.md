@@ -8,6 +8,9 @@ metadata:
     requires:
       bins: ["gws"]
     cliHelp: "gws calendar --help"
+match:
+  languages: ['typescript', 'shell']
+  tags: ['frontend', 'backend', 'gcp', 'api', 'security', 'cli', 'productivity']
 ---
 
 # calendar (v3)

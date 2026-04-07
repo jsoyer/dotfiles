@@ -8,6 +8,9 @@ metadata:
     requires:
       bins: ["gws"]
     cliHelp: "gws keep --help"
+match:
+  languages: ['typescript', 'shell', 'sql']
+  tags: ['frontend', 'backend', 'gcp', 'api', 'security', 'ml', 'cli', 'productivity']
 ---
 
 # keep (v1)

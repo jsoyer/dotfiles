@@ -2,6 +2,9 @@
 name: verification-loop
 description: "A comprehensive verification system for Claude Code sessions."
 origin: ECC
+match:
+  languages: ['javascript', 'shell']
+  tags: ['frontend', 'testing', 'ml', 'cli', 'editor']
 ---
 
 # Verification Loop Skill

@@ -8,6 +8,10 @@ metadata:
     requires:
       bins: ["gws"]
     cliHelp: "gws workflow --help"
+match:
+  languages: ['shell']
+  tags: ['frontend', 'gcp', 'security', 'cli', 'productivity', 'automation']
+  deps: ['next']
 ---
 
 # workflow (v1)

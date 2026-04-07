@@ -8,6 +8,9 @@ metadata:
     requires:
       bins: ["gws"]
     cliHelp: "gws docs --help"
+match:
+  languages: ['shell']
+  tags: ['frontend', 'backend', 'gcp', 'api', 'security', 'cli', 'productivity']
 ---
 
 # docs (v1)

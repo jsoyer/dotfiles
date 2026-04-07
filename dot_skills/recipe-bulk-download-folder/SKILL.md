@@ -9,6 +9,8 @@ metadata:
     requires:
       bins: ["gws"]
       skills: ["gws-drive"]
+match:
+  tags: ['frontend', 'gcp', 'database', 'productivity', 'automation']
 ---
 
 # Bulk Download Drive Folder

@@ -9,6 +9,8 @@ metadata:
     requires:
       bins: ["gws"]
       skills: ["gws-docs", "gws-calendar", "gws-chat"]
+match:
+  tags: ['frontend', 'gcp', 'productivity', 'automation']
 ---
 
 # Set Up Post-Mortem

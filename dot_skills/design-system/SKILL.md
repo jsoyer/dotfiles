@@ -1,3 +1,10 @@
+---
+name: design-system
+description: Generate and audit visual design systems
+match:
+  tags: ['frontend']
+  deps: ['tailwindcss']
+---
 # Design System — Generate & Audit Visual Systems
 
 ## When to Use

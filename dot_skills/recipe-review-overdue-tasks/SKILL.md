@@ -9,6 +9,9 @@ metadata:
     requires:
       bins: ["gws"]
       skills: ["gws-tasks"]
+match:
+  languages: ['typescript']
+  tags: ['frontend', 'gcp', 'database', 'productivity', 'automation']
 ---
 
 # Review Overdue Tasks

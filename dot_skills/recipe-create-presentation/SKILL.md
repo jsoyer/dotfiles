@@ -9,6 +9,8 @@ metadata:
     requires:
       bins: ["gws"]
       skills: ["gws-slides"]
+match:
+  tags: ['frontend', 'gcp', 'ml', 'productivity', 'automation']
 ---
 
 # Create a Google Slides Presentation

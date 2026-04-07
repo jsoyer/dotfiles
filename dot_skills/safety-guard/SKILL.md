@@ -1,3 +1,9 @@
+---
+name: safety-guard
+description: Prevent destructive operations on production systems
+match:
+  tags: ['devops', 'security']
+---
 # Safety Guard — Prevent Destructive Operations
 
 ## When to Use

@@ -8,6 +8,9 @@ metadata:
     requires:
       bins: ["gws"]
     cliHelp: "gws calendar +insert --help"
+match:
+  languages: ['shell']
+  tags: ['frontend', 'gcp', 'security', 'cli', 'productivity']
 ---
 
 # calendar +insert

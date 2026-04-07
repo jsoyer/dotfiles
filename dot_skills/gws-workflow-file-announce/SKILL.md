@@ -8,6 +8,9 @@ metadata:
     requires:
       bins: ["gws"]
     cliHelp: "gws workflow +file-announce --help"
+match:
+  languages: ['shell']
+  tags: ['frontend', 'gcp', 'security', 'cli', 'productivity', 'automation']
 ---
 
 # workflow +file-announce

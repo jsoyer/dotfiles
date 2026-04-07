@@ -8,6 +8,8 @@ metadata:
     requires:
       bins: ["gws"]
       skills: ["gws-calendar", "gws-gmail", "gws-chat", "gws-drive", "gws-sheets"]
+match:
+  tags: ['frontend', 'gcp', 'ml', 'data', 'productivity', 'automation']
 ---
 
 # Team Lead

@@ -10,7 +10,10 @@ metadata:
   role: specialist
   scope: implementation
   output-format: code
-  related-skills: 
+  related-skills:
+match:
+  languages: ['go']
+  tags: ['frontend', 'ml', 'productivity', 'embedded', 'automation']
 ---
 
 # Embedded Systems Engineer

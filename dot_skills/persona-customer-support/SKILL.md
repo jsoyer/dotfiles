@@ -8,6 +8,9 @@ metadata:
     requires:
       bins: ["gws"]
       skills: ["gws-gmail", "gws-sheets", "gws-chat", "gws-calendar"]
+match:
+  languages: ['sql']
+  tags: ['frontend', 'gcp', 'ml', 'data', 'productivity', 'automation']
 ---
 
 # Customer Support Agent

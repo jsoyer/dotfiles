@@ -1,3 +1,9 @@
+---
+name: product-lens
+description: Product thinking before building features
+match:
+  tags: ['frontend', 'fullstack']
+---
 # Product Lens — Think Before You Build
 
 ## When to Use

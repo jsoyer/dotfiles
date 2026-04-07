@@ -8,6 +8,9 @@ metadata:
     requires:
       bins: ["gws"]
       skills: ["gws-gmail", "gws-calendar", "gws-drive", "gws-chat"]
+match:
+  languages: ['typescript']
+  tags: ['frontend', 'gcp', 'ml', 'productivity', 'automation']
 ---
 
 # HR Coordinator

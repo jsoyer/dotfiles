@@ -8,6 +8,9 @@ metadata:
     requires:
       bins: ["gws"]
     cliHelp: "gws slides --help"
+match:
+  languages: ['typescript', 'shell']
+  tags: ['frontend', 'backend', 'gcp', 'api', 'security', 'ml', 'cli', 'productivity']
 ---
 
 # slides (v1)

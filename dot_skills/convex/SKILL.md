@@ -5,6 +5,10 @@ description: Umbrella skill for all Convex development patterns. Routes to speci
 version: 1.0.0
 author: Convex
 tags: [convex, backend, database, realtime]
+match:
+  languages: ['typescript', 'shell', 'sql']
+  tags: ['frontend', 'fullstack', 'database', 'api', 'ml', 'data']
+  deps: ['react']
 ---
 
 # Convex Development Skills

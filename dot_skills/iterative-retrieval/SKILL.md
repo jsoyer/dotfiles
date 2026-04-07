@@ -2,6 +2,9 @@
 name: iterative-retrieval
 description: Pattern for progressively refining context retrieval to solve the subagent context problem
 origin: ECC
+match:
+  languages: ['typescript', 'python']
+  tags: ['frontend', 'devops', 'ml', 'data', 'cicd', 'productivity', 'automation']
 ---
 
 # Iterative Retrieval Pattern

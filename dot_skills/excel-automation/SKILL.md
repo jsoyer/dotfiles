@@ -48,6 +48,8 @@ capabilities:
 languages:
   - en
   - zh
+match:
+  tags: ['data', 'productivity', 'automation']
 ---
 
 # Excel Automation Skill

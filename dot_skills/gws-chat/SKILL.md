@@ -8,6 +8,9 @@ metadata:
     requires:
       bins: ["gws"]
     cliHelp: "gws chat --help"
+match:
+  languages: ['shell']
+  tags: ['frontend', 'backend', 'gcp', 'api', 'security', 'ml', 'cli']
 ---
 
 # chat (v1)

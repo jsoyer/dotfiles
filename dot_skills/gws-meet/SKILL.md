@@ -8,6 +8,9 @@ metadata:
     requires:
       bins: ["gws"]
     cliHelp: "gws meet --help"
+match:
+  languages: ['typescript', 'shell']
+  tags: ['frontend', 'backend', 'gcp', 'api', 'security', 'cli']
 ---
 
 # meet (v2)

@@ -9,6 +9,8 @@ metadata:
     requires:
       bins: ["gws"]
       skills: ["gws-drive", "gws-docs"]
+match:
+  tags: ['frontend', 'gcp', 'productivity', 'content', 'automation']
 ---
 
 # Create a Google Doc from a Template

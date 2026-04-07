@@ -1,3 +1,10 @@
+---
+name: browser-qa
+description: Automated visual testing and browser interaction
+match:
+  tags: ['testing', 'frontend']
+  deps: ['playwright']
+---
 # Browser QA — Automated Visual Testing & Interaction
 
 ## When to Use
