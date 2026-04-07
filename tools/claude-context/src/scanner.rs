@@ -1,7 +1,77 @@
 use anyhow::Result;
+use serde::Deserialize;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use walkdir::WalkDir;
+
+/// External patterns loaded from patterns.yaml
+#[derive(Debug, Deserialize)]
+pub struct PatternsConfig {
+    #[serde(default)]
+    pub languages: Vec<PatternEntry>,
+    #[serde(default)]
+    pub frameworks: Vec<FrameworkEntry>,
+    #[serde(default)]
+    pub infrastructure: Vec<PatternEntry>,
+    #[serde(default)]
+    pub databases: Vec<DepEntry>,
+    #[serde(default)]
+    pub tools: Vec<PatternEntry>,
+    #[serde(default)]
+    pub ci: Vec<PatternEntry>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct PatternEntry {
+    pub name: String,
+    #[serde(default)]
+    pub extensions: Vec<String>,
+    #[serde(default)]
+    pub config_files: Vec<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct FrameworkEntry {
+    pub name: String,
+    #[serde(default)]
+    pub config_files: Vec<String>,
+    #[serde(default)]
+    pub deps: Vec<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct DepEntry {
+    pub name: String,
+    #[serde(default)]
+    pub deps: Vec<String>,
+}
+
+impl PatternsConfig {
+    pub fn load() -> Self {
+        let config_dir = crate::config::AppConfig::config_dir();
+        let path = config_dir.join("patterns.yaml");
+        if path.exists() {
+            if let Ok(content) = std::fs::read_to_string(&path) {
+                if let Ok(config) = serde_yaml::from_str(&content) {
+                    return config;
+                }
+            }
+        }
+        // Fallback to empty (use built-in detection)
+        Self {
+            languages: vec![],
+            frameworks: vec![],
+            infrastructure: vec![],
+            databases: vec![],
+            tools: vec![],
+            ci: vec![],
+        }
+    }
+
+    pub fn has_languages(&self) -> bool {
+        !self.languages.is_empty()
+    }
+}
 
 #[derive(Debug, Clone)]
 pub struct ProjectFingerprint {
@@ -26,12 +96,24 @@ pub struct Scanner;
 
 impl Scanner {
     pub fn scan(project_dir: &Path) -> Result<ProjectFingerprint> {
+        let patterns = PatternsConfig::load();
         let file_counts = Self::count_extensions(project_dir);
         let config_files = Self::detect_config_files(project_dir);
         let deps = Self::detect_dependencies(project_dir);
 
-        let languages = Self::detect_languages(&file_counts, &config_files);
-        let frameworks = Self::detect_frameworks(&config_files, &deps);
+        // Use patterns.yaml if available, otherwise fall back to built-in detection
+        let languages = if patterns.has_languages() {
+            Self::detect_languages_from_patterns(&patterns.languages, &file_counts, &config_files)
+        } else {
+            Self::detect_languages(&file_counts, &config_files)
+        };
+
+        let frameworks = if !patterns.frameworks.is_empty() {
+            Self::detect_frameworks_from_patterns(&patterns.frameworks, &config_files, &deps)
+        } else {
+            Self::detect_frameworks(&config_files, &deps)
+        };
+
         let infrastructure = Self::detect_infrastructure(&config_files);
         let databases = Self::detect_databases(&config_files, &deps);
         let tools = Self::detect_tools(&config_files);
@@ -446,6 +528,115 @@ impl Scanner {
         }
 
         ci
+    }
+
+    // ── Pattern-based detection (from patterns.yaml) ──────────────
+
+    fn detect_languages_from_patterns(
+        patterns: &[PatternEntry],
+        file_counts: &HashMap<String, usize>,
+        config_files: &[String],
+    ) -> Vec<Detection> {
+        let mut langs = Vec::new();
+
+        for pattern in patterns {
+            let file_count: usize = pattern
+                .extensions
+                .iter()
+                .map(|e| file_counts.get(e.as_str()).unwrap_or(&0))
+                .sum();
+            let has_config = pattern
+                .config_files
+                .iter()
+                .any(|c| config_files.contains(c));
+
+            if file_count > 0 || has_config {
+                let confidence = if file_count > 20 && has_config {
+                    1.0
+                } else if file_count > 5 {
+                    0.9
+                } else if has_config {
+                    0.8
+                } else if file_count > 0 {
+                    0.5
+                } else {
+                    0.3
+                };
+
+                let mut signals = Vec::new();
+                if file_count > 0 {
+                    signals.push(format!(
+                        "{} files ({})",
+                        pattern.extensions.join("/"),
+                        file_count
+                    ));
+                }
+                for c in pattern
+                    .config_files
+                    .iter()
+                    .filter(|c| config_files.contains(c))
+                {
+                    signals.push(c.to_string());
+                }
+
+                langs.push(Detection {
+                    name: pattern.name.clone(),
+                    confidence,
+                    signals,
+                });
+            }
+        }
+
+        langs.sort_by(|a, b| b.confidence.partial_cmp(&a.confidence).unwrap());
+        langs
+    }
+
+    fn detect_frameworks_from_patterns(
+        patterns: &[FrameworkEntry],
+        config_files: &[String],
+        deps: &HashMap<String, Vec<String>>,
+    ) -> Vec<Detection> {
+        let mut frameworks = Vec::new();
+        let all_deps: Vec<String> = deps.values().flatten().cloned().collect();
+
+        for pattern in patterns {
+            let has_config = pattern
+                .config_files
+                .iter()
+                .any(|c| config_files.contains(c));
+            let has_dep = pattern.deps.iter().any(|d| all_deps.contains(d));
+
+            if has_config || has_dep {
+                let confidence = if has_config && has_dep {
+                    0.95
+                } else if has_config {
+                    0.85
+                } else {
+                    0.75
+                };
+
+                let mut signals = Vec::new();
+                for c in pattern
+                    .config_files
+                    .iter()
+                    .filter(|c| config_files.contains(c))
+                {
+                    signals.push(c.to_string());
+                }
+                for d in pattern.deps.iter().filter(|d| all_deps.contains(d)) {
+                    signals.push(format!("dep: {}", d));
+                }
+
+                frameworks.push(Detection {
+                    name: pattern.name.clone(),
+                    confidence,
+                    signals,
+                });
+            }
+        }
+
+        frameworks.sort_by(|a, b| b.confidence.partial_cmp(&a.confidence).unwrap());
+        frameworks
     }
 }
 

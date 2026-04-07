@@ -1,0 +1,78 @@
+{{- if and (ne .chezmoi.os "windows") (lookPath "claude") -}}
+#!/usr/bin/env bash
+# Install Claude Code plugins from Pluginfile
+# Runs once on new machines. Prompts before installing.
+
+set -euo pipefail
+
+PLUGINFILE="{{ .chezmoi.homeDir }}/.private/Pluginfile"
+
+if [[ ! -f "$PLUGINFILE" ]]; then
+  echo "plugins: no Pluginfile found, skipping"
+  exit 0
+fi
+
+# Count plugins
+total=$(grep -v '^#' "$PLUGINFILE" | grep -v '^$' | wc -l | tr -d ' ')
+
+echo ""
+echo "==============================================="
+echo "  Claude Code Plugins"
+echo "  Found $total plugins in Pluginfile"
+echo "  Total disk space: ~2.2 GB (with node_modules)"
+echo "==============================================="
+echo ""
+echo -n "Install all $total plugins? (y/N/s for selective) "
+read -r reply
+
+case "$reply" in
+  [Yy])
+    echo "Installing all plugins..."
+    installed=0
+    failed=0
+    while IFS= read -r line; do
+      [[ "$line" =~ ^#.*$ || -z "$line" ]] && continue
+      marketplace="${line%%/*}"
+      plugin="${line#*/}"
+      echo -n "  $plugin@$marketplace... "
+      if claude plugins install "$plugin" --marketplace "$marketplace" --yes 2>/dev/null; then
+        echo "ok"
+        ((installed++)) || true
+      else
+        echo "failed"
+        ((failed++)) || true
+      fi
+    done < "$PLUGINFILE"
+    echo ""
+    echo "Done: $installed installed, $failed failed out of $total"
+    ;;
+  [Ss])
+    echo "Selective install — confirm each plugin:"
+    installed=0
+    skipped=0
+    while IFS= read -r line; do
+      [[ "$line" =~ ^#.*$ || -z "$line" ]] && continue
+      marketplace="${line%%/*}"
+      plugin="${line#*/}"
+      echo -n "  Install $plugin@$marketplace? (y/N) "
+      read -r choice
+      if [[ "$choice" =~ ^[Yy]$ ]]; then
+        if claude plugins install "$plugin" --marketplace "$marketplace" --yes 2>/dev/null; then
+          echo "    installed"
+          ((installed++)) || true
+        else
+          echo "    failed"
+        fi
+      else
+        ((skipped++)) || true
+      fi
+    done < "$PLUGINFILE"
+    echo ""
+    echo "Done: $installed installed, $skipped skipped"
+    ;;
+  *)
+    echo "Skipped plugin installation."
+    echo "Run manually: claude plugins install <name> --marketplace <marketplace>"
+    ;;
+esac
+{{- end -}}
