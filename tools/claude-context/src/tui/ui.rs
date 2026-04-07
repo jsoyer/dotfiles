@@ -6,22 +6,25 @@ use ratatui::{
     Frame,
 };
 
-use super::app::{App, Tab, ToggleItem};
+use super::app::{App, Tab};
+use crate::doctor;
 
 // Catppuccin Mocha palette
 const BLUE: Color = Color::Rgb(137, 180, 250);
 const GREEN: Color = Color::Rgb(166, 227, 161);
-const RED: Color = Color::Rgb(243, 139, 168);
+const _RED: Color = Color::Rgb(243, 139, 168);
 const YELLOW: Color = Color::Rgb(249, 226, 175);
 const MAUVE: Color = Color::Rgb(203, 166, 247);
 const TEAL: Color = Color::Rgb(148, 226, 213);
-const TEXT: Color = Color::Rgb(205, 214, 244);
+const PEACH: Color = Color::Rgb(250, 179, 135);
+const _TEXT: Color = Color::Rgb(205, 214, 244);
 const SUBTEXT: Color = Color::Rgb(166, 173, 200);
 const SURFACE0: Color = Color::Rgb(49, 50, 68);
-const BASE: Color = Color::Rgb(30, 30, 46);
+const _BASE: Color = Color::Rgb(30, 30, 46);
 const OVERLAY0: Color = Color::Rgb(108, 112, 134);
 
 pub fn draw(frame: &mut Frame, app: &App) {
+    let area = frame.area();
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
@@ -30,7 +33,7 @@ pub fn draw(frame: &mut Frame, app: &App) {
             Constraint::Min(10),  // content
             Constraint::Length(3), // footer
         ])
-        .split(frame.area());
+        .split(area);
 
     draw_header(frame, app, chunks[0]);
     draw_tabs(frame, app, chunks[1]);
@@ -107,13 +110,22 @@ fn draw_tabs(frame: &mut Frame, app: &App, area: Rect) {
 
 fn draw_content(frame: &mut Frame, app: &App, area: Rect) {
     let filtered = app.filtered_items();
+    let total_items = filtered.len();
 
-    let items: Vec<ListItem> = filtered
+    // Apply scroll offset
+    let visible_items: Vec<_> = filtered
+        .iter()
+        .skip(app.scroll_offset)
+        .take(app.visible_height)
+        .collect();
+
+    let items: Vec<ListItem> = visible_items
         .iter()
         .enumerate()
-        .map(|(display_idx, (_real_idx, item))| {
-            let checkbox = if item.enabled { "[x]" } else { "[ ]" };
+        .map(|(visible_idx, (_, item))| {
+            let display_idx = visible_idx + app.scroll_offset;
             let bar = score_bar(item.score);
+            let tier = confidence_tier(item.score);
             let reason = if item.reason.is_empty() {
                 String::new()
             } else {
@@ -141,9 +153,19 @@ fn draw_content(frame: &mut Frame, app: &App, area: Rect) {
                     if is_selected { "> " } else { "  " },
                     Style::default().fg(MAUVE),
                 ),
-                Span::styled(format!("{} ", checkbox), checkbox_style),
+                Span::styled(
+                    format!("{} ", if item.enabled { "[x]" } else { "[ ]" }),
+                    checkbox_style,
+                ),
                 Span::styled(format!("{:<32}", item.name), style),
-                Span::styled(format!(" {} ", bar), Style::default().fg(score_color(item.score))),
+                Span::styled(
+                    format!(" {} ", bar),
+                    Style::default().fg(score_color(item.score)),
+                ),
+                Span::styled(
+                    format!("{:<6}", tier),
+                    Style::default().fg(tier_color(item.score)),
+                ),
                 Span::styled(reason, Style::default().fg(OVERLAY0)),
             ]);
 
@@ -151,20 +173,28 @@ fn draw_content(frame: &mut Frame, app: &App, area: Rect) {
         })
         .collect();
 
-    let title = if app.filtering {
+    let scroll_indicator = if total_items > app.visible_height {
         format!(
-            " {} (/{}) ",
-            app.active_tab.label(),
-            app.filter
-        )
-    } else if !app.filter.is_empty() {
-        format!(
-            " {} [filter: {}] ",
-            app.active_tab.label(),
-            app.filter
+            " {}-{}/{} ",
+            app.scroll_offset + 1,
+            (app.scroll_offset + app.visible_height).min(total_items),
+            total_items
         )
     } else {
-        format!(" {} ", app.active_tab.label())
+        format!(" {} ", total_items)
+    };
+
+    let title = if app.filtering {
+        format!(" {} (/{}){}", app.active_tab.label(), app.filter, scroll_indicator)
+    } else if !app.filter.is_empty() {
+        format!(
+            " {} [filter: {}]{}",
+            app.active_tab.label(),
+            app.filter,
+            scroll_indicator
+        )
+    } else {
+        format!(" {}{}", app.active_tab.label(), scroll_indicator)
     };
 
     let list = List::new(items).block(
@@ -186,12 +216,13 @@ fn draw_footer(frame: &mut Frame, app: &App, area: Rect) {
         ]
     } else {
         vec![
-            ("Tab/h/l", "switch tab"),
-            ("j/k", "navigate"),
+            ("Tab/h/l", "tab"),
+            ("j/k", "nav"),
             ("Space", "toggle"),
             ("/", "filter"),
-            ("A", "all on"),
-            ("N", "all off"),
+            ("A/N", "all/none"),
+            ("PgUp/Dn", "scroll"),
+            ("g/G", "top/bottom"),
             ("a", "apply"),
             ("q", "quit"),
         ]
@@ -201,7 +232,10 @@ fn draw_footer(frame: &mut Frame, app: &App, area: Rect) {
         .iter()
         .flat_map(|(key, desc)| {
             vec![
-                Span::styled(format!(" {} ", key), Style::default().fg(YELLOW).add_modifier(Modifier::BOLD)),
+                Span::styled(
+                    format!(" {} ", key),
+                    Style::default().fg(YELLOW).add_modifier(Modifier::BOLD),
+                ),
                 Span::styled(format!("{} ", desc), Style::default().fg(SUBTEXT)),
                 Span::styled(" | ", Style::default().fg(SURFACE0)),
             ]
@@ -223,14 +257,34 @@ fn score_bar(score: f32) -> String {
     format!("{}{}", "█".repeat(filled), "░".repeat(empty))
 }
 
+fn confidence_tier(score: f32) -> &'static str {
+    if score >= doctor::TIER_CRITICAL {
+        "CRIT"
+    } else if score >= doctor::TIER_HIGH {
+        "HIGH"
+    } else if score >= doctor::TIER_MEDIUM {
+        "MED"
+    } else if score > 0.0 {
+        "LOW"
+    } else {
+        ""
+    }
+}
+
 fn score_color(score: f32) -> Color {
-    if score >= 0.8 {
+    if score >= doctor::TIER_CRITICAL {
         GREEN
-    } else if score >= 0.5 {
+    } else if score >= doctor::TIER_HIGH {
+        TEAL
+    } else if score >= doctor::TIER_MEDIUM {
         YELLOW
     } else if score > 0.0 {
-        TEAL
+        PEACH
     } else {
         OVERLAY0
     }
+}
+
+fn tier_color(score: f32) -> Color {
+    score_color(score)
 }

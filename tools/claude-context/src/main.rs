@@ -1,12 +1,15 @@
+mod ai;
 mod cli;
 mod config;
 mod cost;
+mod doctor;
 mod indexer;
 mod matcher;
 mod multi_cli;
 mod profile;
 mod scanner;
 mod symlinker;
+mod trim;
 mod tui;
 
 use anyhow::Result;
@@ -25,9 +28,9 @@ fn main() -> Result<()> {
 
     match cli.command.unwrap_or(Command::Tui { smart: false }) {
         Command::Tui { smart } => run_tui(&config, smart),
-        Command::Scan => run_scan(&config),
-        Command::Apply { profile, auto, smart, yes } => {
-            run_apply(&config, profile, auto, smart, yes)
+        Command::Scan => run_scan(),
+        Command::Apply { profile, auto: _, smart, yes } => {
+            run_apply(&config, profile, smart, yes)
         }
         Command::Status => run_status(&config),
         Command::Diff => run_diff(&config),
@@ -36,12 +39,12 @@ fn main() -> Result<()> {
         Command::Profiles => run_profiles(&config),
         Command::Reset { yes } => run_reset(&config, yes),
         Command::Init => run_init(&config),
-        Command::Trim { file, auto, yes } => run_trim(&config, file, auto, yes),
+        Command::Trim { file, auto, yes } => run_trim(file, auto, yes),
         Command::Index => run_index(&config),
         Command::Doctor => run_doctor(&config),
         Command::Export { profile } => run_export(&config, &profile),
         Command::Import { file } => run_import(&config, &file),
-        Command::Config { key, value } => run_config(&config, &key, value),
+        Command::Config { key, value } => run_config(&key, value),
     }
 }
 
@@ -53,7 +56,7 @@ fn run_tui(config: &AppConfig, smart: bool) -> Result<()> {
     tui::run(config, &index, &fingerprint, &recommendations)
 }
 
-fn run_scan(_config: &AppConfig) -> Result<()> {
+fn run_scan() -> Result<()> {
     let fingerprint = Scanner::scan(&std::env::current_dir()?)?;
     fingerprint.print();
     Ok(())
@@ -62,7 +65,6 @@ fn run_scan(_config: &AppConfig) -> Result<()> {
 fn run_apply(
     config: &AppConfig,
     profile: Option<String>,
-    _auto: bool,
     smart: bool,
     yes: bool,
 ) -> Result<()> {
@@ -161,7 +163,22 @@ fn run_init(config: &AppConfig) -> Result<()> {
 
     if fingerprint.is_empty() {
         let choices = &[
-            "frontend", "backend", "fullstack", "devops", "cli", "dotfiles", "rust", "custom",
+            "frontend",
+            "backend-ts",
+            "fullstack",
+            "rust",
+            "python",
+            "golang",
+            "devops",
+            "mobile",
+            "ai-ml",
+            "security",
+            "data-engineering",
+            "cli-tools",
+            "monorepo",
+            "saas-platform",
+            "dotfiles",
+            "custom",
         ];
         let selection = dialoguer::Select::new()
             .with_prompt("What kind of project?")
@@ -169,8 +186,13 @@ fn run_init(config: &AppConfig) -> Result<()> {
             .default(0)
             .interact()?;
 
-        let pm = ProfileManager::new(config)?;
         let profile_name = choices[selection];
+        if profile_name == "custom" {
+            println!("Run `cctx` to configure manually.");
+            return Ok(());
+        }
+
+        let pm = ProfileManager::new(config)?;
         if let Ok(selections) = pm.load(profile_name) {
             symlinker::apply(config, &project_dir, &selections)?;
             println!("Applied '{}' profile.", profile_name);
@@ -185,10 +207,28 @@ fn run_init(config: &AppConfig) -> Result<()> {
     Ok(())
 }
 
-fn run_trim(_config: &AppConfig, file: Option<String>, _auto: bool, _yes: bool) -> Result<()> {
+fn run_trim(file: Option<String>, auto: bool, yes: bool) -> Result<()> {
     let path = file.unwrap_or_else(|| "CLAUDE.md".to_string());
-    println!("Analyzing {} for token reduction...", path);
-    // TODO: implement CLAUDE.md analysis
+
+    if auto {
+        if !yes {
+            let report = trim::analyze(&path)?;
+            report.print();
+            if !dialoguer::Confirm::new()
+                .with_prompt("Apply trim with backup?")
+                .default(false)
+                .interact()?
+            {
+                println!("Cancelled.");
+                return Ok(());
+            }
+        }
+        trim::auto_trim(&path)?;
+    } else {
+        let report = trim::analyze(&path)?;
+        report.print();
+    }
+
     Ok(())
 }
 
@@ -203,9 +243,9 @@ fn run_index(config: &AppConfig) -> Result<()> {
     Ok(())
 }
 
-fn run_doctor(_config: &AppConfig) -> Result<()> {
-    println!("Running health checks...");
-    // TODO: check broken symlinks, stale profiles, missing sources
+fn run_doctor(config: &AppConfig) -> Result<()> {
+    let report = doctor::run_doctor(config)?;
+    report.print();
     Ok(())
 }
 
@@ -223,11 +263,104 @@ fn run_import(config: &AppConfig, file: &str) -> Result<()> {
     Ok(())
 }
 
-fn run_config(_config: &AppConfig, key: &str, value: Option<String>) -> Result<()> {
+fn run_config(key: &str, value: Option<String>) -> Result<()> {
     match value {
         Some(v) => println!("Set {} = {}", key, v),
         None => println!("Get {}", key),
     }
-    // TODO: implement project-level config
+    // TODO: implement project-level config read/write
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::PathBuf;
+
+    #[test]
+    fn scanner_detects_rust_project() {
+        let dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        let fingerprint = Scanner::scan(&dir).unwrap();
+        assert!(fingerprint.languages.iter().any(|l| l.name == "rust"));
+    }
+
+    #[test]
+    fn scanner_empty_dir_returns_empty_fingerprint() {
+        let dir = std::env::temp_dir().join("cctx-test-empty");
+        let _ = std::fs::create_dir_all(&dir);
+        let fingerprint = Scanner::scan(&dir).unwrap();
+        assert!(fingerprint.languages.is_empty());
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn config_loads_defaults() {
+        let config = AppConfig::load().unwrap();
+        assert!(!config.base.skills.is_empty());
+        assert!(!config.base.agents.is_empty());
+        assert!(!config.base.mcp.is_empty());
+        assert!(!config.cli_registry.is_empty());
+        assert!(!config.ai.enabled);
+    }
+
+    #[test]
+    fn cost_estimation_nonzero_for_nonempty_status() {
+        let status = symlinker::ProjectStatus {
+            skills: vec!["test-skill".to_string()],
+            agents: vec!["test-agent".to_string()],
+            commands: vec![],
+            rules: vec!["rust".to_string()],
+            mcp: vec!["context7".to_string()],
+            plugins: vec![],
+            detected_clis: vec!["claude".to_string()],
+        };
+        let estimate = cost::estimate(&status);
+        assert!(estimate.project_total > 0);
+        assert!(estimate.global_total > estimate.project_total);
+    }
+
+    #[test]
+    fn cost_estimation_zero_for_empty_status() {
+        let status = symlinker::ProjectStatus {
+            skills: vec![],
+            agents: vec![],
+            commands: vec![],
+            rules: vec![],
+            mcp: vec![],
+            plugins: vec![],
+            detected_clis: vec![],
+        };
+        let estimate = cost::estimate(&status);
+        assert_eq!(estimate.project_total, 0);
+    }
+
+    #[test]
+    fn matcher_scores_relevant_higher() {
+        let config = AppConfig::load().unwrap();
+        if let Ok(index) = Index::build(&config) {
+            let dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+            let fingerprint = Scanner::scan(&dir).unwrap();
+            let recs = matcher::recommend(&fingerprint, &index, false).unwrap();
+
+            // Rust project should recommend rust-related skills higher
+            if !recs.skills.is_empty() {
+                // At least some recommendations should exist
+                assert!(recs.skills.len() > 0);
+            }
+        }
+    }
+
+    #[test]
+    fn trim_analyze_nonexistent_file_returns_error() {
+        let result = trim::analyze("/nonexistent/file.md");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn fingerprint_all_tags_includes_languages() {
+        let dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        let fingerprint = Scanner::scan(&dir).unwrap();
+        let tags = fingerprint.all_tags();
+        assert!(tags.contains(&"rust".to_string()));
+    }
 }

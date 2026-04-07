@@ -64,6 +64,8 @@ pub struct ToggleItem {
 pub struct App<'a> {
     pub active_tab: Tab,
     pub cursor: usize,
+    pub scroll_offset: usize,
+    pub visible_height: usize,
     pub filter: String,
     pub filtering: bool,
     pub should_quit: bool,
@@ -236,6 +238,8 @@ impl<'a> App<'a> {
         Self {
             active_tab: Tab::Skills,
             cursor: 0,
+            scroll_offset: 0,
+            visible_height: 20,
             filter: String::new(),
             filtering: false,
             should_quit: false,
@@ -253,7 +257,11 @@ impl<'a> App<'a> {
 
     pub fn run(&mut self, terminal: &mut DefaultTerminal) -> Result<Option<Recommendations>> {
         loop {
-            terminal.draw(|frame| super::ui::draw(frame, self))?;
+            terminal.draw(|frame| {
+                // Update visible height from terminal size
+                self.visible_height = frame.area().height.saturating_sub(12) as usize;
+                super::ui::draw(frame, self);
+            })?;
 
             if let Event::Key(key) = event::read()? {
                 if self.filtering {
@@ -286,23 +294,52 @@ impl<'a> App<'a> {
                     KeyCode::Tab | KeyCode::Char('l') => {
                         self.active_tab = self.active_tab.next();
                         self.cursor = 0;
+                        self.scroll_offset = 0;
                         self.filter.clear();
                     }
                     KeyCode::BackTab | KeyCode::Char('h') => {
                         self.active_tab = self.active_tab.prev();
                         self.cursor = 0;
+                        self.scroll_offset = 0;
                         self.filter.clear();
                     }
                     KeyCode::Down | KeyCode::Char('j') => {
                         let len = self.filtered_items().len();
                         if len > 0 {
                             self.cursor = (self.cursor + 1) % len;
+                            self.ensure_cursor_visible();
                         }
                     }
                     KeyCode::Up | KeyCode::Char('k') => {
                         let len = self.filtered_items().len();
                         if len > 0 {
                             self.cursor = (self.cursor + len - 1) % len;
+                            self.ensure_cursor_visible();
+                        }
+                    }
+                    KeyCode::PageDown => {
+                        let len = self.filtered_items().len();
+                        if len > 0 {
+                            self.cursor = (self.cursor + self.visible_height).min(len - 1);
+                            self.ensure_cursor_visible();
+                        }
+                    }
+                    KeyCode::PageUp => {
+                        let len = self.filtered_items().len();
+                        if len > 0 {
+                            self.cursor = self.cursor.saturating_sub(self.visible_height);
+                            self.ensure_cursor_visible();
+                        }
+                    }
+                    KeyCode::Home | KeyCode::Char('g') => {
+                        self.cursor = 0;
+                        self.scroll_offset = 0;
+                    }
+                    KeyCode::End | KeyCode::Char('G') => {
+                        let len = self.filtered_items().len();
+                        if len > 0 {
+                            self.cursor = len - 1;
+                            self.ensure_cursor_visible();
                         }
                     }
                     KeyCode::Char(' ') | KeyCode::Enter => {
@@ -372,6 +409,15 @@ impl<'a> App<'a> {
                     || item.reason.to_lowercase().contains(&filter_lower)
             })
             .collect()
+    }
+
+    pub fn ensure_cursor_visible(&mut self) {
+        if self.cursor < self.scroll_offset {
+            self.scroll_offset = self.cursor;
+        }
+        if self.cursor >= self.scroll_offset + self.visible_height {
+            self.scroll_offset = self.cursor - self.visible_height + 1;
+        }
     }
 
     fn toggle_current(&mut self) {
