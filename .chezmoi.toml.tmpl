@@ -20,47 +20,33 @@ encryption = "age"
     # Profile detection — order matters: most specific first
     # Profiles: windows, mac-pro, mac-personal, rpi, ubuntu-server, ubuntu-desktop,
     #   fedora-atomic, toolbox, fedora-server, fedora-desktop, omarchy, arch-server, arch-desktop, debian
-    machine_profile = "
-{{- /* Windows */ -}}
-{{- if eq .chezmoi.os "windows" -}}windows
-{{- /* macOS */ -}}
+    machine_profile   = "{{- if eq .chezmoi.os "windows" -}}windows
 {{- else if eq .chezmoi.os "darwin" -}}{{- if eq .chezmoi.hostname "jsoyer-macOS" -}}mac-pro{{- else -}}mac-personal{{- end -}}
-{{- /* Linux */ -}}
 {{- else if eq .chezmoi.os "linux" -}}
-{{-   /* RPi */ -}}
-{{-   if or (eq .chezmoi.osRelease.id "raspbian") (eq .chezmoi.osRelease.id "raspios") -}}rpi
-{{-   else if stat "/proc/device-tree/model" -}}{{ promptStringOnce . "machine_profile" "Machine profile [rpi/debian]" "rpi" }}
-{{-   /* CI */ -}}
-{{-   else if env "CI" -}}ubuntu-server
-{{-   /* Ubuntu */ -}}
-{{-   else if eq .chezmoi.osRelease.id "ubuntu" -}}
-{{-     if hasPrefix "ubuntu-server" .chezmoi.hostname -}}ubuntu-server
-{{-     else if hasPrefix "ubuntu-desktop" .chezmoi.hostname -}}ubuntu-desktop
-{{-     else -}}{{ promptStringOnce . "machine_profile" "Machine profile [ubuntu-server/ubuntu-desktop]" "ubuntu-server" }}
-{{-     end -}}
-{{-   /* Fedora Atomic */ -}}
-{{-   else if and (lookPath "rpm-ostree") (not (stat "/.toolboxenv")) (not (env "TOOLBOX_PATH")) -}}fedora-atomic
-{{-   /* Toolbox */ -}}
-{{-   else if or (stat "/.toolboxenv") (env "TOOLBOX_PATH") -}}toolbox
-{{-   /* Fedora (dnf) */ -}}
-{{-   else if lookPath "dnf" -}}
-{{-     if hasPrefix "fedora-server" .chezmoi.hostname -}}fedora-server
-{{-     else if hasPrefix "fedora-desktop" .chezmoi.hostname -}}fedora-desktop
-{{-     else -}}{{ promptStringOnce . "machine_profile" "Machine profile [fedora-desktop/fedora-server]" "fedora-desktop" }}
-{{-     end -}}
-{{-   /* OmArchy */ -}}
-{{-   else if eq .chezmoi.osRelease.id "omarchy" -}}omarchy
-{{-   /* Arch */ -}}
-{{-   else if eq .chezmoi.osRelease.id "arch" -}}
-{{-     if hasPrefix "arch-server" .chezmoi.hostname -}}arch-server
-{{-     else if hasPrefix "arch-desktop" .chezmoi.hostname -}}arch-desktop
-{{-     else -}}{{ promptStringOnce . "machine_profile" "Machine profile [arch-desktop/arch-server]" "arch-desktop" }}
-{{-     end -}}
-{{-   /* Debian */ -}}
-{{-   else if eq .chezmoi.osRelease.id "debian" -}}debian
-{{-   /* Unknown */ -}}
-{{-   else -}}{{ promptStringOnce . "machine_profile" "Machine profile" "debian" }}
-{{-   end -}}
+{{- if or (eq .chezmoi.osRelease.id "raspbian") (eq .chezmoi.osRelease.id "raspios") -}}rpi
+{{- else if stat "/proc/device-tree/model" -}}{{ promptStringOnce . "machine_profile" "Machine profile [rpi/debian]" "rpi" }}
+{{- else if env "CI" -}}ubuntu-server
+{{- else if eq .chezmoi.osRelease.id "ubuntu" -}}
+{{- if hasPrefix "ubuntu-server" .chezmoi.hostname -}}ubuntu-server
+{{- else if hasPrefix "ubuntu-desktop" .chezmoi.hostname -}}ubuntu-desktop
+{{- else -}}{{ promptStringOnce . "machine_profile" "Machine profile [ubuntu-server/ubuntu-desktop]" "ubuntu-server" }}
+{{- end -}}
+{{- else if and (lookPath "rpm-ostree") (not (stat "/.toolboxenv")) (not (env "TOOLBOX_PATH")) -}}fedora-atomic
+{{- else if or (stat "/.toolboxenv") (env "TOOLBOX_PATH") -}}toolbox
+{{- else if lookPath "dnf" -}}
+{{- if hasPrefix "fedora-server" .chezmoi.hostname -}}fedora-server
+{{- else if hasPrefix "fedora-desktop" .chezmoi.hostname -}}fedora-desktop
+{{- else -}}{{ promptStringOnce . "machine_profile" "Machine profile [fedora-desktop/fedora-server]" "fedora-desktop" }}
+{{- end -}}
+{{- else if eq .chezmoi.osRelease.id "omarchy" -}}omarchy
+{{- else if eq .chezmoi.osRelease.id "arch" -}}
+{{- if hasPrefix "arch-server" .chezmoi.hostname -}}arch-server
+{{- else if hasPrefix "arch-desktop" .chezmoi.hostname -}}arch-desktop
+{{- else -}}{{ promptStringOnce . "machine_profile" "Machine profile [arch-desktop/arch-server]" "arch-desktop" }}
+{{- end -}}
+{{- else if eq .chezmoi.osRelease.id "debian" -}}debian
+{{- else -}}{{ promptStringOnce . "machine_profile" "Machine profile" "debian" }}
+{{- end -}}
 {{- end -}}"
 {{- $mp := index . "machine_profile" -}}
 {{- $desktopProfiles := list "mac-personal" "fedora-desktop" "toolbox" "ubuntu-desktop" "arch-desktop" "omarchy" -}}
