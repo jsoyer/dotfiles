@@ -1,0 +1,235 @@
+{
+  "version": "1.0.0",
+  "lastScanned": 1775538436543,
+  "projectRoot": "/home/jeromesoyer/Documents/Github/jsoyer/dotfiles",
+  "techStack": {
+    "languages": [],
+    "frameworks": [],
+    "packageManager": null,
+    "runtime": null
+  },
+  "build": {
+    "buildCommand": null,
+    "testCommand": null,
+    "lintCommand": null,
+    "devCommand": null,
+    "scripts": {}
+  },
+  "conventions": {
+    "namingStyle": null,
+    "importStyle": null,
+    "testPattern": null,
+    "fileOrganization": null
+  },
+  "structure": {
+    "isMonorepo": false,
+    "workspaces": [],
+    "mainDirectories": [
+      "docs",
+      "scripts"
+    ],
+    "gitBranches": {
+      "defaultBranch": "main",
+      "branchingStrategy": null
+    }
+  },
+  "customNotes": [],
+  "directoryMap": {
+    "Library": {
+      "path": "Library",
+      "purpose": null,
+      "fileCount": 0,
+      "lastAccessed": 1775538436416,
+      "keyFiles": []
+    },
+    "docs": {
+      "path": "docs",
+      "purpose": "Documentation",
+      "fileCount": 8,
+      "lastAccessed": 1775538436424,
+      "keyFiles": [
+        "ALIASES.md",
+        "ARCHITECTURE.md",
+        "CHEZMOISCRIPTS.md",
+        "ONBOARDING.md",
+        "PROFILE-MIGRATION.md"
+      ]
+    },
+    "dot_agents": {
+      "path": "dot_agents",
+      "purpose": null,
+      "fileCount": 2,
+      "lastAccessed": 1775538436434,
+      "keyFiles": [
+        "README.md",
+        "dot_skill-lock.json"
+      ]
+    },
+    "dot_bash": {
+      "path": "dot_bash",
+      "purpose": null,
+      "fileCount": 6,
+      "lastAccessed": 1775538436454,
+      "keyFiles": [
+        "00-env.bash",
+        "01-path.bash",
+        "10-aliases.bash",
+        "20-functions.bash",
+        "99-integrations.bash"
+      ]
+    },
+    "dot_claude": {
+      "path": "dot_claude",
+      "purpose": null,
+      "fileCount": 5,
+      "lastAccessed": 1775538436460,
+      "keyFiles": [
+        "CLAUDE.md",
+        "README.md",
+        "RTK.md",
+        "executable_statusline.sh",
+        "private_settings.json.tmpl"
+      ]
+    },
+    "dot_codex": {
+      "path": "dot_codex",
+      "purpose": null,
+      "fileCount": 1,
+      "lastAccessed": 1775538436463,
+      "keyFiles": [
+        "config.toml.tmpl"
+      ]
+    },
+    "dot_config": {
+      "path": "dot_config",
+      "purpose": null,
+      "fileCount": 1,
+      "lastAccessed": 1775538436493,
+      "keyFiles": [
+        "CONFIGURATION_INDEX.md"
+      ]
+    },
+    "dot_local": {
+      "path": "dot_local",
+      "purpose": null,
+      "fileCount": 0,
+      "lastAccessed": 1775538436494,
+      "keyFiles": []
+    },
+    "dot_mistralcode": {
+      "path": "dot_mistralcode",
+      "purpose": null,
+      "fileCount": 2,
+      "lastAccessed": 1775538436496,
+      "keyFiles": [
+        "config.json",
+        "dot_mistralcoderc.json"
+      ]
+    },
+    "dot_private": {
+      "path": "dot_private",
+      "purpose": null,
+      "fileCount": 26,
+      "lastAccessed": 1775538436496,
+      "keyFiles": [
+        "Aptfile_debian",
+        "Aptfile_rpi",
+        "Aptfile_rpi_gui",
+        "Aptfile_ubuntu_desktop",
+        "Aptfile_ubuntu_gui"
+      ]
+    },
+    "dot_vibe": {
+      "path": "dot_vibe",
+      "purpose": null,
+      "fileCount": 3,
+      "lastAccessed": 1775538436506,
+      "keyFiles": [
+        "config.toml.tmpl",
+        "instructions.md",
+        "trusted_folders.toml"
+      ]
+    },
+    "dot_zsh": {
+      "path": "dot_zsh",
+      "purpose": null,
+      "fileCount": 8,
+      "lastAccessed": 1775538436507,
+      "keyFiles": [
+        "00-env.zsh",
+        "01-path.zsh",
+        "02-completions.zsh",
+        "10-aliases.zsh",
+        "20-functions.zsh"
+      ]
+    },
+    "memory": {
+      "path": "memory",
+      "purpose": null,
+      "fileCount": 1,
+      "lastAccessed": 1775538436508,
+      "keyFiles": [
+        "roadmap.md"
+      ]
+    },
+    "scripts": {
+      "path": "scripts",
+      "purpose": "Build/utility scripts",
+      "fileCount": 4,
+      "lastAccessed": 1775538436508,
+      "keyFiles": [
+        "README.md",
+        "bootstrap.ps1",
+        "bootstrap.sh",
+        "install-rpi.sh"
+      ]
+    },
+    "tasks": {
+      "path": "tasks",
+      "purpose": null,
+      "fileCount": 1,
+      "lastAccessed": 1775538436510,
+      "keyFiles": [
+        "todo.md"
+      ]
+    },
+    "dot_local/bin": {
+      "path": "dot_local/bin",
+      "purpose": "Executable scripts",
+      "fileCount": 33,
+      "lastAccessed": 1775538436523,
+      "keyFiles": [
+        "README.md",
+        "executable_aptw",
+        "executable_brew-deprecated"
+      ]
+    }
+  },
+  "hotPaths": [
+    {
+      "path": "dot_zsh/10-aliases.zsh",
+      "accessCount": 2,
+      "lastAccessed": 1775538656537,
+      "type": "file"
+    },
+    {
+      "path": "dot_bash/10-aliases.bash",
+      "accessCount": 2,
+      "lastAccessed": 1775538663210,
+      "type": "file"
+    },
+    {
+      "path": "dot_config/nushell/config.nu",
+      "accessCount": 2,
+      "lastAccessed": 1775538669402,
+      "type": "file"
+    },
+    {
+      "path": "dot_config/private_fish/config.fish.tmpl",
+      "accessCount": 2,
+      "lastAccessed": 1775538675771,
+      "type": "file"
+    }
+  ],
+  "userDirectives": []
+}

@@ -46,8 +46,9 @@ macOS, Fedora, Fedora Atomic, Toolbox, Arch, OmArchy, Ubuntu, RPi, Windows. GUI 
 
 ### Key Directories
 - `dot_config/` — XDG configs (nvim, starship, tmux, wezterm, aerospace, sketchybar)
-- `dot_claude/` — Claude Code config (agents, commands, rules, hooks, settings)
-- `dot_agents/` — Shared AI skills (654, source of truth for .claude/.qwen/.vibe symlinks)
+- `dot_claude/` — Claude Code config (commands, rules, hooks, settings)
+- `dot_skills/` — 648 AI skills (source of truth, symlinked to .claude/.qwen/.vibe/.codex/.kimi)
+- `dot_agents/` — 192 AI agents (source of truth, symlinked to .claude/agents/)
 - `dot_private/` — Package manifests (Brewfile, Aptfile, Dnffile, Pacfile)
 - `dot_local/bin/` — Custom scripts (breww, cm* commands, chezmoi-autoupdate)
 - `tools/claude-context/` — cctx: per-project context manager (Rust)

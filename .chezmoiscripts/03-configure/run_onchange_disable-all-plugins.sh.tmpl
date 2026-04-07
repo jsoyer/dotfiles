@@ -1,0 +1,40 @@
+{{- if ne .chezmoi.os "windows" -}}
+#!/usr/bin/env bash
+# Disable all Claude Code plugins globally by default
+# cctx enables relevant plugins per project via settings.local.json
+
+# settings hash: {{ include "dot_claude/private_settings.json.tmpl" | sha256sum }}
+
+set -euo pipefail
+
+SETTINGS="{{ .chezmoi.homeDir }}/.claude/settings.json"
+PLUGINS_FILE="{{ .chezmoi.homeDir }}/.claude/plugins/installed_plugins.json"
+
+# Skip if no settings or no plugins
+[[ -f "$SETTINGS" ]] || exit 0
+[[ -f "$PLUGINS_FILE" ]] || exit 0
+
+# Check if jq is available
+command -v jq &>/dev/null || exit 0
+
+# Extract plugin keys from installed_plugins.json (v2 format)
+PLUGIN_KEYS=$(jq -r '.plugins // {} | keys[]' "$PLUGINS_FILE" 2>/dev/null)
+
+if [[ -z "$PLUGIN_KEYS" ]]; then
+  echo "plugins: no plugins found, skipping"
+  exit 0
+fi
+
+# Build the enabledPlugins object with all plugins set to false
+ENABLED_PLUGINS="{}"
+while IFS= read -r key; do
+  ENABLED_PLUGINS=$(echo "$ENABLED_PLUGINS" | jq --arg k "$key" '. + {($k): false}')
+done <<< "$PLUGIN_KEYS"
+
+# Update settings.json with the enabledPlugins block
+UPDATED=$(jq --argjson ep "$ENABLED_PLUGINS" '.enabledPlugins = $ep' "$SETTINGS")
+echo "$UPDATED" > "$SETTINGS"
+
+count=$(echo "$PLUGIN_KEYS" | wc -l | tr -d ' ')
+echo "plugins: disabled $count plugins globally (use cctx to enable per project)"
+{{- end -}}

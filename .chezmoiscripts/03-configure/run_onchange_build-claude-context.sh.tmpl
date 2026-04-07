@@ -1,0 +1,37 @@
+{{- if ne .chezmoi.os "windows" -}}
+#!/usr/bin/env bash
+# Build claude-context (cctx) from source if cargo is available
+# Managed by chezmoi — reruns when source files change
+
+# source hash: {{ glob "tools/claude-context/src/**/*.rs" | join "\n" | sha256sum }}
+
+set -euo pipefail
+
+TOOL_DIR="{{ .chezmoi.sourceDir }}/tools/claude-context"
+BIN_DIR="{{ .chezmoi.homeDir }}/.local/bin"
+BIN_NAME="claude-context"
+
+# Skip if cargo not available
+if ! command -v cargo &>/dev/null; then
+  echo "cctx: cargo not found, skipping build (install Rust to enable)"
+  exit 0
+fi
+
+# Skip if source directory doesn't exist
+if [[ ! -d "$TOOL_DIR" ]]; then
+  echo "cctx: source not found at $TOOL_DIR, skipping"
+  exit 0
+fi
+
+echo "cctx: building claude-context..."
+
+cd "$TOOL_DIR"
+if cargo build --release --quiet 2>/dev/null; then
+  mkdir -p "$BIN_DIR"
+  cp "target/release/$BIN_NAME" "$BIN_DIR/$BIN_NAME"
+  chmod +x "$BIN_DIR/$BIN_NAME"
+  echo "cctx: installed to $BIN_DIR/$BIN_NAME ($(du -h "$BIN_DIR/$BIN_NAME" | cut -f1))"
+else
+  echo "cctx: build failed (non-fatal, skipping)"
+fi
+{{- end -}}

@@ -1429,6 +1429,9 @@ alias cco = claude --model opus
 alias ccs = claude --model sonnet
 alias cch = claude --model haiku
 
+# Claude Context Manager
+alias cctx = claude-context
+
 # ============================================================================
 # fdupes (duplicate file finder)
 # ============================================================================
