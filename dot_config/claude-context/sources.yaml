@@ -3,6 +3,7 @@
 # resources: what types this source provides (default: [plugin])
 
 sources:
+  # ── Plugins ──────────────────────────────────────────────────────────
   - name: official
     type: github-marketplace
     repo: anthropics/claude-plugins-official
@@ -32,3 +33,34 @@ sources:
     repo: quemsah/awesome-claude-plugins
     refresh: 24h
     resources: [skill, agent, plugin]
+
+  # ── Skills ───────────────────────────────────────────────────────────
+  - name: skillhub
+    type: web-catalog
+    url: https://www.skillhub.club
+    refresh: 24h
+    resources: [skill]
+
+  - name: skillsmp
+    type: web-catalog
+    url: https://skillsmp.com
+    refresh: 24h
+    resources: [skill]
+
+  - name: awesome-agent-skills
+    type: awesome-list
+    repo: VoltAgent/awesome-agent-skills
+    refresh: 24h
+    resources: [skill, agent]
+
+  - name: lobehub-skills
+    type: web-catalog
+    url: https://lobehub.com/skills
+    refresh: 24h
+    resources: [skill]
+
+  - name: mcpmarket-skills
+    type: web-catalog
+    url: https://mcpmarket.com/tools/skills
+    refresh: 24h
+    resources: [skill]
