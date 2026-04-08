@@ -3,6 +3,9 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::Path;
 
+#[allow(unused_imports)]
+use crate::debug_log;
+
 use crate::config::AppConfig;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -64,6 +67,12 @@ impl Index {
 
                 // Skills are directories with SKILL.md inside
                 if path.is_dir() {
+                    // Skip directories named "README" or similar metadata dirs
+                    let dir_name = path.file_name().unwrap_or_default().to_string_lossy();
+                    if dir_name.eq_ignore_ascii_case("readme") {
+                        debug_log!("Skipping README dir: {}", path.display());
+                        continue;
+                    }
                     let skill_file = path.join("SKILL.md");
                     if skill_file.exists() {
                         if let Ok(resource) = Self::parse_resource(&skill_file, kind) {
@@ -72,8 +81,13 @@ impl Index {
                     }
                 }
 
-                // Agents and commands are .md files directly
+                // Agents and commands are .md files directly (skip README and non-.md)
                 if path.is_file() && path.extension().map_or(false, |e| e == "md") {
+                    let file_name = path.file_stem().unwrap_or_default().to_string_lossy();
+                    if file_name.eq_ignore_ascii_case("readme") {
+                        debug_log!("Skipping README file: {}", path.display());
+                        continue;
+                    }
                     if let Ok(resource) = Self::parse_resource(&path, kind) {
                         entries.push(resource);
                     }

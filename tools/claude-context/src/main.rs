@@ -5,6 +5,7 @@ mod cost;
 mod doctor;
 mod hooks;
 mod indexer;
+mod log;
 mod matcher;
 
 mod plugins;
@@ -27,6 +28,7 @@ use scope::ResolvedScope;
 
 fn main() -> Result<()> {
     let cli = Cli::parse();
+    log::init(cli.verbose, cli.debug);
 
     let config = AppConfig::load()?;
     let cwd = std::env::current_dir()?;
@@ -57,27 +59,41 @@ fn main() -> Result<()> {
         Command::Hook { shell } => run_hook(&shell),
         Command::Plugin { action } => run_plugin(&config, &resolved, action),
         Command::Update => run_update(&config),
-        Command::Completions { shell } => run_completions(shell),
+        Command::Completions { shell, install } => run_completions(shell, install),
         Command::Man => run_man(),
         Command::Watch { interval } => run_watch(&config, &resolved, interval),
     }
 }
 
 fn run_tui(config: &AppConfig, resolved: &ResolvedScope, smart: bool) -> Result<()> {
+    verbose!("Scope: {} (target: {})", resolved.scope, resolved.target_dir.display());
+    debug_log!("Config: skills_dir={}, agents_dir={}, commands_dir={}",
+        config.paths.skills_dir.display(), config.paths.agents_dir.display(), config.paths.commands_dir.display());
+
     let index = Index::build(config)?;
+    verbose!("Indexed: {} skills, {} agents, {} commands", index.skills.len(), index.agents.len(), index.commands.len());
+
     let cwd = std::env::current_dir()?;
     let fingerprint = Scanner::scan(&cwd)?;
-    let recommendations = matcher::recommend(&fingerprint, &index, smart, &config.ai)?;
+    verbose!("Scanned: {} languages, {} frameworks", fingerprint.languages.len(), fingerprint.frameworks.len());
+    debug_log!("Languages: {:?}", fingerprint.language_names());
 
-    // Load remote resources for the TUI (skills, agents, commands, plugins)
+    let recommendations = matcher::recommend(&fingerprint, &index, smart, &config.ai)?;
+    verbose!("Recommended: {} skills, {} agents, {} commands",
+        recommendations.skills.len(), recommendations.agents.len(), recommendations.commands.len());
+
     let pm = plugins::PluginManager::new(&config.paths.config_dir)?;
     let remote_resources = pm.all_available().unwrap_or_default();
+    verbose!("Remote resources: {}", remote_resources.len());
 
     tui::run(config, resolved, &index, &fingerprint, &recommendations, &remote_resources)
 }
 
 fn run_scan() -> Result<()> {
-    let fingerprint = Scanner::scan(&std::env::current_dir()?)?;
+    let cwd = std::env::current_dir()?;
+    verbose!("Scanning: {}", cwd.display());
+    let fingerprint = Scanner::scan(&cwd)?;
+    debug_log!("Tags: {:?}", fingerprint.all_tags());
     fingerprint.print();
     Ok(())
 }
@@ -138,6 +154,7 @@ fn run_apply(
         }
     }
 
+    verbose!("Applying to scope: {} ({})", resolved.scope, resolved.target_dir.display());
     symlinker::apply(config, &resolved, &selections)?;
     println!("Applied successfully.");
     Ok(())
@@ -619,10 +636,50 @@ fn run_update(config: &AppConfig) -> Result<()> {
 
 // ── Completions command ─────────────────────────────────────────────────
 
-fn run_completions(shell: clap_complete::Shell) -> Result<()> {
+fn run_completions(shell: clap_complete::Shell, install: bool) -> Result<()> {
     use clap::CommandFactory;
     let mut cmd = cli::Cli::command();
-    clap_complete::generate(shell, &mut cmd, "cctx", &mut std::io::stdout());
+
+    if !install {
+        clap_complete::generate(shell, &mut cmd, "cctx", &mut std::io::stdout());
+        return Ok(());
+    }
+
+    // Generate to buffer
+    let mut buf = Vec::new();
+    clap_complete::generate(shell, &mut cmd, "cctx", &mut buf);
+    let content = String::from_utf8(buf)?;
+
+    let home = dirs::home_dir().unwrap_or_else(|| std::path::PathBuf::from("/tmp"));
+    let dest = match shell {
+        clap_complete::Shell::Zsh => {
+            // Prefer ~/.zsh/completions/, fallback to ~/.local/share/zsh/completions/
+            let zsh_dir = home.join(".zsh").join("completions");
+            if zsh_dir.exists() || std::fs::create_dir_all(&zsh_dir).is_ok() {
+                zsh_dir.join("_cctx")
+            } else {
+                let alt = home.join(".local/share/zsh/completions");
+                std::fs::create_dir_all(&alt)?;
+                alt.join("_cctx")
+            }
+        }
+        clap_complete::Shell::Bash => {
+            let bash_dir = home.join(".local/share/bash-completion/completions");
+            std::fs::create_dir_all(&bash_dir)?;
+            bash_dir.join("cctx")
+        }
+        clap_complete::Shell::Fish => {
+            let fish_dir = home.join(".config/fish/completions");
+            std::fs::create_dir_all(&fish_dir)?;
+            fish_dir.join("cctx.fish")
+        }
+        _ => {
+            anyhow::bail!("--install not supported for {:?}. Use stdout redirection.", shell);
+        }
+    };
+
+    std::fs::write(&dest, content)?;
+    eprintln!("Installed completions to {}", dest.display());
     Ok(())
 }
 

@@ -9,6 +9,9 @@ use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime};
 
+#[allow(unused_imports)]
+use crate::{debug_log, verbose};
+
 // ── Enums ───────────────────────────────────────────────────────────────
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -190,8 +193,10 @@ impl PluginManager {
         let mut first = true;
         for source in &self.sources {
             if self.cache.is_fresh(&source.name) {
+                verbose!("Cache fresh for source: {}", source.name);
                 continue;
             }
+            verbose!("Fetching source: {} ({:?})", source.name, source.source_type);
             // Rate limit: wait 1s between fetches to avoid spamming APIs
             if !first {
                 std::thread::sleep(std::time::Duration::from_secs(1));
@@ -251,6 +256,8 @@ impl PluginManager {
         agents_dir: &Path,
         commands_dir: &Path,
     ) -> Result<()> {
+        verbose!("Installing {} ({}) from {}", resource.name, resource.resource_type, resource.source_name);
+        debug_log!("Download URL: {}", resource.download_url);
         if resource.download_url.is_empty() {
             bail!(
                 "No download URL for '{}'. Cannot install.",

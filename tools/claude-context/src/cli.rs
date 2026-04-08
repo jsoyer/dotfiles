@@ -20,6 +20,14 @@ pub struct Cli {
     /// Resource scope: global, project, or user-project
     #[arg(long, global = true, value_enum)]
     pub scope: Option<Scope>,
+
+    /// Enable verbose output (show what cctx is doing)
+    #[arg(short, long, global = true)]
+    pub verbose: bool,
+
+    /// Enable debug output (includes verbose + internal details)
+    #[arg(long, global = true)]
+    pub debug: bool,
 }
 
 #[derive(Subcommand)]
@@ -133,10 +141,14 @@ pub enum Command {
     /// Update all installed remote resources to latest version
     Update,
 
-    /// Generate shell completions
+    /// Generate shell completions (prints to stdout, or installs with --install)
     Completions {
         /// Shell type: bash, zsh, fish, elvish, powershell
         shell: clap_complete::Shell,
+
+        /// Install completions to the standard location for the shell
+        #[arg(long)]
+        install: bool,
     },
 
     /// Generate man page
