@@ -64,3 +64,28 @@ sources:
     url: https://mcpmarket.com/tools/skills
     refresh: 24h
     resources: [skill]
+
+  # ── Agents ───────────────────────────────────────────────────────────
+  - name: awesome-subagents
+    type: awesome-list
+    repo: VoltAgent/awesome-claude-code-subagents
+    refresh: 24h
+    resources: [agent]
+
+  - name: wshobson-agents
+    type: github-repo
+    repo: wshobson/agents
+    refresh: 24h
+    resources: [agent]
+
+  - name: subagents-cc
+    type: web-catalog
+    url: https://subagents.cc
+    refresh: 24h
+    resources: [agent]
+
+  - name: claudecodeagents
+    type: web-catalog
+    url: https://www.claudecodeagents.com
+    refresh: 24h
+    resources: [agent]
