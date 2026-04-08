@@ -70,7 +70,7 @@ jobs:
               echo "  FAIL: $f"
               ERRORS=$(( ERRORS + 1 ))
             fi
-          done < <(find . -name '*.json' -not -path './.git/*' -not -path './dot_agents/skills/*')
+          done < <(find . -name '*.json' -not -path './.git/*' -not -path './dot_agents/skills/*' -not -path './dot_skills/*')
           if [[ "$ERRORS" -gt 0 ]]; then
             echo "JSON validation: FAIL ($ERRORS errors)"
             exit 1
