@@ -38,6 +38,9 @@ thiserror = "2"
 dirs = "6"
 colored = "3"
 
+# File watching
+notify = "7"
+
 [dependencies.reqwest]
 version = "0.12"
 features = ["json", "blocking"]

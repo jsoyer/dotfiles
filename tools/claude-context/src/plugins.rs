@@ -48,13 +48,13 @@ impl std::fmt::Display for Origin {
 
 // ── Source config (parsed from sources.yaml) ────────────────────────────
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SourcesConfig {
     #[serde(default)]
     pub sources: Vec<PluginSource>,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PluginSource {
     pub name: String,
     #[serde(rename = "type")]
@@ -75,7 +75,7 @@ fn default_resources() -> Vec<ResourceType> {
     vec![ResourceType::Plugin]
 }
 
-#[derive(Debug, Clone, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "kebab-case")]
 pub enum SourceType {
     GithubMarketplace,
@@ -301,6 +301,98 @@ impl PluginManager {
 
         Ok(())
     }
+
+    /// Uninstall a previously downloaded resource from local dirs.
+    pub fn uninstall(
+        &self,
+        name: &str,
+        resource_type: ResourceType,
+        skills_dir: &Path,
+        agents_dir: &Path,
+        commands_dir: &Path,
+    ) -> Result<()> {
+        match resource_type {
+            ResourceType::Skill => {
+                let skill_dir = skills_dir.join(name);
+                if skill_dir.exists() {
+                    std::fs::remove_dir_all(&skill_dir)?;
+                    println!("Uninstalled skill '{}'", name);
+                } else {
+                    bail!("Skill '{}' not found in {}", name, skills_dir.display());
+                }
+            }
+            ResourceType::Agent => {
+                let path = agents_dir.join(format!("{}.md", name));
+                if path.exists() {
+                    std::fs::remove_file(&path)?;
+                    println!("Uninstalled agent '{}'", name);
+                } else {
+                    bail!("Agent '{}' not found in {}", name, agents_dir.display());
+                }
+            }
+            ResourceType::Command => {
+                let path = commands_dir.join(format!("{}.md", name));
+                if path.exists() {
+                    std::fs::remove_file(&path)?;
+                    println!("Uninstalled command '{}'", name);
+                } else {
+                    bail!("Command '{}' not found in {}", name, commands_dir.display());
+                }
+            }
+            ResourceType::Plugin => {
+                println!("Plugin '{}' — disable via settings.json or `cctx plugin disable-all`", name);
+            }
+        }
+        Ok(())
+    }
+}
+
+/// Add a new source to sources.yaml.
+pub fn add_source(
+    config_dir: &Path,
+    name: &str,
+    url: &str,
+    resource_types: &[ResourceType],
+) -> Result<()> {
+    let path = config_dir.join("sources.yaml");
+
+    let mut config = if path.exists() {
+        SourcesConfig::load(config_dir)?
+    } else {
+        SourcesConfig { sources: vec![] }
+    };
+
+    // Check for duplicate name
+    if config.sources.iter().any(|s| s.name == name) {
+        bail!("Source '{}' already exists", name);
+    }
+
+    // Auto-detect source type from URL
+    let (source_type, repo, source_url) = if url.contains("github.com/") {
+        let repo = url
+            .trim_end_matches('/')
+            .rsplit("github.com/")
+            .next()
+            .unwrap_or(url)
+            .to_string();
+        (SourceType::GithubRepo, Some(repo), None)
+    } else {
+        (SourceType::WebCatalog, None, Some(url.to_string()))
+    };
+
+    config.sources.push(PluginSource {
+        name: name.to_string(),
+        source_type,
+        repo,
+        url: source_url,
+        refresh: "24h".to_string(),
+        resources: resource_types.to_vec(),
+    });
+
+    let yaml = serde_yaml::to_string(&config)?;
+    std::fs::write(&path, yaml)?;
+    println!("Added source '{}' to {}", name, path.display());
+    Ok(())
 }
 
 // ── Fetch implementations ───────────────────────────────────────────────

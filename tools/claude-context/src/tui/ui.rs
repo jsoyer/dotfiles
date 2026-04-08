@@ -227,6 +227,7 @@ fn draw_footer(frame: &mut Frame, app: &App, area: Rect) {
             ("j/k", "nav"),
             ("Space", "toggle"),
             ("/", "filter"),
+            ("i", "install"),
             ("A/N", "all/none"),
             ("PgUp/Dn", "scroll"),
             ("g/G", "top/bottom"),

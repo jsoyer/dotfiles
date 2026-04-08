@@ -35,6 +35,30 @@ struct AiResponse {
     reasoning: String,
 }
 
+/// Auto-detect the best available AI provider based on environment.
+/// Returns (provider, model) or None if nothing available.
+pub fn auto_detect_provider() -> Option<(&'static str, &'static str)> {
+    // Priority: Ollama (local, free) > Claude API > OpenAI API
+    if let Ok(output) = std::process::Command::new("curl")
+        .args(["-s", "--max-time", "2", "http://localhost:11434/api/tags"])
+        .output()
+    {
+        if output.status.success() {
+            return Some(("ollama", "qwen3:8b"));
+        }
+    }
+
+    if std::env::var("ANTHROPIC_API_KEY").is_ok() {
+        return Some(("claude", "claude-haiku-4-5-20251001"));
+    }
+
+    if std::env::var("OPENAI_API_KEY").is_ok() {
+        return Some(("openai", "gpt-4o-mini"));
+    }
+
+    None
+}
+
 /// Refine recommendations using AI
 pub fn refine(
     config: &AiConfig,
@@ -64,9 +88,19 @@ pub fn refine(
 
     let prompt = build_prompt(&request);
 
+    // Resolve provider: "auto" detects best available, otherwise use configured
+    let (effective_provider, effective_model) = if config.provider == "auto" {
+        match auto_detect_provider() {
+            Some((p, m)) => (p.to_string(), m.to_string()),
+            None => bail!("AI provider set to 'auto' but no provider available (no Ollama, ANTHROPIC_API_KEY, or OPENAI_API_KEY)"),
+        }
+    } else {
+        (config.provider.clone(), config.model.clone())
+    };
+
     // Try providers in order
-    let response = match config.provider.as_str() {
-        "ollama" => query_ollama(&config.model, &prompt, config.max_tokens)
+    let response = match effective_provider.as_str() {
+        "ollama" => query_ollama(&effective_model, &prompt, config.max_tokens)
             .or_else(|_| {
                 if let Some(fallback) = &config.fallback {
                     match fallback.as_str() {

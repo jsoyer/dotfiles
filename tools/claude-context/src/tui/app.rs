@@ -82,6 +82,11 @@ pub struct App<'a> {
 
     pub fingerprint: &'a ProjectFingerprint,
     pub project_name: String,
+
+    /// Names of remote resources the user wants to install
+    pub pending_installs: Vec<String>,
+    /// Names of resources the user wants to uninstall
+    pub pending_uninstalls: Vec<String>,
 }
 
 impl<'a> App<'a> {
@@ -326,6 +331,8 @@ impl<'a> App<'a> {
             plugins,
             fingerprint,
             project_name,
+            pending_installs: Vec::new(),
+            pending_uninstalls: Vec::new(),
         }
     }
 
@@ -434,6 +441,10 @@ impl<'a> App<'a> {
                         // Deselect all filtered
                         self.select_all_filtered(false);
                     }
+                    KeyCode::Char('i') => {
+                        // Install/uninstall current item
+                        self.toggle_install_current();
+                    }
                     _ => {}
                 }
             }
@@ -507,6 +518,40 @@ impl<'a> App<'a> {
         let items = self.active_items_mut();
         for idx in indices {
             items[idx].enabled = state;
+        }
+    }
+
+    fn toggle_install_current(&mut self) {
+        let filtered = self.filtered_items();
+        let info = filtered.get(self.cursor).map(|&(idx, item)| {
+            (idx, item.name.clone(), item.origin)
+        });
+
+        if let Some((real_idx, name, origin)) = info {
+            match origin {
+                Origin::Remote => {
+                    if self.pending_installs.contains(&name) {
+                        self.pending_installs.retain(|n| n != &name);
+                        let items = self.active_items_mut();
+                        items[real_idx].reason = items[real_idx].reason.replace(" [INSTALL]", "");
+                    } else {
+                        self.pending_installs.push(name);
+                        let items = self.active_items_mut();
+                        items[real_idx].reason.push_str(" [INSTALL]");
+                    }
+                }
+                Origin::Local => {
+                    if self.pending_uninstalls.contains(&name) {
+                        self.pending_uninstalls.retain(|n| n != &name);
+                        let items = self.active_items_mut();
+                        items[real_idx].reason = items[real_idx].reason.replace(" [UNINSTALL]", "");
+                    } else {
+                        self.pending_uninstalls.push(name);
+                        let items = self.active_items_mut();
+                        items[real_idx].reason.push_str(" [UNINSTALL]");
+                    }
+                }
+            }
         }
     }
 

@@ -124,10 +124,17 @@ pub enum Command {
         shell: String,
     },
 
-    /// Plugin management (discover, search, enable/disable)
+    /// Resource management (discover, search, install/uninstall, enable/disable)
     Plugin {
         #[command(subcommand)]
         action: PluginAction,
+    },
+
+    /// Watch project files and re-apply recommendations on change
+    Watch {
+        /// Polling interval in seconds
+        #[arg(long, default_value = "5")]
+        interval: u64,
     },
 }
 
@@ -164,6 +171,21 @@ pub enum PluginAction {
     Install {
         /// Resource name or install_id
         name: String,
+    },
+    /// Uninstall a previously downloaded resource from local dirs
+    Uninstall {
+        /// Resource name or install_id
+        name: String,
+    },
+    /// Add a new source URL to sources.yaml
+    Add {
+        /// Source name (unique identifier)
+        name: String,
+        /// Source URL or GitHub repo (owner/repo)
+        url: String,
+        /// Resource types this source provides (comma-separated: skill,agent,command,plugin)
+        #[arg(long, default_value = "skill")]
+        resources: String,
     },
     /// Disable all plugins globally
     DisableAll,

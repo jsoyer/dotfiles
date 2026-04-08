@@ -56,6 +56,7 @@ fn main() -> Result<()> {
         Command::Config { action } => run_config(&config, action),
         Command::Hook { shell } => run_hook(&shell),
         Command::Plugin { action } => run_plugin(&config, &resolved, action),
+        Command::Watch { interval } => run_watch(&config, &resolved, interval),
     }
 }
 
@@ -498,6 +499,54 @@ fn run_plugin(config: &AppConfig, resolved: &ResolvedScope, action: PluginAction
                 None => println!("Resource '{}' not found. Run `cctx plugin refresh` first.", name),
             }
         }
+        PluginAction::Uninstall { name } => {
+            let pm = plugins::PluginManager::new(&config.paths.config_dir)?;
+            let all = pm.all_available()?;
+            let resource = all.iter().find(|e| e.install_id == name || e.name == name);
+            match resource {
+                Some(r) => {
+                    pm.uninstall(
+                        &name,
+                        r.resource_type,
+                        &config.paths.skills_dir,
+                        &config.paths.agents_dir,
+                        &config.paths.commands_dir,
+                    )?;
+                }
+                None => {
+                    // Try to detect type from filesystem
+                    let skill_dir = config.paths.skills_dir.join(&name);
+                    let agent_file = config.paths.agents_dir.join(format!("{}.md", &name));
+                    let cmd_file = config.paths.commands_dir.join(format!("{}.md", &name));
+                    if skill_dir.exists() {
+                        pm.uninstall(&name, plugins::ResourceType::Skill, &config.paths.skills_dir, &config.paths.agents_dir, &config.paths.commands_dir)?;
+                    } else if agent_file.exists() {
+                        pm.uninstall(&name, plugins::ResourceType::Agent, &config.paths.skills_dir, &config.paths.agents_dir, &config.paths.commands_dir)?;
+                    } else if cmd_file.exists() {
+                        pm.uninstall(&name, plugins::ResourceType::Command, &config.paths.skills_dir, &config.paths.agents_dir, &config.paths.commands_dir)?;
+                    } else {
+                        println!("Resource '{}' not found locally.", name);
+                    }
+                }
+            }
+        }
+        PluginAction::Add { name, url, resources } => {
+            let resource_types: Vec<plugins::ResourceType> = resources
+                .split(',')
+                .filter_map(|s| match s.trim() {
+                    "skill" => Some(plugins::ResourceType::Skill),
+                    "agent" => Some(plugins::ResourceType::Agent),
+                    "command" => Some(plugins::ResourceType::Command),
+                    "plugin" => Some(plugins::ResourceType::Plugin),
+                    _ => None,
+                })
+                .collect();
+            if resource_types.is_empty() {
+                println!("Invalid resource types. Use: skill,agent,command,plugin");
+            } else {
+                plugins::add_source(&config.paths.config_dir, &name, &url, &resource_types)?;
+            }
+        }
         PluginAction::DisableAll => {
             let scope_s = scope::scope_str(resolved.scope);
             let mut count = 0;
@@ -540,6 +589,93 @@ fn run_plugin(config: &AppConfig, resolved: &ResolvedScope, action: PluginAction
         }
     }
     Ok(())
+}
+
+// ── Watch command ────────────────────────────────────────────────────────
+
+fn run_watch(config: &AppConfig, resolved: &ResolvedScope, interval: u64) -> Result<()> {
+    use notify::{Config as NotifyConfig, RecommendedWatcher, RecursiveMode, Watcher};
+    use std::sync::mpsc;
+    use std::time::Duration;
+
+    let cwd = std::env::current_dir()?;
+    println!("Watching {} for changes (interval: {}s)...", cwd.display(), interval);
+    println!("Press Ctrl+C to stop.\n");
+
+    let (tx, rx) = mpsc::channel();
+
+    let mut watcher = RecommendedWatcher::new(
+        move |res: notify::Result<notify::Event>| {
+            if let Ok(event) = res {
+                if event.kind.is_modify() || event.kind.is_create() || event.kind.is_remove() {
+                    let _ = tx.send(());
+                }
+            }
+        },
+        NotifyConfig::default().with_poll_interval(Duration::from_secs(interval)),
+    )?;
+
+    // Watch common project files
+    for path in [
+        "Cargo.toml",
+        "package.json",
+        "go.mod",
+        "pyproject.toml",
+        "CLAUDE.md",
+        ".claude",
+    ] {
+        let full = cwd.join(path);
+        if full.exists() {
+            let mode = if full.is_dir() {
+                RecursiveMode::Recursive
+            } else {
+                RecursiveMode::NonRecursive
+            };
+            let _ = watcher.watch(&full, mode);
+        }
+    }
+
+    // Also watch the cwd for new files (non-recursive to avoid noise)
+    watcher.watch(&cwd, RecursiveMode::NonRecursive)?;
+
+    // Initial apply
+    let index = Index::build(config)?;
+    let fingerprint = Scanner::scan(&cwd)?;
+    let recommendations = matcher::recommend(&fingerprint, &index, false, &config.ai)?;
+    symlinker::apply(config, resolved, &recommendations)?;
+    println!("[watch] Initial apply done.");
+
+    // Debounce: wait for changes, then re-apply
+    loop {
+        // Block until a change event
+        rx.recv()?;
+
+        // Drain any queued events (debounce)
+        std::thread::sleep(Duration::from_millis(500));
+        while rx.try_recv().is_ok() {}
+
+        // Re-scan and re-apply
+        match Scanner::scan(&cwd) {
+            Ok(fingerprint) => {
+                match Index::build(config) {
+                    Ok(index) => {
+                        match matcher::recommend(&fingerprint, &index, false, &config.ai) {
+                            Ok(recommendations) => {
+                                if let Err(e) = symlinker::apply(config, resolved, &recommendations) {
+                                    eprintln!("[watch] Apply error: {}", e);
+                                } else {
+                                    println!("[watch] Re-applied after change.");
+                                }
+                            }
+                            Err(e) => eprintln!("[watch] Recommend error: {}", e),
+                        }
+                    }
+                    Err(e) => eprintln!("[watch] Index error: {}", e),
+                }
+            }
+            Err(e) => eprintln!("[watch] Scan error: {}", e),
+        }
+    }
 }
 
 #[cfg(test)]
