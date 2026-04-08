@@ -5,7 +5,7 @@ use ratatui::DefaultTerminal;
 use crate::config::AppConfig;
 use crate::indexer::Index;
 use crate::matcher::{RecommendSource, Recommendation, Recommendations};
-use crate::plugins::PluginEntry;
+use crate::plugins::{Origin, RemoteResource, ResourceType};
 use crate::scanner::ProjectFingerprint;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -60,6 +60,7 @@ pub struct ToggleItem {
     pub enabled: bool,
     pub score: f32,
     pub reason: String,
+    pub origin: Origin,
 }
 
 pub struct App<'a> {
@@ -89,7 +90,7 @@ impl<'a> App<'a> {
         index: &Index,
         fingerprint: &'a ProjectFingerprint,
         recommendations: &Recommendations,
-        available_plugins: &[PluginEntry],
+        remote_resources: &[RemoteResource],
     ) -> Self {
         let recommended_skill_names: Vec<String> =
             recommendations.skills.iter().map(|r| r.name.clone()).collect();
@@ -107,6 +108,7 @@ impl<'a> App<'a> {
                 enabled: true,
                 score: r.score,
                 reason: r.reason.clone(),
+                origin: Origin::Local,
             })
             .collect();
 
@@ -117,6 +119,23 @@ impl<'a> App<'a> {
                     enabled: false,
                     score: 0.0,
                     reason: String::new(),
+                    origin: Origin::Local,
+                });
+            }
+        }
+
+        // Append remote skills not already local
+        let local_skill_names: Vec<String> = skills.iter().map(|s| s.name.clone()).collect();
+        for remote in remote_resources {
+            if remote.resource_type == ResourceType::Skill
+                && !local_skill_names.contains(&remote.install_id)
+            {
+                skills.push(ToggleItem {
+                    name: remote.install_id.clone(),
+                    enabled: false,
+                    score: 0.0,
+                    reason: format!("{} ({})", remote.description, remote.source_name),
+                    origin: Origin::Remote,
                 });
             }
         }
@@ -130,6 +149,7 @@ impl<'a> App<'a> {
                 enabled: true,
                 score: r.score,
                 reason: r.reason.clone(),
+                origin: Origin::Local,
             })
             .collect();
 
@@ -140,6 +160,23 @@ impl<'a> App<'a> {
                     enabled: false,
                     score: 0.0,
                     reason: String::new(),
+                    origin: Origin::Local,
+                });
+            }
+        }
+
+        // Append remote agents
+        let local_agent_names: Vec<String> = agents.iter().map(|a| a.name.clone()).collect();
+        for remote in remote_resources {
+            if remote.resource_type == ResourceType::Agent
+                && !local_agent_names.contains(&remote.install_id)
+            {
+                agents.push(ToggleItem {
+                    name: remote.install_id.clone(),
+                    enabled: false,
+                    score: 0.0,
+                    reason: format!("{} ({})", remote.description, remote.source_name),
+                    origin: Origin::Remote,
                 });
             }
         }
@@ -153,6 +190,7 @@ impl<'a> App<'a> {
                 enabled: true,
                 score: r.score,
                 reason: r.reason.clone(),
+                origin: Origin::Local,
             })
             .collect();
 
@@ -163,6 +201,23 @@ impl<'a> App<'a> {
                     enabled: false,
                     score: 0.0,
                     reason: String::new(),
+                    origin: Origin::Local,
+                });
+            }
+        }
+
+        // Append remote commands
+        let local_cmd_names: Vec<String> = commands.iter().map(|c| c.name.clone()).collect();
+        for remote in remote_resources {
+            if remote.resource_type == ResourceType::Command
+                && !local_cmd_names.contains(&remote.install_id)
+            {
+                commands.push(ToggleItem {
+                    name: remote.install_id.clone(),
+                    enabled: false,
+                    score: 0.0,
+                    reason: format!("{} ({})", remote.description, remote.source_name),
+                    origin: Origin::Remote,
                 });
             }
         }
@@ -191,6 +246,7 @@ impl<'a> App<'a> {
                     } else {
                         String::new()
                     },
+                    origin: Origin::Local,
                 }
             })
             .collect();
@@ -215,6 +271,7 @@ impl<'a> App<'a> {
                     } else {
                         String::new()
                     },
+                    origin: Origin::Local,
                 }
             })
             .collect();
@@ -229,15 +286,19 @@ impl<'a> App<'a> {
                 enabled: true,
                 score: 0.8,
                 reason: "recommended".to_string(),
+                origin: Origin::Local,
             })
             .collect();
-        for entry in available_plugins {
-            if !recommended_plugin_names.contains(&entry.install_id) {
+        for remote in remote_resources {
+            if remote.resource_type == ResourceType::Plugin
+                && !recommended_plugin_names.contains(&remote.install_id)
+            {
                 plugins.push(ToggleItem {
-                    name: entry.install_id.clone(),
+                    name: remote.install_id.clone(),
                     enabled: false,
                     score: 0.0,
-                    reason: format!("{} ({})", entry.description, entry.source_name),
+                    reason: format!("{} ({})", remote.description, remote.source_name),
+                    origin: Origin::Remote,
                 });
             }
         }

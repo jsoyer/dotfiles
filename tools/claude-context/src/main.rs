@@ -65,11 +65,11 @@ fn run_tui(config: &AppConfig, resolved: &ResolvedScope, smart: bool) -> Result<
     let fingerprint = Scanner::scan(&cwd)?;
     let recommendations = matcher::recommend(&fingerprint, &index, smart, &config.ai)?;
 
-    // Load available plugins for the TUI
+    // Load remote resources for the TUI (skills, agents, commands, plugins)
     let pm = plugins::PluginManager::new(&config.paths.config_dir)?;
-    let available_plugins = pm.all_available().unwrap_or_default();
+    let remote_resources = pm.all_available().unwrap_or_default();
 
-    tui::run(config, resolved, &index, &fingerprint, &recommendations, &available_plugins)
+    tui::run(config, resolved, &index, &fingerprint, &recommendations, &remote_resources)
 }
 
 fn run_scan() -> Result<()> {
@@ -440,13 +440,13 @@ fn run_plugin(config: &AppConfig, resolved: &ResolvedScope, action: PluginAction
             let pm = plugins::PluginManager::new(&config.paths.config_dir)?;
             let all = pm.all_available()?;
             if all.is_empty() {
-                println!("No plugins cached. Run `cctx plugin refresh` first.");
+                println!("No resources cached. Run `cctx plugin refresh` first.");
             } else {
-                println!("Available plugins ({}):", all.len());
+                println!("Available resources ({}):", all.len());
                 for entry in &all {
                     println!(
-                        "  {:<30} {} ({})",
-                        entry.install_id, entry.description, entry.source_name
+                        "  [{:<7}] {:<30} {} ({})",
+                        entry.resource_type, entry.install_id, entry.description, entry.source_name
                     );
                 }
             }
@@ -455,13 +455,13 @@ fn run_plugin(config: &AppConfig, resolved: &ResolvedScope, action: PluginAction
             let pm = plugins::PluginManager::new(&config.paths.config_dir)?;
             let results = pm.search(&query)?;
             if results.is_empty() {
-                println!("No plugins matching '{}'.", query);
+                println!("No resources matching '{}'.", query);
             } else {
-                println!("Plugins matching '{}' ({}):", query, results.len());
+                println!("Resources matching '{}' ({}):", query, results.len());
                 for entry in &results {
                     println!(
-                        "  {:<30} {} ({})",
-                        entry.install_id, entry.description, entry.source_name
+                        "  [{:<7}] {:<30} {} ({})",
+                        entry.resource_type, entry.install_id, entry.description, entry.source_name
                     );
                 }
             }
@@ -470,7 +470,33 @@ fn run_plugin(config: &AppConfig, resolved: &ResolvedScope, action: PluginAction
             let pm = plugins::PluginManager::new(&config.paths.config_dir)?;
             pm.refresh()?;
             let all = pm.all_available()?;
-            println!("Refreshed. {} plugins available.", all.len());
+            let mut counts = std::collections::HashMap::new();
+            for e in &all {
+                *counts.entry(e.resource_type).or_insert(0usize) += 1;
+            }
+            let summary: Vec<String> = counts
+                .iter()
+                .map(|(t, c)| format!("{} {}s", c, t))
+                .collect();
+            println!("Refreshed. {} resources ({})", all.len(), summary.join(", "));
+        }
+        PluginAction::Install { name } => {
+            let pm = plugins::PluginManager::new(&config.paths.config_dir)?;
+            let all = pm.all_available()?;
+            let resource = all
+                .iter()
+                .find(|e| e.install_id == name || e.name == name);
+            match resource {
+                Some(r) => {
+                    pm.install(
+                        r,
+                        &config.paths.skills_dir,
+                        &config.paths.agents_dir,
+                        &config.paths.commands_dir,
+                    )?;
+                }
+                None => println!("Resource '{}' not found. Run `cctx plugin refresh` first.", name),
+            }
         }
         PluginAction::DisableAll => {
             let scope_s = scope::scope_str(resolved.scope);

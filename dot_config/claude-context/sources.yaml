@@ -1,28 +1,34 @@
-# Plugin discovery sources for claude-context
-# cctx fetches plugin listings from these sources and caches locally
+# Resource discovery sources for claude-context
+# cctx fetches resource listings from these sources and caches locally
+# resources: what types this source provides (default: [plugin])
 
 sources:
   - name: official
     type: github-marketplace
     repo: anthropics/claude-plugins-official
     refresh: 24h
+    resources: [plugin]
 
   - name: community
     type: github-repo
     repo: jeremylongshore/claude-code-plugins-plus-skills
     refresh: 24h
+    resources: [skill, agent, plugin]
 
   - name: claudemarketplaces
     type: web-catalog
     url: https://claudemarketplaces.com
     refresh: 24h
+    resources: [skill, agent, command, plugin]
 
   - name: buildwithclaude
     type: web-catalog
     url: https://buildwithclaude.com
     refresh: 24h
+    resources: [skill, agent, plugin]
 
   - name: awesome-plugins
     type: awesome-list
     repo: quemsah/awesome-claude-plugins
     refresh: 24h
+    resources: [skill, agent, plugin]

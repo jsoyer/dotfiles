@@ -151,15 +151,20 @@ pub enum ConfigAction {
 
 #[derive(Subcommand)]
 pub enum PluginAction {
-    /// List available plugins from all sources
+    /// List available resources from all sources
     List,
-    /// Search plugins by name or description
+    /// Search resources by name or description
     Search {
         /// Search query
         query: String,
     },
-    /// Refresh plugin cache from all sources
+    /// Refresh resource cache from all sources
     Refresh,
+    /// Install a remote resource (skill, agent, command) to local dirs
+    Install {
+        /// Resource name or install_id
+        name: String,
+    },
     /// Disable all plugins globally
     DisableAll,
     /// Enable all plugins globally

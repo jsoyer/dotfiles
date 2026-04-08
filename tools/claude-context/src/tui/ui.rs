@@ -8,6 +8,7 @@ use ratatui::{
 
 use super::app::{App, Tab};
 use crate::doctor;
+use crate::plugins::Origin;
 
 // Catppuccin Mocha palette
 const BLUE: Color = Color::Rgb(137, 180, 250);
@@ -148,6 +149,11 @@ fn draw_content(frame: &mut Frame, app: &App, area: Rect) {
                 Style::default().fg(OVERLAY0)
             };
 
+            let origin_indicator = match item.origin {
+                Origin::Local => Span::styled("[L] ", Style::default().fg(GREEN)),
+                Origin::Remote => Span::styled("[R] ", Style::default().fg(PEACH)),
+            };
+
             let line = Line::from(vec![
                 Span::styled(
                     if is_selected { "> " } else { "  " },
@@ -157,7 +163,8 @@ fn draw_content(frame: &mut Frame, app: &App, area: Rect) {
                     format!("{} ", if item.enabled { "[x]" } else { "[ ]" }),
                     checkbox_style,
                 ),
-                Span::styled(format!("{:<32}", item.name), style),
+                origin_indicator,
+                Span::styled(format!("{:<28}", item.name), style),
                 Span::styled(
                     format!(" {} ", bar),
                     Style::default().fg(score_color(item.score)),

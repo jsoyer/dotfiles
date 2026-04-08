@@ -1,12 +1,50 @@
-//! Plugin discovery, caching, and management.
+//! Resource discovery, caching, and management.
 //!
-//! Fetches plugin listings from configured sources (GitHub repos, web catalogs,
-//! awesome lists), caches locally, and provides search/install/uninstall.
+//! Fetches resource listings (skills, agents, commands, plugins) from configured
+//! sources (GitHub repos, web catalogs, awesome lists), caches locally, and
+//! provides search/install/download.
 
-use anyhow::{Context, Result};
+use anyhow::{bail, Context, Result};
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime};
+
+// ── Enums ───────────────────────────────────────────────────────────────
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ResourceType {
+    Skill,
+    Agent,
+    Command,
+    Plugin,
+}
+
+impl std::fmt::Display for ResourceType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ResourceType::Skill => write!(f, "skill"),
+            ResourceType::Agent => write!(f, "agent"),
+            ResourceType::Command => write!(f, "command"),
+            ResourceType::Plugin => write!(f, "plugin"),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Origin {
+    Local,
+    Remote,
+}
+
+impl std::fmt::Display for Origin {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Origin::Local => write!(f, "L"),
+            Origin::Remote => write!(f, "R"),
+        }
+    }
+}
 
 // ── Source config (parsed from sources.yaml) ────────────────────────────
 
@@ -25,10 +63,16 @@ pub struct PluginSource {
     pub url: Option<String>,
     #[serde(default = "default_refresh")]
     pub refresh: String,
+    #[serde(default = "default_resources")]
+    pub resources: Vec<ResourceType>,
 }
 
 fn default_refresh() -> String {
     "24h".to_string()
+}
+
+fn default_resources() -> Vec<ResourceType> {
+    vec![ResourceType::Plugin]
 }
 
 #[derive(Debug, Clone, Deserialize, PartialEq)]
@@ -52,16 +96,25 @@ impl SourcesConfig {
     }
 }
 
-// ── Plugin entry (a discovered plugin) ──────────────────────────────────
+// ── Remote resource entry ───────────────────────────────────────────────
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PluginEntry {
+pub struct RemoteResource {
     pub name: String,
     pub description: String,
     pub author: String,
     pub source_name: String,
     pub tags: Vec<String>,
     pub install_id: String,
+    #[serde(default = "default_resource_type")]
+    pub resource_type: ResourceType,
+    /// URL to fetch the actual content from (for download/install)
+    #[serde(default)]
+    pub download_url: String,
+}
+
+fn default_resource_type() -> ResourceType {
+    ResourceType::Plugin
 }
 
 // ── Cache ────────────────────────────────────────────────────────────────
@@ -99,16 +152,16 @@ impl PluginCache {
             .unwrap_or(false)
     }
 
-    pub fn read(&self, source_name: &str) -> Result<Vec<PluginEntry>> {
+    pub fn read(&self, source_name: &str) -> Result<Vec<RemoteResource>> {
         let path = self.cache_path(source_name);
         if !path.exists() {
             return Ok(vec![]);
         }
         let content = std::fs::read_to_string(&path)?;
-        serde_json::from_str(&content).with_context(|| "Failed to parse plugin cache")
+        serde_json::from_str(&content).with_context(|| "Failed to parse resource cache")
     }
 
-    pub fn write(&self, source_name: &str, entries: &[PluginEntry]) -> Result<()> {
+    pub fn write(&self, source_name: &str, entries: &[RemoteResource]) -> Result<()> {
         std::fs::create_dir_all(&self.cache_dir)?;
         let json = serde_json::to_string_pretty(entries)?;
         std::fs::write(self.cache_path(source_name), json)?;
@@ -138,11 +191,18 @@ impl PluginManager {
             if self.cache.is_fresh(&source.name) {
                 continue;
             }
-            let entries = fetch_source(source);
-            match entries {
+            match fetch_source(source) {
                 Ok(entries) => {
                     self.cache.write(&source.name, &entries)?;
-                    eprintln!("Refreshed {} ({} plugins)", source.name, entries.len());
+                    let mut counts = std::collections::HashMap::new();
+                    for e in &entries {
+                        *counts.entry(e.resource_type).or_insert(0usize) += 1;
+                    }
+                    let summary: Vec<String> = counts
+                        .iter()
+                        .map(|(t, c)| format!("{} {}s", c, t))
+                        .collect();
+                    eprintln!("Refreshed {} ({})", source.name, summary.join(", "));
                 }
                 Err(e) => {
                     eprintln!("Warning: failed to fetch {}: {}", source.name, e);
@@ -152,8 +212,8 @@ impl PluginManager {
         Ok(())
     }
 
-    /// Return all cached plugins across all sources.
-    pub fn all_available(&self) -> Result<Vec<PluginEntry>> {
+    /// Return all cached resources across all sources.
+    pub fn all_available(&self) -> Result<Vec<RemoteResource>> {
         let mut all = Vec::new();
         for source in &self.sources {
             if let Ok(entries) = self.cache.read(&source.name) {
@@ -163,8 +223,17 @@ impl PluginManager {
         Ok(all)
     }
 
+    /// Return cached resources filtered by type.
+    pub fn by_type(&self, resource_type: ResourceType) -> Result<Vec<RemoteResource>> {
+        Ok(self
+            .all_available()?
+            .into_iter()
+            .filter(|e| e.resource_type == resource_type)
+            .collect())
+    }
+
     /// Fuzzy search by name, description, or tags.
-    pub fn search(&self, query: &str) -> Result<Vec<PluginEntry>> {
+    pub fn search(&self, query: &str) -> Result<Vec<RemoteResource>> {
         let query_lower = query.to_lowercase();
         let all = self.all_available()?;
         Ok(all
@@ -177,36 +246,82 @@ impl PluginManager {
             .collect())
     }
 
-    /// List configured sources.
-    pub fn sources(&self) -> &[PluginSource] {
-        &self.sources
+    /// Download and install a remote resource to the appropriate local dir.
+    pub fn install(
+        &self,
+        resource: &RemoteResource,
+        skills_dir: &Path,
+        agents_dir: &Path,
+        commands_dir: &Path,
+    ) -> Result<()> {
+        if resource.download_url.is_empty() {
+            bail!(
+                "No download URL for '{}'. Cannot install.",
+                resource.name
+            );
+        }
+
+        let output = std::process::Command::new("curl")
+            .args(["-s", "--max-time", "30", "-f", &resource.download_url])
+            .output()
+            .with_context(|| format!("Failed to download {}", resource.download_url))?;
+
+        if !output.status.success() {
+            bail!("Download failed for '{}' (HTTP error)", resource.name);
+        }
+
+        let content = String::from_utf8_lossy(&output.stdout);
+
+        match resource.resource_type {
+            ResourceType::Skill => {
+                let skill_dir = skills_dir.join(&resource.install_id);
+                std::fs::create_dir_all(&skill_dir)?;
+                std::fs::write(skill_dir.join("SKILL.md"), content.as_ref())?;
+                println!("Installed skill '{}' to {}", resource.name, skill_dir.display());
+            }
+            ResourceType::Agent => {
+                std::fs::create_dir_all(agents_dir)?;
+                let path = agents_dir.join(format!("{}.md", resource.install_id));
+                std::fs::write(&path, content.as_ref())?;
+                println!("Installed agent '{}' to {}", resource.name, path.display());
+            }
+            ResourceType::Command => {
+                std::fs::create_dir_all(commands_dir)?;
+                let path = commands_dir.join(format!("{}.md", resource.install_id));
+                std::fs::write(&path, content.as_ref())?;
+                println!("Installed command '{}' to {}", resource.name, path.display());
+            }
+            ResourceType::Plugin => {
+                println!(
+                    "Plugin '{}' — enable via settings.json (no file download needed)",
+                    resource.name
+                );
+            }
+        }
+
+        Ok(())
     }
 }
 
 // ── Fetch implementations ───────────────────────────────────────────────
 
-fn fetch_source(source: &PluginSource) -> Result<Vec<PluginEntry>> {
+fn fetch_source(source: &PluginSource) -> Result<Vec<RemoteResource>> {
     match source.source_type {
-        SourceType::GithubRepo | SourceType::GithubMarketplace => {
-            fetch_github_repo(source)
-        }
+        SourceType::GithubRepo | SourceType::GithubMarketplace => fetch_github_repo(source),
         SourceType::AwesomeList => fetch_awesome_list(source),
         SourceType::WebCatalog => fetch_web_catalog(source),
     }
 }
 
-fn fetch_github_repo(source: &PluginSource) -> Result<Vec<PluginEntry>> {
-    let repo = source
-        .repo
-        .as_deref()
-        .unwrap_or_default();
+fn fetch_github_repo(source: &PluginSource) -> Result<Vec<RemoteResource>> {
+    let repo = source.repo.as_deref().unwrap_or_default();
     if repo.is_empty() {
         return Ok(vec![]);
     }
 
-    // Try fetching a plugins.json manifest from the repo
+    // Try fetching a resources.json manifest from the repo
     let url = format!(
-        "https://raw.githubusercontent.com/{}/main/plugins.json",
+        "https://raw.githubusercontent.com/{}/main/resources.json",
         repo
     );
     let output = std::process::Command::new("curl")
@@ -216,12 +331,28 @@ fn fetch_github_repo(source: &PluginSource) -> Result<Vec<PluginEntry>> {
 
     if output.status.success() {
         let text = String::from_utf8_lossy(&output.stdout);
-        if let Ok(entries) = serde_json::from_str::<Vec<PluginEntry>>(&text) {
+        if let Ok(entries) = serde_json::from_str::<Vec<RemoteResource>>(&text) {
             return Ok(entries);
         }
     }
 
-    // Fallback: fetch README.md and parse plugin-like entries
+    // Fallback: try plugins.json
+    let url = format!(
+        "https://raw.githubusercontent.com/{}/main/plugins.json",
+        repo
+    );
+    let output = std::process::Command::new("curl")
+        .args(["-s", "--max-time", "15", "-f", &url])
+        .output()?;
+
+    if output.status.success() {
+        let text = String::from_utf8_lossy(&output.stdout);
+        if let Ok(entries) = serde_json::from_str::<Vec<RemoteResource>>(&text) {
+            return Ok(entries);
+        }
+    }
+
+    // Final fallback: fetch README.md and parse
     let readme_url = format!(
         "https://raw.githubusercontent.com/{}/main/README.md",
         repo
@@ -232,13 +363,17 @@ fn fetch_github_repo(source: &PluginSource) -> Result<Vec<PluginEntry>> {
 
     if output.status.success() {
         let text = String::from_utf8_lossy(&output.stdout);
-        return Ok(parse_markdown_plugins(&text, &source.name));
+        return Ok(parse_markdown_resources(
+            &text,
+            &source.name,
+            &source.resources,
+        ));
     }
 
     Ok(vec![])
 }
 
-fn fetch_awesome_list(source: &PluginSource) -> Result<Vec<PluginEntry>> {
+fn fetch_awesome_list(source: &PluginSource) -> Result<Vec<RemoteResource>> {
     let repo = source.repo.as_deref().unwrap_or_default();
     if repo.is_empty() {
         return Ok(vec![]);
@@ -254,19 +389,22 @@ fn fetch_awesome_list(source: &PluginSource) -> Result<Vec<PluginEntry>> {
 
     if output.status.success() {
         let text = String::from_utf8_lossy(&output.stdout);
-        return Ok(parse_markdown_plugins(&text, &source.name));
+        return Ok(parse_markdown_resources(
+            &text,
+            &source.name,
+            &source.resources,
+        ));
     }
 
     Ok(vec![])
 }
 
-fn fetch_web_catalog(source: &PluginSource) -> Result<Vec<PluginEntry>> {
+fn fetch_web_catalog(source: &PluginSource) -> Result<Vec<RemoteResource>> {
     let url = source.url.as_deref().unwrap_or_default();
     if url.is_empty() {
         return Ok(vec![]);
     }
 
-    // Try JSON API endpoint
     let api_url = format!("{}/api/plugins", url.trim_end_matches('/'));
     let output = std::process::Command::new("curl")
         .args(["-s", "--max-time", "15", "-f", &api_url])
@@ -274,7 +412,7 @@ fn fetch_web_catalog(source: &PluginSource) -> Result<Vec<PluginEntry>> {
 
     if output.status.success() {
         let text = String::from_utf8_lossy(&output.stdout);
-        if let Ok(entries) = serde_json::from_str::<Vec<PluginEntry>>(&text) {
+        if let Ok(entries) = serde_json::from_str::<Vec<RemoteResource>>(&text) {
             return Ok(entries);
         }
     }
@@ -282,19 +420,48 @@ fn fetch_web_catalog(source: &PluginSource) -> Result<Vec<PluginEntry>> {
     Ok(vec![])
 }
 
-/// Parse markdown for plugin-like entries (lines matching `- [name](url) - description`).
-fn parse_markdown_plugins(markdown: &str, source_name: &str) -> Vec<PluginEntry> {
+/// Parse markdown for resource entries.
+/// Uses the source's `resources` field to tag entries with the appropriate type.
+fn parse_markdown_resources(
+    markdown: &str,
+    source_name: &str,
+    resource_types: &[ResourceType],
+) -> Vec<RemoteResource> {
     let mut entries = Vec::new();
+    let default_type = resource_types.first().copied().unwrap_or(ResourceType::Plugin);
+    let mut current_type = default_type;
 
     for line in markdown.lines() {
         let trimmed = line.trim();
-        // Match: - [Name](url) - Description  or  - **Name** - Description
+
+        // Detect section headers to infer resource type
+        let lower = trimmed.to_lowercase();
+        if lower.starts_with('#') {
+            if lower.contains("skill") && resource_types.contains(&ResourceType::Skill) {
+                current_type = ResourceType::Skill;
+            } else if lower.contains("agent") && resource_types.contains(&ResourceType::Agent) {
+                current_type = ResourceType::Agent;
+            } else if lower.contains("command") && resource_types.contains(&ResourceType::Command) {
+                current_type = ResourceType::Command;
+            } else if lower.contains("plugin") && resource_types.contains(&ResourceType::Plugin) {
+                current_type = ResourceType::Plugin;
+            }
+            continue;
+        }
+
+        // Match: - [Name](url) - Description
         if let Some(rest) = trimmed.strip_prefix("- [") {
             if let Some(bracket_end) = rest.find("](") {
                 let name = &rest[..bracket_end];
-                let after_url = rest[bracket_end + 2..]
-                    .find(')')
-                    .map(|i| &rest[bracket_end + 2 + i + 1..])
+                let url_start = bracket_end + 2;
+                let url_end = rest[url_start..].find(')').map(|i| url_start + i);
+
+                let download_url = url_end
+                    .map(|end| rest[url_start..end].to_string())
+                    .unwrap_or_default();
+
+                let after_url = url_end
+                    .map(|end| &rest[end + 1..])
                     .unwrap_or("");
                 let description = after_url
                     .trim()
@@ -304,13 +471,15 @@ fn parse_markdown_plugins(markdown: &str, source_name: &str) -> Vec<PluginEntry>
                     .to_string();
 
                 if !name.is_empty() {
-                    entries.push(PluginEntry {
+                    entries.push(RemoteResource {
                         name: name.to_string(),
                         description,
                         author: String::new(),
                         source_name: source_name.to_string(),
                         tags: vec![],
                         install_id: name.to_lowercase().replace(' ', "-"),
+                        resource_type: current_type,
+                        download_url,
                     });
                 }
             }
@@ -335,18 +504,20 @@ mod tests {
 
     #[test]
     fn cache_read_write_roundtrip() {
-        let tmp = std::env::temp_dir().join("cctx-test-plugins-cache");
+        let tmp = std::env::temp_dir().join("cctx-test-plugins-cache2");
         let _ = std::fs::remove_dir_all(&tmp);
         let _ = std::fs::create_dir_all(&tmp);
         let cache = PluginCache::new(&tmp);
 
-        let entries = vec![PluginEntry {
+        let entries = vec![RemoteResource {
             name: "test-plugin".to_string(),
             description: "A test".to_string(),
             author: "tester".to_string(),
             source_name: "test-src".to_string(),
             tags: vec!["rust".to_string()],
             install_id: "test-plugin".to_string(),
+            resource_type: ResourceType::Skill,
+            download_url: String::new(),
         }];
 
         cache.write("test-src", &entries).unwrap();
@@ -355,13 +526,14 @@ mod tests {
         let loaded = cache.read("test-src").unwrap();
         assert_eq!(loaded.len(), 1);
         assert_eq!(loaded[0].name, "test-plugin");
+        assert_eq!(loaded[0].resource_type, ResourceType::Skill);
 
         let _ = std::fs::remove_dir_all(&tmp);
     }
 
     #[test]
     fn cache_not_fresh_when_missing() {
-        let tmp = std::env::temp_dir().join("cctx-test-plugins-notfresh");
+        let tmp = std::env::temp_dir().join("cctx-test-plugins-notfresh2");
         let _ = std::fs::create_dir_all(&tmp);
         let cache = PluginCache::new(&tmp);
         assert!(!cache.is_fresh("nonexistent"));
@@ -369,57 +541,72 @@ mod tests {
     }
 
     #[test]
-    fn parse_markdown_extracts_entries() {
+    fn parse_markdown_extracts_typed_entries() {
         let md = r#"
-# Awesome Plugins
+# Skills
 
-- [Code Formatter](https://example.com) - Formats your code
-- [Linter](https://example.com) - Lints your code
-- Not a plugin line
+- [Code Formatter](https://example.com/formatter.md) - Formats your code
+- [Linter](https://example.com/linter.md) - Lints your code
+
+# Agents
+
+- [Reviewer](https://example.com/reviewer.md) - Reviews PRs
+
+# Plugins
+
+- [Theme](https://example.com) - Color theme
 "#;
-        let entries = parse_markdown_plugins(md, "test");
-        assert_eq!(entries.len(), 2);
-        assert_eq!(entries[0].name, "Code Formatter");
-        assert_eq!(entries[1].name, "Linter");
+        let types = vec![
+            ResourceType::Skill,
+            ResourceType::Agent,
+            ResourceType::Plugin,
+        ];
+        let entries = parse_markdown_resources(md, "test", &types);
+        assert_eq!(entries.len(), 4);
+        assert_eq!(entries[0].resource_type, ResourceType::Skill);
+        assert_eq!(entries[1].resource_type, ResourceType::Skill);
+        assert_eq!(entries[2].resource_type, ResourceType::Agent);
+        assert_eq!(entries[3].resource_type, ResourceType::Plugin);
     }
 
     #[test]
     fn search_filters_by_name() {
-        let tmp = std::env::temp_dir().join("cctx-test-plugins-search");
+        let tmp = std::env::temp_dir().join("cctx-test-plugins-search2");
         let _ = std::fs::remove_dir_all(&tmp);
         let _ = std::fs::create_dir_all(&tmp);
 
-        // Write sources.yaml with a source named "test"
         let sources_yaml = r#"sources:
   - name: test
     type: github-repo
     repo: example/test
+    resources: [skill, plugin]
 "#;
         std::fs::write(tmp.join("sources.yaml"), sources_yaml).unwrap();
 
-        // Write cache data for the "test" source
+        let cache_dir = tmp.join("plugin-cache");
+        std::fs::create_dir_all(&cache_dir).unwrap();
         let entries = vec![
-            PluginEntry {
+            RemoteResource {
                 name: "rust-analyzer".to_string(),
                 description: "Rust language server".to_string(),
                 author: "ra".to_string(),
                 source_name: "test".to_string(),
                 tags: vec!["rust".to_string()],
                 install_id: "rust-analyzer".to_string(),
+                resource_type: ResourceType::Skill,
+                download_url: String::new(),
             },
-            PluginEntry {
+            RemoteResource {
                 name: "prettier".to_string(),
                 description: "Code formatter".to_string(),
                 author: "pr".to_string(),
                 source_name: "test".to_string(),
                 tags: vec!["js".to_string()],
                 install_id: "prettier".to_string(),
+                resource_type: ResourceType::Plugin,
+                download_url: String::new(),
             },
         ];
-
-        // Write directly to the cache dir that PluginManager will use
-        let cache_dir = tmp.join("plugin-cache");
-        std::fs::create_dir_all(&cache_dir).unwrap();
         let json = serde_json::to_string(&entries).unwrap();
         std::fs::write(cache_dir.join("test.json"), json).unwrap();
 
@@ -428,6 +615,20 @@ mod tests {
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].name, "rust-analyzer");
 
+        let by_skill = pm.by_type(ResourceType::Skill).unwrap();
+        assert_eq!(by_skill.len(), 1);
+
         let _ = std::fs::remove_dir_all(&tmp);
+    }
+
+    #[test]
+    fn default_resources_is_plugin() {
+        let yaml = r#"sources:
+  - name: test
+    type: github-repo
+    repo: foo/bar
+"#;
+        let config: SourcesConfig = serde_yaml::from_str(yaml).unwrap();
+        assert_eq!(config.sources[0].resources, vec![ResourceType::Plugin]);
     }
 }
