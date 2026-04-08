@@ -151,7 +151,7 @@ jobs:
             fi
           done < <(
             find . \( -name '*.sh' -o -name '*.bash' \) \
-              -not -path './.git/*' -not -path './dot_claude/*' -not -path './dot_agents/skills/*' 2>/dev/null
+              -not -path './.git/*' -not -path './dot_claude/*' -not -path './dot_agents/skills/*' -not -path './dot_skills/*' 2>/dev/null
             grep -rl '#!/.*bash' dot_local/bin/ 2>/dev/null || true
           )
           if [[ "$ERRORS" -gt 0 ]]; then
