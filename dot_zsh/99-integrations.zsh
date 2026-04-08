@@ -110,6 +110,11 @@ _chezmoi_bg_update() {
 (( $+commands[chezmoi] )) && _chezmoi_bg_update
 
 # ============================================================================
+# Completion overrides for aliased commands (must run after all plugins)
+# ============================================================================
+(( $+commands[eza] )) && compdef _eza ls
+
+# ============================================================================
 # claude-context auto-apply on cd (checks project-map.yaml)
 # ============================================================================
 if (( $+commands[claude-context] )); then
