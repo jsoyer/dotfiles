@@ -20,7 +20,7 @@ impl std::fmt::Display for Scope {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ResolvedScope {
     pub scope: Scope,
     /// The base directory for this scope (home for global, project root for project,

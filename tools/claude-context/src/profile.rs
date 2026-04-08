@@ -11,6 +11,8 @@ use crate::symlinker::ProjectStatus;
 pub struct Profile {
     pub name: String,
     pub description: Option<String>,
+    #[serde(default)]
+    pub scope: Option<String>,
     pub skills: Vec<String>,
     pub agents: Vec<String>,
     pub commands: Vec<String>,
@@ -53,6 +55,64 @@ impl ProfileManager {
             return self.load_from_path(&gen_path);
         }
         self.load_from_path(&path)
+    }
+
+    /// Load profile with its scope metadata.
+    pub fn load_with_scope(&self, name: &str) -> Result<(Recommendations, Option<String>)> {
+        let path = self.profiles_dir.join(format!("{}.yaml", name));
+        let path = if path.exists() {
+            path
+        } else {
+            let gen_path = self.profiles_dir.join("_generated").join(format!("{}.yaml", name));
+            if !gen_path.exists() {
+                bail!("Profile '{}' not found", name);
+            }
+            gen_path
+        };
+        let content = std::fs::read_to_string(&path)
+            .with_context(|| format!("Failed to read {}", path.display()))?;
+        let profile: Profile = serde_yaml::from_str(&content)?;
+        let scope = profile.scope.clone();
+        let recs = self.profile_to_recommendations(&profile);
+        Ok((recs, scope))
+    }
+
+    fn profile_to_recommendations(&self, profile: &Profile) -> Recommendations {
+        Recommendations {
+            skills: profile
+                .skills
+                .iter()
+                .map(|name| Recommendation {
+                    name: name.clone(),
+                    score: 1.0,
+                    reason: "profile".to_string(),
+                    source: RecommendSource::Base,
+                })
+                .collect(),
+            agents: profile
+                .agents
+                .iter()
+                .map(|name| Recommendation {
+                    name: name.clone(),
+                    score: 1.0,
+                    reason: "profile".to_string(),
+                    source: RecommendSource::Base,
+                })
+                .collect(),
+            commands: profile
+                .commands
+                .iter()
+                .map(|name| Recommendation {
+                    name: name.clone(),
+                    score: 1.0,
+                    reason: "profile".to_string(),
+                    source: RecommendSource::Base,
+                })
+                .collect(),
+            mcp: profile.mcp.clone(),
+            rules: profile.rules.clone(),
+            plugins: profile.plugins.clone(),
+        }
     }
 
     fn load_from_path(&self, path: &PathBuf) -> Result<Recommendations> {
@@ -101,6 +161,7 @@ impl ProfileManager {
         let profile = Profile {
             name: name.to_string(),
             description: None,
+            scope: Some(status.scope.to_string()),
             skills: status.skills.clone(),
             agents: status.agents.clone(),
             commands: status.commands.clone(),

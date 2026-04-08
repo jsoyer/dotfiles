@@ -5,6 +5,7 @@ use ratatui::DefaultTerminal;
 use crate::config::AppConfig;
 use crate::indexer::Index;
 use crate::matcher::{RecommendSource, Recommendation, Recommendations};
+use crate::plugins::PluginEntry;
 use crate::scanner::ProjectFingerprint;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -88,6 +89,7 @@ impl<'a> App<'a> {
         index: &Index,
         fingerprint: &'a ProjectFingerprint,
         recommendations: &Recommendations,
+        available_plugins: &[PluginEntry],
     ) -> Self {
         let recommended_skill_names: Vec<String> =
             recommendations.skills.iter().map(|r| r.name.clone()).collect();
@@ -217,8 +219,9 @@ impl<'a> App<'a> {
             })
             .collect();
 
-        // Plugins (empty for now, populated from config)
-        let plugins: Vec<ToggleItem> = recommendations
+        // Plugins: recommended first (enabled), then available from discovery (disabled)
+        let recommended_plugin_names: Vec<String> = recommendations.plugins.clone();
+        let mut plugins: Vec<ToggleItem> = recommendations
             .plugins
             .iter()
             .map(|name| ToggleItem {
@@ -228,6 +231,16 @@ impl<'a> App<'a> {
                 reason: "recommended".to_string(),
             })
             .collect();
+        for entry in available_plugins {
+            if !recommended_plugin_names.contains(&entry.install_id) {
+                plugins.push(ToggleItem {
+                    name: entry.install_id.clone(),
+                    enabled: false,
+                    score: 0.0,
+                    reason: format!("{} ({})", entry.description, entry.source_name),
+                });
+            }
+        }
 
         let project_name = fingerprint
             .project_dir

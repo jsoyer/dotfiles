@@ -550,6 +550,28 @@ fn read_settings_from_file(path: &Path) -> (Vec<String>, Vec<String>) {
     (Vec::new(), plugins)
 }
 
+/// Set all plugins to enabled or disabled in a settings file.
+pub fn set_all_plugins_enabled(path: &Path, enabled: bool) -> Result<()> {
+    if !path.exists() {
+        return Ok(());
+    }
+    let content = std::fs::read_to_string(path)?;
+    let mut settings: serde_json::Map<String, serde_json::Value> =
+        serde_json::from_str(&content).unwrap_or_default();
+
+    if let Some(serde_json::Value::Object(plugins)) = settings.get_mut("enabledPlugins") {
+        for value in plugins.values_mut() {
+            *value = serde_json::Value::Bool(enabled);
+        }
+    }
+
+    let json = serde_json::to_string_pretty(&settings)?;
+    let tmp = path.with_extension("json.tmp");
+    std::fs::write(&tmp, &json)?;
+    std::fs::rename(&tmp, path)?;
+    Ok(())
+}
+
 impl ApplyPreview {
     pub fn print(&self) {
         println!("Will create (scope: {}):", self.scope);

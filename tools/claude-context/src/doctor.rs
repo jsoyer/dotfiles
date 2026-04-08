@@ -1,8 +1,10 @@
 use anyhow::Result;
+use std::path::Path;
 
 use crate::config::AppConfig;
 use crate::indexer::Index;
 use crate::profile::ProfileManager;
+use crate::scope;
 
 /// Confidence tier thresholds
 pub const TIER_CRITICAL: f32 = 0.95;
@@ -33,7 +35,7 @@ pub fn run_doctor(config: &AppConfig) -> Result<DoctorReport> {
     checks.push(check_config_dir(config));
     checks.extend(check_index(config));
     checks.extend(check_profiles(config));
-    checks.extend(check_project_symlinks(config));
+    checks.extend(check_all_scopes(config));
     checks.extend(check_cli_detection(config));
 
     Ok(DoctorReport { checks })
@@ -212,23 +214,50 @@ fn check_profiles(config: &AppConfig) -> Vec<CheckResult> {
     results
 }
 
-fn check_project_symlinks(_config: &AppConfig) -> Vec<CheckResult> {
+fn check_all_scopes(_config: &AppConfig) -> Vec<CheckResult> {
     let mut results = Vec::new();
+    let home = dirs::home_dir().unwrap_or_default();
+    let cwd = std::env::current_dir().ok();
 
-    let cwd = match std::env::current_dir() {
-        Ok(d) => d,
-        Err(_) => return results,
-    };
-
-    let claude_dir = cwd.join(".claude");
-    if !claude_dir.exists() {
-        results.push(CheckResult {
-            name: "Project config".to_string(),
-            status: CheckStatus::Ok,
-            message: "No per-project config (using global)".to_string(),
-        });
-        return results;
+    // Global scope: ~/.claude/
+    let global_claude = home.join(".claude");
+    if global_claude.exists() {
+        results.extend(check_scope_symlinks(&global_claude, "Global"));
+        check_settings_files(&global_claude, "Global", &mut results);
     }
+
+    // Project scope: ./.claude/ (if in a project)
+    if let Some(ref cwd) = cwd {
+        if let Some(root) = scope::find_project_root(cwd) {
+            let project_claude = root.join(".claude");
+            if project_claude.exists() {
+                results.extend(check_scope_symlinks(&project_claude, "Project"));
+                check_settings_files(&project_claude, "Project", &mut results);
+            } else {
+                results.push(CheckResult {
+                    name: "Project config".to_string(),
+                    status: CheckStatus::Ok,
+                    message: "No per-project config (using global)".to_string(),
+                });
+            }
+
+            // UserProject scope: ~/.claude/projects/<hash>/
+            let hash = scope::path_hash(&root);
+            let up_dir = home.join(".claude").join("projects").join(&hash);
+            if up_dir.exists() {
+                check_settings_files(&up_dir, "UserProject", &mut results);
+            }
+        }
+    }
+
+    // Detect settings.local.json -> settings.json migration opportunities
+    results.extend(check_settings_migration(&home));
+
+    results
+}
+
+fn check_scope_symlinks(claude_dir: &Path, scope_label: &str) -> Vec<CheckResult> {
+    let mut results = Vec::new();
 
     for subdir in ["skills", "agents", "commands", "rules"] {
         let dir = claude_dir.join(subdir);
@@ -244,7 +273,6 @@ fn check_project_symlinks(_config: &AppConfig) -> Vec<CheckResult> {
                 let path = entry.path();
                 if path.read_link().is_ok() {
                     total += 1;
-                    // Check if target exists
                     if !path.exists() {
                         broken += 1;
                     }
@@ -254,34 +282,40 @@ fn check_project_symlinks(_config: &AppConfig) -> Vec<CheckResult> {
 
         if broken > 0 {
             results.push(CheckResult {
-                name: format!("Symlinks: {}", subdir),
+                name: format!("{} {}", scope_label, subdir),
                 status: CheckStatus::Error,
                 message: format!("{}/{} broken symlinks", broken, total),
             });
         } else if total > 0 {
             results.push(CheckResult {
-                name: format!("Symlinks: {}", subdir),
+                name: format!("{} {}", scope_label, subdir),
                 status: CheckStatus::Ok,
                 message: format!("{} symlinks OK", total),
             });
         }
     }
 
-    // Check settings.local.json
-    let settings_local = claude_dir.join("settings.local.json");
-    if settings_local.exists() {
-        match std::fs::read_to_string(&settings_local) {
+    results
+}
+
+fn check_settings_files(dir: &Path, scope_label: &str, results: &mut Vec<CheckResult>) {
+    for filename in ["settings.json", "settings.local.json"] {
+        let path = dir.join(filename);
+        if !path.exists() {
+            continue;
+        }
+        match std::fs::read_to_string(&path) {
             Ok(content) => match serde_json::from_str::<serde_json::Value>(&content) {
                 Ok(_) => {
                     results.push(CheckResult {
-                        name: "settings.local.json".to_string(),
+                        name: format!("{} {}", scope_label, filename),
                         status: CheckStatus::Ok,
                         message: "Valid JSON".to_string(),
                     });
                 }
                 Err(e) => {
                     results.push(CheckResult {
-                        name: "settings.local.json".to_string(),
+                        name: format!("{} {}", scope_label, filename),
                         status: CheckStatus::Error,
                         message: format!("Invalid JSON: {}", e),
                     });
@@ -289,12 +323,29 @@ fn check_project_symlinks(_config: &AppConfig) -> Vec<CheckResult> {
             },
             Err(e) => {
                 results.push(CheckResult {
-                    name: "settings.local.json".to_string(),
+                    name: format!("{} {}", scope_label, filename),
                     status: CheckStatus::Error,
                     message: format!("Cannot read: {}", e),
                 });
             }
         }
+    }
+}
+
+fn check_settings_migration(home: &Path) -> Vec<CheckResult> {
+    let mut results = Vec::new();
+
+    // Check if both settings.local.json and settings.json exist in global scope
+    let global_claude = home.join(".claude");
+    let local = global_claude.join("settings.local.json");
+    let main = global_claude.join("settings.json");
+
+    if local.exists() && main.exists() {
+        results.push(CheckResult {
+            name: "Settings migration".to_string(),
+            status: CheckStatus::Warning,
+            message: "Both settings.json and settings.local.json exist in ~/.claude/. Consider merging.".to_string(),
+        });
     }
 
     results

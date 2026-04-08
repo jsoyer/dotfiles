@@ -97,7 +97,7 @@ pub enum Command {
     /// Re-index skills, agents, and commands from source
     Index,
 
-    /// Check integrity (broken symlinks, stale profiles)
+    /// Check integrity (broken symlinks, stale profiles, all scopes)
     Doctor,
 
     /// Export profile to portable YAML
@@ -114,10 +114,54 @@ pub enum Command {
 
     /// Get or set project-specific config
     Config {
-        /// Config key (e.g., ai.enabled)
-        key: String,
-
-        /// Value to set (omit to get current value)
-        value: Option<String>,
+        #[command(subcommand)]
+        action: ConfigAction,
     },
+
+    /// Generate shell hook for auto-apply on cd
+    Hook {
+        /// Shell type: zsh, bash, or fish
+        shell: String,
+    },
+
+    /// Plugin management (discover, search, enable/disable)
+    Plugin {
+        #[command(subcommand)]
+        action: PluginAction,
+    },
+}
+
+#[derive(Subcommand)]
+pub enum ConfigAction {
+    /// Get a config value
+    Get {
+        /// Config key (e.g., ai.enabled, paths.skills_dir)
+        key: String,
+    },
+    /// Set a config value
+    Set {
+        /// Config key
+        key: String,
+        /// Value to set
+        value: String,
+    },
+    /// List all config values with scope indicators
+    List,
+}
+
+#[derive(Subcommand)]
+pub enum PluginAction {
+    /// List available plugins from all sources
+    List,
+    /// Search plugins by name or description
+    Search {
+        /// Search query
+        query: String,
+    },
+    /// Refresh plugin cache from all sources
+    Refresh,
+    /// Disable all plugins globally
+    DisableAll,
+    /// Enable all plugins globally
+    EnableAll,
 }

@@ -1,5 +1,7 @@
 use anyhow::Result;
 
+use crate::ai;
+use crate::config::AiConfig;
 use crate::indexer::{Index, ResourceEntry};
 use crate::scanner::ProjectFingerprint;
 
@@ -31,7 +33,8 @@ pub enum RecommendSource {
 pub fn recommend(
     fingerprint: &ProjectFingerprint,
     index: &Index,
-    _smart: bool,
+    smart: bool,
+    ai_config: &AiConfig,
 ) -> Result<Recommendations> {
     let project_tags = fingerprint.all_tags();
     let project_langs = fingerprint.language_names();
@@ -43,12 +46,10 @@ pub fn recommend(
     let rules = project_langs
         .iter()
         .filter(|l| {
-            // Map language names to rule directory names
             let _rule_name = match l.as_str() {
                 "go" => "golang",
                 _ => l.as_str(),
             };
-            // Check if rule directory exists
             true // Will be validated during symlink creation
         })
         .cloned()
@@ -57,14 +58,50 @@ pub fn recommend(
     let mcp = recommend_mcp(fingerprint);
     let plugins = recommend_plugins(fingerprint);
 
-    Ok(Recommendations {
+    let mut recs = Recommendations {
         skills,
         agents,
         commands,
         mcp,
         rules,
         plugins,
-    })
+    };
+
+    // AI refinement when --smart flag is active and AI is enabled
+    if smart && ai_config.enabled {
+        let skill_names: Vec<String> = index.skills.iter().map(|s| s.name.clone()).collect();
+        let agent_names: Vec<String> = index.agents.iter().map(|a| a.name.clone()).collect();
+        match ai::refine(ai_config, fingerprint, &recs, &skill_names, &agent_names) {
+            Ok(refinement) => apply_refinement(&mut recs, &refinement),
+            Err(e) => eprintln!("AI refinement failed, using scanner results: {}", e),
+        }
+    }
+
+    Ok(recs)
+}
+
+fn apply_refinement(recs: &mut Recommendations, refinement: &ai::AiRefinement) {
+    for name in &refinement.add_skills {
+        if !recs.skills.iter().any(|r| &r.name == name) {
+            recs.skills.push(Recommendation {
+                name: name.clone(),
+                score: 0.7,
+                reason: format!("AI: {}", refinement.reasoning),
+                source: RecommendSource::Ai,
+            });
+        }
+    }
+    for name in &refinement.add_agents {
+        if !recs.agents.iter().any(|r| &r.name == name) {
+            recs.agents.push(Recommendation {
+                name: name.clone(),
+                score: 0.7,
+                reason: format!("AI: {}", refinement.reasoning),
+                source: RecommendSource::Ai,
+            });
+        }
+    }
+    recs.skills.retain(|r| !refinement.remove_skills.contains(&r.name));
 }
 
 fn score_resources(

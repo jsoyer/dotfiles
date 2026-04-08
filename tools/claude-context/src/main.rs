@@ -3,9 +3,11 @@ mod cli;
 mod config;
 mod cost;
 mod doctor;
+mod hooks;
 mod indexer;
 mod matcher;
 mod multi_cli;
+mod plugins;
 mod profile;
 mod scanner;
 mod scope;
@@ -16,7 +18,7 @@ mod tui;
 use anyhow::Result;
 use clap::Parser;
 
-use cli::{Cli, Command};
+use cli::{Cli, Command, ConfigAction, PluginAction};
 use config::AppConfig;
 use indexer::Index;
 use profile::ProfileManager;
@@ -38,7 +40,7 @@ fn main() -> Result<()> {
             auto: _,
             smart,
             yes,
-        } => run_apply(&config, &resolved, profile, smart, yes),
+        } => run_apply(&config, &resolved, profile, smart, yes, cli.scope),
         Command::Status => run_status(&config, &resolved),
         Command::Diff => run_diff(&config, &resolved),
         Command::Cost => run_cost(&config, &resolved),
@@ -51,7 +53,9 @@ fn main() -> Result<()> {
         Command::Doctor => run_doctor(&config),
         Command::Export { profile } => run_export(&config, &profile),
         Command::Import { file } => run_import(&config, &file),
-        Command::Config { key, value } => run_config(&key, value),
+        Command::Config { action } => run_config(&config, action),
+        Command::Hook { shell } => run_hook(&shell),
+        Command::Plugin { action } => run_plugin(&config, &resolved, action),
     }
 }
 
@@ -59,9 +63,13 @@ fn run_tui(config: &AppConfig, resolved: &ResolvedScope, smart: bool) -> Result<
     let index = Index::build(config)?;
     let cwd = std::env::current_dir()?;
     let fingerprint = Scanner::scan(&cwd)?;
-    let recommendations = matcher::recommend(&fingerprint, &index, smart)?;
+    let recommendations = matcher::recommend(&fingerprint, &index, smart, &config.ai)?;
 
-    tui::run(config, resolved, &index, &fingerprint, &recommendations)
+    // Load available plugins for the TUI
+    let pm = plugins::PluginManager::new(&config.paths.config_dir)?;
+    let available_plugins = pm.all_available().unwrap_or_default();
+
+    tui::run(config, resolved, &index, &fingerprint, &recommendations, &available_plugins)
 }
 
 fn run_scan() -> Result<()> {
@@ -76,20 +84,44 @@ fn run_apply(
     profile: Option<String>,
     smart: bool,
     yes: bool,
+    explicit_scope: Option<scope::Scope>,
 ) -> Result<()> {
     let index = Index::build(config)?;
 
-    let selections = if let Some(name) = profile {
+    let (selections, resolved) = if let Some(name) = profile {
         let pm = ProfileManager::new(config)?;
-        pm.load(&name)?
+        let (recs, profile_scope) = pm.load_with_scope(&name)?;
+        // Use profile's scope if user didn't explicitly override
+        let resolved = if explicit_scope.is_none() {
+            if let Some(scope_str) = profile_scope {
+                let parsed = match scope_str.as_str() {
+                    "global" => Some(scope::Scope::Global),
+                    "project" => Some(scope::Scope::Project),
+                    "user-project" => Some(scope::Scope::UserProject),
+                    _ => None,
+                };
+                if let Some(s) = parsed {
+                    let cwd = std::env::current_dir()?;
+                    scope::resolve(&cwd, Some(s))?
+                } else {
+                    resolved.clone()
+                }
+            } else {
+                resolved.clone()
+            }
+        } else {
+            resolved.clone()
+        };
+        (recs, resolved)
     } else {
         let cwd = std::env::current_dir()?;
         let fingerprint = Scanner::scan(&cwd)?;
-        matcher::recommend(&fingerprint, &index, smart)?
+        let recs = matcher::recommend(&fingerprint, &index, smart, &config.ai)?;
+        (recs, resolved.clone())
     };
 
     if !yes {
-        let preview = symlinker::preview(config, resolved, &selections)?;
+        let preview = symlinker::preview(config, &resolved, &selections)?;
         preview.print();
 
         if !dialoguer::Confirm::new()
@@ -102,7 +134,7 @@ fn run_apply(
         }
     }
 
-    symlinker::apply(config, resolved, &selections)?;
+    symlinker::apply(config, &resolved, &selections)?;
     println!("Applied successfully.");
     Ok(())
 }
@@ -117,7 +149,7 @@ fn run_diff(config: &AppConfig, resolved: &ResolvedScope) -> Result<()> {
     let index = Index::build(config)?;
     let cwd = std::env::current_dir()?;
     let fingerprint = Scanner::scan(&cwd)?;
-    let recommended = matcher::recommend(&fingerprint, &index, false)?;
+    let recommended = matcher::recommend(&fingerprint, &index, false, &config.ai)?;
     let current = symlinker::status(config, resolved)?;
 
     cost::print_diff(&current, &recommended);
@@ -273,12 +305,214 @@ fn run_import(config: &AppConfig, file: &str) -> Result<()> {
     Ok(())
 }
 
-fn run_config(key: &str, value: Option<String>) -> Result<()> {
-    match value {
-        Some(v) => println!("Set {} = {}", key, v),
-        None => println!("Get {}", key),
+// ── P4: Config command ──────────────────────────────────────────────────
+
+fn run_config(config: &AppConfig, action: ConfigAction) -> Result<()> {
+    let cwd = std::env::current_dir()?;
+    let project_config_path = cwd.join(".cctx.yaml");
+
+    match action {
+        ConfigAction::Get { key } => {
+            // Check project-level first, then global
+            if let Some(val) = config_get_from_file(&project_config_path, &key) {
+                println!("{} = {} [project]", key, val);
+            } else if let Some(val) = config_get_from_app(config, &key) {
+                println!("{} = {} [global]", key, val);
+            } else {
+                println!("{}: not found", key);
+            }
+        }
+        ConfigAction::Set { key, value } => {
+            config_set_in_file(&project_config_path, &key, &value)?;
+            println!("Set {} = {} [project]", key, value);
+        }
+        ConfigAction::List => {
+            println!("Configuration:");
+            // Global config
+            for (k, v) in config_list_global(config) {
+                let scope = if config_get_from_file(&project_config_path, &k).is_some() {
+                    "project"
+                } else {
+                    "global"
+                };
+                println!("  {:<30} = {:<20} [{}]", k, v, scope);
+            }
+        }
     }
-    // TODO: implement project-level config read/write
+    Ok(())
+}
+
+fn config_get_from_file(path: &std::path::Path, key: &str) -> Option<String> {
+    if !path.exists() {
+        return None;
+    }
+    let content = std::fs::read_to_string(path).ok()?;
+    let yaml: serde_yaml::Value = serde_yaml::from_str(&content).ok()?;
+    let parts: Vec<&str> = key.split('.').collect();
+    let mut current = &yaml;
+    for part in &parts {
+        current = current.get(part)?;
+    }
+    Some(format!("{}", serde_yaml::to_string(current).ok()?.trim()))
+}
+
+fn config_get_from_app(config: &AppConfig, key: &str) -> Option<String> {
+    match key {
+        "ai.enabled" => Some(config.ai.enabled.to_string()),
+        "ai.provider" => Some(config.ai.provider.clone()),
+        "ai.model" => Some(config.ai.model.clone()),
+        "ai.max_tokens" => Some(config.ai.max_tokens.to_string()),
+        "ai.cache_ttl" => Some(config.ai.cache_ttl.clone()),
+        "paths.skills_dir" => Some(config.paths.skills_dir.display().to_string()),
+        "paths.agents_dir" => Some(config.paths.agents_dir.display().to_string()),
+        "paths.commands_dir" => Some(config.paths.commands_dir.display().to_string()),
+        "paths.rules_dir" => Some(config.paths.rules_dir.display().to_string()),
+        "paths.config_dir" => Some(config.paths.config_dir.display().to_string()),
+        "paths.profiles_dir" => Some(config.paths.profiles_dir.display().to_string()),
+        _ => None,
+    }
+}
+
+fn config_set_in_file(path: &std::path::Path, key: &str, value: &str) -> Result<()> {
+    let mut yaml: serde_yaml::Value = if path.exists() {
+        let content = std::fs::read_to_string(path)?;
+        serde_yaml::from_str(&content)?
+    } else {
+        serde_yaml::Value::Mapping(serde_yaml::Mapping::new())
+    };
+
+    let parts: Vec<&str> = key.split('.').collect();
+    let mut current = &mut yaml;
+    for (i, part) in parts.iter().enumerate() {
+        if i == parts.len() - 1 {
+            // Parse value: try bool, then number, then string
+            let parsed: serde_yaml::Value = if value == "true" {
+                serde_yaml::Value::Bool(true)
+            } else if value == "false" {
+                serde_yaml::Value::Bool(false)
+            } else if let Ok(n) = value.parse::<i64>() {
+                serde_yaml::Value::Number(n.into())
+            } else {
+                serde_yaml::Value::String(value.to_string())
+            };
+            current[serde_yaml::Value::String(part.to_string())] = parsed;
+        } else {
+            let key = serde_yaml::Value::String(part.to_string());
+            if !current.get(&key).is_some() {
+                current[key.clone()] = serde_yaml::Value::Mapping(serde_yaml::Mapping::new());
+            }
+            current = current.get_mut(&key).unwrap();
+        }
+    }
+
+    let output = serde_yaml::to_string(&yaml)?;
+    std::fs::write(path, output)?;
+    Ok(())
+}
+
+fn config_list_global(config: &AppConfig) -> Vec<(String, String)> {
+    vec![
+        ("ai.enabled".into(), config.ai.enabled.to_string()),
+        ("ai.provider".into(), config.ai.provider.clone()),
+        ("ai.model".into(), config.ai.model.clone()),
+        ("ai.max_tokens".into(), config.ai.max_tokens.to_string()),
+        ("ai.cache_ttl".into(), config.ai.cache_ttl.clone()),
+        ("paths.skills_dir".into(), config.paths.skills_dir.display().to_string()),
+        ("paths.agents_dir".into(), config.paths.agents_dir.display().to_string()),
+        ("paths.commands_dir".into(), config.paths.commands_dir.display().to_string()),
+        ("paths.rules_dir".into(), config.paths.rules_dir.display().to_string()),
+    ]
+}
+
+// ── P5: Shell hooks ─────────────────────────────────────────────────────
+
+fn run_hook(shell: &str) -> Result<()> {
+    let code = hooks::generate(shell)?;
+    print!("{}", code);
+    Ok(())
+}
+
+// ── P7: Plugin management ───────────────────────────────────────────────
+
+fn run_plugin(config: &AppConfig, resolved: &ResolvedScope, action: PluginAction) -> Result<()> {
+    match action {
+        PluginAction::List => {
+            let pm = plugins::PluginManager::new(&config.paths.config_dir)?;
+            let all = pm.all_available()?;
+            if all.is_empty() {
+                println!("No plugins cached. Run `cctx plugin refresh` first.");
+            } else {
+                println!("Available plugins ({}):", all.len());
+                for entry in &all {
+                    println!(
+                        "  {:<30} {} ({})",
+                        entry.install_id, entry.description, entry.source_name
+                    );
+                }
+            }
+        }
+        PluginAction::Search { query } => {
+            let pm = plugins::PluginManager::new(&config.paths.config_dir)?;
+            let results = pm.search(&query)?;
+            if results.is_empty() {
+                println!("No plugins matching '{}'.", query);
+            } else {
+                println!("Plugins matching '{}' ({}):", query, results.len());
+                for entry in &results {
+                    println!(
+                        "  {:<30} {} ({})",
+                        entry.install_id, entry.description, entry.source_name
+                    );
+                }
+            }
+        }
+        PluginAction::Refresh => {
+            let pm = plugins::PluginManager::new(&config.paths.config_dir)?;
+            pm.refresh()?;
+            let all = pm.all_available()?;
+            println!("Refreshed. {} plugins available.", all.len());
+        }
+        PluginAction::DisableAll => {
+            let scope_s = scope::scope_str(resolved.scope);
+            let mut count = 0;
+            for cli in &config.cli_registry {
+                if !cli.supports.contains(&"plugins".to_string()) {
+                    continue;
+                }
+                if !cli.scopes.contains(&scope_s.to_string()) {
+                    continue;
+                }
+                for filename in ["settings.json", "settings.local.json"] {
+                    let path = cli.config_dir.join(filename);
+                    if path.exists() {
+                        symlinker::set_all_plugins_enabled(&path, false)?;
+                        count += 1;
+                    }
+                }
+            }
+            println!("Disabled all plugins in {} settings files.", count);
+        }
+        PluginAction::EnableAll => {
+            let scope_s = scope::scope_str(resolved.scope);
+            let mut count = 0;
+            for cli in &config.cli_registry {
+                if !cli.supports.contains(&"plugins".to_string()) {
+                    continue;
+                }
+                if !cli.scopes.contains(&scope_s.to_string()) {
+                    continue;
+                }
+                for filename in ["settings.json", "settings.local.json"] {
+                    let path = cli.config_dir.join(filename);
+                    if path.exists() {
+                        symlinker::set_all_plugins_enabled(&path, true)?;
+                        count += 1;
+                    }
+                }
+            }
+            println!("Enabled all plugins in {} settings files.", count);
+        }
+    }
     Ok(())
 }
 
@@ -376,7 +610,7 @@ mod tests {
         if let Ok(index) = Index::build(&config) {
             let dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
             let fingerprint = Scanner::scan(&dir).unwrap();
-            let recs = matcher::recommend(&fingerprint, &index, false).unwrap();
+            let recs = matcher::recommend(&fingerprint, &index, false, &config.ai).unwrap();
 
             if !recs.skills.is_empty() {
                 assert!(recs.skills.len() > 0);

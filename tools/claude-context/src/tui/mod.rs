@@ -6,6 +6,7 @@ use anyhow::Result;
 use crate::config::AppConfig;
 use crate::indexer::Index;
 use crate::matcher::Recommendations;
+use crate::plugins::PluginEntry;
 use crate::scanner::ProjectFingerprint;
 use crate::scope::ResolvedScope;
 
@@ -15,8 +16,9 @@ pub fn run(
     index: &Index,
     fingerprint: &ProjectFingerprint,
     recommendations: &Recommendations,
+    available_plugins: &[PluginEntry],
 ) -> Result<()> {
-    let mut app = app::App::new(config, index, fingerprint, recommendations);
+    let mut app = app::App::new(config, index, fingerprint, recommendations, available_plugins);
 
     let mut terminal = ratatui::init();
     let result = app.run(&mut terminal);
