@@ -1,6 +1,6 @@
 #!/bin/bash
-# Claude Code Statusline — Noxys Edition v3
-# Catppuccin Mocha palette · emoji-rich · OAuth fallback · optimized
+# Claude Code Statusline — Noxys Edition v4
+# Auto palette (Catppuccin Mocha / Snazzy) · OAuth fallback · single git call
 set -f
 
 input=$(cat)
@@ -89,13 +89,15 @@ read_json() {
     (.cost.total_lines_removed // 0),
     (.rate_limits.five_hour.used_percentage // ""),
     (.rate_limits.seven_day.used_percentage // ""),
-    (.rate_limits.five_hour.resets_at // "")
+    (.rate_limits.five_hour.resets_at // ""),
+    (.cost.total_turns // 0)
   ] | @tsv'
 }
 
 IFS=$'\t' read -r MODEL DIR SESSION_NAME AGENT OUTPUT_STYLE VIM_MODE \
   WORKTREE WORKTREE_BRANCH PCT CTX_SIZE INPUT_TOKENS CACHE_CREATE CACHE_READ \
   COST DURATION_MS API_MS LINES_ADD LINES_DEL RATE_5H RATE_7D RESET_5H \
+  TURNS \
   <<< "$(read_json)"
 
 PCT=${PCT:-0};             CTX_SIZE=${CTX_SIZE:-200000}
@@ -104,6 +106,7 @@ CACHE_CREATE=${CACHE_CREATE:-0}
 CACHE_READ=${CACHE_READ:-0}
 DURATION_MS=${DURATION_MS:-0};  API_MS=${API_MS:-0}
 LINES_ADD=${LINES_ADD:-0};      LINES_DEL=${LINES_DEL:-0}
+TURNS=${TURNS:-0}
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 #  Helpers
@@ -209,11 +212,9 @@ fmt_reset_time() {
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 get_oauth_token() {
-  # 1. Environment variable
   if [ -n "$CLAUDE_CODE_OAUTH_TOKEN" ]; then
     echo "$CLAUDE_CODE_OAUTH_TOKEN"; return 0
   fi
-  # 2. macOS Keychain
   if command -v security >/dev/null 2>&1; then
     local blob
     blob=$(security find-generic-password -s "Claude Code-credentials" -w 2>/dev/null)
@@ -223,14 +224,12 @@ get_oauth_token() {
       [ -n "$t" ] && [ "$t" != "null" ] && { echo "$t"; return 0; }
     fi
   fi
-  # 3. Credentials file
   local creds="${HOME}/.claude/.credentials.json"
   if [ -f "$creds" ]; then
     local t
     t=$(jq -r '.claudeAiOauth.accessToken // empty' "$creds" 2>/dev/null)
     [ -n "$t" ] && [ "$t" != "null" ] && { echo "$t"; return 0; }
   fi
-  # 4. Linux secret-tool
   if command -v secret-tool >/dev/null 2>&1; then
     local blob
     blob=$(timeout 2 secret-tool lookup service "Claude Code-credentials" 2>/dev/null)
@@ -244,11 +243,14 @@ get_oauth_token() {
 }
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-#  OAuth usage API (cached, fallback for rate limits)
+#  OAuth usage API — async background refresh
+#  Always returns instantly (stale cache or empty)
+#  Triggers background curl when cache is expired
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 OAUTH_CACHE_DIR="/tmp/claude"
 OAUTH_CACHE_FILE="${OAUTH_CACHE_DIR}/statusline-usage-cache.json"
+OAUTH_CACHE_LOCK="${OAUTH_CACHE_DIR}/statusline-usage.lock"
 OAUTH_CACHE_MAX_AGE=60
 
 fetch_usage_data() {
@@ -259,32 +261,28 @@ fetch_usage_data() {
     local mtime now age
     mtime=$(stat -c %Y "$OAUTH_CACHE_FILE" 2>/dev/null || stat -f %m "$OAUTH_CACHE_FILE" 2>/dev/null)
     now=$(date +%s); age=$((now - mtime))
-    if [ "$age" -lt "$OAUTH_CACHE_MAX_AGE" ]; then
-      needs_refresh=false
-      usage_data=$(cat "$OAUTH_CACHE_FILE" 2>/dev/null)
-    fi
+    usage_data=$(cat "$OAUTH_CACHE_FILE" 2>/dev/null)
+    [ "$age" -lt "$OAUTH_CACHE_MAX_AGE" ] && needs_refresh=false
   fi
 
-  if $needs_refresh; then
-    local token
-    token=$(get_oauth_token)
-    if [ -n "$token" ] && [ "$token" != "null" ]; then
-      local resp
-      resp=$(curl -s --max-time 3 \
-        -H "Accept: application/json" \
-        -H "Content-Type: application/json" \
-        -H "Authorization: Bearer $token" \
-        -H "anthropic-beta: oauth-2025-04-20" \
-        "https://api.anthropic.com/api/oauth/usage" 2>/dev/null)
-      if [ -n "$resp" ] && echo "$resp" | jq -e '.five_hour' >/dev/null 2>&1; then
-        usage_data="$resp"
-        echo "$resp" > "$OAUTH_CACHE_FILE"
+  if $needs_refresh && [ ! -f "$OAUTH_CACHE_LOCK" ]; then
+    touch "$OAUTH_CACHE_LOCK"
+    (
+      token=$(get_oauth_token)
+      if [ -n "$token" ] && [ "$token" != "null" ]; then
+        resp=$(curl -s --max-time 5 \
+          -H "Accept: application/json" \
+          -H "Content-Type: application/json" \
+          -H "Authorization: Bearer $token" \
+          -H "anthropic-beta: oauth-2025-04-20" \
+          "https://api.anthropic.com/api/oauth/usage" 2>/dev/null)
+        if [ -n "$resp" ] && echo "$resp" | jq -e '.five_hour' >/dev/null 2>&1; then
+          echo "$resp" > "$OAUTH_CACHE_FILE"
+        fi
       fi
-    fi
-    # Stale cache as last resort
-    if [ -z "$usage_data" ] && [ -f "$OAUTH_CACHE_FILE" ]; then
-      usage_data=$(cat "$OAUTH_CACHE_FILE" 2>/dev/null)
-    fi
+      rm -f "$OAUTH_CACHE_LOCK"
+    ) &
+    disown
   fi
 
   echo "$usage_data"
@@ -296,16 +294,24 @@ fetch_usage_data() {
 
 REPO="${DIR##*/}"
 DISPLAY="${SESSION_NAME:-$REPO}"
-BRANCH="${WORKTREE_BRANCH:-$(timeout 1 git -C "$DIR" rev-parse --abbrev-ref HEAD 2>/dev/null)}"
 USED_TOKENS=$((INPUT_TOKENS + CACHE_CREATE + CACHE_READ))
 REMAINING=$((CTX_SIZE - USED_TOKENS))
 DURATION_STR=$(fmt_duration "$DURATION_MS")
 NOW_TIME=$(date +"%H:%M")
 
-# Git status (with timeout)
-STAGED=$(timeout 1 git -C "$DIR" diff --cached --name-only 2>/dev/null | wc -l | tr -d ' ')
-UNSTAGED=$(timeout 1 git -C "$DIR" diff --name-only 2>/dev/null | wc -l | tr -d ' ')
-STAGED=${STAGED:-0}; UNSTAGED=${UNSTAGED:-0}
+# Git — single call: branch + staged + unstaged + last commit ts
+BRANCH="$WORKTREE_BRANCH"
+STAGED=0; UNSTAGED=0; LAST_COMMIT_TS=""
+
+if [ -n "$DIR" ] && [ -d "$DIR" ]; then
+  GIT_RAW=$(timeout 1 git -C "$DIR" status --porcelain -b 2>/dev/null)
+  if [ -n "$GIT_RAW" ]; then
+    [ -z "$BRANCH" ] && BRANCH=$(head -1 <<< "$GIT_RAW" | sed 's/^## //; s/\.\.\..*//')
+    STAGED=$(grep -c '^[MADRC]' <<< "$GIT_RAW" || true)
+    UNSTAGED=$(grep -c '^.[MADRC?]' <<< "$GIT_RAW" || true)
+    LAST_COMMIT_TS=$(timeout 1 git -C "$DIR" log -1 --format="%ct" 2>/dev/null)
+  fi
+fi
 
 # Cache ratio
 CACHE_TOTAL=$((CACHE_READ + CACHE_CREATE)); CACHE_PCT=0
@@ -342,7 +348,7 @@ THINKING_ON=false
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 #  LINE 1 — Identity
-#  🔮 Opus 4.6  │  📂 myrepo   main +2 ~1  │  ⏱ 12m  14:30  │  🧠 on
+#  🔮 Opus 4.6  │  📂 myrepo   main +2 ~1  │  ⏱ 12m  14:30  │  💬 8  │  🧠 on
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 L1="${MAUVE}🔮 ${BOLD}${MODEL}${RST}"
@@ -378,6 +384,9 @@ fi
 # Duration + clock
 L1+="${SEP}${FLAMINGO}⏱  ${BOLD}${DURATION_STR}${RST}  ${OVERLAY}${NOW_TIME}${RST}"
 
+# Turns
+[ "$TURNS" -gt 0 ] && L1+="${SEP}${SAPPHIRE}💬 ${TURNS}${RST}"
+
 # Thinking toggle
 if $THINKING_ON; then
   L1+="${SEP}${MAUVE}🧠 on${RST}"
@@ -400,28 +409,36 @@ TOTAL_FMT=$(fmt_tokens "$CTX_SIZE")
 
 L2="${CTX_DOT} ${CTX_BAR}  ${CTX_CLR}${BOLD}${PCT}%${RST}  ${OVERLAY}${USED_FMT}/${TOTAL_FMT}${RST}"
 
-# Remaining tokens alert (only when it matters)
-if [ "$REMAINING" -lt 20000 ] && [ "$USED_TOKENS" -gt 0 ]; then
-  RK=$((REMAINING / 1000))
-  L2+="  ${BLINK}${RED}⚠️  ~${RK}k left${RST}"
-elif [ "$REMAINING" -lt 50000 ] && [ "$USED_TOKENS" -gt 0 ]; then
-  RK=$((REMAINING / 1000))
-  L2+="  ${YELLOW}~${RK}k left${RST}"
-fi
-
-# Compact reminder
-if   [ "$PCT" -ge 80 ]; then L2+="  ${BLINK}${RED}⚡ /compact!${RST}"
-elif [ "$PCT" -ge 60 ]; then L2+="  ${PEACH}💡 /compact${RST}"; fi
-
-# Time-to-full prediction
+# Context alert — pick the single most urgent one
+CTX_ALERT=""
 if [ "$DURATION_MS" -gt 120000 ] && [ "$PCT" -gt 10 ] && [ "$USED_TOKENS" -gt 0 ]; then
   TPM=$(awk "BEGIN{printf \"%.0f\",$USED_TOKENS/($DURATION_MS/60000)}")
   if [ -n "$TPM" ] && [ "$TPM" -gt 0 ]; then
     MINS=$(awk "BEGIN{printf \"%.0f\",$REMAINING/$TPM}")
-    if   [ "${MINS:-99}" -le 10 ]; then L2+="  ${BLINK}${RED}🕐 ~${MINS}m${RST}"
-    elif [ "${MINS:-99}" -le 30 ]; then L2+="  ${YELLOW}🕐 ~${MINS}m${RST}"; fi
   fi
 fi
+
+if [ "$PCT" -ge 80 ]; then
+  if [ -n "$MINS" ] && [ "${MINS:-99}" -le 10 ]; then
+    CTX_ALERT="  ${BLINK}${RED}⚡ /compact! ~${MINS}m${RST}"
+  else
+    CTX_ALERT="  ${BLINK}${RED}⚡ /compact!${RST}"
+  fi
+elif [ "$REMAINING" -lt 20000 ] && [ "$USED_TOKENS" -gt 0 ]; then
+  RK=$((REMAINING / 1000))
+  CTX_ALERT="  ${RED}⚠️  ~${RK}k left${RST}"
+elif [ -n "$MINS" ] && [ "${MINS:-99}" -le 10 ]; then
+  CTX_ALERT="  ${RED}🕐 full ~${MINS}m${RST}"
+elif [ "$PCT" -ge 60 ]; then
+  CTX_ALERT="  ${PEACH}💡 /compact${RST}"
+elif [ "$REMAINING" -lt 50000 ] && [ "$USED_TOKENS" -gt 0 ]; then
+  RK=$((REMAINING / 1000))
+  CTX_ALERT="  ${YELLOW}~${RK}k left${RST}"
+elif [ -n "$MINS" ] && [ "${MINS:-99}" -le 30 ]; then
+  CTX_ALERT="  ${YELLOW}🕐 ~${MINS}m${RST}"
+fi
+
+L2+="$CTX_ALERT"
 
 # Cost
 L2+="${SEP}${ROSEWATER}💰 \$$(printf '%.4f' "$COST")${RST}"
@@ -469,13 +486,12 @@ if [ -n "$RATE_5H" ] || [ -n "$RATE_7D" ]; then
     fi
   fi
 
-# ── Source 2: OAuth API fallback (cached) ──────────────
+# ── Source 2: OAuth API fallback (async, cached) ───────
 else
   USAGE_DATA=$(fetch_usage_data)
 
   if [ -n "$USAGE_DATA" ] && echo "$USAGE_DATA" | jq -e '.five_hour' >/dev/null 2>&1; then
 
-    # 5-hour / current
     FIVE_PCT=$(echo "$USAGE_DATA" | jq -r '.five_hour.utilization // 0' | awk '{printf "%.0f", $1}')
     FIVE_RESET_ISO=$(echo "$USAGE_DATA" | jq -r '.five_hour.resets_at // empty')
     FIVE_RESET=$(fmt_reset_time "$FIVE_RESET_ISO" "time")
@@ -484,7 +500,6 @@ else
     L3+="${LAVENDER}⚡ current${RST}  $(build_bar "$FIVE_PCT" 8)  $(pct_color "$FIVE_PCT")${BOLD}$(printf '%3d' "$FIVE_PCT")%${RST}"
     [ -n "$FIVE_RESET" ] && L3+="  ${OVERLAY}⟳${RST} ${TEXT}${FIVE_RESET}${RST}"
 
-    # 7-day / weekly
     SEVEN_PCT=$(echo "$USAGE_DATA" | jq -r '.seven_day.utilization // 0' | awk '{printf "%.0f", $1}')
     SEVEN_RESET_ISO=$(echo "$USAGE_DATA" | jq -r '.seven_day.resets_at // empty')
     SEVEN_RESET=$(fmt_reset_time "$SEVEN_RESET_ISO" "datetime")
@@ -493,7 +508,6 @@ else
     L3+="${SKY}📅 weekly${RST}   $(build_bar "$SEVEN_PCT" 8)  $(pct_color "$SEVEN_PCT")${BOLD}$(printf '%3d' "$SEVEN_PCT")%${RST}"
     [ -n "$SEVEN_RESET" ] && L3+="  ${OVERLAY}⟳${RST} ${TEXT}${SEVEN_RESET}${RST}"
 
-    # Extra usage (paid overage)
     EXTRA_ENABLED=$(echo "$USAGE_DATA" | jq -r '.extra_usage.is_enabled // false')
     if [ "$EXTRA_ENABLED" = "true" ]; then
       EXTRA_PCT=$(echo "$USAGE_DATA" | jq -r '.extra_usage.utilization // 0' | awk '{printf "%.0f", $1}')
@@ -506,9 +520,8 @@ else
 fi
 
 # ── Uncommitted time ───────────────────────────────────
-LAST_TS=$(timeout 1 git -C "$DIR" log -1 --format="%ct" 2>/dev/null)
-if [ -n "$LAST_TS" ] && [ "$LAST_TS" -gt 0 ]; then
-  SINCE_H=$(( ($(date +%s) - LAST_TS) / 3600 ))
+if [ -n "$LAST_COMMIT_TS" ] && [ "$LAST_COMMIT_TS" -gt 0 ]; then
+  SINCE_H=$(( ($(date +%s) - LAST_COMMIT_TS) / 3600 ))
   if [ "$SINCE_H" -ge 2 ]; then
     HAS_RATES=true
     [ -n "$L3" ] && L3+="${SEP}"
@@ -521,10 +534,3 @@ if [ -n "$LAST_TS" ] && [ "$LAST_TS" -gt 0 ]; then
 fi
 
 $HAS_RATES && echo -e "$L3"
-
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-#  Tmux export
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-printf '%s %s%%  $%.3f  %s\n' "$GRADE" "$PCT" "$COST" "$DURATION_STR" \
-  > /tmp/claude_sl_tmux.txt 2>/dev/null
