@@ -130,6 +130,18 @@ pub enum Command {
         action: PluginAction,
     },
 
+    /// Update all installed remote resources to latest version
+    Update,
+
+    /// Generate shell completions
+    Completions {
+        /// Shell type: bash, zsh, fish, elvish, powershell
+        shell: clap_complete::Shell,
+    },
+
+    /// Generate man page
+    Man,
+
     /// Watch project files and re-apply recommendations on change
     Watch {
         /// Polling interval in seconds

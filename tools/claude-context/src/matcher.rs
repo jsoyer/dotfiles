@@ -20,6 +20,7 @@ pub struct Recommendation {
     pub name: String,
     pub score: f32,
     pub reason: String,
+    #[allow(dead_code)]
     pub source: RecommendSource,
 }
 

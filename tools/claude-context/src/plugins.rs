@@ -185,12 +185,18 @@ impl PluginManager {
         })
     }
 
-    /// Refresh stale source caches.
+    /// Refresh stale source caches (rate-limited: 1s between fetches).
     pub fn refresh(&self) -> Result<()> {
+        let mut first = true;
         for source in &self.sources {
             if self.cache.is_fresh(&source.name) {
                 continue;
             }
+            // Rate limit: wait 1s between fetches to avoid spamming APIs
+            if !first {
+                std::thread::sleep(std::time::Duration::from_secs(1));
+            }
+            first = false;
             match fetch_source(source) {
                 Ok(entries) => {
                     self.cache.write(&source.name, &entries)?;
@@ -221,15 +227,6 @@ impl PluginManager {
             }
         }
         Ok(all)
-    }
-
-    /// Return cached resources filtered by type.
-    pub fn by_type(&self, resource_type: ResourceType) -> Result<Vec<RemoteResource>> {
-        Ok(self
-            .all_available()?
-            .into_iter()
-            .filter(|e| e.resource_type == resource_type)
-            .collect())
     }
 
     /// Fuzzy search by name, description, or tags.
@@ -300,6 +297,41 @@ impl PluginManager {
         }
 
         Ok(())
+    }
+
+    /// Update all installed remote resources by re-downloading them.
+    pub fn update_installed(
+        &self,
+        skills_dir: &Path,
+        agents_dir: &Path,
+        commands_dir: &Path,
+    ) -> Result<usize> {
+        let all = self.all_available()?;
+        let mut updated = 0;
+
+        for resource in &all {
+            if resource.download_url.is_empty() {
+                continue;
+            }
+
+            let exists = match resource.resource_type {
+                ResourceType::Skill => skills_dir.join(&resource.install_id).exists(),
+                ResourceType::Agent => agents_dir.join(format!("{}.md", resource.install_id)).exists(),
+                ResourceType::Command => commands_dir.join(format!("{}.md", resource.install_id)).exists(),
+                ResourceType::Plugin => false,
+            };
+
+            if exists {
+                match self.install(resource, skills_dir, agents_dir, commands_dir) {
+                    Ok(()) => updated += 1,
+                    Err(e) => eprintln!("Failed to update '{}': {}", resource.name, e),
+                }
+                // Rate limit between downloads
+                std::thread::sleep(std::time::Duration::from_millis(500));
+            }
+        }
+
+        Ok(updated)
     }
 
     /// Uninstall a previously downloaded resource from local dirs.
@@ -706,9 +738,6 @@ mod tests {
         let results = pm.search("rust").unwrap();
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].name, "rust-analyzer");
-
-        let by_skill = pm.by_type(ResourceType::Skill).unwrap();
-        assert_eq!(by_skill.len(), 1);
 
         let _ = std::fs::remove_dir_all(&tmp);
     }

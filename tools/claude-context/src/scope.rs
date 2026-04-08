@@ -27,6 +27,7 @@ pub struct ResolvedScope {
     /// ~/.claude/projects/<hash>/ for user-project)
     pub target_dir: PathBuf,
     /// The project root directory (None for global when CWD is not in a project)
+    #[allow(dead_code)]
     pub project_root: Option<PathBuf>,
     /// Whether this scope supports symlink-based resources (skills, agents, commands, rules)
     pub supports_symlinks: bool,

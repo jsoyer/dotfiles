@@ -6,7 +6,7 @@ mod doctor;
 mod hooks;
 mod indexer;
 mod matcher;
-mod multi_cli;
+
 mod plugins;
 mod profile;
 mod scanner;
@@ -56,6 +56,9 @@ fn main() -> Result<()> {
         Command::Config { action } => run_config(&config, action),
         Command::Hook { shell } => run_hook(&shell),
         Command::Plugin { action } => run_plugin(&config, &resolved, action),
+        Command::Update => run_update(&config),
+        Command::Completions { shell } => run_completions(shell),
+        Command::Man => run_man(),
         Command::Watch { interval } => run_watch(&config, &resolved, interval),
     }
 }
@@ -588,6 +591,48 @@ fn run_plugin(config: &AppConfig, resolved: &ResolvedScope, action: PluginAction
             println!("Enabled all plugins in {} settings files.", count);
         }
     }
+    Ok(())
+}
+
+// ── Update command ──────────────────────────────────────────────────────
+
+fn run_update(config: &AppConfig) -> Result<()> {
+    let pm = plugins::PluginManager::new(&config.paths.config_dir)?;
+
+    println!("Refreshing resource cache...");
+    pm.refresh()?;
+
+    println!("Updating installed resources...");
+    let count = pm.update_installed(
+        &config.paths.skills_dir,
+        &config.paths.agents_dir,
+        &config.paths.commands_dir,
+    )?;
+
+    if count > 0 {
+        println!("Updated {} resource(s).", count);
+    } else {
+        println!("No remote resources installed to update.");
+    }
+    Ok(())
+}
+
+// ── Completions command ─────────────────────────────────────────────────
+
+fn run_completions(shell: clap_complete::Shell) -> Result<()> {
+    use clap::CommandFactory;
+    let mut cmd = cli::Cli::command();
+    clap_complete::generate(shell, &mut cmd, "cctx", &mut std::io::stdout());
+    Ok(())
+}
+
+// ── Man page command ────────────────────────────────────────────────────
+
+fn run_man() -> Result<()> {
+    use clap::CommandFactory;
+    let cmd = cli::Cli::command();
+    let man = clap_mangen::Man::new(cmd);
+    man.render(&mut std::io::stdout())?;
     Ok(())
 }
 

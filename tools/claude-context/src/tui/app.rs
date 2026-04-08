@@ -555,10 +555,6 @@ impl<'a> App<'a> {
         }
     }
 
-    pub fn enabled_count(&self, items: &[ToggleItem]) -> usize {
-        items.iter().filter(|i| i.enabled).count()
-    }
-
     fn build_selections(&self) -> Recommendations {
         Recommendations {
             skills: self

@@ -250,12 +250,4 @@ impl ProfileManager {
         Ok(())
     }
 
-    pub fn get_project_profile(&self, project_path: &str) -> Option<String> {
-        if !self.project_map_path.exists() {
-            return None;
-        }
-        let content = std::fs::read_to_string(&self.project_map_path).ok()?;
-        let map: ProjectMap = serde_yaml::from_str(&content).ok()?;
-        map.projects.get(project_path).cloned()
-    }
 }

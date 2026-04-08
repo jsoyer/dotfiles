@@ -16,6 +16,7 @@ pub struct PreviewAction {
     pub cli_name: String,
     pub resource_type: String,
     pub count: usize,
+    #[allow(dead_code)]
     pub target_dir: PathBuf,
 }
 

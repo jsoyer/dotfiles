@@ -6,6 +6,7 @@ use walkdir::WalkDir;
 
 /// External patterns loaded from patterns.yaml
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 pub struct PatternsConfig {
     #[serde(default)]
     pub languages: Vec<PatternEntry>,
@@ -40,6 +41,7 @@ pub struct FrameworkEntry {
 }
 
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 pub struct DepEntry {
     pub name: String,
     #[serde(default)]

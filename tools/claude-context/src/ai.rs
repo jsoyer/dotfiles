@@ -134,31 +134,6 @@ pub struct AiRefinement {
     pub reasoning: String,
 }
 
-impl AiRefinement {
-    pub fn print(&self) {
-        if !self.reasoning.is_empty() {
-            println!("\nAI analysis: {}", self.reasoning);
-        }
-        if !self.add_skills.is_empty() {
-            println!("\n  + AI suggests adding skills:");
-            for s in &self.add_skills {
-                println!("    + {}", s);
-            }
-        }
-        if !self.add_agents.is_empty() {
-            println!("  + AI suggests adding agents:");
-            for a in &self.add_agents {
-                println!("    + {}", a);
-            }
-        }
-        if !self.remove_skills.is_empty() {
-            println!("  - AI suggests removing:");
-            for s in &self.remove_skills {
-                println!("    - {}", s);
-            }
-        }
-    }
-}
 
 fn read_project_context(project_dir: &std::path::Path) -> Result<String> {
     let mut context = String::new();
