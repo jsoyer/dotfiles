@@ -17,39 +17,63 @@ eval "$(brew shellenv)"
 
 BREWFILE_DIR="{{ .chezmoi.sourceDir }}/dot_private"
 
+# Helper: install brew packages first, then refresh PATH for npm/go/cargo
+brew_bundle_2pass() {
+  local brewfile="$1"
+  # Pass 1: brew/tap/cask only (skip npm, go, cargo that need brew-installed runtimes)
+  grep -E '^(brew |tap |cask |mas )' "$brewfile" | brew bundle install --file=- || true
+  # Refresh PATH so brew-installed node/go/cargo are available
+  eval "$(brew shellenv)"
+  hash -r 2>/dev/null || true
+  # Pass 2: full file (npm/go/cargo can now find their runtimes)
+  brew bundle install --file="$brewfile" || true
+}
+
+# Same helper for piped input (cat file1 file2 |)
+brew_bundle_2pass_stdin() {
+  local combined
+  combined="$(cat)"
+  # Pass 1: brew/tap/cask/mas only
+  echo "$combined" | grep -E '^(brew |tap |cask |mas )' | brew bundle install --file=- || true
+  eval "$(brew shellenv)"
+  hash -r 2>/dev/null || true
+  # Pass 2: everything
+  echo "$combined" | brew bundle install --file=- || true
+}
+
 {{- if eq .chezmoi.os "darwin" }}
 {{-   if eq .chezmoi.hostname "jsoyer-macOS" }}
 echo "🍺 brew bundle install (mac-pro profile)"
 {{-     if index . "install_mas" | default false }}
-cat "$BREWFILE_DIR/Brewfile_macos" "$BREWFILE_DIR/Brewfile_pro" | brew bundle install --file=-
+cat "$BREWFILE_DIR/Brewfile_macos" "$BREWFILE_DIR/Brewfile_pro" | brew_bundle_2pass_stdin
 {{-     else }}
 echo "  (skipping mas apps — set install_mas=true in chezmoi.toml to enable)"
-cat "$BREWFILE_DIR/Brewfile_macos" "$BREWFILE_DIR/Brewfile_pro" | grep -v '^mas ' | brew bundle install --file=-
+cat "$BREWFILE_DIR/Brewfile_macos" "$BREWFILE_DIR/Brewfile_pro" | grep -v '^mas ' | brew_bundle_2pass_stdin
 {{-     end }}
 {{-   else }}
 echo "🍺 brew bundle install (mac-personal profile)"
 {{-     if index . "install_mas" | default false }}
-cat "$BREWFILE_DIR/Brewfile_macos" "$BREWFILE_DIR/Brewfile_personal" | brew bundle install --file=-
+cat "$BREWFILE_DIR/Brewfile_macos" "$BREWFILE_DIR/Brewfile_personal" | brew_bundle_2pass_stdin
 {{-     else }}
 echo "  (skipping mas apps — set install_mas=true in chezmoi.toml to enable)"
-cat "$BREWFILE_DIR/Brewfile_macos" "$BREWFILE_DIR/Brewfile_personal" | grep -v '^mas ' | brew bundle install --file=-
+cat "$BREWFILE_DIR/Brewfile_macos" "$BREWFILE_DIR/Brewfile_personal" | grep -v '^mas ' | brew_bundle_2pass_stdin
 {{-     end }}
 {{-   end }}
 {{- else if eq .chezmoi.os "linux" }}
 {{-   if or (hasPrefix "bbh-network" .chezmoi.hostname) (hasPrefix "omv-" .chezmoi.hostname) }}
 echo "🍺 brew bundle install (rpi profile)"
-cat "$BREWFILE_DIR/Brewfile_brew_only" "$BREWFILE_DIR/Brewfile_rpi" | brew bundle install --file=-
+cat "$BREWFILE_DIR/Brewfile_brew_only" "$BREWFILE_DIR/Brewfile_rpi" | brew_bundle_2pass_stdin
 {{-   else }}
 {{-     $mp := index . "machine_profile" }}
 {{-     if eq $mp "rpi" }}
 echo "🍺 brew bundle install (rpi profile)"
-cat "$BREWFILE_DIR/Brewfile_brew_only" "$BREWFILE_DIR/Brewfile_rpi" | brew bundle install --file=-
+cat "$BREWFILE_DIR/Brewfile_brew_only" "$BREWFILE_DIR/Brewfile_rpi" | brew_bundle_2pass_stdin
 {{-     else if eq $mp "fedora-atomic" }}
 echo "🍺 brew bundle install (fedora-atomic profile)"
-brew bundle install --file="$BREWFILE_DIR/Brewfile_fedora_atomic"
+brew_bundle_2pass "$BREWFILE_DIR/Brewfile_fedora_atomic"
 {{-     else }}
 echo "🍺 brew bundle install (linux brew-only)"
-brew bundle install --file="$BREWFILE_DIR/Brewfile_brew_only"
+brew_bundle_2pass "$BREWFILE_DIR/Brewfile_brew_only"
 {{-     end }}
 {{-   end }}
 {{- end }}
