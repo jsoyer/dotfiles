@@ -1,0 +1,33 @@
+{{- if ne .chezmoi.os "windows" -}}
+#!/usr/bin/env bash
+# Migrate claude-context config dir to ai-context
+# run_once: only runs once per machine
+
+set -euo pipefail
+
+OLD_DIR="{{ .chezmoi.homeDir }}/.config/claude-context"
+NEW_DIR="{{ .chezmoi.homeDir }}/.config/ai-context"
+
+if [[ -d "$OLD_DIR" && ! -d "$NEW_DIR" ]]; then
+  mv "$OLD_DIR" "$NEW_DIR"
+  echo "aictx: migrated config dir from claude-context to ai-context"
+fi
+
+# Clean up old binary name
+OLD_BIN="{{ .chezmoi.homeDir }}/.local/bin/claude-context"
+if [[ -f "$OLD_BIN" ]]; then
+  rm -f "$OLD_BIN"
+  echo "aictx: removed old binary claude-context"
+fi
+
+# Clean up old completions
+for f in \
+  "{{ .chezmoi.homeDir }}/.zsh/completions/_cctx" \
+  "{{ .chezmoi.homeDir }}/.local/share/bash-completion/completions/cctx" \
+  "{{ .chezmoi.homeDir }}/.config/fish/completions/cctx.fish"; do
+  if [[ -f "$f" ]]; then
+    rm -f "$f"
+    echo "aictx: removed old completion $f"
+  fi
+done
+{{- end -}}
