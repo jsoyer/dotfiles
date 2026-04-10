@@ -112,7 +112,7 @@ _chezmoi_bg_update() {
 # ============================================================================
 # Completion overrides for aliased commands (must run after all plugins)
 # ============================================================================
-(( $+commands[eza] )) && compdef _eza ls
+(( $+commands[eza] )) && (( $+functions[compdef] )) && compdef _eza ls
 
 # ============================================================================
 # ai-context auto-apply on cd (checks project-map.yaml)
