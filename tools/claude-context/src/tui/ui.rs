@@ -18,7 +18,7 @@ const YELLOW: Color = Color::Rgb(249, 226, 175);
 const MAUVE: Color = Color::Rgb(203, 166, 247);
 const TEAL: Color = Color::Rgb(148, 226, 213);
 const PEACH: Color = Color::Rgb(250, 179, 135);
-const _TEXT: Color = Color::Rgb(205, 214, 244);
+const TEXT: Color = Color::Rgb(205, 214, 244);
 const SUBTEXT: Color = Color::Rgb(166, 173, 200);
 const SURFACE0: Color = Color::Rgb(49, 50, 68);
 const _BASE: Color = Color::Rgb(30, 30, 46);
@@ -139,10 +139,20 @@ fn capitalize(s: &str) -> String {
 }
 
 fn draw_content(frame: &mut Frame, app: &App, area: Rect) {
+    // If filtering, split area: content + filter bar
+    let (content_area, filter_area) = if app.filtering || !app.filter.is_empty() {
+        let chunks = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints([Constraint::Min(5), Constraint::Length(1)])
+            .split(area);
+        (chunks[0], Some(chunks[1]))
+    } else {
+        (area, None)
+    };
+
     let filtered = app.filtered_items();
     let total_items = filtered.len();
 
-    // Apply scroll offset
     let visible_items: Vec<_> = filtered
         .iter()
         .skip(app.scroll_offset)
@@ -154,65 +164,76 @@ fn draw_content(frame: &mut Frame, app: &App, area: Rect) {
         .enumerate()
         .map(|(visible_idx, (_, item))| {
             let display_idx = visible_idx + app.scroll_offset;
-            let bar = score_bar(item.score);
-            let tier = confidence_tier(item.score);
-            let reason = if item.reason.is_empty() {
-                String::new()
-            } else {
-                format!("  {}", item.reason)
-            };
-
             let is_selected = display_idx == app.cursor;
 
-            let style = if is_selected {
-                Style::default().fg(BLUE).add_modifier(Modifier::BOLD)
-            } else if item.enabled {
-                Style::default().fg(GREEN)
+            // Checkbox: green bold [x] for active, mauve [~] for suggested, dim [ ] for inactive
+            let (checkbox_str, checkbox_style) = if item.enabled {
+                ("[x]", Style::default().fg(GREEN).add_modifier(Modifier::BOLD))
+            } else if item.suggested {
+                ("[~]", Style::default().fg(MAUVE))
             } else {
-                Style::default().fg(SUBTEXT)
+                ("[ ]", Style::default().fg(OVERLAY0))
             };
 
-            let checkbox_style = if item.enabled {
-                Style::default().fg(GREEN)
+            // Name: white for active, mauve for suggested, dim for inactive
+            // Blue+bold override when cursor is on it
+            let name_style = if is_selected {
+                Style::default().fg(BLUE).add_modifier(Modifier::BOLD)
+            } else if item.enabled {
+                Style::default().fg(TEXT)
             } else if item.suggested {
-                Style::default().fg(YELLOW)
+                Style::default().fg(SUBTEXT)
             } else {
                 Style::default().fg(OVERLAY0)
             };
 
-            let checkbox_str = if item.enabled {
-                "[x]"
-            } else if item.suggested {
-                "[*]"
-            } else {
-                "[ ]"
-            };
-
             let origin_indicator = match item.origin {
-                Origin::Local => Span::styled("[L] ", Style::default().fg(GREEN)),
+                Origin::Local => Span::raw(""),
                 Origin::Remote => Span::styled("[R] ", Style::default().fg(PEACH)),
             };
 
-            // Build CLI indicators for skills (show which other CLIs have this active)
-            let cli_indicators = if app.active_cli().active_resource() == ResourceTab::Skills {
+            // CLI indicators for skills
+            let cli_indicators = if !app.cli_tabs.is_empty()
+                && app.active_cli().active_resource() == ResourceTab::Skills
+            {
                 let active_clis = app.cli_active_map.get(&item.name);
                 let mut spans = Vec::new();
                 for ct in &app.cli_tabs {
-                    let initial = ct.cli_name.chars().next().unwrap_or('?').to_uppercase().next().unwrap_or('?');
-                    let is_active_in_cli = active_clis.map(|v| v.contains(&ct.cli_name)).unwrap_or(false);
+                    let initial = ct.cli_name.chars().next().unwrap_or('?')
+                        .to_uppercase().next().unwrap_or('?');
+                    let is_active_in_cli = active_clis
+                        .map(|v| v.contains(&ct.cli_name)).unwrap_or(false);
                     if is_active_in_cli {
                         spans.push(Span::styled(
                             format!("[{}]", initial),
-                            Style::default().fg(GREEN),
+                            Style::default().fg(TEAL),
                         ));
                     }
                 }
                 if !spans.is_empty() {
-                    spans.insert(0, Span::styled(" ", Style::default()));
+                    spans.insert(0, Span::raw(" "));
                 }
                 spans
             } else {
                 Vec::new()
+            };
+
+            // Score bar only if score > 0
+            let score_spans = if item.score > 0.0 {
+                let bar = score_bar(item.score);
+                let tier = confidence_tier(item.score);
+                vec![
+                    Span::styled(format!(" {} ", bar), Style::default().fg(score_color(item.score))),
+                    Span::styled(format!("{:<5}", tier), Style::default().fg(tier_color(item.score))),
+                ]
+            } else {
+                vec![Span::raw("                  ")]
+            };
+
+            let reason = if item.reason.is_empty() {
+                String::new()
+            } else {
+                format!(" {}", item.reason)
             };
 
             let mut line_spans = vec![
@@ -220,27 +241,15 @@ fn draw_content(frame: &mut Frame, app: &App, area: Rect) {
                     if is_selected { "> " } else { "  " },
                     Style::default().fg(MAUVE),
                 ),
-                Span::styled(
-                    format!("{} ", checkbox_str),
-                    checkbox_style,
-                ),
+                Span::styled(format!("{} ", checkbox_str), checkbox_style),
                 origin_indicator,
-                Span::styled(format!("{:<28}", item.name), style),
-                Span::styled(
-                    format!(" {} ", bar),
-                    Style::default().fg(score_color(item.score)),
-                ),
-                Span::styled(
-                    format!("{:<6}", tier),
-                    Style::default().fg(tier_color(item.score)),
-                ),
+                Span::styled(format!("{:<30}", item.name), name_style),
             ];
+            line_spans.extend(score_spans);
             line_spans.extend(cli_indicators);
             line_spans.push(Span::styled(reason, Style::default().fg(OVERLAY0)));
 
-            let line = Line::from(line_spans);
-
-            ListItem::new(line)
+            ListItem::new(Line::from(line_spans))
         })
         .collect();
 
@@ -255,19 +264,12 @@ fn draw_content(frame: &mut Frame, app: &App, area: Rect) {
         format!(" {} ", total_items)
     };
 
-    let rtab_label = if app.cli_tabs.is_empty() { "Skills" } else { app.active_cli().active_resource().label() };
-    let title = if app.filtering {
-        format!(" {} (/{}){}", rtab_label, app.filter, scroll_indicator)
-    } else if !app.filter.is_empty() {
-        format!(
-            " {} [filter: {}]{}",
-            rtab_label,
-            app.filter,
-            scroll_indicator
-        )
+    let rtab_label = if app.cli_tabs.is_empty() {
+        "Skills"
     } else {
-        format!(" {}{}", rtab_label, scroll_indicator)
+        app.active_cli().active_resource().label()
     };
+    let title = format!(" {}{}", rtab_label, scroll_indicator);
 
     let list = List::new(items).block(
         Block::default()
@@ -276,7 +278,32 @@ fn draw_content(frame: &mut Frame, app: &App, area: Rect) {
             .border_style(Style::default().fg(SURFACE0)),
     );
 
-    frame.render_widget(list, area);
+    frame.render_widget(list, content_area);
+
+    // Filter bar
+    if let Some(filter_rect) = filter_area {
+        let filter_line = if app.filtering {
+            Line::from(vec![
+                Span::styled(" / ", Style::default().fg(YELLOW).add_modifier(Modifier::BOLD)),
+                Span::styled(&app.filter, Style::default().fg(TEXT).add_modifier(Modifier::BOLD)),
+                Span::styled("_", Style::default().fg(YELLOW).add_modifier(Modifier::RAPID_BLINK)),
+                Span::styled(
+                    format!("  ({} matches)", total_items),
+                    Style::default().fg(SUBTEXT),
+                ),
+            ])
+        } else {
+            Line::from(vec![
+                Span::styled(" filter: ", Style::default().fg(SUBTEXT)),
+                Span::styled(&app.filter, Style::default().fg(YELLOW)),
+                Span::styled(
+                    format!("  ({} matches, / to edit, Esc to clear)", total_items),
+                    Style::default().fg(OVERLAY0),
+                ),
+            ])
+        };
+        frame.render_widget(Paragraph::new(filter_line), filter_rect);
+    }
 }
 
 fn draw_footer(frame: &mut Frame, app: &App, area: Rect) {
