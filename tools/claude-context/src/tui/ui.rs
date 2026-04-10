@@ -324,7 +324,11 @@ fn draw_footer(frame: &mut Frame, app: &App, area: Rect) {
             ("Tab/h/l", "tab"),
             ("j/k", "nav"),
             ("Space", "toggle"),
-            ("s", "sort"),
+            ("s", match app.sort_mode {
+                super::app::SortMode::Default => "sort",
+                super::app::SortMode::Score => "sort:score",
+                super::app::SortMode::Name => "sort:name",
+            }),
             ("/", "filter"),
             ("i", "install"),
             ("A/N", "all/none"),

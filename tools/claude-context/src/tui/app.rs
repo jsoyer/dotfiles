@@ -138,15 +138,10 @@ impl<'a> App<'a> {
     ) -> Self {
         use std::collections::HashMap;
 
-        let scope_s = crate::scope::scope_str(
-            cli_statuses.first().map(|(_, s)| s.scope).unwrap_or(crate::scope::Scope::Global)
-        );
-
-        // Build CLI tabs from detected CLIs
+        // Build CLI tabs from all detected CLIs (show all, not just current scope)
         let cli_tabs: Vec<CliTab> = config
             .detected_clis()
             .iter()
-            .filter(|c| c.scopes.contains(&scope_s.to_string()))
             .map(|cli| CliTab {
                 cli_name: cli.name.clone(),
                 resource_tabs: ResourceTab::from_support(&cli.supports),
