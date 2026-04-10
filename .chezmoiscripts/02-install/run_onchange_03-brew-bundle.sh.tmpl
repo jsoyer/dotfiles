@@ -2,6 +2,7 @@
 #!/usr/bin/env bash
 
 # Brewfile hashes -- chezmoi reruns this script when any Brewfile changes
+# script-version: 2 (2-pass install for npm/go/cargo runtime deps)
 {{- if eq .chezmoi.os "darwin" }}
 # macos:    {{ include "dot_private/Brewfile_macos" | sha256sum }}
 # personal: {{ include "dot_private/Brewfile_personal" | sha256sum }}
@@ -17,14 +18,22 @@ eval "$(brew shellenv)"
 
 BREWFILE_DIR="{{ .chezmoi.sourceDir }}/dot_private"
 
+# Refresh PATH to include brew-installed runtimes (node, go, cargo)
+_refresh_brew_path() {
+  eval "$(brew shellenv)"
+  # Add brew bin dirs explicitly — needed for `env node` in npm shebangs
+  local prefix
+  prefix="$(brew --prefix)"
+  export PATH="$prefix/bin:$prefix/sbin:$PATH"
+  hash -r 2>/dev/null || true
+}
+
 # Helper: install brew packages first, then refresh PATH for npm/go/cargo
 brew_bundle_2pass() {
   local brewfile="$1"
   # Pass 1: brew/tap/cask only (skip npm, go, cargo that need brew-installed runtimes)
   grep -E '^(brew |tap |cask |mas )' "$brewfile" | brew bundle install --file=- || true
-  # Refresh PATH so brew-installed node/go/cargo are available
-  eval "$(brew shellenv)"
-  hash -r 2>/dev/null || true
+  _refresh_brew_path
   # Pass 2: full file (npm/go/cargo can now find their runtimes)
   brew bundle install --file="$brewfile" || true
 }
@@ -35,8 +44,7 @@ brew_bundle_2pass_stdin() {
   combined="$(cat)"
   # Pass 1: brew/tap/cask/mas only
   echo "$combined" | grep -E '^(brew |tap |cask |mas )' | brew bundle install --file=- || true
-  eval "$(brew shellenv)"
-  hash -r 2>/dev/null || true
+  _refresh_brew_path
   # Pass 2: everything
   echo "$combined" | brew bundle install --file=- || true
 }
