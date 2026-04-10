@@ -269,7 +269,12 @@ fn draw_content(frame: &mut Frame, app: &App, area: Rect) {
     } else {
         app.active_cli().active_resource().label()
     };
-    let title = format!(" {}{}", rtab_label, scroll_indicator);
+    let sort_label = match app.sort_mode {
+        super::app::SortMode::Default => "",
+        super::app::SortMode::Score => " [sort: score]",
+        super::app::SortMode::Name => " [sort: name]",
+    };
+    let title = format!(" {}{}{}", rtab_label, sort_label, scroll_indicator);
 
     let list = List::new(items).block(
         Block::default()
@@ -319,6 +324,7 @@ fn draw_footer(frame: &mut Frame, app: &App, area: Rect) {
             ("Tab/h/l", "tab"),
             ("j/k", "nav"),
             ("Space", "toggle"),
+            ("s", "sort"),
             ("/", "filter"),
             ("i", "install"),
             ("A/N", "all/none"),

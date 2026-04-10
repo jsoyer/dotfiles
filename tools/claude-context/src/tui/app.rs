@@ -66,6 +66,31 @@ impl CliTab {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum SortMode {
+    Default,  // enabled > suggested > alpha
+    Score,    // highest score first
+    Name,     // alphabetical
+}
+
+impl SortMode {
+    pub fn next(self) -> Self {
+        match self {
+            SortMode::Default => SortMode::Score,
+            SortMode::Score => SortMode::Name,
+            SortMode::Name => SortMode::Default,
+        }
+    }
+
+    #[allow(dead_code)]
+    pub fn label(self) -> &'static str {
+        match self {
+            SortMode::Default => "default",
+            SortMode::Score => "score",
+            SortMode::Name => "name",
+        }
+    }
+}
 
 #[derive(Debug, Clone)]
 pub struct ToggleItem {
@@ -85,6 +110,7 @@ pub struct App<'a> {
     pub visible_height: usize,
     pub filter: String,
     pub filtering: bool,
+    pub sort_mode: SortMode,
     pub should_quit: bool,
     pub should_apply: bool,
 
@@ -176,6 +202,7 @@ impl<'a> App<'a> {
             visible_height: 20,
             filter: String::new(),
             filtering: false,
+            sort_mode: SortMode::Default,
             should_quit: false,
             should_apply: false,
             items,
@@ -471,6 +498,12 @@ impl<'a> App<'a> {
                         // Deselect all filtered
                         self.select_all_filtered(false);
                     }
+                    KeyCode::Char('s') => {
+                        self.sort_mode = self.sort_mode.next();
+                        self.resort_active();
+                        self.cursor = 0;
+                        self.scroll_offset = 0;
+                    }
                     KeyCode::Char('i') => {
                         // Install/uninstall current item
                         self.toggle_install_current();
@@ -529,6 +562,29 @@ impl<'a> App<'a> {
         }
         if self.cursor >= self.scroll_offset + self.visible_height {
             self.scroll_offset = self.cursor - self.visible_height + 1;
+        }
+    }
+
+    fn resort_active(&mut self) {
+        let mode = self.sort_mode;
+        let items = self.active_items_mut();
+        match mode {
+            SortMode::Default => {
+                items.sort_by(|a, b| {
+                    b.enabled.cmp(&a.enabled)
+                        .then(b.suggested.cmp(&a.suggested))
+                        .then(a.name.cmp(&b.name))
+                });
+            }
+            SortMode::Score => {
+                items.sort_by(|a, b| {
+                    b.score.partial_cmp(&a.score).unwrap_or(std::cmp::Ordering::Equal)
+                        .then(a.name.cmp(&b.name))
+                });
+            }
+            SortMode::Name => {
+                items.sort_by(|a, b| a.name.cmp(&b.name));
+            }
         }
     }
 
