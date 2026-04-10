@@ -97,9 +97,18 @@ impl AppConfig {
     }
 
     pub fn config_dir() -> PathBuf {
-        dirs::config_dir()
-            .unwrap_or_else(|| PathBuf::from("~/.config"))
-            .join("claude-context")
+        let base = dirs::config_dir().unwrap_or_else(|| PathBuf::from("~/.config"));
+        let new_dir = base.join("ai-context");
+        if new_dir.exists() {
+            return new_dir;
+        }
+        // Migration: fall back to old name
+        let old_dir = base.join("claude-context");
+        if old_dir.exists() {
+            eprintln!("aictx: using legacy config dir ~/.config/claude-context/ — rename to ~/.config/ai-context/ to silence this");
+            return old_dir;
+        }
+        new_dir
     }
 
     fn default() -> Self {

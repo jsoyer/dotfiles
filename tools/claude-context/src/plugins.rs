@@ -379,7 +379,7 @@ impl PluginManager {
                 }
             }
             ResourceType::Plugin => {
-                println!("Plugin '{}' — disable via settings.json or `cctx plugin disable-all`", name);
+                println!("Plugin '{}' — disable via settings.json or `aictx plugin disable-all`", name);
             }
         }
         Ok(())

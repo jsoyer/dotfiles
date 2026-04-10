@@ -292,9 +292,10 @@ alias cco='claude --model opus'
 alias ccs='claude --model sonnet'
 alias cch='claude --model haiku'
 
-# Claude Context Manager
-if command -v claude-context &>/dev/null; then
-  alias cctx='claude-context'
+# AI Context Manager
+if command -v ai-context &>/dev/null; then
+  alias aictx='ai-context'
+  alias cctx='ai-context'  # compat alias
 fi
 
 # ============================================================================

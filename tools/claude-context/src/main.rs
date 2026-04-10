@@ -86,7 +86,19 @@ fn run_tui(config: &AppConfig, resolved: &ResolvedScope, smart: bool) -> Result<
     let remote_resources = pm.all_available().unwrap_or_default();
     verbose!("Remote resources: {}", remote_resources.len());
 
-    tui::run(config, resolved, &index, &fingerprint, &recommendations, &remote_resources)
+    // Gather per-CLI statuses
+    let cli_statuses: Vec<(String, symlinker::ProjectStatus)> = config
+        .detected_clis()
+        .iter()
+        .map(|cli| {
+            let status = symlinker::status_for_cli(cli, resolved);
+            verbose!("{}: {} skills, {} agents active",
+                cli.name, status.skills.len(), status.agents.len());
+            (cli.name.clone(), status)
+        })
+        .collect();
+
+    tui::run(config, resolved, &index, &fingerprint, &recommendations, &remote_resources, &cli_statuses)
 }
 
 fn run_scan() -> Result<()> {
@@ -248,7 +260,7 @@ fn run_init(config: &AppConfig, resolved: &ResolvedScope) -> Result<()> {
 
         let profile_name = choices[selection];
         if profile_name == "custom" {
-            println!("Run `cctx` to configure manually.");
+            println!("Run `aictx` to configure manually.");
             return Ok(());
         }
 
@@ -258,13 +270,13 @@ fn run_init(config: &AppConfig, resolved: &ResolvedScope) -> Result<()> {
             println!("Applied '{}' profile (scope: {}).", profile_name, resolved.scope);
         } else {
             println!(
-                "No '{}' profile found. Run `cctx` to configure manually.",
+                "No '{}' profile found. Run `aictx` to configure manually.",
                 profile_name
             );
         }
     } else {
         fingerprint.print();
-        println!("\nRun `cctx apply --auto` to apply recommendations.");
+        println!("\nRun `aictx apply --auto` to apply recommendations.");
     }
 
     Ok(())
@@ -330,7 +342,7 @@ fn run_import(config: &AppConfig, file: &str) -> Result<()> {
 
 fn run_config(config: &AppConfig, action: ConfigAction) -> Result<()> {
     let cwd = std::env::current_dir()?;
-    let project_config_path = cwd.join(".cctx.yaml");
+    let project_config_path = cwd.join(".aictx.yaml");
 
     match action {
         ConfigAction::Get { key } => {
@@ -461,7 +473,7 @@ fn run_plugin(config: &AppConfig, resolved: &ResolvedScope, action: PluginAction
             let pm = plugins::PluginManager::new(&config.paths.config_dir)?;
             let all = pm.all_available()?;
             if all.is_empty() {
-                println!("No resources cached. Run `cctx plugin refresh` first.");
+                println!("No resources cached. Run `aictx plugin refresh` first.");
             } else {
                 println!("Available resources ({}):", all.len());
                 for entry in &all {
@@ -516,7 +528,7 @@ fn run_plugin(config: &AppConfig, resolved: &ResolvedScope, action: PluginAction
                         &config.paths.commands_dir,
                     )?;
                 }
-                None => println!("Resource '{}' not found. Run `cctx plugin refresh` first.", name),
+                None => println!("Resource '{}' not found. Run `aictx plugin refresh` first.", name),
             }
         }
         PluginAction::Uninstall { name } => {
@@ -641,13 +653,13 @@ fn run_completions(shell: clap_complete::Shell, install: bool) -> Result<()> {
     let mut cmd = cli::Cli::command();
 
     if !install {
-        clap_complete::generate(shell, &mut cmd, "cctx", &mut std::io::stdout());
+        clap_complete::generate(shell, &mut cmd, "aictx", &mut std::io::stdout());
         return Ok(());
     }
 
     // Generate to buffer
     let mut buf = Vec::new();
-    clap_complete::generate(shell, &mut cmd, "cctx", &mut buf);
+    clap_complete::generate(shell, &mut cmd, "aictx", &mut buf);
     let content = String::from_utf8(buf)?;
 
     let home = dirs::home_dir().unwrap_or_else(|| std::path::PathBuf::from("/tmp"));
@@ -656,22 +668,22 @@ fn run_completions(shell: clap_complete::Shell, install: bool) -> Result<()> {
             // Prefer ~/.zsh/completions/, fallback to ~/.local/share/zsh/completions/
             let zsh_dir = home.join(".zsh").join("completions");
             if zsh_dir.exists() || std::fs::create_dir_all(&zsh_dir).is_ok() {
-                zsh_dir.join("_cctx")
+                zsh_dir.join("_aictx")
             } else {
                 let alt = home.join(".local/share/zsh/completions");
                 std::fs::create_dir_all(&alt)?;
-                alt.join("_cctx")
+                alt.join("_aictx")
             }
         }
         clap_complete::Shell::Bash => {
             let bash_dir = home.join(".local/share/bash-completion/completions");
             std::fs::create_dir_all(&bash_dir)?;
-            bash_dir.join("cctx")
+            bash_dir.join("aictx")
         }
         clap_complete::Shell::Fish => {
             let fish_dir = home.join(".config/fish/completions");
             std::fs::create_dir_all(&fish_dir)?;
-            fish_dir.join("cctx.fish")
+            fish_dir.join("aictx.fish")
         }
         _ => {
             anyhow::bail!("--install not supported for {:?}. Use stdout redirection.", shell);

@@ -236,7 +236,7 @@ impl TrimReport {
             self.estimated_savings,
             (self.estimated_savings as f64 / self.original_tokens.max(1) as f64) * 100.0
         );
-        println!("\n  Run `cctx trim --auto` to apply with backup.");
+        println!("\n  Run `aictx trim --auto` to apply with backup.");
     }
 }
 

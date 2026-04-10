@@ -9,6 +9,7 @@ use crate::matcher::Recommendations;
 use crate::plugins::{PluginManager, RemoteResource};
 use crate::scanner::ProjectFingerprint;
 use crate::scope::ResolvedScope;
+use crate::symlinker::ProjectStatus;
 
 pub fn run(
     config: &AppConfig,
@@ -17,8 +18,9 @@ pub fn run(
     fingerprint: &ProjectFingerprint,
     recommendations: &Recommendations,
     remote_resources: &[RemoteResource],
+    cli_statuses: &[(String, ProjectStatus)],
 ) -> Result<()> {
-    let mut app = app::App::new(config, index, fingerprint, recommendations, remote_resources);
+    let mut app = app::App::new(config, index, fingerprint, recommendations, remote_resources, cli_statuses);
 
     let mut terminal = ratatui::init();
     let result = app.run(&mut terminal);

@@ -115,19 +115,19 @@ _chezmoi_bg_update() {
 (( $+commands[eza] )) && compdef _eza ls
 
 # ============================================================================
-# claude-context auto-apply on cd (checks project-map.yaml)
+# ai-context auto-apply on cd (checks project-map.yaml)
 # ============================================================================
-if (( $+commands[claude-context] )); then
-  _cctx_auto_apply() {
-    local project_map="${HOME}/.config/claude-context/project-map.yaml"
+if (( $+commands[ai-context] )); then
+  _aictx_auto_apply() {
+    local project_map="${HOME}/.config/ai-context/project-map.yaml"
     [[ -f "$project_map" ]] || return
     # Only apply if .claude/skills/ doesn't exist yet
     [[ -d ".claude/skills" ]] && return
     # Check if current dir is in project-map
     if grep -q "$(pwd)" "$project_map" 2>/dev/null; then
-      claude-context apply --auto --yes 2>/dev/null &!
+      ai-context apply --auto --yes 2>/dev/null &!
     fi
   }
   autoload -Uz add-zsh-hook
-  add-zsh-hook chpwd _cctx_auto_apply
+  add-zsh-hook chpwd _aictx_auto_apply
 fi

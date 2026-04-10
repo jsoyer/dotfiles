@@ -1,5 +1,5 @@
-# Resource discovery sources for claude-context
-# cctx fetches resource listings from these sources and caches locally
+# Resource discovery sources for ai-context
+# aictx fetches resource listings from these sources and caches locally
 # resources: what types this source provides (default: [plugin])
 
 sources:

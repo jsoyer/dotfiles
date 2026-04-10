@@ -344,6 +344,69 @@ pub fn status(config: &AppConfig, resolved: &ResolvedScope) -> Result<ProjectSta
     })
 }
 
+/// Get status for a specific CLI entry (what's active in its directory).
+pub fn status_for_cli(
+    cli: &crate::config::CliEntry,
+    resolved: &ResolvedScope,
+) -> ProjectStatus {
+    let scope_s = scope_str(resolved.scope);
+
+    if !cli.scopes.contains(&scope_s.to_string()) {
+        return ProjectStatus {
+            skills: Vec::new(),
+            agents: Vec::new(),
+            commands: Vec::new(),
+            rules: Vec::new(),
+            mcp: Vec::new(),
+            plugins: Vec::new(),
+            detected_clis: vec![cli.name.clone()],
+            scope: resolved.scope,
+        };
+    }
+
+    let target = cli_target_dir(cli, resolved);
+
+    let skills = if cli.supports.contains(&"skills".to_string()) {
+        list_symlinks(&target.join("skills"))
+    } else {
+        Vec::new()
+    };
+    let agents = if cli.supports.contains(&"agents".to_string()) {
+        list_symlinks(&target.join("agents"))
+    } else {
+        Vec::new()
+    };
+    let commands = if cli.supports.contains(&"commands".to_string()) {
+        list_symlinks(&target.join("commands"))
+    } else {
+        Vec::new()
+    };
+    let rules = if cli.supports.contains(&"rules".to_string()) {
+        list_symlinks(&target.join("rules"))
+    } else {
+        Vec::new()
+    };
+
+    let (mcp, plugins) = if cli.supports.contains(&"mcp".to_string())
+        || cli.supports.contains(&"plugins".to_string())
+    {
+        read_settings(&target, resolved.scope)
+    } else {
+        (Vec::new(), Vec::new())
+    };
+
+    ProjectStatus {
+        skills,
+        agents,
+        commands,
+        rules,
+        mcp,
+        plugins,
+        detected_clis: vec![cli.name.clone()],
+        scope: resolved.scope,
+    }
+}
+
 fn create_symlinks(
     target_dir: &Path,
     source_dir: &Path,
@@ -426,7 +489,7 @@ fn settings_path_for_scope(cli_dir: &Path, scope: Scope) -> PathBuf {
         // overwrite user's settings.json)
         Scope::Global | Scope::Project => cli_dir.join("settings.local.json"),
         // For user-project, we write directly to settings.json
-        // (this is the Claude Code user-project dir, cctx manages it)
+        // (this is the Claude Code user-project dir, aictx manages it)
         Scope::UserProject => cli_dir.join("settings.json"),
     }
 }
@@ -474,7 +537,7 @@ fn merge_settings_file(
     Ok(())
 }
 
-/// Remove cctx-managed keys from a settings.json without touching other keys.
+/// Remove aictx-managed keys from a settings.json without touching other keys.
 fn remove_cctx_keys_from_settings(path: &Path) -> Result<()> {
     let content = std::fs::read_to_string(path)?;
     let mut settings: serde_json::Map<String, serde_json::Value> =

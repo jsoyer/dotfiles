@@ -3,6 +3,29 @@
 version = 4
 
 [[package]]
+name = "ai-context"
+version = "0.3.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "clap_complete",
+ "clap_mangen",
+ "colored",
+ "crossterm",
+ "dialoguer",
+ "dirs",
+ "glob",
+ "notify",
+ "ratatui",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "serde_yaml",
+ "thiserror 2.0.18",
+ "walkdir",
+]
+
+[[package]]
 name = "allocator-api2"
 version = "0.2.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -188,29 +211,6 @@ checksum = "7e30ffc187e2e3aeafcd1c6e2aa416e29739454c0ccaa419226d5ecd181f2d78"
 dependencies = [
  "clap",
  "roff",
-]
-
-[[package]]
-name = "claude-context"
-version = "0.2.0"
-dependencies = [
- "anyhow",
- "clap",
- "clap_complete",
- "clap_mangen",
- "colored",
- "crossterm",
- "dialoguer",
- "dirs",
- "glob",
- "notify",
- "ratatui",
- "reqwest",
- "serde",
- "serde_json",
- "serde_yaml",
- "thiserror 2.0.18",
- "walkdir",
 ]
 
 [[package]]

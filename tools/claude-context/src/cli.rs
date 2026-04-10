@@ -4,10 +4,10 @@ use crate::scope::Scope;
 
 #[derive(Parser)]
 #[command(
-    name = "claude-context",
+    name = "ai-context",
     about = "Smart per-project context manager for AI coding CLIs",
     version,
-    after_help = "Alias: cctx"
+    after_help = "Alias: aictx"
 )]
 pub struct Cli {
     #[command(subcommand)]
@@ -21,7 +21,7 @@ pub struct Cli {
     #[arg(long, global = true, value_enum)]
     pub scope: Option<Scope>,
 
-    /// Enable verbose output (show what cctx is doing)
+    /// Enable verbose output (show what aictx is doing)
     #[arg(short, long, global = true)]
     pub verbose: bool,
 
@@ -116,7 +116,7 @@ pub enum Command {
 
     /// Import profile from YAML file
     Import {
-        /// Path to .cctx.yaml file
+        /// Path to .aictx.yaml file
         file: String,
     },
 

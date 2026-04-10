@@ -1,9 +1,9 @@
-name: cctx Release
+name: aictx Release
 
 on:
   push:
     tags:
-      - 'cctx-v*'
+      - 'aictx-v*'
 
 permissions:
   contents: write
@@ -15,16 +15,16 @@ jobs:
         include:
           - target: x86_64-unknown-linux-gnu
             os: ubuntu-latest
-            name: cctx-linux-x86_64
+            name: aictx-linux-x86_64
           - target: aarch64-unknown-linux-gnu
             os: ubuntu-latest
-            name: cctx-linux-aarch64
+            name: aictx-linux-aarch64
           - target: x86_64-apple-darwin
             os: macos-latest
-            name: cctx-macos-x86_64
+            name: aictx-macos-x86_64
           - target: aarch64-apple-darwin
             os: macos-latest
-            name: cctx-macos-aarch64
+            name: aictx-macos-aarch64
 
     runs-on: ${{ matrix.os }}
     defaults:
@@ -53,20 +53,20 @@ jobs:
       - name: Package binary
         run: |
           mkdir -p dist
-          cp target/${{ matrix.target }}/release/claude-context dist/${{ matrix.name }}
+          cp target/${{ matrix.target }}/release/ai-context dist/${{ matrix.name }}
           chmod +x dist/${{ matrix.name }}
 
       - name: Generate shell completions
         if: matrix.target == 'x86_64-unknown-linux-gnu'
         run: |
-          ./target/${{ matrix.target }}/release/claude-context completions bash > dist/cctx.bash
-          ./target/${{ matrix.target }}/release/claude-context completions zsh > dist/_cctx
-          ./target/${{ matrix.target }}/release/claude-context completions fish > dist/cctx.fish
+          ./target/${{ matrix.target }}/release/ai-context completions bash > dist/aictx.bash
+          ./target/${{ matrix.target }}/release/ai-context completions zsh > dist/_aictx
+          ./target/${{ matrix.target }}/release/ai-context completions fish > dist/aictx.fish
 
       - name: Generate man page
         if: matrix.target == 'x86_64-unknown-linux-gnu'
         run: |
-          ./target/${{ matrix.target }}/release/claude-context man > dist/cctx.1
+          ./target/${{ matrix.target }}/release/ai-context man > dist/aictx.1
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4

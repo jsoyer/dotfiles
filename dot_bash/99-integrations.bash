@@ -147,17 +147,17 @@ _chezmoi_bg_update() {
 command -v chezmoi >/dev/null 2>&1 && _chezmoi_bg_update
 
 # ============================================================================
-# claude-context auto-apply on cd (checks project-map.yaml)
+# ai-context auto-apply on cd (checks project-map.yaml)
 # ============================================================================
-if command -v claude-context &>/dev/null; then
-  _cctx_auto_apply() {
-    local project_map="${HOME}/.config/claude-context/project-map.yaml"
+if command -v ai-context &>/dev/null; then
+  _aictx_auto_apply() {
+    local project_map="${HOME}/.config/ai-context/project-map.yaml"
     [[ -f "$project_map" ]] || return
     [[ -d ".claude/skills" ]] && return
     if grep -q "$(pwd)" "$project_map" 2>/dev/null; then
-      claude-context apply --auto --yes &>/dev/null &
+      ai-context apply --auto --yes &>/dev/null &
     fi
   }
-  _cctx_orig_cd() { builtin cd "$@" && _cctx_auto_apply; }
-  alias cd='_cctx_orig_cd'
+  _aictx_orig_cd() { builtin cd "$@" && _aictx_auto_apply; }
+  alias cd='_aictx_orig_cd'
 fi

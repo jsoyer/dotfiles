@@ -6,7 +6,7 @@ use ratatui::{
     Frame,
 };
 
-use super::app::{App, Tab};
+use super::app::{App, ResourceTab};
 use crate::doctor;
 use crate::plugins::Origin;
 
@@ -30,16 +30,18 @@ pub fn draw(frame: &mut Frame, app: &App) {
         .direction(Direction::Vertical)
         .constraints([
             Constraint::Length(3), // header
-            Constraint::Length(3), // tabs
+            Constraint::Length(3), // CLI tabs
+            Constraint::Length(3), // resource tabs
             Constraint::Min(10),  // content
             Constraint::Length(3), // footer
         ])
         .split(area);
 
     draw_header(frame, app, chunks[0]);
-    draw_tabs(frame, app, chunks[1]);
-    draw_content(frame, app, chunks[2]);
-    draw_footer(frame, app, chunks[3]);
+    draw_cli_tabs(frame, app, chunks[1]);
+    draw_resource_tabs(frame, app, chunks[2]);
+    draw_content(frame, app, chunks[3]);
+    draw_footer(frame, app, chunks[4]);
 }
 
 fn draw_header(frame: &mut Frame, app: &App, area: Rect) {
@@ -52,7 +54,7 @@ fn draw_header(frame: &mut Frame, app: &App, area: Rect) {
         .collect();
 
     let header_text = format!(
-        " Claude Context Manager  {}  Detected: {}",
+        " AI Context Manager  {}  Detected: {}",
         app.project_name,
         if detected.is_empty() {
             "(empty project)".to_string()
@@ -72,31 +74,50 @@ fn draw_header(frame: &mut Frame, app: &App, area: Rect) {
     frame.render_widget(header, area);
 }
 
-fn draw_tabs(frame: &mut Frame, app: &App, area: Rect) {
-    let tab_titles: Vec<Line> = Tab::all()
+fn draw_cli_tabs(frame: &mut Frame, app: &App, area: Rect) {
+    let tab_titles: Vec<Line> = app.cli_tabs
         .iter()
-        .map(|t| {
-            let items = match t {
-                Tab::Skills => &app.skills,
-                Tab::Agents => &app.agents,
-                Tab::Commands => &app.commands,
-                Tab::Mcp => &app.mcp,
-                Tab::Rules => &app.rules,
-                Tab::Plugins => &app.plugins,
-            };
-            let enabled = items.iter().filter(|i| i.enabled).count();
-            let total = items.len();
-            Line::from(format!(" {} {}/{} ", t.label(), enabled, total))
+        .map(|cli| {
+            // Count total enabled across all resource tabs for this CLI
+            let total_enabled: usize = cli.resource_tabs.iter()
+                .filter_map(|rt| app.items.get(&(cli.cli_name.clone(), *rt)))
+                .flat_map(|items| items.iter())
+                .filter(|i| i.enabled)
+                .count();
+            Line::from(format!(" {} ({}) ", capitalize(&cli.cli_name), total_enabled))
         })
         .collect();
 
-    let selected = Tab::all()
+    let tabs = Tabs::new(tab_titles)
+        .select(app.active_cli_idx)
+        .style(Style::default().fg(SUBTEXT))
+        .highlight_style(
+            Style::default()
+                .fg(MAUVE)
+                .add_modifier(Modifier::BOLD)
+                .add_modifier(Modifier::UNDERLINED),
+        )
+        .divider(" | ");
+
+    frame.render_widget(tabs, area);
+}
+
+fn draw_resource_tabs(frame: &mut Frame, app: &App, area: Rect) {
+    if app.cli_tabs.is_empty() { return; }
+    let cli = app.active_cli();
+
+    let tab_titles: Vec<Line> = cli.resource_tabs
         .iter()
-        .position(|t| *t == app.active_tab)
-        .unwrap_or(0);
+        .map(|rt| {
+            let items = app.items.get(&(cli.cli_name.clone(), *rt));
+            let enabled = items.map(|v| v.iter().filter(|i| i.enabled).count()).unwrap_or(0);
+            let total = items.map(|v| v.len()).unwrap_or(0);
+            Line::from(format!(" {} {}/{} ", rt.label(), enabled, total))
+        })
+        .collect();
 
     let tabs = Tabs::new(tab_titles)
-        .select(selected)
+        .select(cli.active_resource_idx)
         .style(Style::default().fg(SUBTEXT))
         .highlight_style(
             Style::default()
@@ -107,6 +128,14 @@ fn draw_tabs(frame: &mut Frame, app: &App, area: Rect) {
         .divider(" | ");
 
     frame.render_widget(tabs, area);
+}
+
+fn capitalize(s: &str) -> String {
+    let mut chars = s.chars();
+    match chars.next() {
+        None => String::new(),
+        Some(c) => c.to_uppercase().collect::<String>() + chars.as_str(),
+    }
 }
 
 fn draw_content(frame: &mut Frame, app: &App, area: Rect) {
@@ -145,8 +174,18 @@ fn draw_content(frame: &mut Frame, app: &App, area: Rect) {
 
             let checkbox_style = if item.enabled {
                 Style::default().fg(GREEN)
+            } else if item.suggested {
+                Style::default().fg(YELLOW)
             } else {
                 Style::default().fg(OVERLAY0)
+            };
+
+            let checkbox_str = if item.enabled {
+                "[x]"
+            } else if item.suggested {
+                "[*]"
+            } else {
+                "[ ]"
             };
 
             let origin_indicator = match item.origin {
@@ -154,13 +193,35 @@ fn draw_content(frame: &mut Frame, app: &App, area: Rect) {
                 Origin::Remote => Span::styled("[R] ", Style::default().fg(PEACH)),
             };
 
-            let line = Line::from(vec![
+            // Build CLI indicators for skills (show which other CLIs have this active)
+            let cli_indicators = if app.active_cli().active_resource() == ResourceTab::Skills {
+                let active_clis = app.cli_active_map.get(&item.name);
+                let mut spans = Vec::new();
+                for ct in &app.cli_tabs {
+                    let initial = ct.cli_name.chars().next().unwrap_or('?').to_uppercase().next().unwrap_or('?');
+                    let is_active_in_cli = active_clis.map(|v| v.contains(&ct.cli_name)).unwrap_or(false);
+                    if is_active_in_cli {
+                        spans.push(Span::styled(
+                            format!("[{}]", initial),
+                            Style::default().fg(GREEN),
+                        ));
+                    }
+                }
+                if !spans.is_empty() {
+                    spans.insert(0, Span::styled(" ", Style::default()));
+                }
+                spans
+            } else {
+                Vec::new()
+            };
+
+            let mut line_spans = vec![
                 Span::styled(
                     if is_selected { "> " } else { "  " },
                     Style::default().fg(MAUVE),
                 ),
                 Span::styled(
-                    format!("{} ", if item.enabled { "[x]" } else { "[ ]" }),
+                    format!("{} ", checkbox_str),
                     checkbox_style,
                 ),
                 origin_indicator,
@@ -173,8 +234,11 @@ fn draw_content(frame: &mut Frame, app: &App, area: Rect) {
                     format!("{:<6}", tier),
                     Style::default().fg(tier_color(item.score)),
                 ),
-                Span::styled(reason, Style::default().fg(OVERLAY0)),
-            ]);
+            ];
+            line_spans.extend(cli_indicators);
+            line_spans.push(Span::styled(reason, Style::default().fg(OVERLAY0)));
+
+            let line = Line::from(line_spans);
 
             ListItem::new(line)
         })
@@ -191,17 +255,18 @@ fn draw_content(frame: &mut Frame, app: &App, area: Rect) {
         format!(" {} ", total_items)
     };
 
+    let rtab_label = if app.cli_tabs.is_empty() { "Skills" } else { app.active_cli().active_resource().label() };
     let title = if app.filtering {
-        format!(" {} (/{}){}", app.active_tab.label(), app.filter, scroll_indicator)
+        format!(" {} (/{}){}", rtab_label, app.filter, scroll_indicator)
     } else if !app.filter.is_empty() {
         format!(
             " {} [filter: {}]{}",
-            app.active_tab.label(),
+            rtab_label,
             app.filter,
             scroll_indicator
         )
     } else {
-        format!(" {}{}", app.active_tab.label(), scroll_indicator)
+        format!(" {}{}", rtab_label, scroll_indicator)
     };
 
     let list = List::new(items).block(
@@ -223,14 +288,13 @@ fn draw_footer(frame: &mut Frame, app: &App, area: Rect) {
         ]
     } else {
         vec![
+            ("H/L", "cli"),
             ("Tab/h/l", "tab"),
             ("j/k", "nav"),
             ("Space", "toggle"),
             ("/", "filter"),
             ("i", "install"),
             ("A/N", "all/none"),
-            ("PgUp/Dn", "scroll"),
-            ("g/G", "top/bottom"),
             ("a", "apply"),
             ("q", "quit"),
         ]

@@ -1,7 +1,7 @@
 {{- if ne .chezmoi.os "windows" -}}
 #!/usr/bin/env bash
 # Disable all Claude Code plugins globally by default
-# cctx enables relevant plugins per project via settings.local.json
+# aictx enables relevant plugins per project via settings.local.json
 
 # settings hash: {{ include "dot_claude/private_settings.json.tmpl" | sha256sum }}
 
@@ -36,5 +36,5 @@ UPDATED=$(jq --argjson ep "$ENABLED_PLUGINS" '.enabledPlugins = $ep' "$SETTINGS"
 echo "$UPDATED" > "$SETTINGS"
 
 count=$(echo "$PLUGIN_KEYS" | wc -l | tr -d ' ')
-echo "plugins: disabled $count plugins globally (use cctx to enable per project)"
+echo "plugins: disabled $count plugins globally (use aictx to enable per project)"
 {{- end -}}

@@ -1,13 +1,13 @@
 [package]
-name = "claude-context"
-version = "0.2.0"
+name = "ai-context"
+version = "0.3.0"
 edition = "2021"
 description = "Smart per-project context manager for AI coding CLIs"
 license = "MIT"
 authors = ["Jerome Soyer"]
 
 [[bin]]
-name = "claude-context"
+name = "ai-context"
 path = "src/main.rs"
 
 [dependencies]

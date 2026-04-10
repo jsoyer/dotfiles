@@ -811,9 +811,10 @@ alias cco='claude --model opus'
 alias ccs='claude --model sonnet'
 alias cch='claude --model haiku'
 
-# Claude Context Manager
-if command -q claude-context
-    alias cctx='claude-context'
+# AI Context Manager
+if command -q ai-context
+    alias aictx='ai-context'
+    alias cctx='ai-context'  # compat alias
 end
 
 # ============================================================================
@@ -919,15 +920,15 @@ end
 {{ end -}}
 
 # ============================================================================
-# claude-context auto-apply on cd (checks project-map.yaml)
+# ai-context auto-apply on cd (checks project-map.yaml)
 # ============================================================================
-if command -q claude-context
-    function _cctx_auto_apply --on-variable PWD
-        set -l project_map "$HOME/.config/claude-context/project-map.yaml"
+if command -q ai-context
+    function _aictx_auto_apply --on-variable PWD
+        set -l project_map "$HOME/.config/ai-context/project-map.yaml"
         test -f "$project_map"; or return
         test -d ".claude/skills"; and return
         if grep -q (pwd) "$project_map" 2>/dev/null
-            claude-context apply --auto --yes &>/dev/null &
+            ai-context apply --auto --yes &>/dev/null &
         end
     end
 end
