@@ -1,7 +1,3 @@
-{{- if lookPath "age" }}
-encryption = "age"
-{{- end }}
-
 [git]
     autoAdd = true
     autoCommit = true
@@ -65,24 +61,6 @@ encryption = "age"
     override_tmux = {{ promptBoolOnce .omarchy "override_tmux" "Override OmArchy tmux config" true }}
     override_git = {{ promptBoolOnce .omarchy "override_git" "Override OmArchy git config" true }}
     override_wm = {{ promptBoolOnce .omarchy "override_wm" "Override OmArchy window manager (Hyprland/etc.)" false }}
-{{- end }}
-
-{{- if lookPath "age" }}
-
-[age]
-    identity = "{{ .chezmoi.homeDir }}/.config/chezmoi/key.txt"
-{{-   $opConfigFile := joinPath .chezmoi.homeDir ".config" "op" "config" }}
-{{-   $opReady := false }}
-{{-   if and (eq .chezmoi.os "darwin") (lookPath "op") (stat $opConfigFile) }}
-{{-     if or (stat "/Applications/1Password.app") (stat "/Applications/1Password 7.app") }}
-{{-       $opReady = true }}
-{{-     end }}
-{{-   end }}
-{{-   if $opReady }}
-    recipient = "{{ onepasswordRead "op://Private/Age Encryption Key - Chezmoi/public key" }}"
-{{-   else }}
-    recipient = "{{ promptStringOnce . "age_recipient" "age public key (age1...)" }}"
-{{-   end }}
 {{- end }}
 
 [edit]

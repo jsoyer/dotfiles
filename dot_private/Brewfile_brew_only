@@ -1,4 +1,3 @@
-brew "age"
 brew "dust"
 brew "eza"
 brew "node"
