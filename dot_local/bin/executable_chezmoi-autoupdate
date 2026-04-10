@@ -44,6 +44,27 @@ log_err() { printf '[%s] ERROR: %s\n' "$(date '+%H:%M:%S')" "$*" | tee -a "${LOG
 # Prep
 # ---------------------------------------------------------------------------
 mkdir -p "${CACHE_DIR}"
+
+# Guard: skip if another chezmoi instance is running
+readonly LOCK_FILE="${CACHE_DIR}/autoupdate.lock"
+if command -v flock &>/dev/null; then
+  exec 9>"${LOCK_FILE}"
+  if ! flock -n 9; then
+    echo "[$(date '+%H:%M:%S')] Skipped: another instance is running" >> "${LOG_FILE}"
+    exit 0
+  fi
+else
+  if [[ -f "${LOCK_FILE}" ]]; then
+    lock_pid="$(cat "${LOCK_FILE}" 2>/dev/null)"
+    if [[ -n "${lock_pid}" ]] && kill -0 "${lock_pid}" 2>/dev/null; then
+      echo "[$(date '+%H:%M:%S')] Skipped: another instance is running (pid ${lock_pid})" >> "${LOG_FILE}"
+      exit 0
+    fi
+  fi
+  echo $$ > "${LOCK_FILE}"
+  trap 'rm -f "${LOCK_FILE}"' EXIT
+fi
+
 : > "${LOG_FILE}"
 
 START_TS="$(date +%s)"
