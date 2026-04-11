@@ -83,14 +83,15 @@ paths:
   agents_dir: "~/.agents"
   commands_dir: "~/.claude/commands"
   rules_dir: "~/.claude/rules"
-  config_dir: "~/.config/claude-context"
-  profiles_dir: "~/.config/claude-context/profiles"
+  config_dir: "~/.config/ai-context"
+  profiles_dir: "~/.config/ai-context/profiles"
 
 cli_registry:
   - name: claude
     config_dir: "~/.claude"
     project_dir: ".claude"
     supports: [skills, agents, commands, rules, mcp, plugins]
+    scopes: [global, project, user-project]
 
   - name: qwen
     config_dir: "~/.qwen"
