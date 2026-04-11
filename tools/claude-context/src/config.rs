@@ -75,7 +75,11 @@ pub struct CliEntry {
 }
 
 fn default_scopes() -> Vec<String> {
-    vec!["global".to_string()]
+    vec![
+        "global".to_string(),
+        "project".to_string(),
+        "user-project".to_string(),
+    ]
 }
 
 impl AppConfig {

@@ -22,6 +22,7 @@ unset _stale_dumps
 # Fallback file/dir completion for modern CLI aliases (eza, bat, etc.)
 # Homebrew/AUR ship their own _eza; this is a safety net for apt/dnf installs
 (( $+functions[_eza] )) || compdef _files eza
+(( $+functions[_bat] )) || compdef _files bat
 
 # Load bashcompinit only when aws_completer is present (avoids 30ms overhead otherwise)
 if (( $+commands[aws_completer] )); then
