@@ -39,3 +39,5 @@ eza
 # Discord, Obsidian, LocalSend, Signal, DBeaver
 # installed via script (not managed by dnfw)
 # Zed (curl installer)
+libicu
+libicu-devel
