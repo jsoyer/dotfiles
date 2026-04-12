@@ -1,7 +1,7 @@
 {{- if ne .chezmoi.os "windows" -}}
 #!/usr/bin/env bash
 # aictx cache is deployed directly by chezmoi to ~/.aictx/
-# Symlinks are managed by `aictx enable/disable/apply`
+# Symlinks wired automatically via aictx apply
 
 set -euo pipefail
 
@@ -12,5 +12,10 @@ if [[ -f "{{ .chezmoi.homeDir }}/.claude/settings.json" ]]; then
   cp "{{ .chezmoi.homeDir }}/.claude/settings.json" "${CACHE_ROOT}/settings.json"
 fi
 
-echo "aictx: cache ready (use 'aictx apply' or 'aictx enable' to wire symlinks)"
+# Wire symlinks from ~/.aictx/ into CLI directories
+if command -v aictx >/dev/null 2>&1; then
+  aictx apply --yes --scope global 2>/dev/null && echo "aictx: symlinks wired" || true
+else
+  echo "aictx: not installed — run 'cargo install --path tools/claude-context' then 'aictx apply'"
+fi
 {{- end -}}
