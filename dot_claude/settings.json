@@ -1,0 +1,191 @@
+{
+  "env": {
+    "ENABLE_LSP_TOOL": "1",
+    "NODE_OPTIONS": "--max-old-space-size=2048",
+    "CHOKIDAR_USEPOLLING": "true",
+    "WATCHPACK_POLLING": "true",
+    "CLAUDE_AUTOCOMPACT_PCT_OVERRIDE": "62"
+  },
+  "permissions": {
+    "allow": [
+      "Read",
+      "Write",
+      "Edit",
+      "MultiEdit",
+      "Glob",
+      "Grep",
+      "Bash",
+      "Agent",
+      "Skill",
+      "LSP",
+      "NotebookEdit",
+      "WebFetch",
+      "WebSearch",
+      "TaskCreate",
+      "TaskUpdate",
+      "TaskGet",
+      "TaskList",
+      "TaskStop",
+      "SendMessage",
+      "AskUserQuestion",
+      "EnterPlanMode",
+      "ExitPlanMode",
+      "mcp__*"
+    ],
+    "deny": []
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/post-edit-quality.sh"
+          },
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/check-invariants.sh"
+          },
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/scan-secrets.sh"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/end-of-turn-typecheck.sh"
+          },
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/cleanup-artifacts.sh"
+          },
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/cleanup-worktrees.sh"
+          },
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/compound-reminder.sh"
+          },
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/verify-completion.sh"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/block-dangerous.sh"
+          },
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/check-docs-updated.sh"
+          },
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/block-heavy-bash.sh"
+          }
+        ]
+      },
+      {
+        "matcher": "Write|Edit|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/check-test-exists.sh"
+          }
+        ]
+      },
+      {
+        "matcher": "Read|Grep|Glob|Bash|Task|Agent",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/enforce-delegation.sh"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/reset-delegation-counter.sh"
+          }
+        ]
+      }
+    ],
+    "Notification": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "notify-send 'Claude Code' 'Claude needs attention' 2>/dev/null; exit 0"
+          }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/compact-save.sh"
+          }
+        ]
+      }
+    ],
+    "PostCompact": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/compact-restore.sh"
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/session-start.sh"
+          }
+        ]
+      }
+    ]
+  },
+  "statusLine": {
+    "type": "command",
+    "command": "~/.claude/statusline-command.sh"
+  },
+  "enabledPlugins": {
+    "frontend-design@claude-plugins-official": true,
+    "context7@claude-plugins-official": true,
+    "code-simplifier@claude-plugins-official": true,
+    "playwright@claude-plugins-official": true,
+    "commit-commands@claude-plugins-official": true,
+    "security-guidance@claude-plugins-official": true,
+    "claude-md-management@claude-plugins-official": true,
+    "typescript-lsp@claude-plugins-official": true,
+    "pyright-lsp@claude-plugins-official": false,
+    "skill-creator@claude-plugins-official": true
+  },
+  "extraKnownMarketplaces": {},
+  "effortLevel": "high",
+  "skipDangerousModePermissionPrompt": true
+}

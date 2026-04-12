@@ -7,3 +7,7 @@ memory/
 .beads-credential-key
 .beads/config.yaml
 AGENTS.md
+.beads/
+.claude/
+.omc/
+.serena/

@@ -1,0 +1,58 @@
+# Exclude sensitive content
+*.env
+*.secret
+.credentials.json
+
+# Exclude backup files and ephemeral session data
+*.bak
+*.bak.*
+sessions/
+
+# Exclude Claude's internal state files
+.state/
+projects/
+backups/
+cache/
+paste-cache/
+file-history/
+debug/
+history.jsonl
+downloads/
+
+# Exclude transient worktree directories
+worktrees/
+
+# Exclude machine-specific local settings
+settings.local.json
+
+# Exclude todoStorage and other ephemeral files
+todoStorage.json
+*.log
+
+# Exclude Claude internal state
+security_warnings_state_*
+mcp-needs-auth-cache.json
+plans/
+plugins/
+session-env/
+shell-snapshots/
+tasks/
+!test-workflow-mods/testdata/**/tasks/
+telemetry/
+todos/
+usage-data/
+
+# Exclude evolution data that contains project-specific info
+evolution/error-registry.json
+evolution/model-performance.json
+evolution/workflow-changelog.md
+evolution/session-postmortems/*.md
+!evolution/session-postmortems/.gitkeep
+
+# Exclude hook runtime artifacts
+hooks/logs/
+hooks/.approvals/
+hooks/.pending/
+
+# Exclude session state markers (preflight, compound, completion evidence)
+state/

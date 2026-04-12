@@ -46,7 +46,8 @@ macOS, Fedora, Fedora Atomic, Toolbox, Arch, OmArchy, Ubuntu, RPi, Windows. GUI 
 
 ### Key Directories
 - `dot_config/` — XDG configs (nvim, starship, tmux, wezterm, aerospace, sketchybar)
-- `dot_claude/` — Claude Code config (commands, rules, hooks, settings)
+- `dot_claude/` — Vendored Claude Workflow System (vinicius91carvalho/.claude@e1b64fc) with commands, rules, hooks, workflows
+- `claude_archive/` — Snapshot of the previous hand-rolled `.claude` tree (kept for rollback/reference)
 - `dot_skills/` — 648 AI skills (source of truth, symlinked to .claude/.qwen/.vibe/.codex/.kimi)
 - `dot_agents/` — 192 AI agents (source of truth, symlinked to .claude/agents/)
 - `dot_private/` — Package manifests (Brewfile, Aptfile, Dnffile, Pacfile)
@@ -54,9 +55,12 @@ macOS, Fedora, Fedora Atomic, Toolbox, Arch, OmArchy, Ubuntu, RPi, Windows. GUI 
 - `tools/claude-context/` — cctx: per-project context manager (Rust)
 
 ### AI Tools (`dot_claude/`)
-- 192 agents, 60 commands, 5 common rules + 12 language-specific rule sets
-- 6 hooks (rtk-rewrite, claude-island-state, config-protection, console-log-check, desktop-notify, quality-gate)
-- 19 MCP servers, statusline with usage bars
+`dot_claude/` now tracks the upstream [Claude Workflow System](https://github.com/vinicius91carvalho/.claude) (commit `e1b64fcb`) to take advantage of its aggressive token-saving defaults, enforcement hooks, and ready-made skills/agents. Key pieces to know:
+- `CLAUDE.md`, `workflow/`, and `docs/` document the Compound/Context engineering process this workflow enforces.
+- `settings.json` centralizes permissions and hook wiring (PostToolUse/Stop/PreToolUse/UserPromptSubmit/etc.).
+- `hooks/` implements deterministic gates (quality, invariants, cleanup) that reference scripts in `hooks/lib/` and `workflow/`.
+- `skills/find-skills` remains a symlink into `~/.agents/skills` so the shared skill catalog stays the source of truth.
+- Legacy config lives under `claude_archive/` if we ever need to inspect or restore the previous layout.
 
 ### Secret Management
 `secrets.zsh` auto-generated from 1Password (`op://Private/Shell Secrets`). Secrets single-quoted, file created with umask 077. Fallback: preserves existing file if 1Password unavailable.
