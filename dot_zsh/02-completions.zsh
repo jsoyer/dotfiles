@@ -6,18 +6,18 @@
 setopt prompt_subst
 zstyle ':completion:*' matcher-list 'm:{a-z}={A-Za-z}'
 
-# Load and cache completions
-autoload -Uz compinit
-
-# Only rebuild completion dump when it's older than 24h
-typeset -a _stale_dumps
-_stale_dumps=( "${HOME}"/.zcompdump(N.mh+24) )
-if (( ${#_stale_dumps} )); then
-  compinit
-else
-  compinit -C
+# Load and cache completions — skip if Oh-My-Zsh already called compinit
+if [[ -z "$ZSH_COMPDUMP" ]]; then
+  autoload -Uz compinit
+  typeset -a _stale_dumps
+  _stale_dumps=( "${HOME}"/.zcompdump(N.mh+24) )
+  if (( ${#_stale_dumps} )); then
+    compinit
+  else
+    compinit -C
+  fi
+  unset _stale_dumps
 fi
-unset _stale_dumps
 
 # Fallback file/dir completion for modern CLI aliases (eza, bat, etc.)
 # Homebrew/AUR ship their own _eza; this is a safety net for apt/dnf installs
