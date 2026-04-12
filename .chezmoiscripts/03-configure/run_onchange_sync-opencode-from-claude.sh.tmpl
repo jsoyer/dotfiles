@@ -1,0 +1,18 @@
+{{- if ne .chezmoi.os "windows" -}}
+#!/usr/bin/env bash
+# Keep OpenCode MCP servers aligned with Claude settings
+# settings hash: {{ include "dot_claude/settings.json" | sha256sum }}
+
+set -euo pipefail
+
+if command -v sync-mcp-servers &>/dev/null; then
+  sync-mcp-servers
+else
+  # Fallback: run via chezmoi-managed script
+  if [[ -x "{{ .chezmoi.homeDir }}/.local/bin/sync-mcp-servers" ]]; then
+    "{{ .chezmoi.homeDir }}/.local/bin/sync-mcp-servers"
+  else
+    echo "sync-mcp-servers not available; skipping MCP sync" >&2
+  fi
+fi
+{{- end -}}

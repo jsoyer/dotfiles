@@ -81,22 +81,34 @@ update-claude-skills --dry-run # Preview changes without writing
 3. Syncs to chezmoi source
 4. Commits changes
 
-### sync-mcp-servers
+### ca
 
-**Purpose:** Keep Claude Code and OpenCode MCP server configs in sync
+**Purpose:** Safer `chezmoi apply` wrapper that captures output and highlights warnings.
 
 **Usage:**
 ```bash
-sync-mcp-servers           # Sync MCP config from Claude to OpenCode
-sync-mcp-servers --dry-run # Preview changes
+ca                  # Apply everything (same flags as chezmoi apply)
+ca ~/.zshrc         # Apply a specific path
 ```
 
 **What it does:**
-1. Reads MCP server definitions from `~/.claude/settings.json`
-2. Converts format from Claude to OpenCode
-3. Writes to `~/.config/opencode/opencode.json`
-4. Syncs to chezmoi source
-5. Claude settings is the source of truth
+1. Runs `chezmoi apply -v` with your arguments
+2. Saves output to a temp log
+3. Prints a reminder if “warning” appears anywhere in the log
+
+### sync-mcp-servers
+
+**Purpose:** Re-render `~/.config/opencode/opencode.json` from the chezmoi template after updating Claude settings.
+
+**Usage:**
+```bash
+sync-mcp-servers           # Apply the template
+sync-mcp-servers --dry-run # Preview changes (chezmoi diff)
+```
+
+**What it does:**
+1. Runs `chezmoi diff/apply` against `~/.config/opencode/opencode.json`
+2. Ensures OpenCode picks up the latest MCP list defined in chezmoi
 
 ## Configuration & Development
 

@@ -533,12 +533,12 @@ chezmoi update  # Pull + apply automatically
 │   ├── 03-configure/                   # Post-install config (GPG, mail)
 │   ├── 04-update/                      # Package updates (Homebrew, App Store, dnf)
 │   └── 05-maintenance/                 # Container maintenance
-├── dot_claude/                         # Claude Code AI assistant
-│   ├── agents/                         # 192 specialized sub-agents
-│   ├── commands/                       # 60 slash commands (/plan, /verify, /tdd, etc.)
-│   ├── rules/                          # 64 rule files (common + 12 languages)
-│   ├── hooks/                          # 6 event hooks (RTK, state, quality gate, etc.)
-│   └── private_settings.json.tmpl      # Permissions, 19 MCP servers
+├── dot_claude/                         # Vendored Claude Workflow System (vinicius91carvalho/.claude)
+│   ├── agents/                         # Specialized orchestrator/code reviewer agents
+│   ├── commands/                       # Slash commands (/plan, /verify, etc.)
+│   ├── rules/                          # Compound + language-specific rule sets
+│   ├── hooks/                          # Enforcement hooks (RTK, quality gates, cleanup)
+│   └── settings.json                   # Permissions, MCP servers, hook wiring
 ├── dot_agents/                         # Shared AI agent skills
 │   ├── skills/                         # 654 skills (source of truth)
 │   └── dot_skill-lock.json             # Skill manifest (triggers sync)

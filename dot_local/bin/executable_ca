@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+# Improved chezmoi apply wrapper with warning detection
+set -euo pipefail
+
+LOG_FILE=$(mktemp -t ca-log.XXXXXX)
+cleanup() { rm -f "$LOG_FILE"; }
+trap cleanup EXIT
+
+if chezmoi apply -v "$@" | tee "$LOG_FILE"; then
+  if command -v rg &>/dev/null; then
+    if rg --fixed-strings --ignore-case --quiet "warning" "$LOG_FILE"; then
+      echo "[ca] Warning detected in chezmoi output above. Review before continuing." >&2
+    fi
+  elif grep -qi "warning" "$LOG_FILE"; then
+    echo "[ca] Warning detected in chezmoi output above. Review before continuing." >&2
+  fi
+else
+  status=$?
+  echo "[ca] chezmoi apply failed (status $status). Full log at $LOG_FILE" >&2
+  exit $status
+fi

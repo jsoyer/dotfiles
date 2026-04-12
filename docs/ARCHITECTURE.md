@@ -183,7 +183,7 @@ graph TD
 
 **Hooks**: `rtk-rewrite.sh` (token optimization on Bash calls), `claude-island-state.py` (state tracking), `console-log-check.sh` (debug statement warnings), `config-protection.sh` (protected file guard), `desktop-notify.sh` (macOS/Linux notifications)
 
-**MCP Servers**: 19 configured in `private_settings.json.tmpl` (context7, fetch, github, 1password, playwright, 4x cloudflare, token-optimizer, etc.)
+**MCP Servers**: 19 provided by the vendored `dot_claude/settings.json` (context7, fetch, github, 1password, playwright, 4x cloudflare, token-optimizer, etc.)
 
 ## Shell Configuration
 

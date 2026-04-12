@@ -1,60 +1,18 @@
 #!/usr/bin/env bash
-# sync-mcp-servers — keeps Claude Code and OpenCode MCP configs in sync
+# sync-mcp-servers — regenerate OpenCode config from chezmoi template
 # Usage: sync-mcp-servers [--dry-run]
 #
-# Reads MCP servers from Claude settings and generates OpenCode config.
-# Claude settings is the source of truth.
+# Wrapper around `chezmoi` so users can re-render ~/.config/opencode/opencode.json
+# after tweaking Claude settings without running a full apply.
 
 set -euo pipefail
 
-DRY_RUN=0
-[[ "${1:-}" == "--dry-run" ]] && DRY_RUN=1
+TARGET="$HOME/.config/opencode/opencode.json"
 
-CLAUDE_SETTINGS="$HOME/.claude/settings.json"
-OPENCODE_CONFIG="$HOME/.config/opencode/opencode.json"
-CHEZMOI_OPENCODE="$HOME/.local/share/chezmoi/dot_config/opencode/opencode.json"
-
-if [[ ! -f "$CLAUDE_SETTINGS" ]]; then
-  echo "Error: Claude settings not found at $CLAUDE_SETTINGS"
-  exit 1
-fi
-
-if ! command -v jq &>/dev/null; then
-  echo "Error: jq is required (brew install jq)"
-  exit 1
-fi
-
-# Extract MCP servers from Claude settings and convert format
-# Claude: { type: "stdio", command: "x", args: [...], env: {} }
-# OpenCode: { type: "local", command: ["x", ...], environment: {} }
-mcp_block=$(jq -r '
-  .mcpServers | to_entries | map({
-    key: .key,
-    value: (
-      {type: "local", command: ([.value.command] + .value.args)} +
-      if .value.env then {environment: .value.env} else {} end
-    )
-  }) | from_entries
-' "$CLAUDE_SETTINGS")
-
-# Read existing opencode config for non-MCP settings
-existing_config=$(jq 'del(.mcp)' "$OPENCODE_CONFIG" 2>/dev/null || echo '{}')
-
-# Merge
-new_config=$(echo "$existing_config" | jq --argjson mcp "$mcp_block" '. + {mcp: $mcp}')
-
-if [[ $DRY_RUN -eq 1 ]]; then
-  echo "Would update $OPENCODE_CONFIG with:"
-  echo "$new_config" | jq .
-  exit 0
-fi
-
-tmp=$(mktemp "${OPENCODE_CONFIG}.XXXXXX")
-echo "$new_config" | jq . > "$tmp" && mv "$tmp" "$OPENCODE_CONFIG"
-echo "OpenCode config updated from Claude settings"
-
-# Sync to chezmoi source
-if [[ -f "$CHEZMOI_OPENCODE" ]]; then
-  cp "$OPENCODE_CONFIG" "$CHEZMOI_OPENCODE"
-  echo "Synced to chezmoi source"
+if [[ "${1:-}" == "--dry-run" ]]; then
+  echo "[sync-mcp-servers] Previewing changes to $TARGET"
+  chezmoi diff "$TARGET"
+else
+  echo "[sync-mcp-servers] Applying $TARGET from chezmoi template"
+  chezmoi apply "$TARGET"
 fi

@@ -242,7 +242,7 @@ Scripts gracefully degrade:
 
 | I want to... | Do this |
 |-------------|---------|
-| Apply dotfiles | `ca` (alias for `chezmoi apply -v`) |
+| Apply dotfiles | `ca` (wrapper for `chezmoi apply -v` that flags warnings) |
 | Sync from git + apply | `cu` (alias for `chezmoi update -v`) |
 | Update everything | `cup` (update + upgrade packages) |
 | Add a file to chezmoi | `chezmoi add ~/.config/tool/config` |

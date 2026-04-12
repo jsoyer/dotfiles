@@ -60,7 +60,18 @@ macOS, Fedora, Fedora Atomic, Toolbox, Arch, OmArchy, Ubuntu, RPi, Windows. GUI 
 - `settings.json` centralizes permissions and hook wiring (PostToolUse/Stop/PreToolUse/UserPromptSubmit/etc.).
 - `hooks/` implements deterministic gates (quality, invariants, cleanup) that reference scripts in `hooks/lib/` and `workflow/`.
 - `skills/find-skills` remains a symlink into `~/.agents/skills` so the shared skill catalog stays the source of truth.
+- `aictx` keeps per-project overrides aligned by re-linking `~/.claude` agents/skills on every directory change (`aictx apply --auto`).
 - Legacy config lives under `claude_archive/` if we ever need to inspect or restore the previous layout.
+
+If the upstream GitHub repo ever disappears, restore the vendored snapshot with:
+
+```bash
+rm -rf ~/.local/share/chezmoi/dot_claude
+cp -R ~/.local/share/chezmoi/claude_archive ~/.local/share/chezmoi/dot_claude
+chezmoi apply ~/.claude
+```
+
+This falls back to the latest archived copy committed in this repo, so no external fetch is required.
 
 ### Secret Management
 `secrets.zsh` auto-generated from 1Password (`op://Private/Shell Secrets`). Secrets single-quoted, file created with umask 077. Fallback: preserves existing file if 1Password unavailable.

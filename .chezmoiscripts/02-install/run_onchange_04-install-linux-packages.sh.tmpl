@@ -63,6 +63,10 @@
 
 set -euo pipefail
 
+# Cache directory for large installer scripts
+CHEZMOI_DL_CACHE="${XDG_CACHE_HOME:-${HOME}/.cache}/chezmoi-downloads"
+mkdir -p "${CHEZMOI_DL_CACHE}"
+
 # Ensure brew is in PATH if installed (chezmoi scripts run in isolated subshells)
 # Check binary directly — directory may exist before brew is fully installed
 if [[ -x "/home/linuxbrew/.linuxbrew/bin/brew" ]]; then
@@ -85,6 +89,50 @@ _has_gui() {
     command -v hyprctl &>/dev/null || \
     command -v sway &>/dev/null || \
     command -v startx &>/dev/null
+}
+
+_cached_fetch() {
+    local url="$1"
+    local dest="${CHEZMOI_DL_CACHE}/$(basename "$url")"
+
+    if [[ ! -f "$dest" ]]; then
+        curl -fsSL "$url" -o "$dest"
+    fi
+
+    echo "$dest"
+}
+
+_install_starship() {
+    if command -v starship &>/dev/null; then
+        return 0
+    fi
+
+    echo "Installing starship..."
+    local arch
+    arch="$(uname -m 2>/dev/null || echo unknown)"
+    local platform_arg=()
+    case "$arch" in
+        x86_64)
+            platform_arg=(--platform x86_64-unknown-linux-musl)
+            ;;
+        aarch64|arm64)
+            platform_arg=(--platform aarch64-unknown-linux-musl)
+            ;;
+    esac
+
+    local installer
+    installer="$(_cached_fetch "https://starship.rs/install.sh")"
+
+    if ! sh "$installer" -s -- -y "${platform_arg[@]}"; then
+        echo "Starship install script failed, falling back to cargo..." >&2
+        if command -v cargo &>/dev/null; then
+            cargo install --locked starship && return 0
+            echo "Warning: cargo install starship failed. Install manually from https://starship.rs" >&2
+        else
+            echo "Warning: cargo not available for starship fallback. Install manually from https://starship.rs" >&2
+        fi
+        return 1
+    fi
 }
 
 # =============================================================================
@@ -140,10 +188,7 @@ if [[ -f "$_aptfile" ]]; then
 fi
 
 # Install starship via official installer (not in Debian apt)
-if ! command -v starship &>/dev/null; then
-    echo "Installing starship..."
-    curl -sS https://starship.rs/install.sh | sh -s -- -y
-fi
+_install_starship || true
 
 # Install 1Password CLI via official apt repo
 if ! command -v op &>/dev/null; then
@@ -196,10 +241,7 @@ if [[ -f "$_aptfile" ]]; then
 fi
 
 # Install starship via official installer (not in Ubuntu apt)
-if ! command -v starship &>/dev/null; then
-    echo "Installing starship..."
-    curl -sS https://starship.rs/install.sh | sh -s -- -y
-fi
+_install_starship || true
 
 # Install eza via cargo (not in standard Ubuntu repos)
 if ! command -v eza &>/dev/null; then
@@ -262,10 +304,7 @@ if [[ -f "$_aptfile" ]]; then
 fi
 
 # Install starship via official installer (not in Ubuntu apt)
-if ! command -v starship &>/dev/null; then
-    echo "Installing starship..."
-    curl -sS https://starship.rs/install.sh | sh -s -- -y
-fi
+_install_starship || true
 
 # Install eza via cargo (not in standard Ubuntu repos)
 if ! command -v eza &>/dev/null; then
