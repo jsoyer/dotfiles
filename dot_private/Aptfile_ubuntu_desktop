@@ -15,7 +15,6 @@ unzip
 bat
 fontconfig
 zoxide
-atuin
 direnv
 locales
 htop
