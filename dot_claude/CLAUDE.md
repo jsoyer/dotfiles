@@ -288,3 +288,4 @@ All generated artifacts go to `.artifacts/{category}/YYYY-MM-DD_HHmm/`. Categori
 
 @rules/quality.md
 @rules/environment.md
+@RTK.md
