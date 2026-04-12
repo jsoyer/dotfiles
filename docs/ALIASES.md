@@ -217,7 +217,7 @@ All package managers are wrapped to track installations in manifest files (`Brew
 | `bun` | `breww uninstall` | Uninstall package |
 | `bci` | `breww cleanup` | Clean up |
 | `binfo` | `breww info` | Show package info |
-| `bd` | `breww doctor` | Diagnose issues |
+| `bdo` | `breww doctor` | Diagnose issues |
 
 ### APT (Ubuntu, Debian, Raspberry Pi)
 

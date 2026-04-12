@@ -1117,7 +1117,7 @@ alias bl = breww list
 alias brm = breww uninstall
 alias bci = breww cleanup
 alias binfo = breww info
-alias bd = breww doctor
+alias bdo = breww doctor
 alias bdep = brew-deprecated
 
 # ============================================================================
