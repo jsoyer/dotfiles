@@ -32,7 +32,7 @@ pub fn draw(frame: &mut Frame, app: &App) {
             Constraint::Length(3), // header
             Constraint::Length(3), // CLI tabs
             Constraint::Length(3), // resource tabs
-            Constraint::Min(10),  // content
+            Constraint::Min(10),   // content
             Constraint::Length(3), // footer
         ])
         .split(area);
@@ -75,16 +75,23 @@ fn draw_header(frame: &mut Frame, app: &App, area: Rect) {
 }
 
 fn draw_cli_tabs(frame: &mut Frame, app: &App, area: Rect) {
-    let tab_titles: Vec<Line> = app.cli_tabs
+    let tab_titles: Vec<Line> = app
+        .cli_tabs
         .iter()
         .map(|cli| {
             // Count total enabled across all resource tabs for this CLI
-            let total_enabled: usize = cli.resource_tabs.iter()
+            let total_enabled: usize = cli
+                .resource_tabs
+                .iter()
                 .filter_map(|rt| app.items.get(&(cli.cli_name.clone(), *rt)))
                 .flat_map(|items| items.iter())
                 .filter(|i| i.enabled)
                 .count();
-            Line::from(format!(" {} ({}) ", capitalize(&cli.cli_name), total_enabled))
+            Line::from(format!(
+                " {} ({}) ",
+                capitalize(&cli.cli_name),
+                total_enabled
+            ))
         })
         .collect();
 
@@ -103,14 +110,19 @@ fn draw_cli_tabs(frame: &mut Frame, app: &App, area: Rect) {
 }
 
 fn draw_resource_tabs(frame: &mut Frame, app: &App, area: Rect) {
-    if app.cli_tabs.is_empty() { return; }
+    if app.cli_tabs.is_empty() {
+        return;
+    }
     let cli = app.active_cli();
 
-    let tab_titles: Vec<Line> = cli.resource_tabs
+    let tab_titles: Vec<Line> = cli
+        .resource_tabs
         .iter()
         .map(|rt| {
             let items = app.items.get(&(cli.cli_name.clone(), *rt));
-            let enabled = items.map(|v| v.iter().filter(|i| i.enabled).count()).unwrap_or(0);
+            let enabled = items
+                .map(|v| v.iter().filter(|i| i.enabled).count())
+                .unwrap_or(0);
             let total = items.map(|v| v.len()).unwrap_or(0);
             Line::from(format!(" {} {}/{} ", rt.label(), enabled, total))
         })
@@ -135,6 +147,31 @@ fn capitalize(s: &str) -> String {
     match chars.next() {
         None => String::new(),
         Some(c) => c.to_uppercase().collect::<String>() + chars.as_str(),
+    }
+}
+
+fn status_indicator(item: &super::app::ToggleItem) -> (&'static str, Style) {
+    if item.enabled {
+        ("🟢 installed", Style::default().fg(GREEN))
+    } else if item.available {
+        ("🟡 available", Style::default().fg(YELLOW))
+    } else {
+        ("🔵 remote", Style::default().fg(PEACH))
+    }
+}
+
+fn source_indicator(item: &super::app::ToggleItem) -> (&'static str, Style) {
+    match item.origin {
+        Origin::Local => ("cache", Style::default().fg(SUBTEXT)),
+        Origin::Remote => ("remote", Style::default().fg(PEACH)),
+    }
+}
+
+fn symlink_indicator(item: &super::app::ToggleItem) -> (&'static str, Style) {
+    if item.enabled {
+        ("✔", Style::default().fg(GREEN))
+    } else {
+        ("✖", Style::default().fg(OVERLAY0))
     }
 }
 
@@ -168,7 +205,10 @@ fn draw_content(frame: &mut Frame, app: &App, area: Rect) {
 
             // Checkbox: green bold [x] for active, mauve [~] for suggested, dim [ ] for inactive
             let (checkbox_str, checkbox_style) = if item.enabled {
-                ("[x]", Style::default().fg(GREEN).add_modifier(Modifier::BOLD))
+                (
+                    "[x]",
+                    Style::default().fg(GREEN).add_modifier(Modifier::BOLD),
+                )
             } else if item.suggested {
                 ("[~]", Style::default().fg(MAUVE))
             } else {
@@ -187,10 +227,9 @@ fn draw_content(frame: &mut Frame, app: &App, area: Rect) {
                 Style::default().fg(OVERLAY0)
             };
 
-            let origin_indicator = match item.origin {
-                Origin::Local => Span::raw(""),
-                Origin::Remote => Span::styled("[R] ", Style::default().fg(PEACH)),
-            };
+            let (status_label, status_style) = status_indicator(item);
+            let (source_label, source_style) = source_indicator(item);
+            let (link_label, link_style) = symlink_indicator(item);
 
             // CLI indicators for skills
             let cli_indicators = if !app.cli_tabs.is_empty()
@@ -199,10 +238,17 @@ fn draw_content(frame: &mut Frame, app: &App, area: Rect) {
                 let active_clis = app.cli_active_map.get(&item.name);
                 let mut spans = Vec::new();
                 for ct in &app.cli_tabs {
-                    let initial = ct.cli_name.chars().next().unwrap_or('?')
-                        .to_uppercase().next().unwrap_or('?');
+                    let initial = ct
+                        .cli_name
+                        .chars()
+                        .next()
+                        .unwrap_or('?')
+                        .to_uppercase()
+                        .next()
+                        .unwrap_or('?');
                     let is_active_in_cli = active_clis
-                        .map(|v| v.contains(&ct.cli_name)).unwrap_or(false);
+                        .map(|v| v.contains(&ct.cli_name))
+                        .unwrap_or(false);
                     if is_active_in_cli {
                         spans.push(Span::styled(
                             format!("[{}]", initial),
@@ -223,17 +269,17 @@ fn draw_content(frame: &mut Frame, app: &App, area: Rect) {
                 let bar = score_bar(item.score);
                 let tier = confidence_tier(item.score);
                 vec![
-                    Span::styled(format!(" {} ", bar), Style::default().fg(score_color(item.score))),
-                    Span::styled(format!("{:<5}", tier), Style::default().fg(tier_color(item.score))),
+                    Span::styled(
+                        format!(" {} ", bar),
+                        Style::default().fg(score_color(item.score)),
+                    ),
+                    Span::styled(
+                        format!("{:<5}", tier),
+                        Style::default().fg(tier_color(item.score)),
+                    ),
                 ]
             } else {
                 vec![Span::raw("                  ")]
-            };
-
-            let reason = if item.reason.is_empty() {
-                String::new()
-            } else {
-                format!(" {}", item.reason)
             };
 
             let mut line_spans = vec![
@@ -242,12 +288,27 @@ fn draw_content(frame: &mut Frame, app: &App, area: Rect) {
                     Style::default().fg(MAUVE),
                 ),
                 Span::styled(format!("{} ", checkbox_str), checkbox_style),
-                origin_indicator,
                 Span::styled(format!("{:<30}", item.name), name_style),
+                Span::raw("  "),
+                Span::styled(format!("{:<12}", status_label), status_style),
+                Span::raw("  "),
+                Span::styled(format!("{:<8}", source_label), source_style),
+                Span::raw("  link "),
+                Span::styled(link_label.to_string(), link_style),
+                Span::raw("  "),
             ];
             line_spans.extend(score_spans);
-            line_spans.extend(cli_indicators);
-            line_spans.push(Span::styled(reason, Style::default().fg(OVERLAY0)));
+            if !item.reason.is_empty() {
+                line_spans.push(Span::raw("  "));
+                line_spans.push(Span::styled(
+                    item.reason.clone(),
+                    Style::default().fg(OVERLAY0),
+                ));
+            }
+            if !cli_indicators.is_empty() {
+                line_spans.push(Span::raw("  "));
+                line_spans.extend(cli_indicators);
+            }
 
             ListItem::new(Line::from(line_spans))
         })
@@ -289,9 +350,20 @@ fn draw_content(frame: &mut Frame, app: &App, area: Rect) {
     if let Some(filter_rect) = filter_area {
         let filter_line = if app.filtering {
             Line::from(vec![
-                Span::styled(" / ", Style::default().fg(YELLOW).add_modifier(Modifier::BOLD)),
-                Span::styled(&app.filter, Style::default().fg(TEXT).add_modifier(Modifier::BOLD)),
-                Span::styled("_", Style::default().fg(YELLOW).add_modifier(Modifier::RAPID_BLINK)),
+                Span::styled(
+                    " / ",
+                    Style::default().fg(YELLOW).add_modifier(Modifier::BOLD),
+                ),
+                Span::styled(
+                    &app.filter,
+                    Style::default().fg(TEXT).add_modifier(Modifier::BOLD),
+                ),
+                Span::styled(
+                    "_",
+                    Style::default()
+                        .fg(YELLOW)
+                        .add_modifier(Modifier::RAPID_BLINK),
+                ),
                 Span::styled(
                     format!("  ({} matches)", total_items),
                     Style::default().fg(SUBTEXT),
@@ -313,22 +385,21 @@ fn draw_content(frame: &mut Frame, app: &App, area: Rect) {
 
 fn draw_footer(frame: &mut Frame, app: &App, area: Rect) {
     let keys = if app.filtering {
-        vec![
-            ("Esc", "cancel"),
-            ("Enter", "confirm"),
-            ("type", "filter"),
-        ]
+        vec![("Esc", "cancel"), ("Enter", "confirm"), ("type", "filter")]
     } else {
         vec![
             ("H/L", "cli"),
             ("Tab/h/l", "tab"),
             ("j/k", "nav"),
             ("Space", "toggle"),
-            ("s", match app.sort_mode {
-                super::app::SortMode::Default => "sort",
-                super::app::SortMode::Score => "sort:score",
-                super::app::SortMode::Name => "sort:name",
-            }),
+            (
+                "s",
+                match app.sort_mode {
+                    super::app::SortMode::Default => "sort",
+                    super::app::SortMode::Score => "sort:score",
+                    super::app::SortMode::Name => "sort:name",
+                },
+            ),
             ("/", "filter"),
             ("i", "install"),
             ("A/N", "all/none"),

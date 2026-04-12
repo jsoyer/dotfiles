@@ -92,16 +92,16 @@ Runs once or on manifest changes to configure services, generate configs, and sy
 | `run_once_configure-linux.sh` | Once | Linux Desktop | Install and configure desktop-specific tools (BTRFS snapshots, hypervisor, etc.) |
 | `run_onchange_generate-ssh-config.sh` | Manifest change | macOS, Linux | Generate SSH config from template, read keys from 1Password |
 | `run_onchange_configure-mail.sh` | Manifest change | macOS, Linux | Configure isync (mbsync), msmtp, neomutt using 1Password integration |
-| `run_onchange_sync-skill-symlinks.sh` | dot_agents/dot_skill-lock.json change | Non-Windows | Sync AI agent skills from `~/.agents/skills/` to `~/.claude/skills/`, `~/.qwen/skills/`, `~/.vibe/skills/`, `~/.codex/skills/` |
+| `run_after_sync-aictx.sh` | Every apply | Non-Windows | Maintain `~/.aictx/{skills,agents,...}` cache and refresh CLI symlinks (`~/.claude`, `~/.qwen`, `~/.vibe`, `~/.codex`, `~/.opencode`, `~/.gemini`) |
 
 **Key functionality:**
 
-**Skills Symlink Sync:**
-- **Source**: `~/.agents/skills/` (654 skills in dot_agents/)
-- **Consumers**: .claude, .qwen, .vibe, .codex
-- **Mechanism**: Creates relative symlinks `../../../.agents/skills/*` in each consumer directory
-- **Trigger**: Runs whenever `dot_agents/dot_skill-lock.json` changes (tracks dependency updates)
-- **Cleanup**: Removes stale symlinks if skills are deleted from source
+**AICTX Cache + Symlink Sync:**
+- **Source**: `~/.aictx/{skills,agents}` populated from ChezMoi-managed `dot_agents/`
+- **Consumers**: .claude, .qwen, .vibe, .codex, .opencode, .gemini
+- **Mechanism**: Copies repo skills/agents into cache, then creates relative symlinks to `../../.aictx/*`
+- **Trigger**: Runs after every `chezmoi apply` to keep cache and symlinks fresh
+- **Cleanup**: Removes stale symlinks if cache entries disappear
 
 **SSH Config Generation:**
 - Reads SSH key passphrases from 1Password (skips gracefully if unavailable)

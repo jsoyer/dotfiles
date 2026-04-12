@@ -195,10 +195,12 @@ vim dot_agents/skills/my-skill/skill.md
 Then update the lock file to trigger symlink sync:
 
 ```bash
-# Bump the lock file to trigger run_onchange_sync-skill-symlinks.sh
+# Optional: bump the lock file before running run_after_sync-aictx.sh
 date > dot_agents/dot_skill-lock.json
 chezmoi apply
 ```
+
+> The cache/symlink workflow now runs after every `chezmoi apply` via `run_after_sync-aictx.sh`, so touching the lock file is only needed when forcing a rerun manually.
 
 ### Updating agents from upstream
 

@@ -100,7 +100,7 @@ graph LR
 | 03 | `configure-linux.sh` | once | Linux |
 | 03 | `configure-mail.sh` | onchange | All |
 | 03 | `generate-ssh-config.sh` | onchange | All |
-| 03 | `sync-skill-symlinks.sh` | onchange | All |
+| 03 | `sync-aictx.sh` | after apply | All |
 | 04 | `update-appstore.sh` | onchange | mac-personal |
 | 04 | `update-homebrew.sh` | onchange | macOS |
 | 04 | `update-linux.sh` | onchange | Linux |
@@ -150,7 +150,7 @@ graph TD
     subgraph Scripts
         UCA[update-claude-agents]
         UCS[update-claude-skills]
-        SYNC[sync-skill-symlinks.sh<br>triggered by skill-lock.json]
+        SYNC[sync-aictx.sh<br>runs after chezmoi apply]
     end
 
     subgraph Targets

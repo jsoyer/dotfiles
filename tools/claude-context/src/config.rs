@@ -90,8 +90,8 @@ impl AppConfig {
         if defaults_path.exists() {
             let content = std::fs::read_to_string(&defaults_path)
                 .with_context(|| format!("Failed to read {}", defaults_path.display()))?;
-            let mut config: AppConfig = serde_yaml::from_str(&content)
-                .with_context(|| "Failed to parse defaults.yaml")?;
+            let mut config: AppConfig =
+                serde_yaml::from_str(&content).with_context(|| "Failed to parse defaults.yaml")?;
             config.paths.expand_tildes();
             config.expand_cli_tildes();
             Ok(config)
@@ -121,39 +121,77 @@ impl AppConfig {
         Self {
             base: BaseConfig {
                 skills: vec![
-                    "git-commit", "git-workflow", "code-review", "code-refactoring",
-                    "tdd-workflow", "plan", "verify", "debugger", "debugging-wizard",
-                    "security-review", "documentation", "testing-strategy", "refactor",
-                    "search", "deep-research", "self-improvement", "continuous-learning",
-                    "prompt-engineer", "health", "context-budget", "aside", "build-fix",
-                    "learn", "checkpoint", "save-session", "resume-session",
+                    "git-commit",
+                    "git-workflow",
+                    "code-review",
+                    "code-refactoring",
+                    "tdd-workflow",
+                    "plan",
+                    "verify",
+                    "debugger",
+                    "debugging-wizard",
+                    "security-review",
+                    "documentation",
+                    "testing-strategy",
+                    "refactor",
+                    "search",
+                    "deep-research",
+                    "self-improvement",
+                    "continuous-learning",
+                    "prompt-engineer",
+                    "health",
+                    "context-budget",
+                    "aside",
+                    "build-fix",
+                    "learn",
+                    "checkpoint",
+                    "save-session",
+                    "resume-session",
                 ]
                 .into_iter()
                 .map(String::from)
                 .collect(),
                 agents: vec![
-                    "code-reviewer", "planner", "debugger", "security-reviewer",
-                    "build-error-resolver", "refactoring-specialist", "tdd-guide",
-                    "documentation-engineer", "shell-script-engineer",
-                    "performance-engineer", "search-specialist", "error-detective",
+                    "code-reviewer",
+                    "planner",
+                    "debugger",
+                    "security-reviewer",
+                    "build-error-resolver",
+                    "refactoring-specialist",
+                    "tdd-guide",
+                    "documentation-engineer",
+                    "shell-script-engineer",
+                    "performance-engineer",
+                    "search-specialist",
+                    "error-detective",
                 ]
                 .into_iter()
                 .map(String::from)
                 .collect(),
                 commands: vec![
-                    "plan", "verify", "code-review", "tdd", "build-fix", "refactor-clean",
-                    "checkpoint", "save-session", "resume-session", "context-budget",
-                    "learn", "aside", "quality-gate", "update-docs", "update-codemaps",
+                    "plan",
+                    "verify",
+                    "code-review",
+                    "tdd",
+                    "build-fix",
+                    "refactor-clean",
+                    "checkpoint",
+                    "save-session",
+                    "resume-session",
+                    "context-budget",
+                    "learn",
+                    "aside",
+                    "quality-gate",
+                    "update-docs",
+                    "update-codemaps",
                 ]
                 .into_iter()
                 .map(String::from)
                 .collect(),
-                mcp: vec![
-                    "context7", "fetch", "github", "1password", "obsidian",
-                ]
-                .into_iter()
-                .map(String::from)
-                .collect(),
+                mcp: vec!["context7", "fetch", "github", "1password", "obsidian"]
+                    .into_iter()
+                    .map(String::from)
+                    .collect(),
                 rules: vec!["common".to_string()],
                 plugins: vec![],
             },
@@ -166,20 +204,31 @@ impl AppConfig {
                 cache_ttl: "7d".to_string(),
             },
             paths: PathsConfig {
-                // Use ~/.skills/ if it exists (post-migration), fallback to ~/.agents/skills/ (current)
-                skills_dir: if home.join(".skills").exists() {
+                // Prefer ~/.aictx cache, fall back to legacy paths for upgrades
+                skills_dir: if home.join(".aictx").join("skills").exists() {
+                    home.join(".aictx").join("skills")
+                } else if home.join(".skills").exists() {
                     home.join(".skills")
                 } else {
                     home.join(".agents").join("skills")
                 },
-                // Use ~/.agents/ if it contains .md files (post-migration), fallback to ~/.claude/agents/ (current)
-                agents_dir: if home.join(".agents").join("code-reviewer.md").exists() {
+                agents_dir: if home.join(".aictx").join("agents").exists() {
+                    home.join(".aictx").join("agents")
+                } else if home.join(".agents").exists() {
                     home.join(".agents")
                 } else {
                     home.join(".claude").join("agents")
                 },
-                commands_dir: home.join(".claude").join("commands"),
-                rules_dir: home.join(".claude").join("rules"),
+                commands_dir: if home.join(".aictx").join("commands").exists() {
+                    home.join(".aictx").join("commands")
+                } else {
+                    home.join(".claude").join("commands")
+                },
+                rules_dir: if home.join(".aictx").join("rules").exists() {
+                    home.join(".aictx").join("rules")
+                } else {
+                    home.join(".claude").join("rules")
+                },
                 config_dir: Self::config_dir(),
                 profiles_dir: Self::config_dir().join("profiles"),
             },
@@ -188,12 +237,10 @@ impl AppConfig {
                     name: "claude".to_string(),
                     config_dir: home.join(".claude"),
                     project_dir: ".claude".to_string(),
-                    supports: vec![
-                        "skills", "agents", "commands", "rules", "mcp", "plugins",
-                    ]
-                    .into_iter()
-                    .map(String::from)
-                    .collect(),
+                    supports: vec!["skills", "agents", "commands", "rules", "mcp", "plugins"]
+                        .into_iter()
+                        .map(String::from)
+                        .collect(),
                     scopes: vec!["global", "project", "user-project"]
                         .into_iter()
                         .map(String::from)

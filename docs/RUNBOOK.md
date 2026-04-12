@@ -346,7 +346,7 @@ chezmoi re-add --encrypt <each encrypted file>
 | 03-configure | `configure-linux.sh` | once | Linux |
 | 03-configure | `configure-mail.sh` | onchange | All |
 | 03-configure | `generate-ssh-config.sh` | onchange | All |
-| 03-configure | `sync-skill-symlinks.sh` | onchange | All |
+| 03-configure | `sync-aictx.sh` | after apply | All |
 | 04-update | `update-appstore.sh` | onchange | mac-personal |
 | 04-update | `update-homebrew.sh` | onchange | macOS |
 | 04-update | `update-linux.sh` | onchange | Linux |

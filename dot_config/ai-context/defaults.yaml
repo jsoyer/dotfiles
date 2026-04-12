@@ -79,10 +79,10 @@ ai:
   cache_ttl: "7d"
 
 paths:
-  skills_dir: "~/.skills"
-  agents_dir: "~/.agents"
-  commands_dir: "~/.claude/commands"
-  rules_dir: "~/.claude/rules"
+  skills_dir: "~/.aictx/skills"
+  agents_dir: "~/.aictx/agents"
+  commands_dir: "~/.aictx/commands"
+  rules_dir: "~/.aictx/rules"
   config_dir: "~/.config/ai-context"
   profiles_dir: "~/.config/ai-context/profiles"
 

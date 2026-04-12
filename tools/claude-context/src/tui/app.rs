@@ -33,13 +33,27 @@ impl ResourceTab {
 
     pub fn from_support(supports: &[String]) -> Vec<ResourceTab> {
         let mut tabs = Vec::new();
-        if supports.contains(&"skills".to_string()) { tabs.push(ResourceTab::Skills); }
-        if supports.contains(&"agents".to_string()) { tabs.push(ResourceTab::Agents); }
-        if supports.contains(&"commands".to_string()) { tabs.push(ResourceTab::Commands); }
-        if supports.contains(&"mcp".to_string()) { tabs.push(ResourceTab::Mcp); }
-        if supports.contains(&"rules".to_string()) { tabs.push(ResourceTab::Rules); }
-        if supports.contains(&"plugins".to_string()) { tabs.push(ResourceTab::Plugins); }
-        if tabs.is_empty() { tabs.push(ResourceTab::Skills); }
+        if supports.contains(&"skills".to_string()) {
+            tabs.push(ResourceTab::Skills);
+        }
+        if supports.contains(&"agents".to_string()) {
+            tabs.push(ResourceTab::Agents);
+        }
+        if supports.contains(&"commands".to_string()) {
+            tabs.push(ResourceTab::Commands);
+        }
+        if supports.contains(&"mcp".to_string()) {
+            tabs.push(ResourceTab::Mcp);
+        }
+        if supports.contains(&"rules".to_string()) {
+            tabs.push(ResourceTab::Rules);
+        }
+        if supports.contains(&"plugins".to_string()) {
+            tabs.push(ResourceTab::Plugins);
+        }
+        if tabs.is_empty() {
+            tabs.push(ResourceTab::Skills);
+        }
         tabs
     }
 }
@@ -61,16 +75,16 @@ impl CliTab {
     }
 
     pub fn prev_resource(&mut self) {
-        self.active_resource_idx = (self.active_resource_idx + self.resource_tabs.len() - 1)
-            % self.resource_tabs.len();
+        self.active_resource_idx =
+            (self.active_resource_idx + self.resource_tabs.len() - 1) % self.resource_tabs.len();
     }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum SortMode {
-    Default,  // enabled > suggested > alpha
-    Score,    // highest score first
-    Name,     // alphabetical
+    Default, // enabled > suggested > alpha
+    Score,   // highest score first
+    Name,    // alphabetical
 }
 
 impl SortMode {
@@ -96,6 +110,7 @@ impl SortMode {
 pub struct ToggleItem {
     pub name: String,
     pub enabled: bool,
+    pub available: bool,
     pub suggested: bool,
     pub score: f32,
     pub reason: String,
@@ -153,7 +168,10 @@ impl<'a> App<'a> {
         let mut cli_active_map: HashMap<String, Vec<String>> = HashMap::new();
         for (cli_name, status) in cli_statuses {
             for skill in &status.skills {
-                cli_active_map.entry(skill.clone()).or_default().push(cli_name.clone());
+                cli_active_map
+                    .entry(skill.clone())
+                    .or_default()
+                    .push(cli_name.clone());
             }
         }
 
@@ -167,8 +185,12 @@ impl<'a> App<'a> {
                 .map(|(_, s)| s);
 
             let empty_status = ProjectStatus {
-                skills: Vec::new(), agents: Vec::new(), commands: Vec::new(),
-                rules: Vec::new(), mcp: Vec::new(), plugins: Vec::new(),
+                skills: Vec::new(),
+                agents: Vec::new(),
+                commands: Vec::new(),
+                rules: Vec::new(),
+                mcp: Vec::new(),
+                plugins: Vec::new(),
                 detected_clis: Vec::new(),
                 scope: crate::scope::Scope::Global,
             };
@@ -177,7 +199,12 @@ impl<'a> App<'a> {
             for &rtab in &cli_tab.resource_tabs {
                 let key = (cli_tab.cli_name.clone(), rtab);
                 let tab_items = Self::build_resource_items(
-                    rtab, config, index, recommendations, remote_resources, status,
+                    rtab,
+                    config,
+                    index,
+                    recommendations,
+                    remote_resources,
+                    status,
                 );
                 items.insert(key, tab_items);
             }
@@ -219,20 +246,31 @@ impl<'a> App<'a> {
     ) -> Vec<ToggleItem> {
         match rtab {
             ResourceTab::Skills => Self::build_items_from_index(
-                &index.skills, &recommendations.skills, &status.skills,
-                remote_resources, ResourceType::Skill,
+                &index.skills,
+                &recommendations.skills,
+                &status.skills,
+                remote_resources,
+                ResourceType::Skill,
             ),
             ResourceTab::Agents => Self::build_items_from_index(
-                &index.agents, &recommendations.agents, &status.agents,
-                remote_resources, ResourceType::Agent,
+                &index.agents,
+                &recommendations.agents,
+                &status.agents,
+                remote_resources,
+                ResourceType::Agent,
             ),
             ResourceTab::Commands => Self::build_items_from_index(
-                &index.commands, &recommendations.commands, &status.commands,
-                remote_resources, ResourceType::Command,
+                &index.commands,
+                &recommendations.commands,
+                &status.commands,
+                remote_resources,
+                ResourceType::Command,
             ),
             ResourceTab::Mcp => Self::build_mcp_items(config, recommendations, status),
             ResourceTab::Rules => Self::build_rules_items(recommendations, status),
-            ResourceTab::Plugins => Self::build_plugin_items(recommendations, remote_resources, status),
+            ResourceTab::Plugins => {
+                Self::build_plugin_items(recommendations, remote_resources, status)
+            }
         }
     }
 
@@ -251,6 +289,7 @@ impl<'a> App<'a> {
             items.push(ToggleItem {
                 name: entry.name.clone(),
                 enabled: active.contains(&entry.name),
+                available: true,
                 suggested: rec.is_some(),
                 score: rec.map(|r| r.score).unwrap_or(0.0),
                 reason: rec.map(|r| r.reason.clone()).unwrap_or_default(),
@@ -264,6 +303,7 @@ impl<'a> App<'a> {
                 items.push(ToggleItem {
                     name: remote.install_id.clone(),
                     enabled: false,
+                    available: false,
                     suggested: false,
                     score: 0.0,
                     reason: format!("{} ({})", remote.description, remote.source_name),
@@ -273,7 +313,8 @@ impl<'a> App<'a> {
         }
 
         items.sort_by(|a, b| {
-            b.enabled.cmp(&a.enabled)
+            b.enabled
+                .cmp(&a.enabled)
                 .then(b.suggested.cmp(&a.suggested))
                 .then(a.name.cmp(&b.name))
         });
@@ -286,28 +327,57 @@ impl<'a> App<'a> {
         status: &ProjectStatus,
     ) -> Vec<ToggleItem> {
         let all_mcp = &[
-            "context7", "fetch", "github", "1password", "obsidian",
-            "sequential-thinking", "memory", "brave-search", "playwright",
-            "slack", "linear", "discord", "notion", "drawio",
-            "token-optimizer", "cloudflare-docs", "cloudflare-workers-builds",
-            "cloudflare-workers-bindings", "cloudflare-observability",
+            "context7",
+            "fetch",
+            "github",
+            "1password",
+            "obsidian",
+            "sequential-thinking",
+            "memory",
+            "brave-search",
+            "playwright",
+            "slack",
+            "linear",
+            "discord",
+            "notion",
+            "drawio",
+            "token-optimizer",
+            "cloudflare-docs",
+            "cloudflare-workers-builds",
+            "cloudflare-workers-bindings",
+            "cloudflare-observability",
         ];
-        all_mcp.iter().map(|name| {
-            let is_active = status.mcp.contains(&name.to_string());
-            let is_base = config.base.mcp.contains(&name.to_string());
-            let is_recommended = recommendations.mcp.contains(&name.to_string());
-            ToggleItem {
-                name: name.to_string(),
-                enabled: is_active,
-                suggested: is_base || is_recommended,
-                score: if is_base { 1.0 } else if is_recommended { 0.8 } else { 0.0 },
-                reason: if is_active { "active".into() }
-                    else if is_base { "base".into() }
-                    else if is_recommended { "recommended".into() }
-                    else { String::new() },
-                origin: Origin::Local,
-            }
-        }).collect()
+        all_mcp
+            .iter()
+            .map(|name| {
+                let is_active = status.mcp.contains(&name.to_string());
+                let is_base = config.base.mcp.contains(&name.to_string());
+                let is_recommended = recommendations.mcp.contains(&name.to_string());
+                ToggleItem {
+                    name: name.to_string(),
+                    enabled: is_active,
+                    available: true,
+                    suggested: is_base || is_recommended,
+                    score: if is_base {
+                        1.0
+                    } else if is_recommended {
+                        0.8
+                    } else {
+                        0.0
+                    },
+                    reason: if is_active {
+                        "active".into()
+                    } else if is_base {
+                        "base".into()
+                    } else if is_recommended {
+                        "recommended".into()
+                    } else {
+                        String::new()
+                    },
+                    origin: Origin::Local,
+                }
+            })
+            .collect()
     }
 
     fn build_rules_items(
@@ -315,25 +385,44 @@ impl<'a> App<'a> {
         status: &ProjectStatus,
     ) -> Vec<ToggleItem> {
         let all_langs = &[
-            "typescript", "python", "rust", "golang", "swift", "cpp",
-            "csharp", "java", "kotlin", "perl", "php",
+            "typescript",
+            "python",
+            "rust",
+            "golang",
+            "swift",
+            "cpp",
+            "csharp",
+            "java",
+            "kotlin",
+            "perl",
+            "php",
         ];
-        all_langs.iter().map(|name| {
-            let is_active = status.rules.contains(&name.to_string());
-            let is_recommended = recommendations.rules.iter().any(|r| {
-                r == *name || (*name == "golang" && r == "go") || (*name == "go" && r == "golang")
-            });
-            ToggleItem {
-                name: name.to_string(),
-                enabled: is_active,
-                suggested: is_recommended,
-                score: if is_recommended { 1.0 } else { 0.0 },
-                reason: if is_active { "active".into() }
-                    else if is_recommended { "detected".into() }
-                    else { String::new() },
-                origin: Origin::Local,
-            }
-        }).collect()
+        all_langs
+            .iter()
+            .map(|name| {
+                let is_active = status.rules.contains(&name.to_string());
+                let is_recommended = recommendations.rules.iter().any(|r| {
+                    r == *name
+                        || (*name == "golang" && r == "go")
+                        || (*name == "go" && r == "golang")
+                });
+                ToggleItem {
+                    name: name.to_string(),
+                    enabled: is_active,
+                    available: true,
+                    suggested: is_recommended,
+                    score: if is_recommended { 1.0 } else { 0.0 },
+                    reason: if is_active {
+                        "active".into()
+                    } else if is_recommended {
+                        "detected".into()
+                    } else {
+                        String::new()
+                    },
+                    origin: Origin::Local,
+                }
+            })
+            .collect()
     }
 
     fn build_plugin_items(
@@ -348,6 +437,7 @@ impl<'a> App<'a> {
             items.push(ToggleItem {
                 name: name.clone(),
                 enabled: status.plugins.contains(name),
+                available: true,
                 suggested: true,
                 score: 0.8,
                 reason: "recommended".to_string(),
@@ -360,6 +450,7 @@ impl<'a> App<'a> {
                 items.push(ToggleItem {
                     name: remote.install_id.clone(),
                     enabled: status.plugins.contains(&remote.install_id),
+                    available: false,
                     suggested: false,
                     score: 0.0,
                     reason: format!("{} ({})", remote.description, remote.source_name),
@@ -430,7 +521,8 @@ impl<'a> App<'a> {
                     KeyCode::Char('H') => {
                         // Previous CLI tab
                         if !self.cli_tabs.is_empty() {
-                            self.active_cli_idx = (self.active_cli_idx + self.cli_tabs.len() - 1) % self.cli_tabs.len();
+                            self.active_cli_idx = (self.active_cli_idx + self.cli_tabs.len() - 1)
+                                % self.cli_tabs.len();
                             self.cursor = 0;
                             self.scroll_offset = 0;
                             self.filter.clear();
@@ -566,14 +658,17 @@ impl<'a> App<'a> {
         match mode {
             SortMode::Default => {
                 items.sort_by(|a, b| {
-                    b.enabled.cmp(&a.enabled)
+                    b.enabled
+                        .cmp(&a.enabled)
                         .then(b.suggested.cmp(&a.suggested))
                         .then(a.name.cmp(&b.name))
                 });
             }
             SortMode::Score => {
                 items.sort_by(|a, b| {
-                    b.score.partial_cmp(&a.score).unwrap_or(std::cmp::Ordering::Equal)
+                    b.score
+                        .partial_cmp(&a.score)
+                        .unwrap_or(std::cmp::Ordering::Equal)
                         .then(a.name.cmp(&b.name))
                 });
             }
@@ -601,9 +696,9 @@ impl<'a> App<'a> {
 
     fn toggle_install_current(&mut self) {
         let filtered = self.filtered_items();
-        let info = filtered.get(self.cursor).map(|&(idx, item)| {
-            (idx, item.name.clone(), item.origin)
-        });
+        let info = filtered
+            .get(self.cursor)
+            .map(|&(idx, item)| (idx, item.name.clone(), item.origin));
 
         if let Some((real_idx, name, origin)) = info {
             match origin {
@@ -635,14 +730,18 @@ impl<'a> App<'a> {
 
     fn build_selections(&self) -> Recommendations {
         let get_items = |cli: &str, tab: ResourceTab| -> &[ToggleItem] {
-            self.items.get(&(cli.to_string(), tab)).map(|v| v.as_slice()).unwrap_or(&[])
+            self.items
+                .get(&(cli.to_string(), tab))
+                .map(|v| v.as_slice())
+                .unwrap_or(&[])
         };
 
         // Build from the active CLI's selections
         let cli_name = &self.cli_tabs[self.active_cli_idx].cli_name;
 
         let to_recs = |items: &[ToggleItem]| -> Vec<Recommendation> {
-            items.iter()
+            items
+                .iter()
                 .filter(|i| i.enabled)
                 .map(|i| Recommendation {
                     name: i.name.clone(),
@@ -657,12 +756,21 @@ impl<'a> App<'a> {
             skills: to_recs(get_items(cli_name, ResourceTab::Skills)),
             agents: to_recs(get_items(cli_name, ResourceTab::Agents)),
             commands: to_recs(get_items(cli_name, ResourceTab::Commands)),
-            mcp: get_items(cli_name, ResourceTab::Mcp).iter()
-                .filter(|i| i.enabled).map(|i| i.name.clone()).collect(),
-            rules: get_items(cli_name, ResourceTab::Rules).iter()
-                .filter(|i| i.enabled).map(|i| i.name.clone()).collect(),
-            plugins: get_items(cli_name, ResourceTab::Plugins).iter()
-                .filter(|i| i.enabled).map(|i| i.name.clone()).collect(),
+            mcp: get_items(cli_name, ResourceTab::Mcp)
+                .iter()
+                .filter(|i| i.enabled)
+                .map(|i| i.name.clone())
+                .collect(),
+            rules: get_items(cli_name, ResourceTab::Rules)
+                .iter()
+                .filter(|i| i.enabled)
+                .map(|i| i.name.clone())
+                .collect(),
+            plugins: get_items(cli_name, ResourceTab::Plugins)
+                .iter()
+                .filter(|i| i.enabled)
+                .map(|i| i.name.clone())
+                .collect(),
         }
     }
 }

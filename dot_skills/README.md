@@ -4,13 +4,13 @@ Central repository for 646+ reusable AI agent skills that are synced to Claude C
 
 ## Overview
 
-This directory is the **source of truth** for all AI agent skills. Skills are automatically symlinked to multiple AI tool configurations on every `chezmoi apply`:
+This directory is the **source of truth** for all AI agent skills. On every `chezmoi apply`, ChezMoi copies the managed skills into the shared cache `~/.aictx/skills/` and then symlinks them into each AI CLI:
 
 ```
-dot_agents/skills/ (source) ──┬──> ~/.claude/skills/ (symlink)
-                              ├──> ~/.qwen/skills/ (symlink)
-                              ├──> ~/.vibe/skills/ (symlink)
-                              └──> ~/.codex/skills/ (symlink)
+dot_agents/skills/ (source) ──> ~/.aictx/skills/ (cache) ──┬──> ~/.claude/skills/ (symlink)
+                                                           ├──> ~/.qwen/skills/ (symlink)
+                                                           ├──> ~/.vibe/skills/ (symlink)
+                                                           └──> ~/.codex/skills/ (symlink)
 ```
 
 ## Directory Structure
@@ -84,25 +84,23 @@ The file `dot_agents/dot_skill-lock.json` serves as a trigger. When it changes, 
 }
 ```
 
-### Run Script: sync-skill-symlinks.sh
+### Run Script: sync-aictx.sh
 
-**Trigger:** `run_onchange_sync-skill-symlinks.sh.tmpl`
+**Trigger:** `run_after_sync-aictx.sh.tmpl`
 
-**Location:** `.chezmoiscripts/03-configure/run_onchange_sync-skill-symlinks.sh.tmpl`
+**Location:** `.chezmoiscripts/03-configure/run_after_sync-aictx.sh.tmpl`
 
 **What it does:**
-1. Reads skill directories from `~/.agents/skills/` (symlinked from dotfiles)
-2. Creates symlinks in consumer directories:
-   - `~/.claude/skills/` → `../../.agents/skills/*`
-   - `~/.qwen/skills/` → `../../.agents/skills/*`
-   - `~/.vibe/skills/` → `../../.agents/skills/*`
-   - `~/.codex/skills/` → `../../.agents/skills/*`
-3. Removes stale symlinks from previous skills
-4. Reports count of synced skills
+1. Copies ChezMoi-managed skills (`~/.skills/`) and agents (`~/.agents/`) into the cache `~/.aictx/{skills,agents}`.
+2. Creates/refreshes symlinks in consumer directories so each CLI points back to `~/.aictx`.
+3. Removes stale symlinks from previous runs.
+4. Mirrors `.claude/agents/` so Claude always sees the cached agent definitions.
 
 **Example output:**
 ```
-skills: synced 646 skills to .claude .qwen .vibe .codex
+cache: synced skills
+cache: synced agents
+skills: linked 646 skills into consumers
 ```
 
 ### Running the Sync Manually
@@ -243,9 +241,9 @@ chezmoi apply -v
 **Symptom:** Modified lock file but symlinks didn't update
 
 **Check:**
-1. Verify script is executable: `ls -l ~/.chezmoiscripts/03-configure/run_onchange_sync-skill-symlinks.sh`
+1. Verify script is executable: `ls -l ~/.chezmoiscripts/03-configure/run_after_sync-aictx.sh`
 2. Check script output: `chezmoi apply -v | grep skills`
-3. Manually run: `bash ~/.chezmoiscripts/03-configure/run_onchange_sync-skill-symlinks.sh`
+3. Manually run: `bash ~/.chezmoiscripts/03-configure/run_after_sync-aictx.sh`
 
 ### Too many open files error
 

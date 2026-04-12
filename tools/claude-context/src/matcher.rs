@@ -102,7 +102,8 @@ fn apply_refinement(recs: &mut Recommendations, refinement: &ai::AiRefinement) {
             });
         }
     }
-    recs.skills.retain(|r| !refinement.remove_skills.contains(&r.name));
+    recs.skills
+        .retain(|r| !refinement.remove_skills.contains(&r.name));
 }
 
 fn score_resources(
@@ -167,7 +168,7 @@ fn compute_score(
     score = score.min(1.0);
 
     let reason = if reasons.is_empty() {
-        "inferred".to_string()
+        "auto-detected".to_string()
     } else {
         reasons.join(", ")
     };
@@ -179,7 +180,10 @@ fn recommend_mcp(fingerprint: &ProjectFingerprint) -> Vec<String> {
     let mut mcp = Vec::new();
     let tags = fingerprint.all_tags();
 
-    if tags.iter().any(|t| matches!(t.as_str(), "playwright" | "cypress")) {
+    if tags
+        .iter()
+        .any(|t| matches!(t.as_str(), "playwright" | "cypress"))
+    {
         mcp.push("playwright".to_string());
     }
 
