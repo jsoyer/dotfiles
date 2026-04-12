@@ -1,7 +1,0 @@
-# Build artifacts and development-only directories
-tools/
-.omc/
-.serena/
-.rtk/
-claude_archive/
-.aictx/

@@ -17,6 +17,13 @@ docs/
 *.pem
 *.p12
 
+{{/* Build artifacts, development-only, and non-deployable directories */}}
+tools/
+claude_archive/
+.omc/
+.serena/
+.rtk/
+
 {{/* Ignore full bash configuration on Fedora Atomic host, but allow minimal .bashrc */}}
 {{- if lookPath "rpm-ostree" }}
 .bash_profile
