@@ -402,6 +402,7 @@ fn draw_footer(frame: &mut Frame, app: &App, area: Rect) {
             ),
             ("/", "filter"),
             ("i", "install"),
+            ("t", "toggle-cli"),
             ("A/N", "all/none"),
             ("a", "apply"),
             ("q", "quit"),

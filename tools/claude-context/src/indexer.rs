@@ -36,6 +36,7 @@ pub struct Index {
     pub skills: Vec<ResourceEntry>,
     pub agents: Vec<ResourceEntry>,
     pub commands: Vec<ResourceEntry>,
+    pub hooks: Vec<ResourceEntry>,
 }
 
 impl Index {
@@ -43,12 +44,48 @@ impl Index {
         let skills = Self::index_dir(&config.paths.skills_dir, "skill")?;
         let agents = Self::index_dir(&config.paths.agents_dir, "agent")?;
         let commands = Self::index_dir(&config.paths.commands_dir, "command")?;
+        let hooks = Self::index_hooks_dir(&config.paths.hooks_dir)?;
 
         Ok(Self {
             skills,
             agents,
             commands,
+            hooks,
         })
+    }
+
+    /// Index a hooks directory: each `.sh` file becomes a ResourceEntry.
+    fn index_hooks_dir(dir: &Path) -> Result<Vec<ResourceEntry>> {
+        let mut entries = Vec::new();
+
+        if !dir.exists() {
+            return Ok(entries);
+        }
+
+        for entry in std::fs::read_dir(dir)
+            .with_context(|| format!("Failed to read {}", dir.display()))?
+        {
+            let entry = entry?;
+            let path = entry.path();
+            if path.is_file() && path.extension().map_or(false, |e| e == "sh") {
+                let name = path
+                    .file_stem()
+                    .map(|n| n.to_string_lossy().to_string())
+                    .unwrap_or_default();
+                if name.is_empty() {
+                    continue;
+                }
+                entries.push(ResourceEntry {
+                    name: name.clone(),
+                    description: format!("Hook: {}", name),
+                    match_rules: MatchRules::default(),
+                    path: path.to_string_lossy().to_string(),
+                    token_estimate: 0,
+                });
+            }
+        }
+
+        Ok(entries)
     }
 
     fn index_dir(dir: &Path, kind: &str) -> Result<Vec<ResourceEntry>> {

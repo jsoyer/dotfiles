@@ -36,22 +36,62 @@ pub fn run(
     let pending_uninstalls = app.pending_uninstalls.clone();
     ratatui::restore();
 
-    if let Some(selections) = result? {
+    if let Some(all_selections) = result? {
         let before_status = crate::symlinker::status(config, resolved)
             .unwrap_or_else(|_| ProjectStatus::empty(resolved.scope));
 
+        let mut merged = crate::matcher::Recommendations::default();
+        for (_cli, recs) in &all_selections {
+            for s in &recs.skills {
+                if !merged.skills.iter().any(|m| m.name == s.name) {
+                    merged.skills.push(s.clone());
+                }
+            }
+            for a in &recs.agents {
+                if !merged.agents.iter().any(|m| m.name == a.name) {
+                    merged.agents.push(a.clone());
+                }
+            }
+            for c in &recs.commands {
+                if !merged.commands.iter().any(|m| m.name == c.name) {
+                    merged.commands.push(c.clone());
+                }
+            }
+            for h in &recs.hooks {
+                if !merged.hooks.iter().any(|m| m.name == h.name) {
+                    merged.hooks.push(h.clone());
+                }
+            }
+            for m in &recs.mcp {
+                if !merged.mcp.contains(m) {
+                    merged.mcp.push(m.clone());
+                }
+            }
+            for r in &recs.rules {
+                if !merged.rules.contains(r) {
+                    merged.rules.push(r.clone());
+                }
+            }
+            for p in &recs.plugins {
+                if !merged.plugins.contains(p) {
+                    merged.plugins.push(p.clone());
+                }
+            }
+        }
+
         println!(
-            "\nApplying {} skills, {} agents, {} commands, {} rules, {} MCP, {} plugins (scope: {})...",
-            selections.skills.len(),
-            selections.agents.len(),
-            selections.commands.len(),
-            selections.rules.len(),
-            selections.mcp.len(),
-            selections.plugins.len(),
+            "\nApplying {} skills, {} agents, {} commands, {} hooks, {} rules, {} MCP, {} plugins (scope: {})...",
+            merged.skills.len(),
+            merged.agents.len(),
+            merged.commands.len(),
+            merged.hooks.len(),
+            merged.rules.len(),
+            merged.mcp.len(),
+            merged.plugins.len(),
             resolved.scope,
         );
 
-        crate::symlinker::apply(config, resolved, &selections)?;
+        crate::symlinker::apply(config, resolved, &merged)?;
         println!("Applied successfully.");
 
         // Process pending installs
@@ -115,6 +155,7 @@ fn print_status_summary(before: &ProjectStatus, after: &ProjectStatus) {
     summarize_category("Skills", &before.skills, &after.skills);
     summarize_category("Agents", &before.agents, &after.agents);
     summarize_category("Commands", &before.commands, &after.commands);
+    summarize_category("Hooks", &before.hooks, &after.hooks);
     summarize_category("Rules", &before.rules, &after.rules);
     summarize_category("MCP", &before.mcp, &after.mcp);
     summarize_category("Plugins", &before.plugins, &after.plugins);

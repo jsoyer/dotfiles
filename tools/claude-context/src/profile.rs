@@ -109,6 +109,7 @@ impl ProfileManager {
                     source: RecommendSource::Base,
                 })
                 .collect(),
+            hooks: vec![],
             mcp: profile.mcp.clone(),
             rules: profile.rules.clone(),
             plugins: profile.plugins.clone(),
@@ -151,6 +152,7 @@ impl ProfileManager {
                     source: RecommendSource::Base,
                 })
                 .collect(),
+            hooks: vec![],
             mcp: profile.mcp,
             rules: profile.rules,
             plugins: profile.plugins,
