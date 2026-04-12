@@ -315,11 +315,11 @@ pub fn status(config: &AppConfig, resolved: &ResolvedScope) -> Result<ProjectSta
 
     let (skills, agents, commands, hooks, rules) = if resolved.supports_symlinks {
         (
-            list_symlinks(&target.join("skills")),
-            list_symlinks(&target.join("agents")),
-            list_symlinks(&target.join("commands")),
-            list_symlinks_with_ext(&target.join("hooks"), "sh"),
-            list_symlinks(&target.join("rules")),
+            list_entries(&target.join("skills")),
+            list_entries(&target.join("agents")),
+            list_entries(&target.join("commands")),
+            list_entries_with_ext(&target.join("hooks"), "sh"),
+            list_entries(&target.join("rules")),
         )
     } else {
         (Vec::new(), Vec::new(), Vec::new(), Vec::new(), Vec::new())
@@ -368,27 +368,27 @@ pub fn status_for_cli(cli: &crate::config::CliEntry, resolved: &ResolvedScope) -
     let target = cli_target_dir(cli, resolved);
 
     let skills = if cli.supports.contains(&"skills".to_string()) {
-        list_symlinks(&target.join("skills"))
+        list_entries(&target.join("skills"))
     } else {
         Vec::new()
     };
     let agents = if cli.supports.contains(&"agents".to_string()) {
-        list_symlinks(&target.join("agents"))
+        list_entries(&target.join("agents"))
     } else {
         Vec::new()
     };
     let commands = if cli.supports.contains(&"commands".to_string()) {
-        list_symlinks(&target.join("commands"))
+        list_entries(&target.join("commands"))
     } else {
         Vec::new()
     };
     let hooks = if cli.supports.contains(&"hooks".to_string()) {
-        list_symlinks_with_ext(&target.join("hooks"), "sh")
+        list_entries_with_ext(&target.join("hooks"), "sh")
     } else {
         Vec::new()
     };
     let rules = if cli.supports.contains(&"rules".to_string()) {
-        list_symlinks(&target.join("rules"))
+        list_entries(&target.join("rules"))
     } else {
         Vec::new()
     };
@@ -558,7 +558,7 @@ fn remove_cctx_keys_from_settings(path: &Path) -> Result<()> {
     Ok(())
 }
 
-fn list_symlinks(dir: &Path) -> Vec<String> {
+fn list_entries(dir: &Path) -> Vec<String> {
     if !dir.exists() {
         return Vec::new();
     }
@@ -568,7 +568,10 @@ fn list_symlinks(dir: &Path) -> Vec<String> {
         .map(|entries| {
             entries
                 .filter_map(|e| e.ok())
-                .filter(|e| e.path().read_link().is_ok())
+                .filter(|e| {
+                    let n = e.file_name();
+                    !n.to_string_lossy().starts_with('.')
+                })
                 .map(|e| {
                     e.path()
                         .file_stem()
@@ -581,9 +584,9 @@ fn list_symlinks(dir: &Path) -> Vec<String> {
         .unwrap_or_default()
 }
 
-/// List symlinks in a directory that have the given file extension.
+/// List entries in a directory that have the given file extension, skipping hidden files.
 /// Returns the file stem (name without extension) for each match.
-fn list_symlinks_with_ext(dir: &Path, ext: &str) -> Vec<String> {
+fn list_entries_with_ext(dir: &Path, ext: &str) -> Vec<String> {
     if !dir.exists() {
         return Vec::new();
     }
@@ -594,10 +597,8 @@ fn list_symlinks_with_ext(dir: &Path, ext: &str) -> Vec<String> {
             entries
                 .filter_map(|e| e.ok())
                 .filter(|e| {
-                    e.path().read_link().is_ok()
-                        && e.path()
-                            .extension()
-                            .map_or(false, |x| x == ext)
+                    !e.file_name().to_string_lossy().starts_with('.')
+                        && e.path().extension().map_or(false, |x| x == ext)
                 })
                 .map(|e| {
                     e.path()
