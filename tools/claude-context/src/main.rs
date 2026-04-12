@@ -59,6 +59,7 @@ fn main() -> Result<()> {
         Command::Hook { shell } => run_hook(&shell),
         Command::Plugin { action } => run_plugin(&config, &resolved, action),
         Command::Update => run_update(&config),
+        Command::Refresh => run_refresh(&config),
         Command::Completions { shell, install } => run_completions(shell, install),
         Command::Man => run_man(),
         Command::Watch { interval } => run_watch(&config, &resolved, interval),
@@ -66,23 +67,46 @@ fn main() -> Result<()> {
 }
 
 fn run_tui(config: &AppConfig, resolved: &ResolvedScope, smart: bool) -> Result<()> {
-    verbose!("Scope: {} (target: {})", resolved.scope, resolved.target_dir.display());
-    debug_log!("Config: skills_dir={}, agents_dir={}, commands_dir={}",
-        config.paths.skills_dir.display(), config.paths.agents_dir.display(), config.paths.commands_dir.display());
+    verbose!(
+        "Scope: {} (target: {})",
+        resolved.scope,
+        resolved.target_dir.display()
+    );
+    debug_log!(
+        "Config: skills_dir={}, agents_dir={}, commands_dir={}",
+        config.paths.skills_dir.display(),
+        config.paths.agents_dir.display(),
+        config.paths.commands_dir.display()
+    );
 
     let index = Index::build(config)?;
-    verbose!("Indexed: {} skills, {} agents, {} commands", index.skills.len(), index.agents.len(), index.commands.len());
+    verbose!(
+        "Indexed: {} skills, {} agents, {} commands",
+        index.skills.len(),
+        index.agents.len(),
+        index.commands.len()
+    );
 
     let cwd = std::env::current_dir()?;
     let fingerprint = Scanner::scan(&cwd)?;
-    verbose!("Scanned: {} languages, {} frameworks", fingerprint.languages.len(), fingerprint.frameworks.len());
+    verbose!(
+        "Scanned: {} languages, {} frameworks",
+        fingerprint.languages.len(),
+        fingerprint.frameworks.len()
+    );
     debug_log!("Languages: {:?}", fingerprint.language_names());
 
     let recommendations = matcher::recommend(&fingerprint, &index, smart, &config.ai)?;
-    verbose!("Recommended: {} skills, {} agents, {} commands",
-        recommendations.skills.len(), recommendations.agents.len(), recommendations.commands.len());
+    verbose!(
+        "Recommended: {} skills, {} agents, {} commands",
+        recommendations.skills.len(),
+        recommendations.agents.len(),
+        recommendations.commands.len()
+    );
 
     let pm = plugins::PluginManager::new(&config.paths.config_dir)?;
+    // Ensure remote cache is fresh (no-op if cache age < TTL)
+    let _ = pm.refresh();
     let remote_resources = pm.all_available().unwrap_or_default();
     verbose!("Remote resources: {}", remote_resources.len());
 
@@ -92,13 +116,25 @@ fn run_tui(config: &AppConfig, resolved: &ResolvedScope, smart: bool) -> Result<
         .iter()
         .map(|cli| {
             let status = symlinker::status_for_cli(cli, resolved);
-            verbose!("{}: {} skills, {} agents active",
-                cli.name, status.skills.len(), status.agents.len());
+            verbose!(
+                "{}: {} skills, {} agents active",
+                cli.name,
+                status.skills.len(),
+                status.agents.len()
+            );
             (cli.name.clone(), status)
         })
         .collect();
 
-    tui::run(config, resolved, &index, &fingerprint, &recommendations, &remote_resources, &cli_statuses)
+    tui::run(
+        config,
+        resolved,
+        &index,
+        &fingerprint,
+        &recommendations,
+        &remote_resources,
+        &cli_statuses,
+    )
 }
 
 fn run_scan() -> Result<()> {
@@ -166,7 +202,11 @@ fn run_apply(
         }
     }
 
-    verbose!("Applying to scope: {} ({})", resolved.scope, resolved.target_dir.display());
+    verbose!(
+        "Applying to scope: {} ({})",
+        resolved.scope,
+        resolved.target_dir.display()
+    );
     symlinker::apply(config, &resolved, &selections)?;
     println!("Applied successfully.");
     Ok(())
@@ -212,10 +252,7 @@ fn run_profiles(config: &AppConfig) -> Result<()> {
 fn run_reset(config: &AppConfig, resolved: &ResolvedScope, yes: bool) -> Result<()> {
     if !yes {
         if !dialoguer::Confirm::new()
-            .with_prompt(format!(
-                "Remove per-{} config?",
-                resolved.scope
-            ))
+            .with_prompt(format!("Remove per-{} config?", resolved.scope))
             .default(false)
             .interact()?
         {
@@ -267,7 +304,10 @@ fn run_init(config: &AppConfig, resolved: &ResolvedScope) -> Result<()> {
         let pm = ProfileManager::new(config)?;
         if let Ok(selections) = pm.load(profile_name) {
             symlinker::apply(config, resolved, &selections)?;
-            println!("Applied '{}' profile (scope: {}).", profile_name, resolved.scope);
+            println!(
+                "Applied '{}' profile (scope: {}).",
+                profile_name, resolved.scope
+            );
         } else {
             println!(
                 "No '{}' profile found. Run `aictx` to configure manually.",
@@ -450,10 +490,22 @@ fn config_list_global(config: &AppConfig) -> Vec<(String, String)> {
         ("ai.model".into(), config.ai.model.clone()),
         ("ai.max_tokens".into(), config.ai.max_tokens.to_string()),
         ("ai.cache_ttl".into(), config.ai.cache_ttl.clone()),
-        ("paths.skills_dir".into(), config.paths.skills_dir.display().to_string()),
-        ("paths.agents_dir".into(), config.paths.agents_dir.display().to_string()),
-        ("paths.commands_dir".into(), config.paths.commands_dir.display().to_string()),
-        ("paths.rules_dir".into(), config.paths.rules_dir.display().to_string()),
+        (
+            "paths.skills_dir".into(),
+            config.paths.skills_dir.display().to_string(),
+        ),
+        (
+            "paths.agents_dir".into(),
+            config.paths.agents_dir.display().to_string(),
+        ),
+        (
+            "paths.commands_dir".into(),
+            config.paths.commands_dir.display().to_string(),
+        ),
+        (
+            "paths.rules_dir".into(),
+            config.paths.rules_dir.display().to_string(),
+        ),
     ]
 }
 
@@ -511,14 +563,16 @@ fn run_plugin(config: &AppConfig, resolved: &ResolvedScope, action: PluginAction
                 .iter()
                 .map(|(t, c)| format!("{} {}s", c, t))
                 .collect();
-            println!("Refreshed. {} resources ({})", all.len(), summary.join(", "));
+            println!(
+                "Refreshed. {} resources ({})",
+                all.len(),
+                summary.join(", ")
+            );
         }
         PluginAction::Install { name } => {
             let pm = plugins::PluginManager::new(&config.paths.config_dir)?;
             let all = pm.all_available()?;
-            let resource = all
-                .iter()
-                .find(|e| e.install_id == name || e.name == name);
+            let resource = all.iter().find(|e| e.install_id == name || e.name == name);
             match resource {
                 Some(r) => {
                     pm.install(
@@ -528,7 +582,10 @@ fn run_plugin(config: &AppConfig, resolved: &ResolvedScope, action: PluginAction
                         &config.paths.commands_dir,
                     )?;
                 }
-                None => println!("Resource '{}' not found. Run `aictx plugin refresh` first.", name),
+                None => println!(
+                    "Resource '{}' not found. Run `aictx plugin refresh` first.",
+                    name
+                ),
             }
         }
         PluginAction::Uninstall { name } => {
@@ -551,18 +608,40 @@ fn run_plugin(config: &AppConfig, resolved: &ResolvedScope, action: PluginAction
                     let agent_file = config.paths.agents_dir.join(format!("{}.md", &name));
                     let cmd_file = config.paths.commands_dir.join(format!("{}.md", &name));
                     if skill_dir.exists() {
-                        pm.uninstall(&name, plugins::ResourceType::Skill, &config.paths.skills_dir, &config.paths.agents_dir, &config.paths.commands_dir)?;
+                        pm.uninstall(
+                            &name,
+                            plugins::ResourceType::Skill,
+                            &config.paths.skills_dir,
+                            &config.paths.agents_dir,
+                            &config.paths.commands_dir,
+                        )?;
                     } else if agent_file.exists() {
-                        pm.uninstall(&name, plugins::ResourceType::Agent, &config.paths.skills_dir, &config.paths.agents_dir, &config.paths.commands_dir)?;
+                        pm.uninstall(
+                            &name,
+                            plugins::ResourceType::Agent,
+                            &config.paths.skills_dir,
+                            &config.paths.agents_dir,
+                            &config.paths.commands_dir,
+                        )?;
                     } else if cmd_file.exists() {
-                        pm.uninstall(&name, plugins::ResourceType::Command, &config.paths.skills_dir, &config.paths.agents_dir, &config.paths.commands_dir)?;
+                        pm.uninstall(
+                            &name,
+                            plugins::ResourceType::Command,
+                            &config.paths.skills_dir,
+                            &config.paths.agents_dir,
+                            &config.paths.commands_dir,
+                        )?;
                     } else {
                         println!("Resource '{}' not found locally.", name);
                     }
                 }
             }
         }
-        PluginAction::Add { name, url, resources } => {
+        PluginAction::Add {
+            name,
+            url,
+            resources,
+        } => {
             let resource_types: Vec<plugins::ResourceType> = resources
                 .split(',')
                 .filter_map(|s| match s.trim() {
@@ -620,6 +699,26 @@ fn run_plugin(config: &AppConfig, resolved: &ResolvedScope, action: PluginAction
             println!("Enabled all plugins in {} settings files.", count);
         }
     }
+    Ok(())
+}
+
+fn run_refresh(config: &AppConfig) -> Result<()> {
+    let pm = plugins::PluginManager::new(&config.paths.config_dir)?;
+    pm.refresh()?;
+    let all = pm.all_available()?;
+    let mut counts = std::collections::HashMap::new();
+    for e in &all {
+        *counts.entry(e.resource_type).or_insert(0usize) += 1;
+    }
+    let summary: Vec<String> = counts
+        .iter()
+        .map(|(t, c)| format!("{} {}s", c, t))
+        .collect();
+    println!(
+        "Refreshed remote cache. {} resources ({})",
+        all.len(),
+        summary.join(", ")
+    );
     Ok(())
 }
 
@@ -686,7 +785,10 @@ fn run_completions(shell: clap_complete::Shell, install: bool) -> Result<()> {
             fish_dir.join("aictx.fish")
         }
         _ => {
-            anyhow::bail!("--install not supported for {:?}. Use stdout redirection.", shell);
+            anyhow::bail!(
+                "--install not supported for {:?}. Use stdout redirection.",
+                shell
+            );
         }
     };
 
@@ -713,7 +815,11 @@ fn run_watch(config: &AppConfig, resolved: &ResolvedScope, interval: u64) -> Res
     use std::time::Duration;
 
     let cwd = std::env::current_dir()?;
-    println!("Watching {} for changes (interval: {}s)...", cwd.display(), interval);
+    println!(
+        "Watching {} for changes (interval: {}s)...",
+        cwd.display(),
+        interval
+    );
     println!("Press Ctrl+C to stop.\n");
 
     let (tx, rx) = mpsc::channel();
@@ -770,23 +876,19 @@ fn run_watch(config: &AppConfig, resolved: &ResolvedScope, interval: u64) -> Res
 
         // Re-scan and re-apply
         match Scanner::scan(&cwd) {
-            Ok(fingerprint) => {
-                match Index::build(config) {
-                    Ok(index) => {
-                        match matcher::recommend(&fingerprint, &index, false, &config.ai) {
-                            Ok(recommendations) => {
-                                if let Err(e) = symlinker::apply(config, resolved, &recommendations) {
-                                    eprintln!("[watch] Apply error: {}", e);
-                                } else {
-                                    println!("[watch] Re-applied after change.");
-                                }
-                            }
-                            Err(e) => eprintln!("[watch] Recommend error: {}", e),
+            Ok(fingerprint) => match Index::build(config) {
+                Ok(index) => match matcher::recommend(&fingerprint, &index, false, &config.ai) {
+                    Ok(recommendations) => {
+                        if let Err(e) = symlinker::apply(config, resolved, &recommendations) {
+                            eprintln!("[watch] Apply error: {}", e);
+                        } else {
+                            println!("[watch] Re-applied after change.");
                         }
                     }
-                    Err(e) => eprintln!("[watch] Index error: {}", e),
-                }
-            }
+                    Err(e) => eprintln!("[watch] Recommend error: {}", e),
+                },
+                Err(e) => eprintln!("[watch] Index error: {}", e),
+            },
             Err(e) => eprintln!("[watch] Scan error: {}", e),
         }
     }
@@ -826,7 +928,11 @@ mod tests {
     #[test]
     fn config_has_claude_cli() {
         let config = AppConfig::load().unwrap();
-        let names: Vec<&str> = config.cli_registry.iter().map(|c| c.name.as_str()).collect();
+        let names: Vec<&str> = config
+            .cli_registry
+            .iter()
+            .map(|c| c.name.as_str())
+            .collect();
         assert!(names.contains(&"claude"));
     }
 

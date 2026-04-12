@@ -141,6 +141,9 @@ pub enum Command {
     /// Update all installed remote resources to latest version
     Update,
 
+    /// Refresh remote resource cache (skills, agents, commands, plugins)
+    Refresh,
+
     /// Generate shell completions (prints to stdout, or installs with --install)
     Completions {
         /// Shell type: bash, zsh, fish, elvish, powershell

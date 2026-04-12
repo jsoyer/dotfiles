@@ -36,10 +36,7 @@ pub struct ProjectStatus {
 /// - Global: cli.config_dir (e.g., ~/.claude/)
 /// - Project: <project_root>/<cli.project_dir> (e.g., ./myproject/.claude/)
 /// - UserProject: resolved.target_dir (e.g., ~/.claude/projects/<hash>/)
-fn cli_target_dir(
-    cli: &crate::config::CliEntry,
-    resolved: &ResolvedScope,
-) -> PathBuf {
+fn cli_target_dir(cli: &crate::config::CliEntry, resolved: &ResolvedScope) -> PathBuf {
     match resolved.scope {
         Scope::Global => cli.config_dir.clone(),
         Scope::Project => resolved.target_dir.join(&cli.project_dir),
@@ -232,11 +229,7 @@ pub fn apply(
             || cli.supports.contains(&"plugins".to_string())
         {
             let settings_path = settings_path_for_scope(&target, resolved.scope);
-            merge_settings_file(
-                &settings_path,
-                &selections.mcp,
-                &selections.plugins,
-            )?;
+            merge_settings_file(&settings_path, &selections.mcp, &selections.plugins)?;
         }
     }
 
@@ -300,15 +293,10 @@ pub fn status(config: &AppConfig, resolved: &ResolvedScope) -> Result<ProjectSta
     let scope_s = scope_str(resolved.scope);
 
     // Find the claude CLI entry to read status from
-    let claude_cli = config
-        .cli_registry
-        .iter()
-        .find(|c| c.name == "claude");
+    let claude_cli = config.cli_registry.iter().find(|c| c.name == "claude");
 
     let target = match claude_cli {
-        Some(cli) if cli.scopes.contains(&scope_s.to_string()) => {
-            cli_target_dir(cli, resolved)
-        }
+        Some(cli) if cli.scopes.contains(&scope_s.to_string()) => cli_target_dir(cli, resolved),
         _ => resolved.target_dir.clone(),
     };
 
@@ -345,10 +333,7 @@ pub fn status(config: &AppConfig, resolved: &ResolvedScope) -> Result<ProjectSta
 }
 
 /// Get status for a specific CLI entry (what's active in its directory).
-pub fn status_for_cli(
-    cli: &crate::config::CliEntry,
-    resolved: &ResolvedScope,
-) -> ProjectStatus {
+pub fn status_for_cli(cli: &crate::config::CliEntry, resolved: &ResolvedScope) -> ProjectStatus {
     let scope_s = scope_str(resolved.scope);
 
     if !cli.scopes.contains(&scope_s.to_string()) {
@@ -495,11 +480,7 @@ fn settings_path_for_scope(cli_dir: &Path, scope: Scope) -> PathBuf {
 }
 
 /// Merge MCP and plugin settings into a settings file (atomic write).
-fn merge_settings_file(
-    path: &Path,
-    extra_mcp: &[String],
-    plugins: &[String],
-) -> Result<()> {
+fn merge_settings_file(path: &Path, extra_mcp: &[String], plugins: &[String]) -> Result<()> {
     if extra_mcp.is_empty() && plugins.is_empty() {
         return Ok(());
     }
