@@ -68,8 +68,9 @@ jobs:
           EOF
           ERRORS=0
           while IFS= read -r f; do
-            if ! chezmoi execute-template --source="$(pwd)" < "$f" > /dev/null 2>&1; then
+            if ! OUTPUT=$(chezmoi execute-template --source="$(pwd)" < "$f" 2>&1 > /dev/null); then
               echo "  FAIL: $f"
+              echo "$OUTPUT"
               ERRORS=$(( ERRORS + 1 ))
             fi
           done < <(find . -name '*.tmpl' -not -path './.git/*' -not -path './dot_agents/*' -not -name '.chezmoi.toml.tmpl' -not -name '.commit_message.tmpl')
