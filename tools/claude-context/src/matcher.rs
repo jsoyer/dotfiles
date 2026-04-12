@@ -5,11 +5,12 @@ use crate::config::AiConfig;
 use crate::indexer::{Index, ResourceEntry};
 use crate::scanner::ProjectFingerprint;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct Recommendations {
     pub skills: Vec<Recommendation>,
     pub agents: Vec<Recommendation>,
     pub commands: Vec<Recommendation>,
+    pub hooks: Vec<Recommendation>,
     pub mcp: Vec<String>,
     pub rules: Vec<String>,
     pub plugins: Vec<String>,
@@ -63,6 +64,7 @@ pub fn recommend(
         skills,
         agents,
         commands,
+        hooks: vec![],
         mcp,
         rules,
         plugins,
@@ -221,5 +223,47 @@ impl Recommendations {
 
     pub fn command_names(&self) -> Vec<String> {
         self.commands.iter().map(|r| r.name.clone()).collect()
+    }
+
+    pub fn hook_names(&self) -> Vec<String> {
+        self.hooks.iter().map(|r| r.name.clone()).collect()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn recommendations_hook_names_returns_names() {
+        let recs = Recommendations {
+            skills: vec![],
+            agents: vec![],
+            commands: vec![],
+            hooks: vec![Recommendation {
+                name: "check-test-exists".to_string(),
+                score: 0.9,
+                reason: "test".to_string(),
+                source: RecommendSource::Scanner,
+            }],
+            mcp: vec![],
+            rules: vec![],
+            plugins: vec![],
+        };
+        assert_eq!(recs.hook_names(), vec!["check-test-exists"]);
+    }
+
+    #[test]
+    fn recommendations_hook_names_empty_when_no_hooks() {
+        let recs = Recommendations {
+            skills: vec![],
+            agents: vec![],
+            commands: vec![],
+            hooks: vec![],
+            mcp: vec![],
+            rules: vec![],
+            plugins: vec![],
+        };
+        assert!(recs.hook_names().is_empty());
     }
 }

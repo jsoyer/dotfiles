@@ -30,11 +30,20 @@ pub struct AiConfig {
     pub cache_ttl: String,
 }
 
+fn default_hooks_dir() -> PathBuf {
+    dirs::home_dir()
+        .unwrap_or_else(|| PathBuf::from("~"))
+        .join(".claude")
+        .join("hooks")
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct PathsConfig {
     pub skills_dir: PathBuf,
     pub agents_dir: PathBuf,
     pub commands_dir: PathBuf,
+    #[serde(default = "default_hooks_dir")]
+    pub hooks_dir: PathBuf,
     pub rules_dir: PathBuf,
     pub config_dir: PathBuf,
     pub profiles_dir: PathBuf,
@@ -57,6 +66,7 @@ impl PathsConfig {
         self.skills_dir = expand(&self.skills_dir);
         self.agents_dir = expand(&self.agents_dir);
         self.commands_dir = expand(&self.commands_dir);
+        self.hooks_dir = expand(&self.hooks_dir);
         self.rules_dir = expand(&self.rules_dir);
         self.config_dir = expand(&self.config_dir);
         self.profiles_dir = expand(&self.profiles_dir);
@@ -204,18 +214,9 @@ impl AppConfig {
                 cache_ttl: "7d".to_string(),
             },
             paths: PathsConfig {
-                // Prefer ~/.aictx cache, fall back to legacy paths for upgrades
-                skills_dir: if home.join(".aictx").join("skills").exists() {
-                    home.join(".aictx").join("skills")
-                } else if home.join(".skills").exists() {
-                    home.join(".skills")
-                } else {
-                    home.join(".agents").join("skills")
-                },
+                skills_dir: home.join(".aictx").join("skills"),
                 agents_dir: if home.join(".aictx").join("agents").exists() {
                     home.join(".aictx").join("agents")
-                } else if home.join(".agents").exists() {
-                    home.join(".agents")
                 } else {
                     home.join(".claude").join("agents")
                 },
@@ -223,6 +224,11 @@ impl AppConfig {
                     home.join(".aictx").join("commands")
                 } else {
                     home.join(".claude").join("commands")
+                },
+                hooks_dir: if home.join(".aictx").join("hooks").exists() {
+                    home.join(".aictx").join("hooks")
+                } else {
+                    home.join(".claude").join("hooks")
                 },
                 rules_dir: if home.join(".aictx").join("rules").exists() {
                     home.join(".aictx").join("rules")
@@ -333,5 +339,32 @@ impl AppConfig {
                 }
             })
             .collect()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn default_skills_dir_is_aictx() {
+        let home = dirs::home_dir().unwrap_or_else(|| PathBuf::from("/tmp"));
+        let config = AppConfig::default();
+        let expected = home.join(".aictx").join("skills");
+        assert_eq!(
+            config.paths.skills_dir, expected,
+            "skills_dir must be ~/.aictx/skills (no legacy fallback)"
+        );
+    }
+
+    #[test]
+    fn default_agents_dir_is_not_bare_dot_agents() {
+        let home = dirs::home_dir().unwrap_or_else(|| PathBuf::from("/tmp"));
+        let config = AppConfig::default();
+        let legacy = home.join(".agents");
+        assert_ne!(
+            config.paths.agents_dir, legacy,
+            "agents_dir must not be bare ~/.agents"
+        );
     }
 }

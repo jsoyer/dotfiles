@@ -25,6 +25,7 @@ pub struct ProjectStatus {
     pub skills: Vec<String>,
     pub agents: Vec<String>,
     pub commands: Vec<String>,
+    pub hooks: Vec<String>,
     pub rules: Vec<String>,
     pub mcp: Vec<String>,
     pub plugins: Vec<String>,
@@ -201,6 +202,18 @@ pub fn apply(
                 }
             }
 
+            if cli.supports.contains(&"hooks".to_string()) {
+                let hooks_target = target.join("hooks");
+                if hooks_target != config.paths.hooks_dir {
+                    create_symlinks(
+                        &hooks_target,
+                        &config.paths.hooks_dir,
+                        &selections.hook_names(),
+                        false,
+                    )?;
+                }
+            }
+
             if cli.supports.contains(&"rules".to_string()) {
                 for lang in &selections.rules {
                     let rule_name = match lang.as_str() {
@@ -247,7 +260,7 @@ pub fn reset(config: &AppConfig, resolved: &ResolvedScope) -> Result<()> {
         let target = cli_target_dir(cli, resolved);
 
         if resolved.supports_symlinks {
-            for subdir in ["skills", "agents", "commands", "rules"] {
+            for subdir in ["skills", "agents", "commands", "hooks", "rules"] {
                 let dir = target.join(subdir);
                 if dir.exists() {
                     // Only remove symlinks, not real files
@@ -300,15 +313,16 @@ pub fn status(config: &AppConfig, resolved: &ResolvedScope) -> Result<ProjectSta
         _ => resolved.target_dir.clone(),
     };
 
-    let (skills, agents, commands, rules) = if resolved.supports_symlinks {
+    let (skills, agents, commands, hooks, rules) = if resolved.supports_symlinks {
         (
             list_symlinks(&target.join("skills")),
             list_symlinks(&target.join("agents")),
             list_symlinks(&target.join("commands")),
+            list_symlinks_with_ext(&target.join("hooks"), "sh"),
             list_symlinks(&target.join("rules")),
         )
     } else {
-        (Vec::new(), Vec::new(), Vec::new(), Vec::new())
+        (Vec::new(), Vec::new(), Vec::new(), Vec::new(), Vec::new())
     };
 
     let (mcp, plugins) = read_settings(&target, resolved.scope);
@@ -324,6 +338,7 @@ pub fn status(config: &AppConfig, resolved: &ResolvedScope) -> Result<ProjectSta
         skills,
         agents,
         commands,
+        hooks,
         rules,
         mcp,
         plugins,
@@ -341,6 +356,7 @@ pub fn status_for_cli(cli: &crate::config::CliEntry, resolved: &ResolvedScope) -
             skills: Vec::new(),
             agents: Vec::new(),
             commands: Vec::new(),
+            hooks: Vec::new(),
             rules: Vec::new(),
             mcp: Vec::new(),
             plugins: Vec::new(),
@@ -366,6 +382,11 @@ pub fn status_for_cli(cli: &crate::config::CliEntry, resolved: &ResolvedScope) -
     } else {
         Vec::new()
     };
+    let hooks = if cli.supports.contains(&"hooks".to_string()) {
+        list_symlinks_with_ext(&target.join("hooks"), "sh")
+    } else {
+        Vec::new()
+    };
     let rules = if cli.supports.contains(&"rules".to_string()) {
         list_symlinks(&target.join("rules"))
     } else {
@@ -384,6 +405,7 @@ pub fn status_for_cli(cli: &crate::config::CliEntry, resolved: &ResolvedScope) -
         skills,
         agents,
         commands,
+        hooks,
         rules,
         mcp,
         plugins,
@@ -559,6 +581,36 @@ fn list_symlinks(dir: &Path) -> Vec<String> {
         .unwrap_or_default()
 }
 
+/// List symlinks in a directory that have the given file extension.
+/// Returns the file stem (name without extension) for each match.
+fn list_symlinks_with_ext(dir: &Path, ext: &str) -> Vec<String> {
+    if !dir.exists() {
+        return Vec::new();
+    }
+
+    std::fs::read_dir(dir)
+        .ok()
+        .map(|entries| {
+            entries
+                .filter_map(|e| e.ok())
+                .filter(|e| {
+                    e.path().read_link().is_ok()
+                        && e.path()
+                            .extension()
+                            .map_or(false, |x| x == ext)
+                })
+                .map(|e| {
+                    e.path()
+                        .file_stem()
+                        .unwrap_or_default()
+                        .to_string_lossy()
+                        .to_string()
+                })
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
 /// Read settings from the appropriate file for the given scope.
 fn read_settings(cli_dir: &Path, scope: Scope) -> (Vec<String>, Vec<String>) {
     let path = settings_path_for_scope(cli_dir, scope);
@@ -642,6 +694,7 @@ impl ProjectStatus {
             skills: Vec::new(),
             agents: Vec::new(),
             commands: Vec::new(),
+            hooks: Vec::new(),
             rules: Vec::new(),
             mcp: Vec::new(),
             plugins: Vec::new(),
@@ -655,6 +708,7 @@ impl ProjectStatus {
         println!("  Skills:   {}", self.skills.len());
         println!("  Agents:   {}", self.agents.len());
         println!("  Commands: {}", self.commands.len());
+        println!("  Hooks:    {}", self.hooks.len());
         println!("  Rules:    {}", self.rules.len());
         println!("  MCP:      {}", self.mcp.len());
         println!("  Plugins:  {}", self.plugins.len());

@@ -14,6 +14,7 @@ pub enum ResourceTab {
     Skills,
     Agents,
     Commands,
+    Hooks,
     Mcp,
     Rules,
     Plugins,
@@ -25,6 +26,7 @@ impl ResourceTab {
             ResourceTab::Skills => "Skills",
             ResourceTab::Agents => "Agents",
             ResourceTab::Commands => "Commands",
+            ResourceTab::Hooks => "Hooks",
             ResourceTab::Mcp => "MCP",
             ResourceTab::Rules => "Rules",
             ResourceTab::Plugins => "Plugins",
@@ -41,6 +43,9 @@ impl ResourceTab {
         }
         if supports.contains(&"commands".to_string()) {
             tabs.push(ResourceTab::Commands);
+        }
+        if supports.contains(&"hooks".to_string()) {
+            tabs.push(ResourceTab::Hooks);
         }
         if supports.contains(&"mcp".to_string()) {
             tabs.push(ResourceTab::Mcp);
@@ -257,6 +262,13 @@ impl<'a> App<'a> {
                 remote_resources,
                 ResourceType::Command,
             ),
+            ResourceTab::Hooks => Self::build_items_from_index(
+                &index.hooks,
+                &recommendations.hooks,
+                &status.hooks,
+                remote_resources,
+                ResourceType::Hook,
+            ),
             ResourceTab::Mcp => Self::build_mcp_items(config, recommendations, status),
             ResourceTab::Rules => Self::build_rules_items(recommendations, status),
             ResourceTab::Plugins => {
@@ -452,7 +464,10 @@ impl<'a> App<'a> {
         items
     }
 
-    pub fn run(&mut self, terminal: &mut DefaultTerminal) -> Result<Option<Recommendations>> {
+    pub fn run(
+        &mut self,
+        terminal: &mut DefaultTerminal,
+    ) -> Result<Option<std::collections::HashMap<String, Recommendations>>> {
         loop {
             terminal.draw(|frame| {
                 // Update visible height from terminal size
@@ -586,6 +601,15 @@ impl<'a> App<'a> {
                         // Install/uninstall current item
                         self.toggle_install_current();
                     }
+                    KeyCode::Char('t') => {
+                        // Toggle to next CLI tab (per-CLI toggle)
+                        if !self.cli_tabs.is_empty() {
+                            self.active_cli_idx = (self.active_cli_idx + 1) % self.cli_tabs.len();
+                            self.cursor = 0;
+                            self.scroll_offset = 0;
+                            self.filter.clear();
+                        }
+                    }
                     _ => {}
                 }
             }
@@ -595,7 +619,7 @@ impl<'a> App<'a> {
             }
 
             if self.should_apply {
-                return Ok(Some(self.build_selections()));
+                return Ok(Some(self.build_all_selections()));
             }
         }
     }
@@ -719,16 +743,13 @@ impl<'a> App<'a> {
         }
     }
 
-    fn build_selections(&self) -> Recommendations {
-        let get_items = |cli: &str, tab: ResourceTab| -> &[ToggleItem] {
+    fn build_selections_for_cli(&self, cli_name: &str) -> Recommendations {
+        let get_items = |tab: ResourceTab| -> &[ToggleItem] {
             self.items
-                .get(&(cli.to_string(), tab))
+                .get(&(cli_name.to_string(), tab))
                 .map(|v| v.as_slice())
                 .unwrap_or(&[])
         };
-
-        // Build from the active CLI's selections
-        let cli_name = &self.cli_tabs[self.active_cli_idx].cli_name;
 
         let to_recs = |items: &[ToggleItem]| -> Vec<Recommendation> {
             items
@@ -744,24 +765,38 @@ impl<'a> App<'a> {
         };
 
         Recommendations {
-            skills: to_recs(get_items(cli_name, ResourceTab::Skills)),
-            agents: to_recs(get_items(cli_name, ResourceTab::Agents)),
-            commands: to_recs(get_items(cli_name, ResourceTab::Commands)),
-            mcp: get_items(cli_name, ResourceTab::Mcp)
+            skills: to_recs(get_items(ResourceTab::Skills)),
+            agents: to_recs(get_items(ResourceTab::Agents)),
+            commands: to_recs(get_items(ResourceTab::Commands)),
+            hooks: to_recs(get_items(ResourceTab::Hooks)),
+            mcp: get_items(ResourceTab::Mcp)
                 .iter()
                 .filter(|i| i.enabled)
                 .map(|i| i.name.clone())
                 .collect(),
-            rules: get_items(cli_name, ResourceTab::Rules)
+            rules: get_items(ResourceTab::Rules)
                 .iter()
                 .filter(|i| i.enabled)
                 .map(|i| i.name.clone())
                 .collect(),
-            plugins: get_items(cli_name, ResourceTab::Plugins)
+            plugins: get_items(ResourceTab::Plugins)
                 .iter()
                 .filter(|i| i.enabled)
                 .map(|i| i.name.clone())
                 .collect(),
         }
+    }
+
+    /// Build selections for every CLI tab, keyed by CLI name.
+    pub fn build_all_selections(&self) -> std::collections::HashMap<String, Recommendations> {
+        self.cli_tabs
+            .iter()
+            .map(|ct| {
+                (
+                    ct.cli_name.clone(),
+                    self.build_selections_for_cli(&ct.cli_name),
+                )
+            })
+            .collect()
     }
 }

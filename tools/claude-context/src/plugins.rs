@@ -20,6 +20,7 @@ pub enum ResourceType {
     Skill,
     Agent,
     Command,
+    Hook,
     Plugin,
 }
 
@@ -29,6 +30,7 @@ impl std::fmt::Display for ResourceType {
             ResourceType::Skill => write!(f, "skill"),
             ResourceType::Agent => write!(f, "agent"),
             ResourceType::Command => write!(f, "command"),
+            ResourceType::Hook => write!(f, "hook"),
             ResourceType::Plugin => write!(f, "plugin"),
         }
     }
@@ -196,7 +198,11 @@ impl PluginManager {
                 verbose!("Cache fresh for source: {}", source.name);
                 continue;
             }
-            verbose!("Fetching source: {} ({:?})", source.name, source.source_type);
+            verbose!(
+                "Fetching source: {} ({:?})",
+                source.name,
+                source.source_type
+            );
             // Rate limit: wait 1s between fetches to avoid spamming APIs
             if !first {
                 std::thread::sleep(std::time::Duration::from_secs(1));
@@ -243,7 +249,9 @@ impl PluginManager {
             .filter(|e| {
                 e.name.to_lowercase().contains(&query_lower)
                     || e.description.to_lowercase().contains(&query_lower)
-                    || e.tags.iter().any(|t| t.to_lowercase().contains(&query_lower))
+                    || e.tags
+                        .iter()
+                        .any(|t| t.to_lowercase().contains(&query_lower))
             })
             .collect())
     }
@@ -256,13 +264,15 @@ impl PluginManager {
         agents_dir: &Path,
         commands_dir: &Path,
     ) -> Result<()> {
-        verbose!("Installing {} ({}) from {}", resource.name, resource.resource_type, resource.source_name);
+        verbose!(
+            "Installing {} ({}) from {}",
+            resource.name,
+            resource.resource_type,
+            resource.source_name
+        );
         debug_log!("Download URL: {}", resource.download_url);
         if resource.download_url.is_empty() {
-            bail!(
-                "No download URL for '{}'. Cannot install.",
-                resource.name
-            );
+            bail!("No download URL for '{}'. Cannot install.", resource.name);
         }
 
         let output = std::process::Command::new("curl")
@@ -281,19 +291,45 @@ impl PluginManager {
                 let skill_dir = skills_dir.join(&resource.install_id);
                 std::fs::create_dir_all(&skill_dir)?;
                 std::fs::write(skill_dir.join("SKILL.md"), content.as_ref())?;
-                println!("Installed skill '{}' to {}", resource.name, skill_dir.display());
+                println!(
+                    "Installed skill '{}' to {}",
+                    resource.name,
+                    skill_dir.display()
+                );
+                println!(
+                    "  Run `aictx enable {}` to activate for your CLI tools.",
+                    resource.install_id
+                );
             }
             ResourceType::Agent => {
                 std::fs::create_dir_all(agents_dir)?;
                 let path = agents_dir.join(format!("{}.md", resource.install_id));
                 std::fs::write(&path, content.as_ref())?;
                 println!("Installed agent '{}' to {}", resource.name, path.display());
+                println!(
+                    "  Run `aictx enable {}` to activate for your CLI tools.",
+                    resource.install_id
+                );
             }
             ResourceType::Command => {
                 std::fs::create_dir_all(commands_dir)?;
                 let path = commands_dir.join(format!("{}.md", resource.install_id));
                 std::fs::write(&path, content.as_ref())?;
-                println!("Installed command '{}' to {}", resource.name, path.display());
+                println!(
+                    "Installed command '{}' to {}",
+                    resource.name,
+                    path.display()
+                );
+                println!(
+                    "  Run `aictx enable {}` to activate for your CLI tools.",
+                    resource.install_id
+                );
+            }
+            ResourceType::Hook => {
+                println!(
+                    "Hook '{}' — hooks are managed via symlinks; place the .sh file in your hooks source dir and run `aictx apply`.",
+                    resource.name
+                );
             }
             ResourceType::Plugin => {
                 println!(
@@ -323,8 +359,13 @@ impl PluginManager {
 
             let exists = match resource.resource_type {
                 ResourceType::Skill => skills_dir.join(&resource.install_id).exists(),
-                ResourceType::Agent => agents_dir.join(format!("{}.md", resource.install_id)).exists(),
-                ResourceType::Command => commands_dir.join(format!("{}.md", resource.install_id)).exists(),
+                ResourceType::Agent => agents_dir
+                    .join(format!("{}.md", resource.install_id))
+                    .exists(),
+                ResourceType::Command => commands_dir
+                    .join(format!("{}.md", resource.install_id))
+                    .exists(),
+                ResourceType::Hook => false,
                 ResourceType::Plugin => false,
             };
 
@@ -356,6 +397,10 @@ impl PluginManager {
                 if skill_dir.exists() {
                     std::fs::remove_dir_all(&skill_dir)?;
                     println!("Uninstalled skill '{}'", name);
+                    println!(
+                        "  Note: Run `aictx disable {}` to remove any active symlinks.",
+                        name
+                    );
                 } else {
                     bail!("Skill '{}' not found in {}", name, skills_dir.display());
                 }
@@ -365,6 +410,10 @@ impl PluginManager {
                 if path.exists() {
                     std::fs::remove_file(&path)?;
                     println!("Uninstalled agent '{}'", name);
+                    println!(
+                        "  Note: Run `aictx disable {}` to remove any active symlinks.",
+                        name
+                    );
                 } else {
                     bail!("Agent '{}' not found in {}", name, agents_dir.display());
                 }
@@ -374,12 +423,25 @@ impl PluginManager {
                 if path.exists() {
                     std::fs::remove_file(&path)?;
                     println!("Uninstalled command '{}'", name);
+                    println!(
+                        "  Note: Run `aictx disable {}` to remove any active symlinks.",
+                        name
+                    );
                 } else {
                     bail!("Command '{}' not found in {}", name, commands_dir.display());
                 }
             }
+            ResourceType::Hook => {
+                println!(
+                    "Hook '{}' — remove the .sh symlink from your CLI hooks dir or run `aictx reset` to clear all symlinks.",
+                    name
+                );
+            }
             ResourceType::Plugin => {
-                println!("Plugin '{}' — disable via settings.json or `aictx plugin disable-all`", name);
+                println!(
+                    "Plugin '{}' — disable via settings.json or `aictx plugin disable-all`",
+                    name
+                );
             }
         }
         Ok(())
@@ -484,10 +546,7 @@ fn fetch_github_repo(source: &PluginSource) -> Result<Vec<RemoteResource>> {
     }
 
     // Final fallback: fetch README.md and parse
-    let readme_url = format!(
-        "https://raw.githubusercontent.com/{}/main/README.md",
-        repo
-    );
+    let readme_url = format!("https://raw.githubusercontent.com/{}/main/README.md", repo);
     let output = std::process::Command::new("curl")
         .args(["-s", "--max-time", "15", "-f", &readme_url])
         .output()?;
@@ -510,10 +569,7 @@ fn fetch_awesome_list(source: &PluginSource) -> Result<Vec<RemoteResource>> {
         return Ok(vec![]);
     }
 
-    let url = format!(
-        "https://raw.githubusercontent.com/{}/main/README.md",
-        repo
-    );
+    let url = format!("https://raw.githubusercontent.com/{}/main/README.md", repo);
     let output = std::process::Command::new("curl")
         .args(["-s", "--max-time", "15", "-f", &url])
         .output()?;
@@ -559,7 +615,10 @@ fn parse_markdown_resources(
     resource_types: &[ResourceType],
 ) -> Vec<RemoteResource> {
     let mut entries = Vec::new();
-    let default_type = resource_types.first().copied().unwrap_or(ResourceType::Plugin);
+    let default_type = resource_types
+        .first()
+        .copied()
+        .unwrap_or(ResourceType::Plugin);
     let mut current_type = default_type;
 
     for line in markdown.lines() {
@@ -591,9 +650,7 @@ fn parse_markdown_resources(
                     .map(|end| rest[url_start..end].to_string())
                     .unwrap_or_default();
 
-                let after_url = url_end
-                    .map(|end| &rest[end + 1..])
-                    .unwrap_or("");
+                let after_url = url_end.map(|end| &rest[end + 1..]).unwrap_or("");
                 let description = after_url
                     .trim()
                     .trim_start_matches('-')

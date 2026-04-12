@@ -25,9 +25,9 @@ jobs:
       - name: Prepare CI skill stubs
         run: |
           mkdir -p .agents/skills
-          if [[ -d dot_skills/find-skills ]]; then
+          if [[ -d dot_aictx/skills/find-skills ]]; then
             rm -rf .agents/skills/find-skills
-            cp -R dot_skills/find-skills .agents/skills/
+            cp -R dot_aictx/skills/find-skills .agents/skills/
           fi
 
       - name: Install chezmoi
@@ -73,7 +73,7 @@ jobs:
               echo "$OUTPUT"
               ERRORS=$(( ERRORS + 1 ))
             fi
-          done < <(find . -name '*.tmpl' -not -path './.git/*' -not -path './dot_agents/*' -not -name '.chezmoi.toml.tmpl' -not -name '.commit_message.tmpl')
+          done < <(find . -name '*.tmpl' -not -path './.git/*' -not -path './dot_aictx/*' -not -name '.chezmoi.toml.tmpl' -not -name '.commit_message.tmpl')
           echo "Template lint: $ERRORS errors"
           if [[ "$ERRORS" -gt 0 ]]; then
             exit 1
@@ -83,7 +83,7 @@ jobs:
         run: |
           PATTERNS="sk-[a-zA-Z0-9]{20,}|ghp_[a-zA-Z0-9]{36}|xoxb-[0-9]{10,}|AKIA[0-9A-Z]{16}"
           FOUND=$(grep -rPl "$PATTERNS" --include='*.zsh' --include='*.bash' --include='*.toml' --include='*.json' --include='*.tmpl' . 2>/dev/null \
-            | grep -v '.git/' | grep -v 'README' | grep -v 'SKILL.md' | grep -v 'pre-commit' | grep -v 'dot_agents/skills/' || true)
+            | grep -v '.git/' | grep -v 'README' | grep -v 'SKILL.md' | grep -v 'pre-commit' | grep -v 'dot_aictx/skills/' || true)
           if [[ -n "$FOUND" ]]; then
             echo "ERROR: Potential secrets found in:"
             echo "$FOUND"
@@ -101,7 +101,7 @@ jobs:
               echo "  FAIL: $f"
               ERRORS=$(( ERRORS + 1 ))
             fi
-          done < <(find . -name '*.json' -not -path './.git/*' -not -path './dot_agents/skills/*' -not -path './dot_skills/*')
+          done < <(find . -name '*.json' -not -path './.git/*' -not -path './dot_aictx/skills/*')
           if [[ "$ERRORS" -gt 0 ]]; then
             echo "JSON validation: FAIL ($ERRORS errors)"
             exit 1
@@ -182,7 +182,7 @@ jobs:
             fi
           done < <(
             find . \( -name '*.sh' -o -name '*.bash' \) \
-              -not -path './.git/*' -not -path './dot_claude/*' -not -path './dot_agents/skills/*' -not -path './dot_skills/*' 2>/dev/null
+              -not -path './.git/*' -not -path './dot_claude/*' -not -path './dot_aictx/skills/*' -not -path './dot_aictx/agents/*' 2>/dev/null
             grep -rl '#!/.*bash' dot_local/bin/ 2>/dev/null || true
           )
           if [[ "$ERRORS" -gt 0 ]]; then

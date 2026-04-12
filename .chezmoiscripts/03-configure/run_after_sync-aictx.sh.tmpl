@@ -1,80 +1,16 @@
 {{- if ne .chezmoi.os "windows" -}}
 #!/usr/bin/env bash
-# Keep ~/.aictx cache in sync and wire symlinks for each CLI
+# aictx cache is deployed directly by chezmoi to ~/.aictx/
+# Symlinks are managed by `aictx enable/disable/apply`
 
 set -euo pipefail
 
 CACHE_ROOT="{{ .chezmoi.homeDir }}/.aictx"
-mkdir -p "${CACHE_ROOT}"/{skills,agents,commands,mcp,rules,plugins}
 
-sync_tree() {
-  local src="$1"
-  local dst="$2"
-  local label="$3"
-
-  if [[ -d "$src" ]]; then
-    mkdir -p "$dst"
-    if command -v rsync >/dev/null 2>&1; then
-      rsync -a --exclude '.git' "$src"/ "$dst"/ 2>/dev/null || true
-    else
-      cp -a "$src"/. "$dst"/ 2>/dev/null || true
-    fi
-    echo "cache: synced $label"
-  fi
-}
-
-# Bootstrap caches from legacy locations/CLIs
-sync_tree "{{ .chezmoi.homeDir }}/.skills"        "${CACHE_ROOT}/skills"   "skills"
-sync_tree "{{ .chezmoi.homeDir }}/.agents"        "${CACHE_ROOT}/agents"   "agents"
-sync_tree "{{ .chezmoi.homeDir }}/.claude/commands" "${CACHE_ROOT}/commands" "commands"
-sync_tree "{{ .chezmoi.homeDir }}/.claude/rules"     "${CACHE_ROOT}/rules"    "rules"
-sync_tree "{{ .chezmoi.homeDir }}/.claude/plugins"   "${CACHE_ROOT}/plugins"  "plugins"
+# Copy settings.json to cache if it exists
 if [[ -f "{{ .chezmoi.homeDir }}/.claude/settings.json" ]]; then
   cp "{{ .chezmoi.homeDir }}/.claude/settings.json" "${CACHE_ROOT}/settings.json"
 fi
 
-# ---------------------------------------------------------------------------
-# Skills
-# ---------------------------------------------------------------------------
-SKILL_CONSUMERS=(.claude .qwen .vibe .codex .kimi .opencode .gemini)
-REL_SKILLS="../../.aictx/skills"
-SKILLS_SRC="${CACHE_ROOT}/skills"
-
-if [[ -d "$SKILLS_SRC" ]]; then
-  skill_count="$(find "$SKILLS_SRC" -mindepth 1 -maxdepth 1 -type d | wc -l | tr -d ' ')"
-  for consumer in "${SKILL_CONSUMERS[@]}"; do
-    consumer_root="{{ .chezmoi.homeDir }}/$consumer"
-    [[ -d "$consumer_root" ]] || continue
-    target="$consumer_root/skills"
-    mkdir -p "$target"
-
-    for skill_dir in "$SKILLS_SRC"/*/; do
-      [[ -d "$skill_dir" ]] || continue
-      name="$(basename "$skill_dir")"
-      link="$target/$name"
-      ln -sfn "$REL_SKILLS/$name" "$link"
-    done
-
-    # Clean stale links
-    find "$target" -maxdepth 1 -type l ! -exec test -e {} \; -print -delete 2>/dev/null || true
-  done
-  echo "skills: linked $skill_count skills into consumers"
-fi
-
-# ---------------------------------------------------------------------------
-# Agents (Claude only for now)
-# ---------------------------------------------------------------------------
-AGENTS_DST="{{ .chezmoi.homeDir }}/.claude/agents"
-REL_AGENTS="../../.aictx/agents"
-AGENTS_SRC="${CACHE_ROOT}/agents"
-
-if [[ -d "$AGENTS_SRC" ]]; then
-  mkdir -p "$AGENTS_DST"
-  for agent_file in "$AGENTS_SRC"/*.md; do
-    [[ -f "$agent_file" ]] || continue
-    name="$(basename "$agent_file")"
-    ln -sfn "$REL_AGENTS/$name" "$AGENTS_DST/$name"
-  done
-  find "$AGENTS_DST" -maxdepth 1 -type l ! -exec test -e {} \; -print -delete 2>/dev/null || true
-fi
+echo "aictx: cache ready (use 'aictx apply' or 'aictx enable' to wire symlinks)"
 {{- end -}}

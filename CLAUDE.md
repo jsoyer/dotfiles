@@ -48,8 +48,7 @@ macOS, Fedora, Fedora Atomic, Toolbox, Arch, OmArchy, Ubuntu, RPi, Windows. GUI 
 - `dot_config/` — XDG configs (nvim, starship, tmux, wezterm, aerospace, sketchybar)
 - `dot_claude/` — Vendored Claude Workflow System (vinicius91carvalho/.claude@e1b64fc) with commands, rules, hooks, workflows
 - `claude_archive/` — Snapshot of the previous hand-rolled `.claude` tree (kept for rollback/reference)
-- `dot_skills/` — 648 AI skills (source of truth, symlinked to .claude/.qwen/.vibe/.codex/.kimi)
-- `dot_agents/` — 192 AI agents (source of truth, symlinked to .claude/agents/)
+- `dot_aictx/` — AI resource cache (skills, agents, commands, rules, hooks, plugins) deployed to `~/.aictx/`, symlinked to CLI dirs by `aictx`
 - `dot_private/` — Package manifests (Brewfile, Aptfile, Dnffile, Pacfile)
 - `dot_local/bin/` — Custom scripts (breww, cm* commands, chezmoi-autoupdate)
 - `tools/claude-context/` — cctx: per-project context manager (Rust)
@@ -59,7 +58,7 @@ macOS, Fedora, Fedora Atomic, Toolbox, Arch, OmArchy, Ubuntu, RPi, Windows. GUI 
 - `CLAUDE.md`, `workflow/`, and `docs/` document the Compound/Context engineering process this workflow enforces.
 - `settings.json` centralizes permissions and hook wiring (PostToolUse/Stop/PreToolUse/UserPromptSubmit/etc.).
 - `hooks/` implements deterministic gates (quality, invariants, cleanup) that reference scripts in `hooks/lib/` and `workflow/`.
-- `skills/find-skills` remains a symlink into `~/.agents/skills` so the shared skill catalog stays the source of truth.
+- Skills and agents are sourced from `~/.aictx/` (deployed by chezmoi from `dot_aictx/`). `aictx enable/disable/apply` manages symlinks to each CLI.
 - `aictx` keeps per-project overrides aligned by re-linking `~/.claude` agents/skills on every directory change (`aictx apply --auto`).
 - Legacy config lives under `claude_archive/` if we ever need to inspect or restore the previous layout.
 
