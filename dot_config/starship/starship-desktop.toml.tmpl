@@ -3,7 +3,7 @@ format = """${custom.chezmoi_ok}${custom.chezmoi_err}$env_var$directory$characte
 palette = "catppuccin_mocha"
 right_format = """$all"""
 command_timeout = 1000
-scan_timeout = 30
+scan_timeout = 200
 
 # Platform icon — color set per machine_profile via chezmoi template
 {{- $mp := index . "machine_profile" -}}

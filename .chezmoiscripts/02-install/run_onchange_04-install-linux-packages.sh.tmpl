@@ -135,6 +135,48 @@ _install_starship() {
     fi
 }
 
+_install_eza() {
+    if command -v eza &>/dev/null; then
+        return 0
+    fi
+
+    if command -v apt-get &>/dev/null; then
+        echo "Installing eza via apt..."
+        if sudo DEBIAN_FRONTEND=noninteractive apt-get install -y eza; then
+            return 0
+        fi
+        echo "apt install eza failed, falling back..." >&2
+    elif command -v dnf &>/dev/null; then
+        echo "Installing eza via dnf..."
+        if sudo dnf install -y eza; then
+            return 0
+        fi
+        echo "dnf install eza failed, falling back..." >&2
+    elif command -v pacman &>/dev/null; then
+        echo "Installing eza via pacman..."
+        if sudo pacman -S --needed --noconfirm eza; then
+            return 0
+        fi
+        echo "pacman install eza failed, falling back..." >&2
+    elif command -v brew &>/dev/null; then
+        echo "Installing eza via Homebrew..."
+        if brew install eza; then
+            return 0
+        fi
+        echo "brew install eza failed, falling back..." >&2
+    fi
+
+    if command -v cargo &>/dev/null; then
+        echo "Installing eza via cargo..."
+        cargo install eza && return 0
+        echo "Warning: cargo install eza failed." >&2
+    else
+        echo "cargo not found — skipping eza (install Rust first)" >&2
+    fi
+
+    return 1
+}
+
 # =============================================================================
 # Raspberry Pi / Debian - apt packages
 # =============================================================================
@@ -243,15 +285,8 @@ fi
 # Install starship via official installer (not in Ubuntu apt)
 _install_starship || true
 
-# Install eza via cargo (not in standard Ubuntu repos)
-if ! command -v eza &>/dev/null; then
-    if command -v cargo &>/dev/null; then
-        echo "Installing eza via cargo..."
-        cargo install eza
-    else
-        echo "cargo not found — skipping eza (install Rust first)"
-    fi
-fi
+# Install eza (prefers apt, falls back to cargo)
+_install_eza || true
 
 # Install 1Password CLI via official apt repo
 if ! command -v op &>/dev/null; then
@@ -306,15 +341,8 @@ fi
 # Install starship via official installer (not in Ubuntu apt)
 _install_starship || true
 
-# Install eza via cargo (not in standard Ubuntu repos)
-if ! command -v eza &>/dev/null; then
-    if command -v cargo &>/dev/null; then
-        echo "Installing eza via cargo..."
-        cargo install eza
-    else
-        echo "cargo not found — skipping eza (install Rust first)"
-    fi
-fi
+# Install eza (prefers apt, falls back to cargo)
+_install_eza || true
 
 # Install WezTerm via official apt repo
 if ! command -v wezterm &>/dev/null; then
@@ -394,11 +422,8 @@ if [[ -f "$_dnffile" ]]; then
     sudo dnf install -y --skip-unavailable "${_pkgs[@]}"
 fi
 
-# Install eza via cargo (not in Fedora repos)
-if ! command -v eza &>/dev/null; then
-    echo "Installing eza via cargo..."
-    cargo install eza
-fi
+# Install eza (cargo fallback)
+_install_eza || true
 {{- end }}
 
 # =============================================================================
@@ -414,11 +439,8 @@ if [[ -f "$_dnffile" ]]; then
     sudo dnf install -y --skip-unavailable "${_pkgs[@]}"
 fi
 
-# Install eza via cargo (not in Fedora repos)
-if ! command -v eza &>/dev/null; then
-    echo "Installing eza via cargo..."
-    cargo install eza
-fi
+# Install eza (cargo fallback)
+_install_eza || true
 
 {{- end }}
 
@@ -453,11 +475,8 @@ sudo dnf install -y --skip-unavailable \
     cargo \
     rust
 
-# Install eza via cargo (not in Fedora repos)
-if ! command -v eza &>/dev/null; then
-    echo "Installing eza via cargo..."
-    cargo install eza
-fi
+# Install eza (cargo fallback)
+_install_eza || true
 {{- end }}
 
 # =============================================================================

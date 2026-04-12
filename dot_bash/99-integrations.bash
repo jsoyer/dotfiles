@@ -9,7 +9,9 @@ if [[ -f ~/.fzf.bash ]]; then
 elif [[ -f /usr/share/doc/fzf/examples/key-bindings.bash ]]; then
   # Debian/Ubuntu location
   source /usr/share/doc/fzf/examples/key-bindings.bash
-  source /usr/share/doc/fzf/examples/completion.bash
+  if [[ -f /usr/share/doc/fzf/examples/completion.bash ]]; then
+    source /usr/share/doc/fzf/examples/completion.bash
+  fi
 fi
 
 # ============================================================================
@@ -134,7 +136,9 @@ fi
 # chezmoi background auto-update (login hook — fires if last check > 1h)
 # ============================================================================
 _chezmoi_bg_update() {
-  local stamp="${HOME}/.cache/chezmoi-autoupdate/last-login-check"
+  local stampdir="${HOME}/.cache/chezmoi-autoupdate"
+  mkdir -p "${stampdir}"
+  local stamp="${stampdir}/last-login-check"
   local now
   now=$(date +%s)
   local last=0
