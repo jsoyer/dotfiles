@@ -22,6 +22,14 @@ jobs:
         env:
           FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
+      - name: Prepare CI skill stubs
+        run: |
+          mkdir -p .agents/skills
+          if [[ -d dot_skills/find-skills ]]; then
+            rm -rf .agents/skills/find-skills
+            cp -R dot_skills/find-skills .agents/skills/
+          fi
+
       - name: Install chezmoi
         run: sh -c "$(curl -fsLS get.chezmoi.io)" -- -b /usr/local/bin
 
