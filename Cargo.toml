@@ -1,0 +1,4 @@
+# Temporary workspace marker for TDD hook — dotfiles repo contains a Rust project
+# at tools/claude-context/. Removed after sprint merge.
+[workspace]
+members = ["tools/claude-context"]

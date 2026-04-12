@@ -214,18 +214,9 @@ impl AppConfig {
                 cache_ttl: "7d".to_string(),
             },
             paths: PathsConfig {
-                // Prefer ~/.aictx cache, fall back to legacy paths for upgrades
-                skills_dir: if home.join(".aictx").join("skills").exists() {
-                    home.join(".aictx").join("skills")
-                } else if home.join(".skills").exists() {
-                    home.join(".skills")
-                } else {
-                    home.join(".agents").join("skills")
-                },
+                skills_dir: home.join(".aictx").join("skills"),
                 agents_dir: if home.join(".aictx").join("agents").exists() {
                     home.join(".aictx").join("agents")
-                } else if home.join(".agents").exists() {
-                    home.join(".agents")
                 } else {
                     home.join(".claude").join("agents")
                 },
@@ -348,5 +339,32 @@ impl AppConfig {
                 }
             })
             .collect()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn default_skills_dir_is_aictx() {
+        let home = dirs::home_dir().unwrap_or_else(|| PathBuf::from("/tmp"));
+        let config = AppConfig::default();
+        let expected = home.join(".aictx").join("skills");
+        assert_eq!(
+            config.paths.skills_dir, expected,
+            "skills_dir must be ~/.aictx/skills (no legacy fallback)"
+        );
+    }
+
+    #[test]
+    fn default_agents_dir_is_not_bare_dot_agents() {
+        let home = dirs::home_dir().unwrap_or_else(|| PathBuf::from("/tmp"));
+        let config = AppConfig::default();
+        let legacy = home.join(".agents");
+        assert_ne!(
+            config.paths.agents_dir, legacy,
+            "agents_dir must not be bare ~/.agents"
+        );
     }
 }

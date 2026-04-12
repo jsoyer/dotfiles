@@ -1,37 +1,16 @@
 {{- if ne .chezmoi.os "windows" -}}
 #!/usr/bin/env bash
-# Keep ~/.aictx cache in sync (symlinks managed by `aictx enable/disable/apply`)
+# aictx cache is deployed directly by chezmoi to ~/.aictx/
+# Symlinks are managed by `aictx enable/disable/apply`
 
 set -euo pipefail
 
 CACHE_ROOT="{{ .chezmoi.homeDir }}/.aictx"
-mkdir -p "${CACHE_ROOT}"/{skills,agents,commands,mcp,rules,plugins,hooks}
 
-sync_tree() {
-  local src="$1"
-  local dst="$2"
-  local label="$3"
-
-  if [[ -d "$src" ]]; then
-    mkdir -p "$dst"
-    if command -v rsync >/dev/null 2>&1; then
-      rsync -a --exclude '.git' "$src"/ "$dst"/ 2>/dev/null || true
-    else
-      cp -a "$src"/. "$dst"/ 2>/dev/null || true
-    fi
-    echo "cache: synced $label"
-  fi
-}
-
-# Bootstrap caches from legacy locations/CLIs
-sync_tree "{{ .chezmoi.homeDir }}/.skills"           "${CACHE_ROOT}/skills"   "skills"
-sync_tree "{{ .chezmoi.homeDir }}/.agents"           "${CACHE_ROOT}/agents"   "agents"
-sync_tree "{{ .chezmoi.homeDir }}/.claude/commands"  "${CACHE_ROOT}/commands" "commands"
-sync_tree "{{ .chezmoi.homeDir }}/.claude/rules"     "${CACHE_ROOT}/rules"    "rules"
-sync_tree "{{ .chezmoi.homeDir }}/.claude/plugins"   "${CACHE_ROOT}/plugins"  "plugins"
+# Copy settings.json to cache if it exists
 if [[ -f "{{ .chezmoi.homeDir }}/.claude/settings.json" ]]; then
   cp "{{ .chezmoi.homeDir }}/.claude/settings.json" "${CACHE_ROOT}/settings.json"
 fi
 
-echo "aictx: cache sync complete (use 'aictx apply' or 'aictx enable' to wire symlinks)"
+echo "aictx: cache ready (use 'aictx apply' or 'aictx enable' to wire symlinks)"
 {{- end -}}
