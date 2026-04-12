@@ -203,6 +203,7 @@ impl PluginManager {
                 source.name,
                 source.source_type
             );
+            eprintln!("  Fetching {}...", source.name);
             // Rate limit: wait 1s between fetches to avoid spamming APIs
             if !first {
                 std::thread::sleep(std::time::Duration::from_secs(1));
@@ -518,7 +519,7 @@ fn fetch_github_repo(source: &PluginSource) -> Result<Vec<RemoteResource>> {
         repo
     );
     let output = std::process::Command::new("curl")
-        .args(["-s", "--max-time", "15", "-f", &url])
+        .args(["-s", "--max-time", "5", "-f", &url])
         .output()
         .with_context(|| format!("Failed to fetch {}", url))?;
 
@@ -535,7 +536,7 @@ fn fetch_github_repo(source: &PluginSource) -> Result<Vec<RemoteResource>> {
         repo
     );
     let output = std::process::Command::new("curl")
-        .args(["-s", "--max-time", "15", "-f", &url])
+        .args(["-s", "--max-time", "5", "-f", &url])
         .output()?;
 
     if output.status.success() {
@@ -548,7 +549,7 @@ fn fetch_github_repo(source: &PluginSource) -> Result<Vec<RemoteResource>> {
     // Final fallback: fetch README.md and parse
     let readme_url = format!("https://raw.githubusercontent.com/{}/main/README.md", repo);
     let output = std::process::Command::new("curl")
-        .args(["-s", "--max-time", "15", "-f", &readme_url])
+        .args(["-s", "--max-time", "5", "-f", &readme_url])
         .output()?;
 
     if output.status.success() {
@@ -571,7 +572,7 @@ fn fetch_awesome_list(source: &PluginSource) -> Result<Vec<RemoteResource>> {
 
     let url = format!("https://raw.githubusercontent.com/{}/main/README.md", repo);
     let output = std::process::Command::new("curl")
-        .args(["-s", "--max-time", "15", "-f", &url])
+        .args(["-s", "--max-time", "5", "-f", &url])
         .output()?;
 
     if output.status.success() {
@@ -594,7 +595,7 @@ fn fetch_web_catalog(source: &PluginSource) -> Result<Vec<RemoteResource>> {
 
     let api_url = format!("{}/api/plugins", url.trim_end_matches('/'));
     let output = std::process::Command::new("curl")
-        .args(["-s", "--max-time", "15", "-f", &api_url])
+        .args(["-s", "--max-time", "5", "-f", &api_url])
         .output()?;
 
     if output.status.success() {

@@ -34,8 +34,11 @@ fn main() -> Result<()> {
     let cwd = std::env::current_dir()?;
     let resolved = scope::resolve(&cwd, cli.scope)?;
 
-    match cli.command.unwrap_or(Command::Tui { smart: false }) {
-        Command::Tui { smart } => run_tui(&config, &resolved, smart),
+    match cli.command.unwrap_or(Command::Tui {
+        smart: false,
+        offline: false,
+    }) {
+        Command::Tui { smart, offline } => run_tui(&config, &resolved, smart, offline),
         Command::Scan => run_scan(),
         Command::Apply {
             profile,
@@ -66,7 +69,7 @@ fn main() -> Result<()> {
     }
 }
 
-fn run_tui(config: &AppConfig, resolved: &ResolvedScope, smart: bool) -> Result<()> {
+fn run_tui(config: &AppConfig, resolved: &ResolvedScope, smart: bool, offline: bool) -> Result<()> {
     verbose!(
         "Scope: {} (target: {})",
         resolved.scope,
@@ -105,9 +108,23 @@ fn run_tui(config: &AppConfig, resolved: &ResolvedScope, smart: bool) -> Result<
     );
 
     let pm = plugins::PluginManager::new(&config.paths.config_dir)?;
-    // Ensure remote cache is fresh (no-op if cache age < TTL)
-    let _ = pm.refresh();
-    let remote_resources = pm.all_available().unwrap_or_default();
+    // Use cached data if available; only fetch if cache is empty
+    let remote_resources = if offline {
+        verbose!("Offline mode: skipping remote refresh");
+        pm.all_available().unwrap_or_default()
+    } else {
+        match pm.all_available() {
+            Ok(resources) if !resources.is_empty() => {
+                verbose!("Using cached remote resources: {}", resources.len());
+                resources
+            }
+            _ => {
+                verbose!("No cache found, refreshing remote resources...");
+                let _ = pm.refresh();
+                pm.all_available().unwrap_or_default()
+            }
+        }
+    };
     verbose!("Remote resources: {}", remote_resources.len());
 
     // Gather per-CLI statuses

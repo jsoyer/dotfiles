@@ -37,6 +37,10 @@ pub enum Command {
         /// Enable AI-powered recommendations
         #[arg(long)]
         smart: bool,
+
+        /// Skip remote resource refresh (use cached data only)
+        #[arg(long)]
+        offline: bool,
     },
 
     /// Show project fingerprint (detected tech stack)
