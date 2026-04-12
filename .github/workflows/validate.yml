@@ -36,6 +36,28 @@ jobs:
 
       - name: Template lint (execute-template)
         run: |
+          # Create a mock chezmoi config so execute-template can resolve all data variables
+          mkdir -p ~/.config/chezmoi
+          cat > ~/.config/chezmoi/chezmoi.toml << 'EOF'
+          [data]
+            github_user   = "test"
+            name          = "Test User"
+            email         = "test@test.com"
+            work_email    = "test@work.com"
+            xdgCacheDir   = "/home/test/.cache"
+            xdgConfigDir  = "/home/test/.config"
+            xdgDataDir    = "/home/test/.local/share"
+            xdgStateDir   = "/home/test/.local/state"
+            machine_profile = "ubuntu-server"
+            install_ocx   = false
+            install_mas   = false
+          [data.omarchy]
+            override_shell = false
+            override_nvim  = false
+            override_tmux  = false
+            override_git   = false
+            override_wm    = false
+          EOF
           ERRORS=0
           while IFS= read -r f; do
             if ! chezmoi execute-template --source="$(pwd)" < "$f" > /dev/null 2>&1; then
