@@ -1,0 +1,7 @@
+# Cleanup: old resource directories replaced by ~/.aictx/
+{{- if stat (joinPath .chezmoi.homeDir ".skills") }}
+.skills
+{{- end }}
+{{- if stat (joinPath .chezmoi.homeDir ".agents") }}
+.agents
+{{- end }}
