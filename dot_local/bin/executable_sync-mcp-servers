@@ -1,18 +1,39 @@
 #!/usr/bin/env bash
 # sync-mcp-servers — regenerate OpenCode config from chezmoi template
 # Usage: sync-mcp-servers [--dry-run]
-#
-# Wrapper around `chezmoi` so users can re-render ~/.config/opencode/opencode.json
-# after tweaking Claude settings without running a full apply.
 
 set -euo pipefail
 
+CHEZMOI_SRC="${CHEZMOI_SOURCE_PATH:-$HOME/.local/share/chezmoi}"
+TEMPLATE="$CHEZMOI_SRC/dot_config/opencode/opencode.json.tmpl"
 TARGET="$HOME/.config/opencode/opencode.json"
+DRY_RUN=0
+[[ "${1:-}" == "--dry-run" ]] && DRY_RUN=1
 
-if [[ "${1:-}" == "--dry-run" ]]; then
-  echo "[sync-mcp-servers] Previewing changes to $TARGET"
-  chezmoi diff "$TARGET"
+if ! command -v chezmoi >/dev/null 2>&1; then
+  echo "sync-mcp-servers: chezmoi not found in PATH"
+  exit 1
+fi
+
+if [[ ! -f "$TEMPLATE" ]]; then
+  echo "sync-mcp-servers: template missing at $TEMPLATE"
+  exit 1
+fi
+
+mkdir -p "$(dirname "$TARGET")"
+TMP=$(mktemp)
+trap 'rm -f "$TMP"' EXIT
+
+chezmoi execute-template --source="$CHEZMOI_SRC" < "$TEMPLATE" > "$TMP"
+
+if [[ $DRY_RUN -eq 1 ]]; then
+  echo "[sync-mcp-servers] Preview of changes to $TARGET:"
+  if [[ -f "$TARGET" ]]; then
+    diff -u "$TARGET" "$TMP" || true
+  else
+    cat "$TMP"
+  fi
 else
-  echo "[sync-mcp-servers] Applying $TARGET from chezmoi template"
-  chezmoi apply "$TARGET"
+  install -m 0644 "$TMP" "$TARGET"
+  echo "[sync-mcp-servers] Updated $TARGET"
 fi
