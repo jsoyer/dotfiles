@@ -5,18 +5,6 @@
 
 set -euo pipefail
 
-# Skip if chezmoi persistent state lock is active (another apply in progress)
-LOCKS=(
-  "{{ .chezmoi.homeDir }}/.local/share/chezmoi/persistent-state.boltdb.lock"
-  "{{ .chezmoi.homeDir }}/.config/chezmoi/chezmoistate.boltdb.lock"
-)
-for lock in "${LOCKS[@]}"; do
-  if [[ -e "$lock" ]]; then
-    echo "sync-mcp-servers: chezmoi lock present ($lock), skipping" >&2
-    exit 0
-  fi
-done
-
 if command -v sync-mcp-servers &>/dev/null; then
   sync-mcp-servers
 else

@@ -22,10 +22,11 @@ fi
 
 mkdir -p "$(dirname "$TARGET")"
 TMP=$(mktemp)
-trap 'rm -f "$TMP"' EXIT
+STATE=$(mktemp)
+cleanup() { rm -f "$TMP" "$STATE"; }
+trap cleanup EXIT
 
-CHEZMOI_DISABLE_PERSISTENT_STATE=1 \
-  chezmoi execute-template --source="$CHEZMOI_SRC" < "$TEMPLATE" > "$TMP"
+chezmoi --persistent-state "$STATE" execute-template --source="$CHEZMOI_SRC" < "$TEMPLATE" > "$TMP"
 
 if [[ $DRY_RUN -eq 1 ]]; then
   echo "[sync-mcp-servers] Preview of changes to $TARGET:"
