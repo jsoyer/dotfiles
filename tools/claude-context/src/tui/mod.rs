@@ -2,6 +2,7 @@ mod app;
 mod ui;
 
 use anyhow::Result;
+use std::collections::HashSet;
 
 use crate::config::AppConfig;
 use crate::indexer::Index;
@@ -20,7 +21,14 @@ pub fn run(
     remote_resources: &[RemoteResource],
     cli_statuses: &[(String, ProjectStatus)],
 ) -> Result<()> {
-    let mut app = app::App::new(config, index, fingerprint, recommendations, remote_resources, cli_statuses);
+    let mut app = app::App::new(
+        config,
+        index,
+        fingerprint,
+        recommendations,
+        remote_resources,
+        cli_statuses,
+    );
 
     let mut terminal = ratatui::init();
     let result = app.run(&mut terminal);
@@ -29,6 +37,9 @@ pub fn run(
     ratatui::restore();
 
     if let Some(selections) = result? {
+        let before_status = crate::symlinker::status(config, resolved)
+            .unwrap_or_else(|_| ProjectStatus::empty(resolved.scope));
+
         println!(
             "\nApplying {} skills, {} agents, {} commands, {} rules, {} MCP, {} plugins (scope: {})...",
             selections.skills.len(),
@@ -48,7 +59,10 @@ pub fn run(
             let pm = PluginManager::new(&config.paths.config_dir)?;
             let all = pm.all_available().unwrap_or_default();
             for name in &pending_installs {
-                if let Some(resource) = all.iter().find(|r| &r.install_id == name || &r.name == name) {
+                if let Some(resource) = all
+                    .iter()
+                    .find(|r| &r.install_id == name || &r.name == name)
+                {
                     if let Err(e) = pm.install(
                         resource,
                         &config.paths.skills_dir,
@@ -87,7 +101,56 @@ pub fn run(
                 }
             }
         }
+
+        let after_status = crate::symlinker::status(config, resolved)
+            .unwrap_or_else(|_| ProjectStatus::empty(resolved.scope));
+        print_status_summary(&before_status, &after_status);
     }
 
     Ok(())
+}
+
+fn print_status_summary(before: &ProjectStatus, after: &ProjectStatus) {
+    println!("\nSummary after apply:");
+    summarize_category("Skills", &before.skills, &after.skills);
+    summarize_category("Agents", &before.agents, &after.agents);
+    summarize_category("Commands", &before.commands, &after.commands);
+    summarize_category("Rules", &before.rules, &after.rules);
+    summarize_category("MCP", &before.mcp, &after.mcp);
+    summarize_category("Plugins", &before.plugins, &after.plugins);
+}
+
+fn summarize_category(label: &str, before: &[String], after: &[String]) {
+    let before_count = before.len();
+    let after_count = after.len();
+    let delta = after_count as isize - before_count as isize;
+
+    if delta == 0 {
+        println!("  {:<8} {} (no change)", label, after_count);
+        return;
+    }
+
+    println!(
+        "  {:<8} {} -> {} ({:+})",
+        label, before_count, after_count, delta
+    );
+
+    let added = diff_names(after, before);
+    let removed = diff_names(before, after);
+
+    if !added.is_empty() {
+        println!("      + {}", added.join(", "));
+    }
+    if !removed.is_empty() {
+        println!("      - {}", removed.join(", "));
+    }
+}
+
+fn diff_names(a: &[String], b: &[String]) -> Vec<String> {
+    let bset: HashSet<&str> = b.iter().map(|s| s.as_str()).collect();
+    a.iter()
+        .filter(|s| !bset.contains(s.as_str()))
+        .take(5)
+        .cloned()
+        .collect()
 }

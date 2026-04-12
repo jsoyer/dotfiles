@@ -656,6 +656,19 @@ impl ApplyPreview {
 }
 
 impl ProjectStatus {
+    pub fn empty(scope: Scope) -> Self {
+        ProjectStatus {
+            skills: Vec::new(),
+            agents: Vec::new(),
+            commands: Vec::new(),
+            rules: Vec::new(),
+            mcp: Vec::new(),
+            plugins: Vec::new(),
+            detected_clis: Vec::new(),
+            scope,
+        }
+    }
+
     pub fn print(&self) {
         println!("Status (scope: {}):", self.scope);
         println!("  Skills:   {}", self.skills.len());

@@ -184,16 +184,7 @@ impl<'a> App<'a> {
                 .find(|(name, _)| name == &cli_tab.cli_name)
                 .map(|(_, s)| s);
 
-            let empty_status = ProjectStatus {
-                skills: Vec::new(),
-                agents: Vec::new(),
-                commands: Vec::new(),
-                rules: Vec::new(),
-                mcp: Vec::new(),
-                plugins: Vec::new(),
-                detected_clis: Vec::new(),
-                scope: crate::scope::Scope::Global,
-            };
+            let empty_status = ProjectStatus::empty(crate::scope::Scope::Global);
             let status = status.unwrap_or(&empty_status);
             // Build items for each supported resource tab
             for &rtab in &cli_tab.resource_tabs {
