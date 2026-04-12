@@ -2,7 +2,7 @@
 ///
 /// These tests verify that the canonical paths are `~/.aictx/{skills,agents}`
 /// and that the legacy `~/.skills` / `~/.agents` fallbacks have been removed.
-use claude_context::config::AppConfig;
+use aictx::config::AppConfig;
 use std::path::PathBuf;
 
 fn home() -> PathBuf {

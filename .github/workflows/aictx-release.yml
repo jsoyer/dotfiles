@@ -29,7 +29,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     defaults:
       run:
-        working-directory: tools/claude-context
+        working-directory: tools/aictx
 
     steps:
       - uses: actions/checkout@v4
@@ -53,26 +53,26 @@ jobs:
       - name: Package binary
         run: |
           mkdir -p dist
-          cp target/${{ matrix.target }}/release/ai-context dist/${{ matrix.name }}
+          cp target/${{ matrix.target }}/release/aictx dist/${{ matrix.name }}
           chmod +x dist/${{ matrix.name }}
 
       - name: Generate shell completions
         if: matrix.target == 'x86_64-unknown-linux-gnu'
         run: |
-          ./target/${{ matrix.target }}/release/ai-context completions bash > dist/aictx.bash
-          ./target/${{ matrix.target }}/release/ai-context completions zsh > dist/_aictx
-          ./target/${{ matrix.target }}/release/ai-context completions fish > dist/aictx.fish
+          ./target/${{ matrix.target }}/release/aictx completions bash > dist/aictx.bash
+          ./target/${{ matrix.target }}/release/aictx completions zsh > dist/_aictx
+          ./target/${{ matrix.target }}/release/aictx completions fish > dist/aictx.fish
 
       - name: Generate man page
         if: matrix.target == 'x86_64-unknown-linux-gnu'
         run: |
-          ./target/${{ matrix.target }}/release/ai-context man > dist/aictx.1
+          ./target/${{ matrix.target }}/release/aictx man > dist/aictx.1
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.name }}
-          path: tools/claude-context/dist/
+          path: tools/aictx/dist/
 
   release:
     needs: build

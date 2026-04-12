@@ -44,8 +44,8 @@ pub struct TrimSuggestion {
 
 pub fn analyze(file_path: &str) -> Result<TrimReport> {
     let path = Path::new(file_path);
-    let content = std::fs::read_to_string(path)
-        .with_context(|| format!("Failed to read {}", file_path))?;
+    let content =
+        std::fs::read_to_string(path).with_context(|| format!("Failed to read {}", file_path))?;
 
     let lines: Vec<&str> = content.lines().collect();
     let original_lines = lines.len();
@@ -104,7 +104,10 @@ pub fn analyze(file_path: &str) -> Result<TrimReport> {
                         section: format!("Code block at line {}", code_block_start + 1),
                         start_line: code_block_start + 1,
                         end_line: i + 1,
-                        reason: format!("Long code block ({} lines) — consider summarizing", block_len),
+                        reason: format!(
+                            "Long code block ({} lines) — consider summarizing",
+                            block_len
+                        ),
                         token_savings: section_content.len() / CHARS_PER_TOKEN,
                     });
                 }
@@ -204,7 +207,10 @@ pub fn auto_trim(file_path: &str) -> Result<()> {
 impl TrimReport {
     pub fn print(&self) {
         println!("Trim analysis: {}\n", self.file_path);
-        println!("  Size: {} lines, ~{} tokens\n", self.original_lines, self.original_tokens);
+        println!(
+            "  Size: {} lines, ~{} tokens\n",
+            self.original_lines, self.original_tokens
+        );
 
         if self.suggestions.is_empty() {
             println!("  No trim suggestions — file looks lean.");
@@ -218,12 +224,7 @@ impl TrimReport {
             } else {
                 String::new()
             };
-            println!(
-                "  {}. {} {}",
-                i + 1,
-                s.section,
-                line_info
-            );
+            println!("  {}. {} {}", i + 1, s.section, line_info);
             println!("     Reason: {}", s.reason);
             if s.token_savings > 0 {
                 println!("     Savings: ~{} tokens", s.token_savings);

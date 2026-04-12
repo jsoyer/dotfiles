@@ -48,7 +48,10 @@ impl ProfileManager {
         let path = self.profiles_dir.join(format!("{}.yaml", name));
         if !path.exists() {
             // Try in _generated/
-            let gen_path = self.profiles_dir.join("_generated").join(format!("{}.yaml", name));
+            let gen_path = self
+                .profiles_dir
+                .join("_generated")
+                .join(format!("{}.yaml", name));
             if !gen_path.exists() {
                 bail!("Profile '{}' not found", name);
             }
@@ -63,7 +66,10 @@ impl ProfileManager {
         let path = if path.exists() {
             path
         } else {
-            let gen_path = self.profiles_dir.join("_generated").join(format!("{}.yaml", name));
+            let gen_path = self
+                .profiles_dir
+                .join("_generated")
+                .join(format!("{}.yaml", name));
             if !gen_path.exists() {
                 bail!("Profile '{}' not found", name);
             }
@@ -251,5 +257,4 @@ impl ProfileManager {
 
         Ok(())
     }
-
 }

@@ -100,18 +100,17 @@ pub fn refine(
 
     // Try providers in order
     let response = match effective_provider.as_str() {
-        "ollama" => query_ollama(&effective_model, &prompt, config.max_tokens)
-            .or_else(|_| {
-                if let Some(fallback) = &config.fallback {
-                    match fallback.as_str() {
-                        "claude" => query_claude_api(&prompt, config.max_tokens),
-                        "openai" => query_openai_api(&prompt, config.max_tokens),
-                        _ => bail!("Unknown fallback provider: {}", fallback),
-                    }
-                } else {
-                    bail!("Ollama unavailable and no fallback configured")
+        "ollama" => query_ollama(&effective_model, &prompt, config.max_tokens).or_else(|_| {
+            if let Some(fallback) = &config.fallback {
+                match fallback.as_str() {
+                    "claude" => query_claude_api(&prompt, config.max_tokens),
+                    "openai" => query_openai_api(&prompt, config.max_tokens),
+                    _ => bail!("Unknown fallback provider: {}", fallback),
                 }
-            }),
+            } else {
+                bail!("Ollama unavailable and no fallback configured")
+            }
+        }),
         "claude" => query_claude_api(&prompt, config.max_tokens),
         "openai" => query_openai_api(&prompt, config.max_tokens),
         "disabled" => bail!("AI provider disabled"),
@@ -134,15 +133,14 @@ pub struct AiRefinement {
     pub reasoning: String,
 }
 
-
 fn read_project_context(project_dir: &std::path::Path) -> Result<String> {
     let mut context = String::new();
 
     // Read CLAUDE.md if exists
     let claude_md = project_dir.join("CLAUDE.md");
     if claude_md.exists() {
-        let content = std::fs::read_to_string(&claude_md)
-            .with_context(|| "Failed to read CLAUDE.md")?;
+        let content =
+            std::fs::read_to_string(&claude_md).with_context(|| "Failed to read CLAUDE.md")?;
         // Take first 2000 chars to keep prompt small
         context.push_str("CLAUDE.md:\n");
         context.push_str(&content[..content.len().min(2000)]);
@@ -152,8 +150,8 @@ fn read_project_context(project_dir: &std::path::Path) -> Result<String> {
     // Read README.md if exists
     let readme = project_dir.join("README.md");
     if readme.exists() {
-        let content = std::fs::read_to_string(&readme)
-            .with_context(|| "Failed to read README.md")?;
+        let content =
+            std::fs::read_to_string(&readme).with_context(|| "Failed to read README.md")?;
         context.push_str("README.md:\n");
         context.push_str(&content[..content.len().min(1000)]);
         context.push('\n');
@@ -170,10 +168,26 @@ fn format_fingerprint(fp: &ProjectFingerprint) -> String {
 
     format!(
         "Languages: {}. Frameworks: {}. Infrastructure: {}. Databases: {}.",
-        if langs.is_empty() { "none".to_string() } else { langs.join(", ") },
-        if frameworks.is_empty() { "none".to_string() } else { frameworks.join(", ") },
-        if infra.is_empty() { "none".to_string() } else { infra.join(", ") },
-        if dbs.is_empty() { "none".to_string() } else { dbs.join(", ") },
+        if langs.is_empty() {
+            "none".to_string()
+        } else {
+            langs.join(", ")
+        },
+        if frameworks.is_empty() {
+            "none".to_string()
+        } else {
+            frameworks.join(", ")
+        },
+        if infra.is_empty() {
+            "none".to_string()
+        } else {
+            infra.join(", ")
+        },
+        if dbs.is_empty() {
+            "none".to_string()
+        } else {
+            dbs.join(", ")
+        },
     )
 }
 
@@ -196,10 +210,26 @@ Respond in JSON format only:
 
 Only suggest skills/agents from the available lists. Be concise. Focus on what the scanner missed."#,
         request.fingerprint_summary,
-        if request.project_context.is_empty() { "(no context files found)" } else { &request.project_context },
+        if request.project_context.is_empty() {
+            "(no context files found)"
+        } else {
+            &request.project_context
+        },
         request.current_recommendations.join(", "),
-        request.available_skills.iter().take(50).cloned().collect::<Vec<_>>().join(", "),
-        request.available_agents.iter().take(30).cloned().collect::<Vec<_>>().join(", "),
+        request
+            .available_skills
+            .iter()
+            .take(50)
+            .cloned()
+            .collect::<Vec<_>>()
+            .join(", "),
+        request
+            .available_agents
+            .iter()
+            .take(30)
+            .cloned()
+            .collect::<Vec<_>>()
+            .join(", "),
     )
 }
 
@@ -213,11 +243,16 @@ fn query_ollama(model: &str, prompt: &str, _max_tokens: u32) -> Result<AiRespons
 
     let output = std::process::Command::new("curl")
         .args([
-            "-s", "--max-time", "30",
-            "-X", "POST",
+            "-s",
+            "--max-time",
+            "30",
+            "-X",
+            "POST",
             "http://localhost:11434/api/generate",
-            "-H", "Content-Type: application/json",
-            "-d", &body.to_string(),
+            "-H",
+            "Content-Type: application/json",
+            "-d",
+            &body.to_string(),
         ])
         .output()
         .with_context(|| "Failed to call Ollama API")?;
@@ -227,21 +262,20 @@ fn query_ollama(model: &str, prompt: &str, _max_tokens: u32) -> Result<AiRespons
     }
 
     let response_text = String::from_utf8_lossy(&output.stdout);
-    let ollama_response: serde_json::Value = serde_json::from_str(&response_text)
-        .with_context(|| "Failed to parse Ollama response")?;
+    let ollama_response: serde_json::Value =
+        serde_json::from_str(&response_text).with_context(|| "Failed to parse Ollama response")?;
 
     let generated = ollama_response
         .get("response")
         .and_then(|v| v.as_str())
         .unwrap_or("{}");
 
-    let ai_response: AiResponse = serde_json::from_str(generated)
-        .unwrap_or(AiResponse {
-            add_skills: vec![],
-            add_agents: vec![],
-            remove_skills: vec![],
-            reasoning: "Failed to parse AI response".to_string(),
-        });
+    let ai_response: AiResponse = serde_json::from_str(generated).unwrap_or(AiResponse {
+        add_skills: vec![],
+        add_agents: vec![],
+        remove_skills: vec![],
+        reasoning: "Failed to parse AI response".to_string(),
+    });
 
     Ok(ai_response)
 }
@@ -258,20 +292,27 @@ fn query_claude_api(prompt: &str, _max_tokens: u32) -> Result<AiResponse> {
 
     let output = std::process::Command::new("curl")
         .args([
-            "-s", "--max-time", "30",
-            "-X", "POST",
+            "-s",
+            "--max-time",
+            "30",
+            "-X",
+            "POST",
             "https://api.anthropic.com/v1/messages",
-            "-H", "Content-Type: application/json",
-            "-H", &format!("x-api-key: {}", api_key),
-            "-H", "anthropic-version: 2023-06-01",
-            "-d", &body.to_string(),
+            "-H",
+            "Content-Type: application/json",
+            "-H",
+            &format!("x-api-key: {}", api_key),
+            "-H",
+            "anthropic-version: 2023-06-01",
+            "-d",
+            &body.to_string(),
         ])
         .output()
         .with_context(|| "Failed to call Claude API")?;
 
     let response_text = String::from_utf8_lossy(&output.stdout);
-    let claude_response: serde_json::Value = serde_json::from_str(&response_text)
-        .with_context(|| "Failed to parse Claude response")?;
+    let claude_response: serde_json::Value =
+        serde_json::from_str(&response_text).with_context(|| "Failed to parse Claude response")?;
 
     let content = claude_response
         .get("content")
@@ -281,20 +322,19 @@ fn query_claude_api(prompt: &str, _max_tokens: u32) -> Result<AiResponse> {
         .and_then(|v| v.as_str())
         .unwrap_or("{}");
 
-    let ai_response: AiResponse = serde_json::from_str(content)
-        .unwrap_or(AiResponse {
-            add_skills: vec![],
-            add_agents: vec![],
-            remove_skills: vec![],
-            reasoning: "Failed to parse Claude response".to_string(),
-        });
+    let ai_response: AiResponse = serde_json::from_str(content).unwrap_or(AiResponse {
+        add_skills: vec![],
+        add_agents: vec![],
+        remove_skills: vec![],
+        reasoning: "Failed to parse Claude response".to_string(),
+    });
 
     Ok(ai_response)
 }
 
 fn query_openai_api(prompt: &str, _max_tokens: u32) -> Result<AiResponse> {
-    let api_key = std::env::var("OPENAI_API_KEY")
-        .with_context(|| "OPENAI_API_KEY not set for OpenAI API")?;
+    let api_key =
+        std::env::var("OPENAI_API_KEY").with_context(|| "OPENAI_API_KEY not set for OpenAI API")?;
 
     let body = serde_json::json!({
         "model": "gpt-4o-mini",
@@ -305,19 +345,25 @@ fn query_openai_api(prompt: &str, _max_tokens: u32) -> Result<AiResponse> {
 
     let output = std::process::Command::new("curl")
         .args([
-            "-s", "--max-time", "30",
-            "-X", "POST",
+            "-s",
+            "--max-time",
+            "30",
+            "-X",
+            "POST",
             "https://api.openai.com/v1/chat/completions",
-            "-H", "Content-Type: application/json",
-            "-H", &format!("Authorization: Bearer {}", api_key),
-            "-d", &body.to_string(),
+            "-H",
+            "Content-Type: application/json",
+            "-H",
+            &format!("Authorization: Bearer {}", api_key),
+            "-d",
+            &body.to_string(),
         ])
         .output()
         .with_context(|| "Failed to call OpenAI API")?;
 
     let response_text = String::from_utf8_lossy(&output.stdout);
-    let openai_response: serde_json::Value = serde_json::from_str(&response_text)
-        .with_context(|| "Failed to parse OpenAI response")?;
+    let openai_response: serde_json::Value =
+        serde_json::from_str(&response_text).with_context(|| "Failed to parse OpenAI response")?;
 
     let content = openai_response
         .get("choices")
@@ -328,13 +374,12 @@ fn query_openai_api(prompt: &str, _max_tokens: u32) -> Result<AiResponse> {
         .and_then(|v| v.as_str())
         .unwrap_or("{}");
 
-    let ai_response: AiResponse = serde_json::from_str(content)
-        .unwrap_or(AiResponse {
-            add_skills: vec![],
-            add_agents: vec![],
-            remove_skills: vec![],
-            reasoning: "Failed to parse OpenAI response".to_string(),
-        });
+    let ai_response: AiResponse = serde_json::from_str(content).unwrap_or(AiResponse {
+        add_skills: vec![],
+        add_agents: vec![],
+        remove_skills: vec![],
+        reasoning: "Failed to parse OpenAI response".to_string(),
+    });
 
     Ok(ai_response)
 }

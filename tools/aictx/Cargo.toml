@@ -1,5 +1,5 @@
 [package]
-name = "ai-context"
+name = "aictx"
 version = "0.3.0"
 edition = "2021"
 description = "Smart per-project context manager for AI coding CLIs"
@@ -7,7 +7,7 @@ license = "MIT"
 authors = ["Jerome Soyer"]
 
 [[bin]]
-name = "ai-context"
+name = "aictx"
 path = "src/main.rs"
 
 [dependencies]

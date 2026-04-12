@@ -140,7 +140,11 @@ fn check_index(config: &AppConfig) -> Vec<CheckResult> {
             // Check for duplicate names
             let mut skill_names: Vec<&str> = index.skills.iter().map(|s| s.name.as_str()).collect();
             skill_names.sort();
-            let dupes: Vec<&&str> = skill_names.windows(2).filter(|w| w[0] == w[1]).map(|w| &w[0]).collect();
+            let dupes: Vec<&&str> = skill_names
+                .windows(2)
+                .filter(|w| w[0] == w[1])
+                .map(|w| &w[0])
+                .collect();
             if !dupes.is_empty() {
                 results.push(CheckResult {
                     name: "Duplicate skills".to_string(),
@@ -201,7 +205,12 @@ fn check_profiles(config: &AppConfig) -> Vec<CheckResult> {
         results.push(CheckResult {
             name: "Profiles".to_string(),
             status: CheckStatus::Warning,
-            message: format!("{}/{} profiles valid ({} invalid)", profile_count - invalid_count, profile_count, invalid_count),
+            message: format!(
+                "{}/{} profiles valid ({} invalid)",
+                profile_count - invalid_count,
+                profile_count,
+                invalid_count
+            ),
         });
     } else {
         results.push(CheckResult {
@@ -344,7 +353,9 @@ fn check_settings_migration(home: &Path) -> Vec<CheckResult> {
         results.push(CheckResult {
             name: "Settings migration".to_string(),
             status: CheckStatus::Warning,
-            message: "Both settings.json and settings.local.json exist in ~/.claude/. Consider merging.".to_string(),
+            message:
+                "Both settings.json and settings.local.json exist in ~/.claude/. Consider merging."
+                    .to_string(),
         });
     }
 
@@ -362,7 +373,11 @@ fn check_cli_detection(config: &AppConfig) -> Vec<CheckResult> {
             "{}/{} ({})",
             detected.len(),
             total,
-            detected.iter().map(|c| c.name.as_str()).collect::<Vec<_>>().join(", ")
+            detected
+                .iter()
+                .map(|c| c.name.as_str())
+                .collect::<Vec<_>>()
+                .join(", ")
         ),
     }]
 }
@@ -380,8 +395,16 @@ impl DoctorReport {
             println!("  {} {:<24} {}", icon, check.name, check.message);
         }
 
-        let errors = self.checks.iter().filter(|c| c.status == CheckStatus::Error).count();
-        let warnings = self.checks.iter().filter(|c| c.status == CheckStatus::Warning).count();
+        let errors = self
+            .checks
+            .iter()
+            .filter(|c| c.status == CheckStatus::Error)
+            .count();
+        let warnings = self
+            .checks
+            .iter()
+            .filter(|c| c.status == CheckStatus::Warning)
+            .count();
 
         println!();
         if errors > 0 {

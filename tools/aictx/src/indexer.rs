@@ -62,8 +62,8 @@ impl Index {
             return Ok(entries);
         }
 
-        for entry in std::fs::read_dir(dir)
-            .with_context(|| format!("Failed to read {}", dir.display()))?
+        for entry in
+            std::fs::read_dir(dir).with_context(|| format!("Failed to read {}", dir.display()))?
         {
             let entry = entry?;
             let path = entry.path();
@@ -187,10 +187,7 @@ impl Index {
         }
     }
 
-    fn extract_description(
-        body: &str,
-        frontmatter: &HashMap<String, serde_yaml::Value>,
-    ) -> String {
+    fn extract_description(body: &str, frontmatter: &HashMap<String, serde_yaml::Value>) -> String {
         // Try frontmatter description first
         if let Some(desc) = frontmatter.get("description") {
             if let Some(s) = desc.as_str() {

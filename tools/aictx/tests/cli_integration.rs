@@ -10,7 +10,7 @@ fn cctx_bin() -> PathBuf {
     let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     path.push("target");
     path.push("debug");
-    path.push("claude-context");
+    path.push("aictx");
     path
 }
 
@@ -38,7 +38,7 @@ fn version_prints_and_exits_ok() {
     let output = run_cctx(&["--version"]);
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("claude-context"));
+    assert!(stdout.contains("aictx"));
 }
 
 #[test]
@@ -104,7 +104,9 @@ fn cost_runs_in_project_dir() {
     let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let output = run_cctx_in_dir(&["cost"], &manifest_dir);
     // May succeed or fail depending on state, but should not panic
-    assert!(output.status.success() || !String::from_utf8_lossy(&output.stderr).contains("panicked"));
+    assert!(
+        output.status.success() || !String::from_utf8_lossy(&output.stderr).contains("panicked")
+    );
 }
 
 // ── Status ──────────────────────────────────────────────────────────────

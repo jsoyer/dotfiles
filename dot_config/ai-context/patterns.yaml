@@ -1,4 +1,4 @@
-# Scanner detection patterns for claude-context
+# Scanner detection patterns for aictx
 # Add new patterns here without recompiling the binary
 
 languages:

@@ -3,7 +3,7 @@
 version = 4
 
 [[package]]
-name = "ai-context"
+name = "aictx"
 version = "0.3.0"
 dependencies = [
  "anyhow",

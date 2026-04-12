@@ -153,9 +153,7 @@ impl Scanner {
         {
             if entry.file_type().is_file() {
                 if let Some(ext) = entry.path().extension() {
-                    *counts
-                        .entry(ext.to_string_lossy().to_string())
-                        .or_insert(0) += 1;
+                    *counts.entry(ext.to_string_lossy().to_string()).or_insert(0) += 1;
                 }
             }
         }
@@ -164,24 +162,62 @@ impl Scanner {
 
     fn detect_config_files(dir: &Path) -> Vec<String> {
         let candidates = [
-            "tsconfig.json", "package.json", "Cargo.toml", "Cargo.lock",
-            "go.mod", "go.sum", "pyproject.toml", "setup.py", "requirements.txt",
-            "Pipfile", "Gemfile", "composer.json", "pom.xml", "build.gradle",
-            "build.gradle.kts", "CMakeLists.txt", "Makefile",
-            "next.config.js", "next.config.mjs", "next.config.ts",
-            "vite.config.ts", "vite.config.js", "nuxt.config.ts",
-            "svelte.config.js", "angular.json", "vue.config.js",
-            "tailwind.config.js", "tailwind.config.ts", "postcss.config.js",
-            "Dockerfile", "docker-compose.yml", "docker-compose.yaml",
-            "terraform.tf", "main.tf", "kubernetes.yaml",
-            ".eslintrc.js", ".eslintrc.json", "eslint.config.js",
-            "biome.json", "prettier.config.js", ".prettierrc",
-            "jest.config.js", "jest.config.ts", "vitest.config.ts",
-            "playwright.config.ts", "cypress.config.ts",
-            ".github/workflows", ".gitlab-ci.yml", "Jenkinsfile",
-            "prisma/schema.prisma", "drizzle.config.ts",
-            "CLAUDE.md", ".claude/settings.json",
-            "Brewfile", "Aptfile", "Dnffile",
+            "tsconfig.json",
+            "package.json",
+            "Cargo.toml",
+            "Cargo.lock",
+            "go.mod",
+            "go.sum",
+            "pyproject.toml",
+            "setup.py",
+            "requirements.txt",
+            "Pipfile",
+            "Gemfile",
+            "composer.json",
+            "pom.xml",
+            "build.gradle",
+            "build.gradle.kts",
+            "CMakeLists.txt",
+            "Makefile",
+            "next.config.js",
+            "next.config.mjs",
+            "next.config.ts",
+            "vite.config.ts",
+            "vite.config.js",
+            "nuxt.config.ts",
+            "svelte.config.js",
+            "angular.json",
+            "vue.config.js",
+            "tailwind.config.js",
+            "tailwind.config.ts",
+            "postcss.config.js",
+            "Dockerfile",
+            "docker-compose.yml",
+            "docker-compose.yaml",
+            "terraform.tf",
+            "main.tf",
+            "kubernetes.yaml",
+            ".eslintrc.js",
+            ".eslintrc.json",
+            "eslint.config.js",
+            "biome.json",
+            "prettier.config.js",
+            ".prettierrc",
+            "jest.config.js",
+            "jest.config.ts",
+            "vitest.config.ts",
+            "playwright.config.ts",
+            "cypress.config.ts",
+            ".github/workflows",
+            ".gitlab-ci.yml",
+            "Jenkinsfile",
+            "prisma/schema.prisma",
+            "drizzle.config.ts",
+            "CLAUDE.md",
+            ".claude/settings.json",
+            "Brewfile",
+            "Aptfile",
+            "Dnffile",
         ];
 
         candidates
@@ -286,14 +322,26 @@ impl Scanner {
 
         let lang_map: &[(&str, &[&str], &[&str])] = &[
             ("typescript", &["ts", "tsx"], &["tsconfig.json"]),
-            ("javascript", &["js", "jsx", "mjs", "cjs"], &["package.json"]),
+            (
+                "javascript",
+                &["js", "jsx", "mjs", "cjs"],
+                &["package.json"],
+            ),
             ("rust", &["rs"], &["Cargo.toml"]),
             ("go", &["go"], &["go.mod"]),
-            ("python", &["py"], &["pyproject.toml", "setup.py", "requirements.txt"]),
+            (
+                "python",
+                &["py"],
+                &["pyproject.toml", "setup.py", "requirements.txt"],
+            ),
             ("java", &["java"], &["pom.xml", "build.gradle"]),
             ("kotlin", &["kt", "kts"], &["build.gradle.kts"]),
             ("swift", &["swift"], &[]),
-            ("cpp", &["cpp", "cc", "cxx", "hpp", "h"], &["CMakeLists.txt"]),
+            (
+                "cpp",
+                &["cpp", "cc", "cxx", "hpp", "h"],
+                &["CMakeLists.txt"],
+            ),
             ("csharp", &["cs"], &[]),
             ("ruby", &["rb"], &["Gemfile"]),
             ("php", &["php"], &["composer.json"]),
@@ -306,7 +354,9 @@ impl Scanner {
 
         for (name, exts, configs) in lang_map {
             let file_count: usize = exts.iter().map(|e| file_counts.get(*e).unwrap_or(&0)).sum();
-            let has_config = configs.iter().any(|c| config_files.contains(&c.to_string()));
+            let has_config = configs
+                .iter()
+                .any(|c| config_files.contains(&c.to_string()));
 
             if file_count > 0 || has_config {
                 let confidence = if file_count > 20 && has_config {
@@ -325,7 +375,10 @@ impl Scanner {
                 if file_count > 0 {
                     signals.push(format!("{} files ({})", exts.join("/"), file_count));
                 }
-                for c in configs.iter().filter(|c| config_files.contains(&c.to_string())) {
+                for c in configs
+                    .iter()
+                    .filter(|c| config_files.contains(&c.to_string()))
+                {
                     signals.push(c.to_string());
                 }
 
@@ -349,7 +402,11 @@ impl Scanner {
         let npm_deps = deps.get("npm").cloned().unwrap_or_default();
 
         let framework_map: &[(&str, &[&str], &[&str])] = &[
-            ("nextjs", &["next.config.js", "next.config.mjs", "next.config.ts"], &["next"]),
+            (
+                "nextjs",
+                &["next.config.js", "next.config.mjs", "next.config.ts"],
+                &["next"],
+            ),
             ("react", &[], &["react", "react-dom"]),
             ("vue", &["vue.config.js", "nuxt.config.ts"], &["vue"]),
             ("angular", &["angular.json"], &["@angular/core"]),
@@ -364,13 +421,23 @@ impl Scanner {
             ("spring", &[], &[]),
             ("rails", &["Gemfile"], &[]),
             ("laravel", &["composer.json"], &[]),
-            ("tailwind", &["tailwind.config.js", "tailwind.config.ts"], &["tailwindcss"]),
-            ("prisma", &["prisma/schema.prisma"], &["@prisma/client", "prisma"]),
+            (
+                "tailwind",
+                &["tailwind.config.js", "tailwind.config.ts"],
+                &["tailwindcss"],
+            ),
+            (
+                "prisma",
+                &["prisma/schema.prisma"],
+                &["@prisma/client", "prisma"],
+            ),
             ("drizzle", &["drizzle.config.ts"], &["drizzle-orm"]),
         ];
 
         for (name, configs, dep_names) in framework_map {
-            let has_config = configs.iter().any(|c| config_files.contains(&c.to_string()));
+            let has_config = configs
+                .iter()
+                .any(|c| config_files.contains(&c.to_string()));
             let has_dep = dep_names.iter().any(|d| npm_deps.contains(&d.to_string()));
 
             if has_config || has_dep {
@@ -383,10 +450,16 @@ impl Scanner {
                 };
 
                 let mut signals = Vec::new();
-                for c in configs.iter().filter(|c| config_files.contains(&c.to_string())) {
+                for c in configs
+                    .iter()
+                    .filter(|c| config_files.contains(&c.to_string()))
+                {
                     signals.push(c.to_string());
                 }
-                for d in dep_names.iter().filter(|d| npm_deps.contains(&d.to_string())) {
+                for d in dep_names
+                    .iter()
+                    .filter(|d| npm_deps.contains(&d.to_string()))
+                {
                     signals.push(format!("dep: {}", d));
                 }
 
@@ -406,7 +479,10 @@ impl Scanner {
         let mut infra = Vec::new();
 
         let infra_map: &[(&str, &[&str])] = &[
-            ("docker", &["Dockerfile", "docker-compose.yml", "docker-compose.yaml"]),
+            (
+                "docker",
+                &["Dockerfile", "docker-compose.yml", "docker-compose.yaml"],
+            ),
             ("terraform", &["terraform.tf", "main.tf"]),
             ("kubernetes", &["kubernetes.yaml"]),
         ];
@@ -476,7 +552,10 @@ impl Scanner {
         let mut tools = Vec::new();
 
         let tool_map: &[(&str, &[&str])] = &[
-            ("eslint", &[".eslintrc.js", ".eslintrc.json", "eslint.config.js"]),
+            (
+                "eslint",
+                &[".eslintrc.js", ".eslintrc.json", "eslint.config.js"],
+            ),
             ("biome", &["biome.json"]),
             ("prettier", &["prettier.config.js", ".prettierrc"]),
             ("jest", &["jest.config.js", "jest.config.ts"]),
@@ -644,9 +723,7 @@ impl Scanner {
 
 impl ProjectFingerprint {
     pub fn is_empty(&self) -> bool {
-        self.languages.is_empty()
-            && self.frameworks.is_empty()
-            && self.infrastructure.is_empty()
+        self.languages.is_empty() && self.frameworks.is_empty() && self.infrastructure.is_empty()
     }
 
     pub fn print(&self) {

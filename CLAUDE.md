@@ -51,7 +51,7 @@ macOS, Fedora, Fedora Atomic, Toolbox, Arch, OmArchy, Ubuntu, RPi, Windows. GUI 
 - `dot_aictx/` — AI resource cache (skills, agents, commands, rules, hooks, plugins) deployed to `~/.aictx/`, symlinked to CLI dirs by `aictx`
 - `dot_private/` — Package manifests (Brewfile, Aptfile, Dnffile, Pacfile)
 - `dot_local/bin/` — Custom scripts (breww, cm* commands, chezmoi-autoupdate)
-- `tools/claude-context/` — cctx: per-project context manager (Rust)
+- `tools/aictx/` — aictx/cctx: per-project context manager (Rust)
 
 ### AI Tools (`dot_claude/`)
 `dot_claude/` now tracks the upstream [Claude Workflow System](https://github.com/vinicius91carvalho/.claude) (commit `e1b64fcb`) to take advantage of its aggressive token-saving defaults, enforcement hooks, and ready-made skills/agents. Key pieces to know:

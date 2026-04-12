@@ -11,10 +11,7 @@ pub fn generate(shell: &str) -> Result<String> {
         "zsh" => Ok(generate_zsh()),
         "bash" => Ok(generate_bash()),
         "fish" => Ok(generate_fish()),
-        other => bail!(
-            "Unsupported shell: '{}'. Supported: zsh, bash, fish",
-            other
-        ),
+        other => bail!("Unsupported shell: '{}'. Supported: zsh, bash, fish", other),
     }
 }
 

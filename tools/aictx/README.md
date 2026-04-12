@@ -1,4 +1,4 @@
-# claude-context (cctx)
+# aictx (cctx)
 
 Smart per-project context manager for AI coding CLIs. Reduces token overhead (~40K+ to ~5-8K tokens/msg) by activating only relevant skills, agents, commands, MCP servers, rules, and plugins per project.
 
@@ -21,11 +21,11 @@ Smart per-project context manager for AI coding CLIs. Reduces token overhead (~4
 
 ```bash
 # Build from source
-cd tools/claude-context
+cd tools/aictx
 cargo build --release
 
 # Copy to PATH
-cp target/release/claude-context ~/.local/bin/cctx
+cp target/release/aictx ~/.local/bin/cctx
 
 # Generate shell completions (optional)
 cctx completions zsh > ~/.zsh/completions/_cctx
@@ -149,10 +149,10 @@ cctx apply --smart
 
 ## Configuration
 
-- Global config: `~/.config/claude-context/defaults.yaml`
+- Global config: `~/.config/aictx/defaults.yaml`
 - Project config: `.cctx.yaml` (overrides global)
-- Sources: `~/.config/claude-context/sources.yaml`
-- Profiles: `~/.config/claude-context/profiles/`
+- Sources: `~/.config/aictx/sources.yaml`
+- Profiles: `~/.config/aictx/profiles/`
 
 ## Resource Sources
 
@@ -188,7 +188,7 @@ cctx hook fish | source
 Tag a release to trigger cross-compilation:
 
 ```bash
-git tag cctx-v0.2.0
+git tag aictx-v0.2.0
 git push --tags
 ```
 
