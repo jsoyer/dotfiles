@@ -24,7 +24,8 @@ mkdir -p "$(dirname "$TARGET")"
 TMP=$(mktemp)
 trap 'rm -f "$TMP"' EXIT
 
-chezmoi execute-template --source="$CHEZMOI_SRC" < "$TEMPLATE" > "$TMP"
+CHEZMOI_DISABLE_PERSISTENT_STATE=1 \
+  chezmoi execute-template --source="$CHEZMOI_SRC" < "$TEMPLATE" > "$TMP"
 
 if [[ $DRY_RUN -eq 1 ]]; then
   echo "[sync-mcp-servers] Preview of changes to $TARGET:"
