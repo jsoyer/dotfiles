@@ -2,7 +2,7 @@ use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
     text::{Line, Span},
-    widgets::{Block, Borders, List, ListItem, Paragraph, Tabs},
+    widgets::{Block, Borders, Clear, List, ListItem, Paragraph, Tabs},
     Frame,
 };
 
@@ -42,6 +42,10 @@ pub fn draw(frame: &mut Frame, app: &App) {
     draw_resource_tabs(frame, app, chunks[2]);
     draw_content(frame, app, chunks[3]);
     draw_footer(frame, app, chunks[4]);
+
+    if app.cli_toggle_mode {
+        draw_cli_toggle(frame, app, chunks[3]);
+    }
 }
 
 fn draw_header(frame: &mut Frame, app: &App, area: Rect) {
@@ -402,7 +406,7 @@ fn draw_footer(frame: &mut Frame, app: &App, area: Rect) {
             ),
             ("/", "filter"),
             ("i", "install"),
-            ("t", "toggle-cli"),
+            ("t", "toggle CLIs"),
             ("A/N", "all/none"),
             ("a", "apply"),
             ("q", "quit"),
@@ -430,6 +434,85 @@ fn draw_footer(frame: &mut Frame, app: &App, area: Rect) {
     );
 
     frame.render_widget(footer, area);
+}
+
+fn draw_cli_toggle(frame: &mut Frame, app: &App, area: Rect) {
+    if app.cli_toggle_selections.is_empty() {
+        return;
+    }
+
+    // Compute popup dimensions
+    let inner_width = 36u16;
+    let popup_width = inner_width + 2; // borders
+    let popup_height = (app.cli_toggle_selections.len() as u16) + 4; // entries + title + blank + hint
+
+    // Center the popup within area
+    let x = area.x + area.width.saturating_sub(popup_width) / 2;
+    let y = area.y + area.height.saturating_sub(popup_height) / 2;
+    let popup_rect = Rect {
+        x,
+        y,
+        width: popup_width.min(area.width),
+        height: popup_height.min(area.height),
+    };
+
+    // Clear background behind popup
+    frame.render_widget(Clear, popup_rect);
+
+    // Build lines: one per CLI
+    let mut lines: Vec<Line> = app
+        .cli_toggle_selections
+        .iter()
+        .enumerate()
+        .map(|(i, (cli_name, enabled))| {
+            let is_cursor = i == app.cli_toggle_cursor;
+            let checkbox = if *enabled { "[x]" } else { "[ ]" };
+            let checkbox_style = if *enabled {
+                Style::default().fg(GREEN).add_modifier(Modifier::BOLD)
+            } else {
+                Style::default().fg(OVERLAY0)
+            };
+            let name_style = if is_cursor {
+                Style::default().fg(MAUVE).add_modifier(Modifier::BOLD)
+            } else {
+                Style::default().fg(SUBTEXT)
+            };
+            Line::from(vec![
+                Span::styled(
+                    if is_cursor { "> " } else { "  " },
+                    Style::default().fg(MAUVE),
+                ),
+                Span::styled(format!("{} ", checkbox), checkbox_style),
+                Span::styled(cli_name.clone(), name_style),
+            ])
+        })
+        .collect();
+
+    // Blank separator line
+    lines.push(Line::from(""));
+
+    // Hint line
+    lines.push(Line::from(vec![
+        Span::styled(
+            "  Space",
+            Style::default().fg(YELLOW).add_modifier(Modifier::BOLD),
+        ),
+        Span::styled(": toggle  ", Style::default().fg(SUBTEXT)),
+        Span::styled(
+            "Enter",
+            Style::default().fg(YELLOW).add_modifier(Modifier::BOLD),
+        ),
+        Span::styled(": apply", Style::default().fg(SUBTEXT)),
+    ]));
+
+    let title = format!(" {} ", app.cli_toggle_resource_name);
+    let block = Block::default()
+        .title(title)
+        .borders(Borders::ALL)
+        .border_style(Style::default().fg(MAUVE));
+
+    let paragraph = Paragraph::new(lines).block(block);
+    frame.render_widget(paragraph, popup_rect);
 }
 
 fn score_bar(score: f32) -> String {

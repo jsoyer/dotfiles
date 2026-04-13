@@ -209,6 +209,9 @@ pub enum PluginAction {
     Install {
         /// Resource name or install_id
         name: String,
+        /// Also enable for all detected CLIs after install
+        #[arg(long)]
+        enable: bool,
     },
     /// Uninstall a previously downloaded resource from local dirs
     Uninstall {

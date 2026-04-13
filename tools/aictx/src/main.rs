@@ -587,7 +587,7 @@ fn run_plugin(config: &AppConfig, resolved: &ResolvedScope, action: PluginAction
                 summary.join(", ")
             );
         }
-        PluginAction::Install { name } => {
+        PluginAction::Install { name, enable } => {
             let pm = plugins::PluginManager::new(&config.paths.config_dir)?;
             let all = pm.all_available()?;
             let resource = all.iter().find(|e| e.install_id == name || e.name == name);
@@ -599,6 +599,38 @@ fn run_plugin(config: &AppConfig, resolved: &ResolvedScope, action: PluginAction
                         &config.paths.agents_dir,
                         &config.paths.commands_dir,
                     )?;
+                    if enable {
+                        use matcher::{RecommendSource, Recommendation, Recommendations};
+                        let install_id = r.install_id.clone();
+                        let rec = Recommendation {
+                            name: install_id.clone(),
+                            score: 1.0,
+                            reason: "explicitly installed".to_string(),
+                            source: RecommendSource::Base,
+                        };
+                        let selections = match r.resource_type {
+                            plugins::ResourceType::Skill => Recommendations {
+                                skills: vec![rec],
+                                ..Default::default()
+                            },
+                            plugins::ResourceType::Agent => Recommendations {
+                                agents: vec![rec],
+                                ..Default::default()
+                            },
+                            plugins::ResourceType::Command => Recommendations {
+                                commands: vec![rec],
+                                ..Default::default()
+                            },
+                            _ => {
+                                eprintln!(
+                                    "  --enable is only supported for skills, agents, and commands."
+                                );
+                                return Ok(());
+                            }
+                        };
+                        symlinker::apply(config, resolved, &selections)?;
+                        println!("  Enabled '{}' for all detected CLIs.", install_id);
+                    }
                 }
                 None => println!(
                     "Resource '{}' not found. Run `aictx plugin refresh` first.",
