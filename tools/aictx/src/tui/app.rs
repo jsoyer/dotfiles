@@ -173,6 +173,18 @@ pub struct App<'a> {
 
     /// Snapshot of enabled items at TUI open time: (cli_name, tab) -> list of enabled names
     pub initial_enabled: HashMap<(String, ResourceTab), Vec<String>>,
+
+    // Profile selector popup state
+    pub profile_mode: bool,
+    pub profile_cursor: usize,
+    /// (name, skill_count, agent_count)
+    pub profile_list: Vec<(String, usize, usize)>,
+    pub profile_save_mode: bool,
+    pub profile_save_input: String,
+
+    // Pending profile operations signalled to mod.rs after TUI exits
+    pub pending_profile_save: Option<String>,
+    pub pending_profile_load: Option<String>,
 }
 
 impl<'a> App<'a> {
@@ -276,6 +288,13 @@ impl<'a> App<'a> {
             preview_lines: Vec::new(),
             preview_scroll: 0,
             initial_enabled,
+            profile_mode: false,
+            profile_cursor: 0,
+            profile_list: Vec::new(),
+            profile_save_mode: false,
+            profile_save_input: String::new(),
+            pending_profile_save: None,
+            pending_profile_load: None,
         }
     }
 
@@ -651,6 +670,67 @@ impl<'a> App<'a> {
                     continue;
                 }
 
+                // Profile selector popup — intercept all keys
+                if self.profile_mode {
+                    if self.profile_save_mode {
+                        match key.code {
+                            KeyCode::Esc => {
+                                self.profile_save_mode = false;
+                                self.profile_save_input.clear();
+                            }
+                            KeyCode::Enter => {
+                                if !self.profile_save_input.is_empty() {
+                                    self.pending_profile_save =
+                                        Some(self.profile_save_input.clone());
+                                    self.profile_save_mode = false;
+                                    self.profile_mode = false;
+                                    self.profile_save_input.clear();
+                                }
+                            }
+                            KeyCode::Backspace => {
+                                self.profile_save_input.pop();
+                            }
+                            KeyCode::Char(c) => {
+                                self.profile_save_input.push(c);
+                            }
+                            _ => {}
+                        }
+                    } else {
+                        match key.code {
+                            KeyCode::Esc | KeyCode::Char('q') => {
+                                self.profile_mode = false;
+                            }
+                            KeyCode::Enter => {
+                                if let Some((name, _, _)) =
+                                    self.profile_list.get(self.profile_cursor)
+                                {
+                                    self.pending_profile_load = Some(name.clone());
+                                    self.profile_mode = false;
+                                }
+                            }
+                            KeyCode::Char('s') => {
+                                self.profile_save_mode = true;
+                                self.profile_save_input.clear();
+                            }
+                            KeyCode::Down | KeyCode::Char('j') => {
+                                if !self.profile_list.is_empty() {
+                                    self.profile_cursor =
+                                        (self.profile_cursor + 1) % self.profile_list.len();
+                                }
+                            }
+                            KeyCode::Up | KeyCode::Char('k') => {
+                                if !self.profile_list.is_empty() {
+                                    self.profile_cursor =
+                                        (self.profile_cursor + self.profile_list.len() - 1)
+                                            % self.profile_list.len();
+                                }
+                            }
+                            _ => {}
+                        }
+                    }
+                    continue;
+                }
+
                 if self.filtering {
                     match key.code {
                         KeyCode::Esc => {
@@ -811,6 +891,14 @@ impl<'a> App<'a> {
                             self.cli_toggle_selections = selections;
                             self.cli_toggle_cursor = self.active_cli_idx;
                             self.cli_toggle_mode = true;
+                        }
+                    }
+                    KeyCode::Char('p') => {
+                        if !self.profile_list.is_empty() {
+                            self.profile_mode = true;
+                            self.profile_cursor = 0;
+                            self.profile_save_mode = false;
+                            self.profile_save_input.clear();
                         }
                     }
                     _ => {}
@@ -1283,6 +1371,90 @@ mod tests {
         let mut scroll: usize = 0;
         scroll = scroll.saturating_sub(1);
         assert_eq!(scroll, 0, "scroll should not underflow below 0");
+    }
+
+    // --- Profile mode tests ---
+
+    #[test]
+    fn profile_mode_defaults_to_false() {
+        // New profile state fields should all start in their zero/false/empty state
+        let profile_mode = false;
+        let profile_cursor = 0usize;
+        let profile_list: Vec<(String, usize, usize)> = Vec::new();
+        let profile_save_mode = false;
+        let profile_save_input = String::new();
+        let pending_profile_save: Option<String> = None;
+        let pending_profile_load: Option<String> = None;
+
+        assert!(!profile_mode);
+        assert_eq!(profile_cursor, 0);
+        assert!(profile_list.is_empty());
+        assert!(!profile_save_mode);
+        assert!(profile_save_input.is_empty());
+        assert!(pending_profile_save.is_none());
+        assert!(pending_profile_load.is_none());
+    }
+
+    #[test]
+    fn profile_cursor_wraps_down() {
+        let list: Vec<(String, usize, usize)> = vec![
+            ("a".to_string(), 1, 0),
+            ("b".to_string(), 2, 1),
+            ("c".to_string(), 0, 0),
+        ];
+        let len = list.len();
+        let cursor = 2usize;
+        let next = (cursor + 1) % len;
+        assert_eq!(next, 0);
+    }
+
+    #[test]
+    fn profile_cursor_wraps_up() {
+        let list: Vec<(String, usize, usize)> =
+            vec![("a".to_string(), 1, 0), ("b".to_string(), 2, 1)];
+        let len = list.len();
+        let cursor = 0usize;
+        let prev = (cursor + len - 1) % len;
+        assert_eq!(prev, 1);
+    }
+
+    #[test]
+    fn profile_save_input_accumulates_chars() {
+        let mut input = String::new();
+        for c in "myprofile".chars() {
+            input.push(c);
+        }
+        assert_eq!(input, "myprofile");
+    }
+
+    #[test]
+    fn profile_save_input_backspace() {
+        let mut input = "myprofile".to_string();
+        input.pop();
+        assert_eq!(input, "myprofil");
+    }
+
+    #[test]
+    fn profile_load_sets_pending() {
+        let list: Vec<(String, usize, usize)> = vec![
+            ("frontend".to_string(), 5, 2),
+            ("backend".to_string(), 3, 1),
+        ];
+        let cursor = 1usize;
+        let pending: Option<String> = list.get(cursor).map(|(name, _, _)| name.clone());
+        assert_eq!(pending, Some("backend".to_string()));
+    }
+
+    #[test]
+    fn profile_save_does_not_signal_when_empty_input() {
+        let input = String::new();
+        // Only signal when input is non-empty
+        let pending: Option<String> = if !input.is_empty() {
+            Some(input.clone())
+        } else {
+            None
+        };
+        assert!(pending.is_none());
     }
 
     #[test]

@@ -47,6 +47,8 @@ pub fn draw(frame: &mut Frame, app: &App) {
         draw_preview(frame, app, chunks[3]);
     } else if app.cli_toggle_mode {
         draw_cli_toggle(frame, app, chunks[3]);
+    } else if app.profile_mode {
+        draw_profile_selector(frame, app, chunks[3]);
     }
 }
 
@@ -415,6 +417,7 @@ fn draw_footer(frame: &mut Frame, app: &App, area: Rect) {
             ("/", "filter"),
             ("i", "install"),
             ("t", "toggle CLIs"),
+            ("p", "profiles"),
             ("A/N", "all/none"),
             ("a", "preview+apply"),
             ("q", "quit"),
@@ -571,6 +574,76 @@ fn draw_cli_toggle(frame: &mut Frame, app: &App, area: Rect) {
 
     let paragraph = Paragraph::new(lines).block(block);
     frame.render_widget(paragraph, popup_rect);
+}
+
+fn draw_profile_selector(frame: &mut Frame, app: &App, area: Rect) {
+    let height = (app.profile_list.len() as u16 + 4).min(15);
+    let width = 52u16;
+    let x = area.x + area.width.saturating_sub(width) / 2;
+    let y = area.y + area.height.saturating_sub(height) / 2;
+    let popup = Rect::new(x, y, width.min(area.width), height.min(area.height));
+
+    frame.render_widget(Clear, popup);
+
+    let title = if app.profile_save_mode {
+        " Save Profile "
+    } else {
+        " Profiles "
+    };
+    let block = Block::default()
+        .borders(Borders::ALL)
+        .title(title)
+        .border_style(Style::default().fg(MAUVE));
+    let inner = block.inner(popup);
+    frame.render_widget(block, popup);
+
+    if app.profile_save_mode {
+        let lines = vec![
+            Line::from(Span::styled("  Profile name:", Style::default().fg(TEXT))),
+            Line::from(Span::styled(
+                format!("  > {}_", app.profile_save_input),
+                Style::default().fg(GREEN),
+            )),
+            Line::from(""),
+            Line::from(Span::styled(
+                "  Enter: save  Esc: cancel",
+                Style::default().fg(SUBTEXT),
+            )),
+        ];
+        frame.render_widget(Paragraph::new(lines), inner);
+        return;
+    }
+
+    let mut lines: Vec<Line> = app
+        .profile_list
+        .iter()
+        .enumerate()
+        .map(|(i, (name, skills, agents))| {
+            let cursor = if i == app.profile_cursor {
+                "▸ "
+            } else {
+                "  "
+            };
+            let style = if i == app.profile_cursor {
+                Style::default().fg(MAUVE).add_modifier(Modifier::BOLD)
+            } else {
+                Style::default().fg(TEXT)
+            };
+            let detail = format!("{} skills, {} agents", skills, agents);
+            Line::from(vec![
+                Span::styled(format!("{}{:<22}", cursor, name), style),
+                Span::styled(detail, Style::default().fg(SUBTEXT)),
+            ])
+        })
+        .collect();
+
+    lines.push(Line::from(""));
+    lines.push(Line::from(Span::styled(
+        "  Enter: load  s: save current  Esc: close",
+        Style::default().fg(SUBTEXT),
+    )));
+
+    frame.render_widget(Paragraph::new(lines), inner);
 }
 
 fn score_bar(score: f32) -> String {

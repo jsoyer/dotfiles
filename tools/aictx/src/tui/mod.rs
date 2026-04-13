@@ -8,6 +8,7 @@ use crate::config::AppConfig;
 use crate::indexer::Index;
 use crate::matcher::Recommendations;
 use crate::plugins::{PluginManager, RemoteResource};
+use crate::profile::ProfileManager;
 use crate::scanner::ProjectFingerprint;
 use crate::scope::ResolvedScope;
 use crate::symlinker::ProjectStatus;
@@ -21,6 +22,24 @@ pub fn run(
     remote_resources: &[RemoteResource],
     cli_statuses: &[(String, ProjectStatus)],
 ) -> Result<()> {
+    // Build profile list before TUI starts
+    let profile_list: Vec<(String, usize, usize)> = ProfileManager::new(config)
+        .ok()
+        .map(|pm| {
+            pm.list_names()
+                .unwrap_or_default()
+                .into_iter()
+                .map(|name| {
+                    let (skills, agents) = pm
+                        .load(&name)
+                        .map(|r| (r.skills.len(), r.agents.len()))
+                        .unwrap_or((0, 0));
+                    (name, skills, agents)
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+
     let mut app = app::App::new(
         config,
         index,
@@ -29,11 +48,14 @@ pub fn run(
         remote_resources,
         cli_statuses,
     );
+    app.profile_list = profile_list;
 
     let mut terminal = ratatui::init();
     let result = app.run(&mut terminal);
     let pending_installs = app.pending_installs.clone();
     let pending_uninstalls = app.pending_uninstalls.clone();
+    let pending_profile_save = app.pending_profile_save.clone();
+    let pending_profile_load = app.pending_profile_load.clone();
     ratatui::restore();
 
     if let Some(all_selections) = result? {
@@ -145,6 +167,35 @@ pub fn run(
         let after_status = crate::symlinker::status(config, resolved)
             .unwrap_or_else(|_| ProjectStatus::empty(resolved.scope));
         print_status_summary(&before_status, &after_status);
+    }
+
+    // Handle pending profile save (save current symlinker state as a named profile)
+    if let Some(ref save_name) = pending_profile_save {
+        match ProfileManager::new(config) {
+            Ok(pm) => {
+                let status = crate::symlinker::status(config, resolved)
+                    .unwrap_or_else(|_| ProjectStatus::empty(resolved.scope));
+                match pm.save(save_name, &status) {
+                    Ok(()) => println!("  Profile '{}' saved.", save_name),
+                    Err(e) => eprintln!("  Failed to save profile '{}': {}", save_name, e),
+                }
+            }
+            Err(e) => eprintln!("  Failed to initialise ProfileManager: {}", e),
+        }
+    }
+
+    // Handle pending profile load (apply selected profile's selections)
+    if let Some(ref load_name) = pending_profile_load {
+        match ProfileManager::new(config) {
+            Ok(pm) => match pm.load(load_name) {
+                Ok(selections) => match crate::symlinker::apply(config, resolved, &selections) {
+                    Ok(()) => println!("  Profile '{}' loaded and applied.", load_name),
+                    Err(e) => eprintln!("  Failed to apply profile '{}': {}", load_name, e),
+                },
+                Err(e) => eprintln!("  Failed to load profile '{}': {}", load_name, e),
+            },
+            Err(e) => eprintln!("  Failed to initialise ProfileManager: {}", e),
+        }
     }
 
     Ok(())

@@ -221,6 +221,47 @@ impl ProfileManager {
         Ok(())
     }
 
+    /// Return sorted list of profile names (manual first, then generated).
+    pub fn list_names(&self) -> Result<Vec<String>> {
+        let mut names = Vec::new();
+
+        if let Ok(entries) = std::fs::read_dir(&self.profiles_dir) {
+            let mut manual: Vec<String> = entries
+                .filter_map(|e| e.ok())
+                .filter(|e| {
+                    let p = e.path();
+                    p.extension().map_or(false, |ext| ext == "yaml") && p.is_file()
+                })
+                .filter_map(|e| {
+                    e.path()
+                        .file_stem()
+                        .map(|s| s.to_string_lossy().to_string())
+                })
+                .collect();
+            manual.sort();
+            names.extend(manual);
+        }
+
+        let gen_dir = self.profiles_dir.join("_generated");
+        if gen_dir.exists() {
+            if let Ok(entries) = std::fs::read_dir(&gen_dir) {
+                let mut generated: Vec<String> = entries
+                    .filter_map(|e| e.ok())
+                    .filter(|e| e.path().extension().map_or(false, |ext| ext == "yaml"))
+                    .filter_map(|e| {
+                        e.path()
+                            .file_stem()
+                            .map(|s| s.to_string_lossy().to_string())
+                    })
+                    .collect();
+                generated.sort();
+                names.extend(generated);
+            }
+        }
+
+        Ok(names)
+    }
+
     pub fn export(&self, name: &str) -> Result<String> {
         let path = self.profiles_dir.join(format!("{}.yaml", name));
         if !path.exists() {
