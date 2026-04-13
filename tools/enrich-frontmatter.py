@@ -6,7 +6,7 @@ import re
 import sys
 import yaml
 
-SKILLS_DIR = os.path.join(os.path.dirname(__file__), "..", "dot_skills")
+SKILLS_DIR = os.path.join(os.path.dirname(__file__), "..", "dot_aictx", "skills")
 
 # Inference rules
 LANG_KEYWORDS = {

@@ -19,7 +19,6 @@ docs/
 
 {{/* Build artifacts, development-only, and non-deployable directories */}}
 tools/
-claude_archive/
 .omc/
 .serena/
 .rtk/
@@ -85,19 +84,6 @@ Library/
 {{/* Other CLI skills — managed by aictx, not chezmoi */}}
 .qwen/skills/
 .kimi/skills/
-
-{{/* .mistralcode runtime */}}
-.mistralcode/dev_data/**
-.mistralcode/index/**
-.mistralcode/sessions/**
-
-{{/* .vibe runtime + secrets */}}
-.vibe/.env
-.vibe/vibe.log
-.vibe/vibehistory
-.vibe/update_cache.json
-.vibe/logs/**
-.vibe/session/**
 
 {{/* OmArchy — selective overrides (respect OmArchy defaults for nvim, WM) */}}
 {{- $mp := index . "machine_profile" -}}

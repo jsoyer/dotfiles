@@ -47,7 +47,6 @@ macOS, Fedora, Fedora Atomic, Toolbox, Arch, OmArchy, Ubuntu, RPi, Windows. GUI 
 ### Key Directories
 - `dot_config/` — XDG configs (nvim, starship, tmux, wezterm, aerospace, sketchybar)
 - `dot_claude/` — Vendored Claude Workflow System (vinicius91carvalho/.claude@e1b64fc) with commands, rules, hooks, workflows
-- `claude_archive/` — Snapshot of the previous hand-rolled `.claude` tree (kept for rollback/reference)
 - `dot_aictx/` — AI resource cache (skills, agents, commands, rules, hooks, plugins) deployed to `~/.aictx/`, symlinked to CLI dirs by `aictx`
 - `dot_private/` — Package manifests (Brewfile, Aptfile, Dnffile, Pacfile)
 - `dot_local/bin/` — Custom scripts (breww, cm* commands, chezmoi-autoupdate)
@@ -60,17 +59,6 @@ macOS, Fedora, Fedora Atomic, Toolbox, Arch, OmArchy, Ubuntu, RPi, Windows. GUI 
 - `hooks/` implements deterministic gates (quality, invariants, cleanup) that reference scripts in `hooks/lib/` and `workflow/`.
 - Skills and agents are sourced from `~/.aictx/` (deployed by chezmoi from `dot_aictx/`). `aictx enable/disable/apply` manages symlinks to each CLI.
 - `aictx` keeps per-project overrides aligned by re-linking `~/.claude` agents/skills on every directory change (`aictx apply --auto`).
-- Legacy config lives under `claude_archive/` if we ever need to inspect or restore the previous layout.
-
-If the upstream GitHub repo ever disappears, restore the vendored snapshot with:
-
-```bash
-rm -rf ~/.local/share/chezmoi/dot_claude
-cp -R ~/.local/share/chezmoi/claude_archive ~/.local/share/chezmoi/dot_claude
-chezmoi apply ~/.claude
-```
-
-This falls back to the latest archived copy committed in this repo, so no external fetch is required.
 
 ### Secret Management
 `secrets.zsh` auto-generated from 1Password (`op://Private/Shell Secrets`). Secrets single-quoted, file created with umask 077. Fallback: preserves existing file if 1Password unavailable.

@@ -107,7 +107,7 @@ sync-mcp-servers  # propagate to OpenCode config
 
 `dot_claude/hooks/rtk-rewrite.sh` and the matching PreToolUse block in `dot_claude/settings.json`
 ensure every Bash command flows through RTK automatically. If a future upstream update drops
-either file, restore from `claude_archive/` and re-run:
+either file, restore the vendored snapshot and re-run:
 
 ```bash
 chezmoi apply ~/.claude/hooks/rtk-rewrite.sh ~/.claude/settings.json
@@ -121,16 +121,6 @@ Then restart Claude Code to pick up the hook (verify with `jq '.hooks.PreToolUse
 aictx apply --auto --yes   # relink agents/skills + apply profile overrides
 sync-mcp-servers           # render ~/.config/opencode/opencode.json from chezmoi
 chezmoi apply ~/.claude    # ensure the vendored snapshot is on disk
-```
-
-If the upstream GitHub repo is ever unavailable, replace `dot_claude/` with `claude_archive/`
-and re-apply:
-
-```bash
-rm -rf ~/.local/share/chezmoi/dot_claude
-cp -R ~/.local/share/chezmoi/claude_archive ~/.local/share/chezmoi/dot_claude
-chezmoi apply ~/.claude
-```
 ```
 
 ### Force-refresh external dependencies
