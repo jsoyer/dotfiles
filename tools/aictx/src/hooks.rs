@@ -18,14 +18,18 @@ pub fn generate(shell: &str) -> Result<String> {
 fn generate_zsh() -> String {
     r#"# aictx auto-apply hook (zsh)
 _aictx_chpwd() {
-  local map="${HOME}/.config/aictx/project-map.yaml"
-  [[ -f "$map" ]] || return
-  # Only apply if current dir is in project-map
-  if command grep -q "$(pwd)" "$map" 2>/dev/null; then
-    # Skip if already configured
-    [[ -d ".claude/skills" ]] && return
-    command aictx apply --auto --yes 2>/dev/null &!
-  fi
+    local map="$HOME/.config/aictx/project-map.yaml"
+    [[ -f "$map" ]] || return
+    grep -q "$(pwd)" "$map" || return
+    local stamp_dir="$HOME/.cache/aictx"
+    local stamp="$stamp_dir/$(echo -n "$(pwd)" | md5sum 2>/dev/null | cut -c1-8 || echo -n "$(pwd)" | shasum | cut -c1-8).stamp"
+    if [[ -f "$stamp" ]]; then
+        local age=$(( $(date +%s) - $(stat -c %Y "$stamp" 2>/dev/null || stat -f %m "$stamp" 2>/dev/null || echo 0) ))
+        (( age < 300 )) && return
+    fi
+    mkdir -p "$stamp_dir"
+    touch "$stamp"
+    aictx apply --auto --yes 2>/dev/null &!
 }
 autoload -Uz add-zsh-hook
 add-zsh-hook chpwd _aictx_chpwd
@@ -36,16 +40,24 @@ add-zsh-hook chpwd _aictx_chpwd
 fn generate_bash() -> String {
     r#"# aictx auto-apply hook (bash)
 _aictx_prompt_command() {
-  local cwd="$PWD"
-  if [ "$cwd" != "$_AICTX_LAST_DIR" ]; then
-    _AICTX_LAST_DIR="$cwd"
-    local map="${HOME}/.config/aictx/project-map.yaml"
-    [ -f "$map" ] || return
-    if command grep -q "$cwd" "$map" 2>/dev/null; then
-      [ -d ".claude/skills" ] && return
-      command aictx apply --auto --yes 2>/dev/null &
+    local cwd="$PWD"
+    if [ "$cwd" != "$_AICTX_LAST_DIR" ]; then
+        _AICTX_LAST_DIR="$cwd"
+        local map="${HOME}/.config/aictx/project-map.yaml"
+        [ -f "$map" ] || return
+        command grep -q "$cwd" "$map" 2>/dev/null || return
+        local stamp_dir="${HOME}/.cache/aictx"
+        local stamp="${stamp_dir}/$(echo -n "$cwd" | md5sum 2>/dev/null | cut -c1-8 || echo -n "$cwd" | shasum | cut -c1-8).stamp"
+        if [ -f "$stamp" ]; then
+            local mtime
+            mtime=$(stat -c %Y "$stamp" 2>/dev/null || stat -f %m "$stamp" 2>/dev/null || echo 0)
+            local age=$(( $(date +%s) - mtime ))
+            [ "$age" -lt 300 ] && return
+        fi
+        mkdir -p "$stamp_dir"
+        touch "$stamp"
+        command aictx apply --auto --yes 2>/dev/null &
     fi
-  fi
 }
 PROMPT_COMMAND="_aictx_prompt_command;${PROMPT_COMMAND}"
 "#
@@ -55,12 +67,20 @@ PROMPT_COMMAND="_aictx_prompt_command;${PROMPT_COMMAND}"
 fn generate_fish() -> String {
     r#"# aictx auto-apply hook (fish)
 function _aictx_on_cd --on-variable PWD
-  set -l map "$HOME/.config/aictx/project-map.yaml"
-  test -f "$map"; or return
-  if command grep -q (pwd) "$map" 2>/dev/null
-    test -d ".claude/skills"; and return
+    set -l map "$HOME/.config/aictx/project-map.yaml"
+    test -f "$map"; or return
+    command grep -q (pwd) "$map" 2>/dev/null; or return
+    set -l stamp_dir "$HOME/.cache/aictx"
+    set -l pwd_hash (echo -n (pwd) | md5sum 2>/dev/null | cut -c1-8; or echo -n (pwd) | shasum | cut -c1-8)
+    set -l stamp "$stamp_dir/$pwd_hash.stamp"
+    if test -f "$stamp"
+        set -l mtime (stat -c %Y "$stamp" 2>/dev/null; or stat -f %m "$stamp" 2>/dev/null; or echo 0)
+        set -l age (math (date +%s) - $mtime)
+        test $age -lt 300; and return
+    end
+    mkdir -p "$stamp_dir"
+    touch "$stamp"
     command aictx apply --auto --yes 2>/dev/null &
-  end
 end
 "#
     .to_string()
@@ -76,6 +96,11 @@ mod tests {
         assert!(hook.contains("chpwd"));
         assert!(hook.contains("aictx apply"));
         assert!(hook.contains("project-map.yaml"));
+        // debounce stamp logic present
+        assert!(hook.contains(".cache/aictx"));
+        assert!(hook.contains("age < 300"));
+        // no old .claude/skills guard
+        assert!(!hook.contains(".claude/skills"));
     }
 
     #[test]
@@ -83,6 +108,11 @@ mod tests {
         let hook = generate("bash").unwrap();
         assert!(hook.contains("PROMPT_COMMAND"));
         assert!(hook.contains("aictx apply"));
+        // debounce stamp logic present
+        assert!(hook.contains(".cache/aictx"));
+        assert!(hook.contains("age"));
+        // no old .claude/skills guard
+        assert!(!hook.contains(".claude/skills"));
     }
 
     #[test]
@@ -90,6 +120,11 @@ mod tests {
         let hook = generate("fish").unwrap();
         assert!(hook.contains("on-variable PWD"));
         assert!(hook.contains("aictx apply"));
+        // debounce stamp logic present
+        assert!(hook.contains(".cache/aictx"));
+        assert!(hook.contains("age"));
+        // no old .claude/skills guard
+        assert!(!hook.contains(".claude/skills"));
     }
 
     #[test]

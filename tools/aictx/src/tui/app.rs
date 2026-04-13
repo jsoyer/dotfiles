@@ -465,6 +465,9 @@ impl<'a> App<'a> {
             "kotlin",
             "perl",
             "php",
+            "lua",
+            "zig",
+            "elixir",
         ];
         all_langs
             .iter()

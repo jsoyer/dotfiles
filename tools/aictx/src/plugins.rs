@@ -757,9 +757,9 @@ mod tests {
             install_id: "test-plugin".to_string(),
             resource_type: ResourceType::Skill,
             download_url: String::new(),
-                                stars: None,
-                        updated_at: None,
-                        }];
+            stars: None,
+            updated_at: None,
+        }];
 
         cache.write("test-src", &entries).unwrap();
         assert!(cache.is_fresh("test-src"));
@@ -836,9 +836,9 @@ mod tests {
                 install_id: "rust-analyzer".to_string(),
                 resource_type: ResourceType::Skill,
                 download_url: String::new(),
-                                    stars: None,
-                        updated_at: None,
-                        },
+                stars: None,
+                updated_at: None,
+            },
             RemoteResource {
                 name: "prettier".to_string(),
                 description: "Code formatter".to_string(),
@@ -848,9 +848,9 @@ mod tests {
                 install_id: "prettier".to_string(),
                 resource_type: ResourceType::Plugin,
                 download_url: String::new(),
-                                    stars: None,
-                        updated_at: None,
-                        },
+                stars: None,
+                updated_at: None,
+            },
         ];
         let json = serde_json::to_string(&entries).unwrap();
         std::fs::write(cache_dir.join("test.json"), json).unwrap();

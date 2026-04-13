@@ -1,5 +1,7 @@
 # aictx (cctx)
 
+[![Release](https://img.shields.io/github/v/release/jsoyer/dotfiles?filter=aictx-*&label=aictx)](https://github.com/jsoyer/dotfiles/releases)
+
 Smart per-project context manager for AI coding CLIs. Reduces token overhead (~40K+ to ~5-8K tokens/msg) by activating only relevant skills, agents, commands, MCP servers, rules, and plugins per project.
 
 ## Features

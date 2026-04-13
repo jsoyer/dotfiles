@@ -563,13 +563,19 @@ fn run_plugin(config: &AppConfig, resolved: &ResolvedScope, action: PluginAction
                 println!("Resources matching '{}' ({}):", query, results.len());
                 for entry in &results {
                     let stars = entry.stars.map(|s| format!("* {}", s)).unwrap_or_default();
-                    let updated = entry.updated_at.as_deref()
+                    let updated = entry
+                        .updated_at
+                        .as_deref()
                         .map(|d| format!("[{}]", &d[..d.len().min(7)]))
                         .unwrap_or_default();
                     println!(
                         "  [{:<7}] {:<30} {}  {} {}  ({})",
-                        entry.resource_type, entry.install_id, entry.description,
-                        stars, updated, entry.source_name
+                        entry.resource_type,
+                        entry.install_id,
+                        entry.description,
+                        stars,
+                        updated,
+                        entry.source_name
                     );
                 }
             }
@@ -951,7 +957,7 @@ fn run_watch(config: &AppConfig, resolved: &ResolvedScope, interval: u64) -> Res
 
     let cwd = std::env::current_dir()?;
     println!(
-        "Watching {} for changes (interval: {}s)...",
+        "[watch] \u{1f440} Watching {} (interval: {}s)",
         cwd.display(),
         interval
     );
@@ -1006,6 +1012,7 @@ fn run_watch(config: &AppConfig, resolved: &ResolvedScope, interval: u64) -> Res
         rx.recv()?;
 
         // Drain any queued events (debounce)
+        println!("[watch] \u{1f504} Changes detected, re-applying...");
         std::thread::sleep(Duration::from_millis(500));
         while rx.try_recv().is_ok() {}
 
@@ -1015,16 +1022,16 @@ fn run_watch(config: &AppConfig, resolved: &ResolvedScope, interval: u64) -> Res
                 Ok(index) => match matcher::recommend(&fingerprint, &index, false, &config.ai) {
                     Ok(recommendations) => {
                         if let Err(e) = symlinker::apply(config, resolved, &recommendations) {
-                            eprintln!("[watch] Apply error: {}", e);
+                            eprintln!("[watch] \u{26a0}\u{fe0f} Error: {}", e);
                         } else {
-                            println!("[watch] Re-applied after change.");
+                            println!("[watch] \u{2705} Applied (scope: {})", resolved.scope);
                         }
                     }
-                    Err(e) => eprintln!("[watch] Recommend error: {}", e),
+                    Err(e) => eprintln!("[watch] \u{26a0}\u{fe0f} Error: {}", e),
                 },
-                Err(e) => eprintln!("[watch] Index error: {}", e),
+                Err(e) => eprintln!("[watch] \u{26a0}\u{fe0f} Error: {}", e),
             },
-            Err(e) => eprintln!("[watch] Scan error: {}", e),
+            Err(e) => eprintln!("[watch] \u{26a0}\u{fe0f} Error: {}", e),
         }
     }
 }
