@@ -28,6 +28,10 @@ pub struct Cli {
     /// Enable debug output (includes verbose + internal details)
     #[arg(long, global = true)]
     pub debug: bool,
+
+    /// TUI color theme (catppuccin-mocha, catppuccin-latte, snazzy, nord, dracula, gruvbox, tokyo-night)
+    #[arg(long, global = true)]
+    pub theme: Option<String>,
 }
 
 #[derive(Subcommand)]

@@ -9,6 +9,7 @@ use crate::matcher::{RecommendSource, Recommendation, Recommendations};
 use crate::plugins::{Origin, RemoteResource, ResourceType};
 use crate::scanner::ProjectFingerprint;
 use crate::symlinker::ProjectStatus;
+use crate::theme::Theme;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PreviewAction {
@@ -193,6 +194,9 @@ pub struct App<'a> {
 
     // Pinned items (shown at top of list)
     pub pinned: HashSet<String>,
+
+    // Active color theme
+    pub theme: Theme,
 }
 
 impl<'a> App<'a> {
@@ -203,6 +207,7 @@ impl<'a> App<'a> {
         recommendations: &Recommendations,
         remote_resources: &[RemoteResource],
         cli_statuses: &[(String, ProjectStatus)],
+        theme: Theme,
     ) -> Self {
         // Build CLI tabs from all detected CLIs (show all, not just current scope)
         let cli_tabs: Vec<CliTab> = config
@@ -307,6 +312,7 @@ impl<'a> App<'a> {
             global_search_results: Vec::new(),
             global_search_cursor: 0,
             pinned: HashSet::new(),
+            theme,
         }
     }
 

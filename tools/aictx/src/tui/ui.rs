@@ -10,19 +10,6 @@ use super::app::{App, PreviewAction, ResourceTab};
 use crate::doctor;
 use crate::plugins::Origin;
 
-// Catppuccin Mocha palette
-const BLUE: Color = Color::Rgb(137, 180, 250);
-const GREEN: Color = Color::Rgb(166, 227, 161);
-const RED: Color = Color::Rgb(243, 139, 168);
-const YELLOW: Color = Color::Rgb(249, 226, 175);
-const MAUVE: Color = Color::Rgb(203, 166, 247);
-const TEAL: Color = Color::Rgb(148, 226, 213);
-const PEACH: Color = Color::Rgb(250, 179, 135);
-const TEXT: Color = Color::Rgb(205, 214, 244);
-const SUBTEXT: Color = Color::Rgb(166, 173, 200);
-const SURFACE0: Color = Color::Rgb(49, 50, 68);
-const _BASE: Color = Color::Rgb(30, 30, 46);
-const OVERLAY0: Color = Color::Rgb(108, 112, 134);
 
 pub fn draw(frame: &mut Frame, app: &App) {
     let area = frame.area();
@@ -74,11 +61,11 @@ fn draw_header(frame: &mut Frame, app: &App, area: Rect) {
     );
 
     let header = Paragraph::new(header_text)
-        .style(Style::default().fg(BLUE).add_modifier(Modifier::BOLD))
+        .style(Style::default().fg(app.theme.blue).add_modifier(Modifier::BOLD))
         .block(
             Block::default()
                 .borders(Borders::BOTTOM)
-                .border_style(Style::default().fg(SURFACE0)),
+                .border_style(Style::default().fg(app.theme.surface)),
         );
 
     frame.render_widget(header, area);
@@ -107,10 +94,10 @@ fn draw_cli_tabs(frame: &mut Frame, app: &App, area: Rect) {
 
     let tabs = Tabs::new(tab_titles)
         .select(app.active_cli_idx)
-        .style(Style::default().fg(SUBTEXT))
+        .style(Style::default().fg(app.theme.subtext))
         .highlight_style(
             Style::default()
-                .fg(MAUVE)
+                .fg(app.theme.mauve)
                 .add_modifier(Modifier::BOLD)
                 .add_modifier(Modifier::UNDERLINED),
         )
@@ -156,10 +143,10 @@ fn draw_resource_tabs(frame: &mut Frame, app: &App, area: Rect) {
 
     let tabs = Tabs::new(tab_titles)
         .select(cli.active_resource_idx)
-        .style(Style::default().fg(SUBTEXT))
+        .style(Style::default().fg(app.theme.subtext))
         .highlight_style(
             Style::default()
-                .fg(BLUE)
+                .fg(app.theme.blue)
                 .add_modifier(Modifier::BOLD)
                 .add_modifier(Modifier::UNDERLINED),
         )
@@ -176,28 +163,28 @@ fn capitalize(s: &str) -> String {
     }
 }
 
-fn status_indicator(item: &super::app::ToggleItem) -> (&'static str, Style) {
+fn status_indicator(item: &super::app::ToggleItem, theme: &crate::theme::Theme) -> (&'static str, Style) {
     if item.enabled {
-        ("🟢 installed", Style::default().fg(GREEN))
+        ("🟢 installed", Style::default().fg(theme.green))
     } else if item.available {
-        ("🟡 available", Style::default().fg(YELLOW))
+        ("🟡 available", Style::default().fg(theme.yellow))
     } else {
-        ("🔵 remote", Style::default().fg(PEACH))
+        ("🔵 remote", Style::default().fg(theme.peach))
     }
 }
 
-fn source_indicator(item: &super::app::ToggleItem) -> (&'static str, Style) {
+fn source_indicator(item: &super::app::ToggleItem, theme: &crate::theme::Theme) -> (&'static str, Style) {
     match item.origin {
-        Origin::Local => ("cache", Style::default().fg(SUBTEXT)),
-        Origin::Remote => ("remote", Style::default().fg(PEACH)),
+        Origin::Local => ("cache", Style::default().fg(theme.subtext)),
+        Origin::Remote => ("remote", Style::default().fg(theme.peach)),
     }
 }
 
-fn symlink_indicator(item: &super::app::ToggleItem) -> (&'static str, Style) {
+fn symlink_indicator(item: &super::app::ToggleItem, theme: &crate::theme::Theme) -> (&'static str, Style) {
     if item.enabled {
-        ("✔", Style::default().fg(GREEN))
+        ("✔", Style::default().fg(theme.green))
     } else {
-        ("✖", Style::default().fg(OVERLAY0))
+        ("✖", Style::default().fg(theme.overlay))
     }
 }
 
@@ -233,29 +220,29 @@ fn draw_content(frame: &mut Frame, app: &App, area: Rect) {
             let (checkbox_str, checkbox_style) = if item.enabled {
                 (
                     "[x]",
-                    Style::default().fg(GREEN).add_modifier(Modifier::BOLD),
+                    Style::default().fg(app.theme.green).add_modifier(Modifier::BOLD),
                 )
             } else if item.suggested {
-                ("[~]", Style::default().fg(MAUVE))
+                ("[~]", Style::default().fg(app.theme.mauve))
             } else {
-                ("[ ]", Style::default().fg(OVERLAY0))
+                ("[ ]", Style::default().fg(app.theme.overlay))
             };
 
             // Name: white for active, mauve for suggested, dim for inactive
             // Blue+bold override when cursor is on it
             let name_style = if is_selected {
-                Style::default().fg(BLUE).add_modifier(Modifier::BOLD)
+                Style::default().fg(app.theme.blue).add_modifier(Modifier::BOLD)
             } else if item.enabled {
-                Style::default().fg(TEXT)
+                Style::default().fg(app.theme.text)
             } else if item.suggested {
-                Style::default().fg(SUBTEXT)
+                Style::default().fg(app.theme.subtext)
             } else {
-                Style::default().fg(OVERLAY0)
+                Style::default().fg(app.theme.overlay)
             };
 
-            let (status_label, status_style) = status_indicator(item);
-            let (source_label, source_style) = source_indicator(item);
-            let (link_label, link_style) = symlink_indicator(item);
+            let (status_label, status_style) = status_indicator(item, &app.theme);
+            let (source_label, source_style) = source_indicator(item, &app.theme);
+            let (link_label, link_style) = symlink_indicator(item, &app.theme);
 
             // CLI indicators for skills
             let cli_indicators = if !app.cli_tabs.is_empty()
@@ -278,7 +265,7 @@ fn draw_content(frame: &mut Frame, app: &App, area: Rect) {
                     if is_active_in_cli {
                         spans.push(Span::styled(
                             format!("[{}]", initial),
-                            Style::default().fg(TEAL),
+                            Style::default().fg(app.theme.teal),
                         ));
                     }
                 }
@@ -297,11 +284,11 @@ fn draw_content(frame: &mut Frame, app: &App, area: Rect) {
                 vec![
                     Span::styled(
                         format!(" {} ", bar),
-                        Style::default().fg(score_color(item.score)),
+                        Style::default().fg(score_color(item.score, &app.theme)),
                     ),
                     Span::styled(
                         format!("{:<5}", tier),
-                        Style::default().fg(tier_color(item.score)),
+                        Style::default().fg(tier_color(item.score, &app.theme)),
                     ),
                 ]
             } else {
@@ -310,12 +297,12 @@ fn draw_content(frame: &mut Frame, app: &App, area: Rect) {
 
             let is_pinned = app.pinned.contains(&item.name);
             let pin_prefix = if is_pinned { "* " } else { "  " };
-            let pin_style = Style::default().fg(YELLOW).add_modifier(Modifier::BOLD);
+            let pin_style = Style::default().fg(app.theme.yellow).add_modifier(Modifier::BOLD);
 
             let mut line_spans = vec![
                 Span::styled(
                     if is_selected { "> " } else { "  " },
-                    Style::default().fg(MAUVE),
+                    Style::default().fg(app.theme.mauve),
                 ),
                 Span::styled(format!("{} ", checkbox_str), checkbox_style),
                 Span::styled(pin_prefix.to_string(), pin_style),
@@ -333,7 +320,7 @@ fn draw_content(frame: &mut Frame, app: &App, area: Rect) {
                 line_spans.push(Span::raw("  "));
                 line_spans.push(Span::styled(
                     item.reason.clone(),
-                    Style::default().fg(OVERLAY0),
+                    Style::default().fg(app.theme.overlay),
                 ));
             }
             if !cli_indicators.is_empty() {
@@ -372,7 +359,7 @@ fn draw_content(frame: &mut Frame, app: &App, area: Rect) {
         Block::default()
             .title(title)
             .borders(Borders::ALL)
-            .border_style(Style::default().fg(SURFACE0)),
+            .border_style(Style::default().fg(app.theme.surface)),
     );
 
     frame.render_widget(list, content_area);
@@ -383,30 +370,30 @@ fn draw_content(frame: &mut Frame, app: &App, area: Rect) {
             Line::from(vec![
                 Span::styled(
                     " / ",
-                    Style::default().fg(YELLOW).add_modifier(Modifier::BOLD),
+                    Style::default().fg(app.theme.yellow).add_modifier(Modifier::BOLD),
                 ),
                 Span::styled(
                     &app.filter,
-                    Style::default().fg(TEXT).add_modifier(Modifier::BOLD),
+                    Style::default().fg(app.theme.text).add_modifier(Modifier::BOLD),
                 ),
                 Span::styled(
                     "_",
                     Style::default()
-                        .fg(YELLOW)
+                        .fg(app.theme.yellow)
                         .add_modifier(Modifier::RAPID_BLINK),
                 ),
                 Span::styled(
                     format!("  ({} matches)", total_items),
-                    Style::default().fg(SUBTEXT),
+                    Style::default().fg(app.theme.subtext),
                 ),
             ])
         } else {
             Line::from(vec![
-                Span::styled(" filter: ", Style::default().fg(SUBTEXT)),
-                Span::styled(&app.filter, Style::default().fg(YELLOW)),
+                Span::styled(" filter: ", Style::default().fg(app.theme.subtext)),
+                Span::styled(&app.filter, Style::default().fg(app.theme.yellow)),
                 Span::styled(
                     format!("  ({} matches, / to edit, Esc to clear)", total_items),
-                    Style::default().fg(OVERLAY0),
+                    Style::default().fg(app.theme.overlay),
                 ),
             ])
         };
@@ -462,10 +449,10 @@ fn draw_footer(frame: &mut Frame, app: &App, area: Rect) {
             vec![
                 Span::styled(
                     format!(" {} ", key),
-                    Style::default().fg(YELLOW).add_modifier(Modifier::BOLD),
+                    Style::default().fg(app.theme.yellow).add_modifier(Modifier::BOLD),
                 ),
-                Span::styled(format!("{} ", desc), Style::default().fg(SUBTEXT)),
-                Span::styled(" | ", Style::default().fg(SURFACE0)),
+                Span::styled(format!("{} ", desc), Style::default().fg(app.theme.subtext)),
+                Span::styled(" | ", Style::default().fg(app.theme.surface)),
             ]
         })
         .collect();
@@ -473,7 +460,7 @@ fn draw_footer(frame: &mut Frame, app: &App, area: Rect) {
     let footer = Paragraph::new(Line::from(spans)).block(
         Block::default()
             .borders(Borders::TOP)
-            .border_style(Style::default().fg(SURFACE0)),
+            .border_style(Style::default().fg(app.theme.surface)),
     );
 
     frame.render_widget(footer, area);
@@ -485,7 +472,7 @@ fn draw_preview(frame: &mut Frame, app: &App, area: Rect) {
     let block = Block::default()
         .borders(Borders::ALL)
         .title(" Preview — Enter: apply  Esc: cancel  j/k: scroll ")
-        .border_style(Style::default().fg(MAUVE));
+        .border_style(Style::default().fg(app.theme.mauve));
 
     let inner = block.inner(area);
     frame.render_widget(block, area);
@@ -506,14 +493,14 @@ fn draw_preview(frame: &mut Frame, app: &App, area: Rect) {
             }
             lines.push(Line::from(Span::styled(
                 format!("  {}", pl.category),
-                Style::default().fg(BLUE).add_modifier(Modifier::BOLD),
+                Style::default().fg(app.theme.blue).add_modifier(Modifier::BOLD),
             )));
             current_category = pl.category.clone();
         }
 
         let (symbol, color) = match pl.action {
-            PreviewAction::Add => ("+", GREEN),
-            PreviewAction::Remove => ("-", RED),
+            PreviewAction::Add => ("+", app.theme.green),
+            PreviewAction::Remove => ("-", app.theme.red),
         };
 
         lines.push(Line::from(Span::styled(
@@ -561,19 +548,19 @@ fn draw_cli_toggle(frame: &mut Frame, app: &App, area: Rect) {
             let is_cursor = i == app.cli_toggle_cursor;
             let checkbox = if *enabled { "[x]" } else { "[ ]" };
             let checkbox_style = if *enabled {
-                Style::default().fg(GREEN).add_modifier(Modifier::BOLD)
+                Style::default().fg(app.theme.green).add_modifier(Modifier::BOLD)
             } else {
-                Style::default().fg(OVERLAY0)
+                Style::default().fg(app.theme.overlay)
             };
             let name_style = if is_cursor {
-                Style::default().fg(MAUVE).add_modifier(Modifier::BOLD)
+                Style::default().fg(app.theme.mauve).add_modifier(Modifier::BOLD)
             } else {
-                Style::default().fg(SUBTEXT)
+                Style::default().fg(app.theme.subtext)
             };
             Line::from(vec![
                 Span::styled(
                     if is_cursor { "> " } else { "  " },
-                    Style::default().fg(MAUVE),
+                    Style::default().fg(app.theme.mauve),
                 ),
                 Span::styled(format!("{} ", checkbox), checkbox_style),
                 Span::styled(cli_name.clone(), name_style),
@@ -588,21 +575,21 @@ fn draw_cli_toggle(frame: &mut Frame, app: &App, area: Rect) {
     lines.push(Line::from(vec![
         Span::styled(
             "  Space",
-            Style::default().fg(YELLOW).add_modifier(Modifier::BOLD),
+            Style::default().fg(app.theme.yellow).add_modifier(Modifier::BOLD),
         ),
-        Span::styled(": toggle  ", Style::default().fg(SUBTEXT)),
+        Span::styled(": toggle  ", Style::default().fg(app.theme.subtext)),
         Span::styled(
             "Enter",
-            Style::default().fg(YELLOW).add_modifier(Modifier::BOLD),
+            Style::default().fg(app.theme.yellow).add_modifier(Modifier::BOLD),
         ),
-        Span::styled(": apply", Style::default().fg(SUBTEXT)),
+        Span::styled(": apply", Style::default().fg(app.theme.subtext)),
     ]));
 
     let title = format!(" {} ", app.cli_toggle_resource_name);
     let block = Block::default()
         .title(title)
         .borders(Borders::ALL)
-        .border_style(Style::default().fg(MAUVE));
+        .border_style(Style::default().fg(app.theme.mauve));
 
     let paragraph = Paragraph::new(lines).block(block);
     frame.render_widget(paragraph, popup_rect);
@@ -625,21 +612,21 @@ fn draw_profile_selector(frame: &mut Frame, app: &App, area: Rect) {
     let block = Block::default()
         .borders(Borders::ALL)
         .title(title)
-        .border_style(Style::default().fg(MAUVE));
+        .border_style(Style::default().fg(app.theme.mauve));
     let inner = block.inner(popup);
     frame.render_widget(block, popup);
 
     if app.profile_save_mode {
         let lines = vec![
-            Line::from(Span::styled("  Profile name:", Style::default().fg(TEXT))),
+            Line::from(Span::styled("  Profile name:", Style::default().fg(app.theme.text))),
             Line::from(Span::styled(
                 format!("  > {}_", app.profile_save_input),
-                Style::default().fg(GREEN),
+                Style::default().fg(app.theme.green),
             )),
             Line::from(""),
             Line::from(Span::styled(
                 "  Enter: save  Esc: cancel",
-                Style::default().fg(SUBTEXT),
+                Style::default().fg(app.theme.subtext),
             )),
         ];
         frame.render_widget(Paragraph::new(lines), inner);
@@ -657,14 +644,14 @@ fn draw_profile_selector(frame: &mut Frame, app: &App, area: Rect) {
                 "  "
             };
             let style = if i == app.profile_cursor {
-                Style::default().fg(MAUVE).add_modifier(Modifier::BOLD)
+                Style::default().fg(app.theme.mauve).add_modifier(Modifier::BOLD)
             } else {
-                Style::default().fg(TEXT)
+                Style::default().fg(app.theme.text)
             };
             let detail = format!("{} skills, {} agents", skills, agents);
             Line::from(vec![
                 Span::styled(format!("{}{:<22}", cursor, name), style),
-                Span::styled(detail, Style::default().fg(SUBTEXT)),
+                Span::styled(detail, Style::default().fg(app.theme.subtext)),
             ])
         })
         .collect();
@@ -672,7 +659,7 @@ fn draw_profile_selector(frame: &mut Frame, app: &App, area: Rect) {
     lines.push(Line::from(""));
     lines.push(Line::from(Span::styled(
         "  Enter: load  s: save current  Esc: close",
-        Style::default().fg(SUBTEXT),
+        Style::default().fg(app.theme.subtext),
     )));
 
     frame.render_widget(Paragraph::new(lines), inner);
@@ -683,7 +670,7 @@ fn draw_global_search(frame: &mut Frame, app: &App, area: Rect) {
     let block = Block::default()
         .borders(Borders::ALL)
         .title(format!(" Search: {} ", app.filter))
-        .border_style(Style::default().fg(MAUVE));
+        .border_style(Style::default().fg(app.theme.mauve));
     let inner = block.inner(area);
     frame.render_widget(block, area);
 
@@ -709,13 +696,13 @@ fn draw_global_search(frame: &mut Frame, app: &App, area: Rect) {
             };
             let tag = format!("[{:<8}]", tab.label());
             let style = if i == app.global_search_cursor {
-                Style::default().fg(MAUVE).add_modifier(Modifier::BOLD)
+                Style::default().fg(app.theme.mauve).add_modifier(Modifier::BOLD)
             } else {
-                Style::default().fg(TEXT)
+                Style::default().fg(app.theme.text)
             };
             Line::from(vec![
                 Span::styled(cursor, style),
-                Span::styled(tag, Style::default().fg(SUBTEXT)),
+                Span::styled(tag, Style::default().fg(app.theme.subtext)),
                 Span::styled(format!(" {}", name), style),
             ])
         })
@@ -744,20 +731,20 @@ fn confidence_tier(score: f32) -> &'static str {
     }
 }
 
-fn score_color(score: f32) -> Color {
+fn score_color(score: f32, theme: &crate::theme::Theme) -> Color {
     if score >= doctor::TIER_CRITICAL {
-        GREEN
+        theme.green
     } else if score >= doctor::TIER_HIGH {
-        TEAL
+        theme.teal
     } else if score >= doctor::TIER_MEDIUM {
-        YELLOW
+        theme.yellow
     } else if score > 0.0 {
-        PEACH
+        theme.peach
     } else {
-        OVERLAY0
+        theme.overlay
     }
 }
 
-fn tier_color(score: f32) -> Color {
-    score_color(score)
+fn tier_color(score: f32, theme: &crate::theme::Theme) -> Color {
+    score_color(score, theme)
 }

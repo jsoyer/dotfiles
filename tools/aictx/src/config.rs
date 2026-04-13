@@ -10,6 +10,10 @@ pub struct AppConfig {
     pub cli_registry: Vec<CliEntry>,
 }
 
+fn default_theme() -> String {
+    "catppuccin-mocha".to_string()
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct BaseConfig {
     pub skills: Vec<String>,
@@ -18,6 +22,8 @@ pub struct BaseConfig {
     pub mcp: Vec<String>,
     pub rules: Vec<String>,
     pub plugins: Vec<String>,
+    #[serde(default = "default_theme")]
+    pub theme: String,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -211,6 +217,7 @@ impl AppConfig {
                     .collect(),
                 rules: vec!["common".to_string()],
                 plugins: vec![],
+                theme: default_theme(),
             },
             ai: AiConfig {
                 enabled: false,

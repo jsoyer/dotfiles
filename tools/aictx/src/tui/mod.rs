@@ -12,6 +12,7 @@ use crate::profile::ProfileManager;
 use crate::scanner::ProjectFingerprint;
 use crate::scope::ResolvedScope;
 use crate::symlinker::ProjectStatus;
+use crate::theme::Theme;
 
 pub fn run(
     config: &AppConfig,
@@ -21,6 +22,7 @@ pub fn run(
     recommendations: &Recommendations,
     remote_resources: &[RemoteResource],
     cli_statuses: &[(String, ProjectStatus)],
+    theme: Theme,
 ) -> Result<()> {
     // Build profile list before TUI starts
     let profile_list: Vec<(String, usize, usize)> = ProfileManager::new(config)
@@ -47,6 +49,7 @@ pub fn run(
         recommendations,
         remote_resources,
         cli_statuses,
+        theme,
     );
     app.profile_list = profile_list;
 

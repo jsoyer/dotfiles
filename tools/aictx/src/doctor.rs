@@ -643,6 +643,7 @@ mod tests {
                 mcp: vec![],
                 rules: vec![],
                 plugins: vec![],
+                theme: "catppuccin-mocha".to_string(),
             },
             ai: AiConfig {
                 enabled: false,

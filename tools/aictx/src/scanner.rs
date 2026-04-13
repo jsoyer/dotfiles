@@ -1031,7 +1031,11 @@ mod tests {
         let dir = temp_dir("pnpm-ws");
         fs::create_dir_all(dir.join("packages/app-a")).unwrap();
         fs::create_dir_all(dir.join("packages/lib-b")).unwrap();
-        fs::write(dir.join("packages/app-a/package.json"), r#"{"name":"app-a"}"#).unwrap();
+        fs::write(
+            dir.join("packages/app-a/package.json"),
+            r#"{"name":"app-a"}"#,
+        )
+        .unwrap();
         fs::write(dir.join("packages/lib-b/tsconfig.json"), "{}").unwrap();
         fs::write(
             dir.join("pnpm-workspace.yaml"),
@@ -1039,10 +1043,21 @@ mod tests {
         )
         .unwrap();
         let fp = Scanner::scan(&dir).unwrap();
-        assert!(!fp.workspaces.is_empty(), "Expected workspaces to be detected");
+        assert!(
+            !fp.workspaces.is_empty(),
+            "Expected workspaces to be detected"
+        );
         let names: Vec<&str> = fp.workspaces.iter().map(|w| w.name.as_str()).collect();
-        assert!(names.iter().any(|n| n.contains("app-a")), "got: {:?}", names);
-        assert!(names.iter().any(|n| n.contains("lib-b")), "got: {:?}", names);
+        assert!(
+            names.iter().any(|n| n.contains("app-a")),
+            "got: {:?}",
+            names
+        );
+        assert!(
+            names.iter().any(|n| n.contains("lib-b")),
+            "got: {:?}",
+            names
+        );
         cleanup(&dir);
     }
 
@@ -1091,7 +1106,10 @@ mod tests {
         )
         .unwrap();
         let fp = Scanner::scan(&dir).unwrap();
-        assert!(!fp.workspaces.is_empty(), "Expected workspaces from package.json");
+        assert!(
+            !fp.workspaces.is_empty(),
+            "Expected workspaces from package.json"
+        );
         let names: Vec<&str> = fp.workspaces.iter().map(|w| w.name.as_str()).collect();
         assert!(names.iter().any(|n| n.contains("web")), "got: {:?}", names);
         assert!(names.iter().any(|n| n.contains("api")), "got: {:?}", names);
@@ -1103,14 +1121,26 @@ mod tests {
         let dir = temp_dir("nx-ws");
         fs::create_dir_all(dir.join("apps/frontend")).unwrap();
         fs::create_dir_all(dir.join("libs/shared")).unwrap();
-        fs::write(dir.join("apps/frontend/package.json"), r#"{"name":"frontend"}"#).unwrap();
+        fs::write(
+            dir.join("apps/frontend/package.json"),
+            r#"{"name":"frontend"}"#,
+        )
+        .unwrap();
         fs::write(dir.join("libs/shared/tsconfig.json"), "{}").unwrap();
         fs::write(dir.join("nx.json"), r#"{"version":2}"#).unwrap();
         let fp = Scanner::scan(&dir).unwrap();
         assert!(!fp.workspaces.is_empty(), "Expected nx workspaces");
         let names: Vec<&str> = fp.workspaces.iter().map(|w| w.name.as_str()).collect();
-        assert!(names.iter().any(|n| n.contains("frontend")), "got: {:?}", names);
-        assert!(names.iter().any(|n| n.contains("shared")), "got: {:?}", names);
+        assert!(
+            names.iter().any(|n| n.contains("frontend")),
+            "got: {:?}",
+            names
+        );
+        assert!(
+            names.iter().any(|n| n.contains("shared")),
+            "got: {:?}",
+            names
+        );
         cleanup(&dir);
     }
 

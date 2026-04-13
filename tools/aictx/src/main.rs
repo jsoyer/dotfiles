@@ -14,6 +14,9 @@ mod scanner;
 mod scope;
 mod stats;
 mod symlinker;
+mod theme;
+#[cfg(test)]
+mod theme_test;
 mod trim;
 mod tui;
 
@@ -39,7 +42,7 @@ fn main() -> Result<()> {
         smart: false,
         offline: false,
     }) {
-        Command::Tui { smart, offline } => run_tui(&config, &resolved, smart, offline),
+        Command::Tui { smart, offline } => run_tui(&config, &resolved, smart, offline, cli.theme.clone()),
         Command::Scan => run_scan(),
         Command::Apply {
             profile,
@@ -76,7 +79,7 @@ fn main() -> Result<()> {
     }
 }
 
-fn run_tui(config: &AppConfig, resolved: &ResolvedScope, smart: bool, offline: bool) -> Result<()> {
+fn run_tui(config: &AppConfig, resolved: &ResolvedScope, smart: bool, offline: bool, theme_override: Option<String>) -> Result<()> {
     verbose!(
         "Scope: {} (target: {})",
         resolved.scope,
@@ -150,6 +153,11 @@ fn run_tui(config: &AppConfig, resolved: &ResolvedScope, smart: bool, offline: b
         })
         .collect();
 
+    let resolved_theme_name = theme_override
+        .as_deref()
+        .unwrap_or(&config.base.theme);
+    let theme = theme::Theme::by_name(resolved_theme_name);
+
     tui::run(
         config,
         resolved,
@@ -158,6 +166,7 @@ fn run_tui(config: &AppConfig, resolved: &ResolvedScope, smart: bool, offline: b
         &recommendations,
         &remote_resources,
         &cli_statuses,
+        theme,
     )
 }
 
