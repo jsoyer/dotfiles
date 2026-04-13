@@ -1,6 +1,6 @@
 [package]
 name = "aictx"
-version = "0.3.0"
+version = "1.0.0"
 edition = "2021"
 description = "Smart per-project context manager for AI coding CLIs"
 license = "MIT"
