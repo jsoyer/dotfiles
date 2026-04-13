@@ -1,4 +1,4 @@
-name: Auto-tag aictx release
+name: 🏷️ Auto-tag aictx release
 
 on:
   push:
@@ -12,9 +12,12 @@ jobs:
   tag:
     runs-on: ubuntu-latest
     steps:
+      # Use PAT so the created tag triggers the release workflow
+      # (tags pushed with GITHUB_TOKEN don't trigger other workflows)
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          token: ${{ secrets.RELEASE_PAT }}
 
       - name: Extract version from Cargo.toml
         id: version
@@ -22,18 +25,24 @@ jobs:
           VERSION=$(grep '^version' tools/aictx/Cargo.toml | head -1 | sed 's/.*"\(.*\)".*/\1/')
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "tag=aictx-v$VERSION" >> $GITHUB_OUTPUT
+          echo "Detected version: $VERSION"
 
       - name: Check if tag exists
         id: check
         run: |
           if git rev-parse "${{ steps.version.outputs.tag }}" >/dev/null 2>&1; then
             echo "exists=true" >> $GITHUB_OUTPUT
+            echo "Tag ${{ steps.version.outputs.tag }} already exists, skipping."
           else
             echo "exists=false" >> $GITHUB_OUTPUT
+            echo "Tag ${{ steps.version.outputs.tag }} does not exist, will create."
           fi
 
-      - name: Create tag
+      - name: Create and push tag
         if: steps.check.outputs.exists == 'false'
         run: |
-          git tag "${{ steps.version.outputs.tag }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a "${{ steps.version.outputs.tag }}" -m "Release ${{ steps.version.outputs.tag }}"
           git push origin "${{ steps.version.outputs.tag }}"
+          echo "🏷️ Created and pushed tag ${{ steps.version.outputs.tag }}"
