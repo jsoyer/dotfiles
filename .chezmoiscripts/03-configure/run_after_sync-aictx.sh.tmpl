@@ -12,10 +12,5 @@ if [[ -f "{{ .chezmoi.homeDir }}/.claude/settings.json" ]]; then
   cp "{{ .chezmoi.homeDir }}/.claude/settings.json" "${CACHE_ROOT}/settings.json"
 fi
 
-# Wire symlinks from ~/.aictx/ into CLI directories
-if command -v aictx >/dev/null 2>&1; then
-  aictx apply --yes --scope global 2>/dev/null && echo "aictx: symlinks wired" || true
-else
-  echo "aictx: not installed — run 'cargo install --path tools/claude-context' then 'aictx apply'"
-fi
+echo "aictx: cache ready (use 'aictx apply' or 'aictx enable' to manage other CLIs)"
 {{- end -}}
