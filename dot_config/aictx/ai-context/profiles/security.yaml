@@ -1,0 +1,39 @@
+name: security
+description: Penetration testing, security auditing, compliance, vulnerability scanning
+
+skills:
+  - security-best-practices
+  - security-review
+  - security-requirement-extraction
+  - secure-code-guardian
+  - secrets-management
+  - aws-penetration-testing
+  - error-handling-patterns
+  - memory-safety-patterns
+  - protocol-reverse-engineering
+
+agents:
+  - security-engineer
+  - security-auditor
+  - security-reviewer
+  - penetration-tester
+  - compliance-auditor
+  - incident-responder
+  - ad-security-reviewer
+  - code-reviewer
+  - planner
+
+commands:
+  - plan
+  - verify
+  - code-review
+  - build-fix
+
+mcp:
+  - sequential-thinking
+  - brave-search
+
+rules: []
+
+plugins:
+  - "trailofbits@trailofbits"

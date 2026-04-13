@@ -128,7 +128,7 @@ fn hook_zsh_outputs_valid_code() {
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains("chpwd"));
-    assert!(stdout.contains("cctx apply"));
+    assert!(stdout.contains("aictx apply"));
 }
 
 #[test]

@@ -812,9 +812,9 @@ alias ccs='claude --model sonnet'
 alias cch='claude --model haiku'
 
 # AI Context Manager
-if command -q ai-context
-    alias aictx='ai-context'
-    alias cctx='ai-context'  # compat alias
+if command -q aictx
+    # aictx is the binary name now
+    alias cctx='aictx'  # compat alias
 end
 
 # ============================================================================
@@ -922,13 +922,13 @@ end
 # ============================================================================
 # ai-context auto-apply on cd (checks project-map.yaml)
 # ============================================================================
-if command -q ai-context
+if command -q aictx
     function _aictx_auto_apply --on-variable PWD
-        set -l project_map "$HOME/.config/ai-context/project-map.yaml"
+        set -l project_map "$HOME/.config/aictx/project-map.yaml"
         test -f "$project_map"; or return
         test -d ".claude/skills"; and return
         if grep -q (pwd) "$project_map" 2>/dev/null
-            ai-context apply --auto --yes &>/dev/null &
+            aictx apply --auto --yes &>/dev/null &
         end
     end
 end

@@ -18,7 +18,7 @@ pub fn generate(shell: &str) -> Result<String> {
 fn generate_zsh() -> String {
     r#"# aictx auto-apply hook (zsh)
 _aictx_chpwd() {
-  local map="${HOME}/.config/ai-context/project-map.yaml"
+  local map="${HOME}/.config/aictx/project-map.yaml"
   [[ -f "$map" ]] || return
   # Only apply if current dir is in project-map
   if command grep -q "$(pwd)" "$map" 2>/dev/null; then
@@ -39,7 +39,7 @@ _aictx_prompt_command() {
   local cwd="$PWD"
   if [ "$cwd" != "$_AICTX_LAST_DIR" ]; then
     _AICTX_LAST_DIR="$cwd"
-    local map="${HOME}/.config/ai-context/project-map.yaml"
+    local map="${HOME}/.config/aictx/project-map.yaml"
     [ -f "$map" ] || return
     if command grep -q "$cwd" "$map" 2>/dev/null; then
       [ -d ".claude/skills" ] && return
@@ -55,7 +55,7 @@ PROMPT_COMMAND="_aictx_prompt_command;${PROMPT_COMMAND}"
 fn generate_fish() -> String {
     r#"# aictx auto-apply hook (fish)
 function _aictx_on_cd --on-variable PWD
-  set -l map "$HOME/.config/ai-context/project-map.yaml"
+  set -l map "$HOME/.config/aictx/project-map.yaml"
   test -f "$map"; or return
   if command grep -q (pwd) "$map" 2>/dev/null
     test -d ".claude/skills"; and return

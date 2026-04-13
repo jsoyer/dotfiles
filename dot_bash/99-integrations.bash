@@ -153,13 +153,13 @@ command -v chezmoi >/dev/null 2>&1 && _chezmoi_bg_update
 # ============================================================================
 # ai-context auto-apply on cd (checks project-map.yaml)
 # ============================================================================
-if command -v ai-context &>/dev/null; then
+if command -v aictx &>/dev/null; then
   _aictx_auto_apply() {
-    local project_map="${HOME}/.config/ai-context/project-map.yaml"
+    local project_map="${HOME}/.config/aictx/project-map.yaml"
     [[ -f "$project_map" ]] || return
     [[ -d ".claude/skills" ]] && return
     if grep -q "$(pwd)" "$project_map" 2>/dev/null; then
-      ai-context apply --auto --yes &>/dev/null &
+      aictx apply --auto --yes &>/dev/null &
     fi
   }
   _aictx_orig_cd() { builtin cd "$@" && _aictx_auto_apply; }

@@ -117,15 +117,15 @@ _chezmoi_bg_update() {
 # ============================================================================
 # ai-context auto-apply on cd (checks project-map.yaml)
 # ============================================================================
-if (( $+commands[ai-context] )); then
+if (( $+commands[aictx] )); then
   _aictx_auto_apply() {
-    local project_map="${HOME}/.config/ai-context/project-map.yaml"
+    local project_map="${HOME}/.config/aictx/project-map.yaml"
     [[ -f "$project_map" ]] || return
     # Only apply if .claude/skills/ doesn't exist yet
     [[ -d ".claude/skills" ]] && return
     # Check if current dir is in project-map
     if grep -q "$(pwd)" "$project_map" 2>/dev/null; then
-      ai-context apply --auto --yes 2>/dev/null &!
+      aictx apply --auto --yes 2>/dev/null &!
     fi
   }
   autoload -Uz add-zsh-hook

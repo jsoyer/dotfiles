@@ -112,15 +112,22 @@ impl AppConfig {
 
     pub fn config_dir() -> PathBuf {
         let base = dirs::config_dir().unwrap_or_else(|| PathBuf::from("~/.config"));
-        let new_dir = base.join("ai-context");
+        // Primary: ~/.config/aictx/
+        let new_dir = base.join("aictx");
         if new_dir.exists() {
             return new_dir;
         }
-        // Migration: fall back to old name
-        let old_dir = base.join("claude-context");
-        if old_dir.exists() {
-            eprintln!("aictx: using legacy config dir ~/.config/claude-context/ — rename to ~/.config/ai-context/ to silence this");
-            return old_dir;
+        // Legacy fallback 1: ~/.config/ai-context/ (deprecated)
+        let legacy_ai_context = base.join("ai-context");
+        if legacy_ai_context.exists() {
+            eprintln!("aictx: using legacy config dir ~/.config/ai-context/ — rename to ~/.config/aictx/ to silence this");
+            return legacy_ai_context;
+        }
+        // Legacy fallback 2: ~/.config/claude-context/ (older, deprecated)
+        let legacy_claude_context = base.join("claude-context");
+        if legacy_claude_context.exists() {
+            eprintln!("aictx: using legacy config dir ~/.config/claude-context/ — rename to ~/.config/aictx/ to silence this");
+            return legacy_claude_context;
         }
         new_dir
     }

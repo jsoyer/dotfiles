@@ -1,16 +1,28 @@
 {{- if ne .chezmoi.os "windows" -}}
 #!/usr/bin/env bash
-# Migrate claude-context config dir to ai-context
+# Migrate legacy config dirs to ~/.config/aictx/
 # run_once: only runs once per machine
 
 set -euo pipefail
 
-OLD_DIR="{{ .chezmoi.homeDir }}/.config/claude-context"
-NEW_DIR="{{ .chezmoi.homeDir }}/.config/ai-context"
+TARGET_DIR="{{ .chezmoi.homeDir }}/.config/aictx"
 
-if [[ -d "$OLD_DIR" && ! -d "$NEW_DIR" ]]; then
-  mv "$OLD_DIR" "$NEW_DIR"
-  echo "aictx: migrated config dir from claude-context to ai-context"
+# Migration step 1: claude-context → ai-context (old migration, kept for machines that skipped it)
+OLD_CLAUDE_CTX="{{ .chezmoi.homeDir }}/.config/claude-context"
+OLD_AI_CTX="{{ .chezmoi.homeDir }}/.config/ai-context"
+
+if [[ -d "$OLD_CLAUDE_CTX" && ! -d "$OLD_AI_CTX" && ! -d "$TARGET_DIR" ]]; then
+  mv "$OLD_CLAUDE_CTX" "$TARGET_DIR"
+  echo "aictx: migrated config dir from claude-context to aictx"
+elif [[ -d "$OLD_CLAUDE_CTX" && ! -d "$TARGET_DIR" ]]; then
+  mv "$OLD_CLAUDE_CTX" "$TARGET_DIR"
+  echo "aictx: migrated config dir from claude-context to aictx"
+fi
+
+# Migration step 2: ai-context → aictx
+if [[ -d "$OLD_AI_CTX" && ! -d "$TARGET_DIR" ]]; then
+  mv "$OLD_AI_CTX" "$TARGET_DIR"
+  echo "aictx: migrated config dir from ai-context to aictx"
 fi
 
 # Clean up old binary name

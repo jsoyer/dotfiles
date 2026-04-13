@@ -4,10 +4,10 @@ use crate::scope::Scope;
 
 #[derive(Parser)]
 #[command(
-    name = "ai-context",
+    name = "aictx",
     about = "Smart per-project context manager for AI coding CLIs",
     version,
-    after_help = "Alias: aictx"
+    after_help = "Alias: cctx"
 )]
 pub struct Cli {
     #[command(subcommand)]

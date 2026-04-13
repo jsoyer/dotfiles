@@ -293,9 +293,9 @@ alias ccs='claude --model sonnet'
 alias cch='claude --model haiku'
 
 # AI Context Manager
-if command -v ai-context &>/dev/null; then
-  alias aictx='ai-context'
-  alias cctx='ai-context'  # compat alias
+if command -v aictx &>/dev/null; then
+  # aictx is the binary name now
+  alias cctx='aictx'  # compat alias
 fi
 
 # ============================================================================
