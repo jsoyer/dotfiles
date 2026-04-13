@@ -812,12 +812,12 @@ fn completions_dynamic_snippet(shell: clap_complete::Shell) -> &'static str {
     match shell {
         clap_complete::Shell::Zsh => {
             r#"
-# Dynamic completions for aictx resource names
+# Dynamic completions for aictx resource names (loaded with _aictx)
 _aictx_resources() {
   local -a resources
   local aictx_dir="${HOME}/.aictx"
   if [[ -d "$aictx_dir/skills" ]]; then
-    resources+=("${(@f)$(ls "$aictx_dir/skills/" 2>/dev/null)}")
+    resources+=("${(@f)$(command ls "$aictx_dir/skills/" 2>/dev/null)}")
   fi
   if [[ -d "$aictx_dir/agents" ]]; then
     for f in "$aictx_dir/agents/"*.md(N); do
@@ -842,10 +842,6 @@ _aictx_cli_names() {
   clis=(claude qwen vibe codex kimi opencode gemini-cli copilot-cli)
   _describe 'cli' clis
 }
-
-# Override completions for enable/disable subcommands
-compdef '_arguments "1:resource:_aictx_resources" "--cli[CLI targets]:cli:_aictx_cli_names" "--type[Resource type]:(skill agent command hook)"' 'aictx enable'
-compdef '_arguments "1:resource:_aictx_resources" "--cli[CLI targets]:cli:_aictx_cli_names" "--type[Resource type]:(skill agent command hook)"' 'aictx disable'
 "#
         }
         clap_complete::Shell::Bash => {
@@ -860,14 +856,14 @@ _aictx_enable_complete() {
     COMPREPLY=($(compgen -W "skill agent command hook" -- "$cur"))
   else
     local resources=""
-    [[ -d ~/.aictx/skills ]] && resources+=" $(ls ~/.aictx/skills/ 2>/dev/null)"
-    [[ -d ~/.aictx/agents ]] && resources+=" $(ls ~/.aictx/agents/ 2>/dev/null | sed 's/\.md$//')"
-    [[ -d ~/.aictx/commands ]] && resources+=" $(ls ~/.aictx/commands/ 2>/dev/null | sed 's/\.md$//')"
+    [[ -d ~/.aictx/skills ]] && resources+=" $(command ls ~/.aictx/skills/ 2>/dev/null)"
+    [[ -d ~/.aictx/agents ]] && resources+=" $(command ls ~/.aictx/agents/ 2>/dev/null | sed 's/\.md$//')"
+    [[ -d ~/.aictx/commands ]] && resources+=" $(command ls ~/.aictx/commands/ 2>/dev/null | sed 's/\.md$//')"
     COMPREPLY=($(compgen -W "$resources" -- "$cur"))
   fi
 }
-complete -F _aictx_enable_complete aictx_enable
-complete -F _aictx_enable_complete aictx_disable
+complete -F _aictx_enable_complete 'aictx enable'
+complete -F _aictx_enable_complete 'aictx disable'
 "#
         }
         clap_complete::Shell::Fish => {
