@@ -1,0 +1,50 @@
+{{- if ne .chezmoi.os "windows" -}}
+#!/usr/bin/env bash
+# Build aictx from source if cargo is available
+# Managed by chezmoi — reruns when source files change
+
+# source hash: {{ glob "tools/aictx/src/**/*.rs" | join "\n" | sha256sum }}
+
+set -euo pipefail
+
+TOOL_DIR="{{ .chezmoi.sourceDir }}/tools/aictx"
+BIN_DIR="{{ .chezmoi.homeDir }}/.local/bin"
+BIN_NAME="aictx"
+
+# Skip if cargo not available
+if ! command -v cargo &>/dev/null; then
+  echo "  ⏭️  aictx: cargo not found, skipping build"
+  exit 0
+fi
+
+# Skip if source directory doesn't exist
+if [[ ! -d "$TOOL_DIR" ]]; then
+  echo "  ⏭️  aictx: source not found, skipping"
+  exit 0
+fi
+
+echo "  🔨 aictx: building from source..."
+
+cd "$TOOL_DIR"
+if cargo build --release --quiet 2>/dev/null; then
+  mkdir -p "$BIN_DIR"
+  cp "target/release/$BIN_NAME" "$BIN_DIR/$BIN_NAME"
+  chmod +x "$BIN_DIR/$BIN_NAME"
+  SIZE=$(du -h "$BIN_DIR/$BIN_NAME" | cut -f1)
+  VERSION=$("$BIN_DIR/$BIN_NAME" --version 2>/dev/null || echo "unknown")
+  echo "  ✅ aictx: installed $VERSION ($SIZE) → $BIN_DIR/$BIN_NAME"
+
+  # Install shell completions
+  if command -v zsh &>/dev/null; then
+    "$BIN_DIR/$BIN_NAME" completions zsh --install 2>/dev/null && echo "  🐚 zsh completions installed" || true
+  fi
+  if command -v bash &>/dev/null; then
+    "$BIN_DIR/$BIN_NAME" completions bash --install 2>/dev/null && echo "  🐚 bash completions installed" || true
+  fi
+  if command -v fish &>/dev/null; then
+    "$BIN_DIR/$BIN_NAME" completions fish --install 2>/dev/null && echo "  🐚 fish completions installed" || true
+  fi
+else
+  echo "  ❌ aictx: build failed (non-fatal, skipping)"
+fi
+{{- end -}}
