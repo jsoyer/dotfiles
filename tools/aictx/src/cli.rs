@@ -167,6 +167,13 @@ pub enum Command {
         #[arg(long, default_value = "5")]
         interval: u64,
     },
+
+    /// Update dotfiles and apply resource configuration
+    Sync {
+        /// Skip confirmation prompts
+        #[arg(long)]
+        yes: bool,
+    },
 }
 
 #[derive(Subcommand)]

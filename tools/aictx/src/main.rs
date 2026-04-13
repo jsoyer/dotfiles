@@ -66,6 +66,7 @@ fn main() -> Result<()> {
         Command::Completions { shell, install } => run_completions(shell, install),
         Command::Man => run_man(),
         Command::Watch { interval } => run_watch(&config, &resolved, interval),
+        Command::Sync { yes } => run_sync(&config, &resolved, yes),
     }
 }
 
@@ -909,6 +910,51 @@ fn run_watch(config: &AppConfig, resolved: &ResolvedScope, interval: u64) -> Res
             Err(e) => eprintln!("[watch] Scan error: {}", e),
         }
     }
+}
+
+// ── Sync command ─────────────────────────────────────────────────────────
+
+fn run_sync(config: &AppConfig, resolved: &ResolvedScope, yes: bool) -> Result<()> {
+    use std::process::Command as ProcessCommand;
+
+    // Step 1: chezmoi update
+    println!("Updating dotfiles...");
+    let chezmoi_status = ProcessCommand::new("chezmoi").arg("update").status();
+
+    match chezmoi_status {
+        Ok(s) if s.success() => println!("  Dotfiles updated"),
+        Ok(s) => {
+            eprintln!("  chezmoi update exited with {}", s);
+        }
+        Err(_) => {
+            eprintln!("  chezmoi not found, skipping update");
+        }
+    }
+
+    // Step 2: Apply resource symlinks
+    println!("Applying resource configuration...");
+    let index = Index::build(config)?;
+    let cwd = std::env::current_dir()?;
+    let fingerprint = Scanner::scan(&cwd)?;
+    let recommendations = matcher::recommend(&fingerprint, &index, false, &config.ai)?;
+
+    if !yes {
+        let preview = symlinker::preview(config, resolved, &recommendations)?;
+        preview.print();
+        if !dialoguer::Confirm::new()
+            .with_prompt("Apply?")
+            .default(true)
+            .interact()?
+        {
+            println!("Cancelled.");
+            return Ok(());
+        }
+    }
+
+    symlinker::apply(config, resolved, &recommendations)?;
+    println!("  Resources applied");
+
+    Ok(())
 }
 
 #[cfg(test)]
