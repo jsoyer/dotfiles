@@ -196,6 +196,11 @@ impl PluginManager {
         })
     }
 
+    /// Return the list of configured sources.
+    pub fn list_sources(&self) -> &[PluginSource] {
+        &self.sources
+    }
+
     /// Refresh stale source caches (rate-limited: 1s between fetches).
     pub fn refresh(&self) -> Result<()> {
         let mut first = true;

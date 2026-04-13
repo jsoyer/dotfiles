@@ -156,6 +156,35 @@ pub fn print_diff(current: &ProjectStatus, recommended: &Recommendations) {
     }
 }
 
+pub fn has_diff(current: &ProjectStatus, recommended: &Recommendations) -> bool {
+    let rec_skills: Vec<&str> = recommended.skills.iter().map(|r| r.name.as_str()).collect();
+    let rec_agents: Vec<&str> = recommended.agents.iter().map(|r| r.name.as_str()).collect();
+
+    // Check if any recommended items are not active
+    for name in &rec_skills {
+        if !current.skills.contains(&name.to_string()) {
+            return true;
+        }
+    }
+    for name in &rec_agents {
+        if !current.agents.contains(&name.to_string()) {
+            return true;
+        }
+    }
+    // Check if any active items are not recommended
+    for name in &current.skills {
+        if !rec_skills.contains(&name.as_str()) {
+            return true;
+        }
+    }
+    for name in &current.agents {
+        if !rec_agents.contains(&name.as_str()) {
+            return true;
+        }
+    }
+    false
+}
+
 fn format_tokens(n: usize) -> String {
     if n >= 1_000_000 {
         format!("{:.1}m", n as f64 / 1_000_000.0)

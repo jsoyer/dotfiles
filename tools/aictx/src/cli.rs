@@ -68,7 +68,11 @@ pub enum Command {
     Status,
 
     /// Compare active config vs current recommendations
-    Diff,
+    Diff {
+        /// Exit with code 1 if changes pending, no output
+        #[arg(long)]
+        quiet: bool,
+    },
 
     /// Estimate token overhead of current config
     Cost,
@@ -116,6 +120,9 @@ pub enum Command {
     Export {
         /// Profile name to export
         profile: String,
+        /// Export full config (profile + AI settings + sources)
+        #[arg(long)]
+        full: bool,
     },
 
     /// Import profile from YAML file
@@ -174,6 +181,9 @@ pub enum Command {
         #[arg(long)]
         yes: bool,
     },
+
+    /// Show usage statistics and history
+    Stats,
 }
 
 #[derive(Subcommand)]
@@ -235,4 +245,6 @@ pub enum PluginAction {
     DisableAll,
     /// Enable all plugins globally
     EnableAll,
+    /// List configured plugin sources
+    Sources,
 }

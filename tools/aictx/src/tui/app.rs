@@ -480,6 +480,10 @@ impl<'a> App<'a> {
             "lua",
             "zig",
             "elixir",
+            "haskell",
+            "ocaml",
+            "dart",
+            "ruby",
         ];
         all_langs
             .iter()

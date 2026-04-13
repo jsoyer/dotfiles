@@ -12,6 +12,7 @@ mod plugins;
 mod profile;
 mod scanner;
 mod scope;
+mod stats;
 mod symlinker;
 mod trim;
 mod tui;
@@ -47,7 +48,7 @@ fn main() -> Result<()> {
             yes,
         } => run_apply(&config, &resolved, profile, smart, yes, cli.scope),
         Command::Status => run_status(&config, &resolved),
-        Command::Diff => run_diff(&config, &resolved),
+        Command::Diff { quiet } => run_diff(&config, &resolved, quiet),
         Command::Cost => run_cost(&config, &resolved),
         Command::Save { name } => run_save(&config, &resolved, &name),
         Command::Profiles => run_profiles(&config),
@@ -56,7 +57,7 @@ fn main() -> Result<()> {
         Command::Trim { file, auto, yes } => run_trim(file, auto, yes),
         Command::Index => run_index(&config),
         Command::Doctor => run_doctor(&config),
-        Command::Export { profile } => run_export(&config, &profile),
+        Command::Export { profile, full } => run_export(&config, &profile, full),
         Command::Import { file } => run_import(&config, &file),
         Command::Config { action } => run_config(&config, action),
         Command::Hook { shell } => run_hook(&shell),
@@ -67,6 +68,11 @@ fn main() -> Result<()> {
         Command::Man => run_man(),
         Command::Watch { interval } => run_watch(&config, &resolved, interval),
         Command::Sync { yes } => run_sync(&config, &resolved, yes),
+        Command::Stats => {
+            let data = stats::load();
+            stats::print(&data);
+            Ok(())
+        }
     }
 }
 
@@ -226,6 +232,14 @@ fn run_apply(
         resolved.target_dir.display()
     );
     symlinker::apply(config, &resolved, &selections)?;
+    stats::record_apply(
+        selections.skills.len(),
+        selections.agents.len(),
+        selections.commands.len(),
+        selections.hooks.len(),
+        selections.rules.len(),
+        &resolved.scope.to_string(),
+    );
     println!("Applied successfully.");
     Ok(())
 }
@@ -236,12 +250,17 @@ fn run_status(config: &AppConfig, resolved: &ResolvedScope) -> Result<()> {
     Ok(())
 }
 
-fn run_diff(config: &AppConfig, resolved: &ResolvedScope) -> Result<()> {
+fn run_diff(config: &AppConfig, resolved: &ResolvedScope, quiet: bool) -> Result<()> {
     let index = Index::build(config)?;
     let cwd = std::env::current_dir()?;
     let fingerprint = Scanner::scan(&cwd)?;
     let recommended = matcher::recommend(&fingerprint, &index, false, &config.ai)?;
     let current = symlinker::status(config, resolved)?;
+
+    if quiet {
+        let has_changes = cost::has_diff(&current, &recommended);
+        std::process::exit(if has_changes { 1 } else { 0 });
+    }
 
     cost::print_diff(&current, &recommended);
     Ok(())
@@ -382,17 +401,90 @@ fn run_doctor(config: &AppConfig) -> Result<()> {
     Ok(())
 }
 
-fn run_export(config: &AppConfig, profile: &str) -> Result<()> {
+fn run_export(config: &AppConfig, profile: &str, full: bool) -> Result<()> {
     let pm = ProfileManager::new(config)?;
-    let yaml = pm.export(profile)?;
-    print!("{}", yaml);
+
+    if full {
+        // Export full config as YAML
+        let profile_yaml = pm.export(profile)?;
+
+        // Build full export
+        let mut full_export = serde_yaml::Mapping::new();
+        full_export.insert(
+            serde_yaml::Value::String("version".into()),
+            serde_yaml::Value::Number(1.into()),
+        );
+
+        // Parse profile YAML and embed it
+        let profile_value: serde_yaml::Value = serde_yaml::from_str(&profile_yaml)?;
+        full_export.insert(serde_yaml::Value::String("profile".into()), profile_value);
+
+        // AI config
+        let mut ai = serde_yaml::Mapping::new();
+        ai.insert("enabled".into(), serde_yaml::Value::Bool(config.ai.enabled));
+        ai.insert(
+            "provider".into(),
+            serde_yaml::Value::String(config.ai.provider.clone()),
+        );
+        ai.insert(
+            "model".into(),
+            serde_yaml::Value::String(config.ai.model.clone()),
+        );
+        full_export.insert("ai".into(), serde_yaml::Value::Mapping(ai));
+
+        // Sources
+        let sources_path = config.paths.config_dir.join("sources.yaml");
+        if sources_path.exists() {
+            let sources_str = std::fs::read_to_string(&sources_path)?;
+            let sources_value: serde_yaml::Value = serde_yaml::from_str(&sources_str)?;
+            full_export.insert("sources".into(), sources_value);
+        }
+
+        print!(
+            "{}",
+            serde_yaml::to_string(&serde_yaml::Value::Mapping(full_export))?
+        );
+    } else {
+        let yaml = pm.export(profile)?;
+        print!("{}", yaml);
+    }
     Ok(())
 }
 
 fn run_import(config: &AppConfig, file: &str) -> Result<()> {
-    let pm = ProfileManager::new(config)?;
-    pm.import(file)?;
-    println!("Profile imported from {}.", file);
+    let content = std::fs::read_to_string(file)?;
+    let value: serde_yaml::Value = serde_yaml::from_str(&content)?;
+
+    // Check if it's a full export (has "version" key)
+    if value.get("version").is_some() {
+        println!("Detected full config export.");
+
+        // Import profile
+        if let Some(profile) = value.get("profile") {
+            let profile_yaml = serde_yaml::to_string(profile)?;
+            let tmp_path = std::env::temp_dir().join("aictx-import-profile.yaml");
+            std::fs::write(&tmp_path, &profile_yaml)?;
+            let pm = ProfileManager::new(config)?;
+            pm.import(tmp_path.to_str().unwrap())?;
+            let _ = std::fs::remove_file(&tmp_path);
+            println!("  \u{2705} Profile imported.");
+        }
+
+        // Import sources
+        if let Some(sources) = value.get("sources") {
+            let sources_yaml = serde_yaml::to_string(sources)?;
+            let sources_path = config.paths.config_dir.join("sources.yaml");
+            std::fs::write(&sources_path, &sources_yaml)?;
+            println!("  \u{2705} Sources imported.");
+        }
+
+        println!("Full config imported from {}.", file);
+    } else {
+        // Simple profile import
+        let pm = ProfileManager::new(config)?;
+        pm.import(file)?;
+        println!("Profile imported from {}.", file);
+    }
     Ok(())
 }
 
@@ -758,6 +850,43 @@ fn run_plugin(config: &AppConfig, resolved: &ResolvedScope, action: PluginAction
                 }
             }
             println!("Enabled all plugins in {} settings files.", count);
+        }
+        PluginAction::Sources => {
+            let pm = plugins::PluginManager::new(&config.paths.config_dir)?;
+            let sources = pm.list_sources();
+            if sources.is_empty() {
+                println!("No sources configured. Add with `aictx plugin add`.");
+            } else {
+                println!(
+                    "Configured sources ({}):
+",
+                    sources.len()
+                );
+                for source in sources {
+                    let types: Vec<&str> = source
+                        .resources
+                        .iter()
+                        .map(|r| match r {
+                            plugins::ResourceType::Skill => "skill",
+                            plugins::ResourceType::Agent => "agent",
+                            plugins::ResourceType::Command => "command",
+                            plugins::ResourceType::Plugin => "plugin",
+                            plugins::ResourceType::Hook => "hook",
+                        })
+                        .collect();
+                    println!(
+                        "  {:<25} {:<20} {} [{}]",
+                        source.name,
+                        format!("{:?}", source.source_type).to_lowercase(),
+                        source
+                            .repo
+                            .as_deref()
+                            .or(source.url.as_deref())
+                            .unwrap_or(""),
+                        types.join(", "),
+                    );
+                }
+            }
         }
     }
     Ok(())

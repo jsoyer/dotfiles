@@ -89,3 +89,10 @@ sources:
     url: https://www.claudecodeagents.com
     refresh: 24h
     resources: [agent]
+
+  # ── Claude Code ──────────────────────────
+  - name: awesome-claude-code
+    type: awesome-list
+    repo: anthropics/claude-code
+    refresh: 24h
+    resources: [skill, agent, command]

@@ -76,6 +76,13 @@ impl PatternsConfig {
 }
 
 #[derive(Debug, Clone)]
+pub struct Workspace {
+    pub name: String,
+    pub path: PathBuf,
+    pub languages: Vec<String>,
+}
+
+#[derive(Debug, Clone)]
 pub struct ProjectFingerprint {
     pub languages: Vec<Detection>,
     pub frameworks: Vec<Detection>,
@@ -85,6 +92,7 @@ pub struct ProjectFingerprint {
     pub ci: Vec<Detection>,
     pub file_counts: HashMap<String, usize>,
     pub project_dir: PathBuf,
+    pub workspaces: Vec<Workspace>,
 }
 
 #[derive(Debug, Clone)]
@@ -121,6 +129,8 @@ impl Scanner {
         let tools = Self::detect_tools(&config_files);
         let ci = Self::detect_ci(&config_files);
 
+        let workspaces = Self::detect_workspaces(project_dir, &config_files);
+
         Ok(ProjectFingerprint {
             languages,
             frameworks,
@@ -130,6 +140,7 @@ impl Scanner {
             ci,
             file_counts,
             project_dir: project_dir.to_path_buf(),
+            workspaces,
         })
     }
 
@@ -218,6 +229,11 @@ impl Scanner {
             "Brewfile",
             "Aptfile",
             "Dnffile",
+            "nx.json",
+            "turbo.json",
+            "pnpm-workspace.yaml",
+            "lerna.json",
+            "rush.json",
         ];
 
         candidates
@@ -611,6 +627,143 @@ impl Scanner {
         ci
     }
 
+    // ── Monorepo workspace detection ──────────────────────────────
+
+    fn detect_workspaces(cwd: &Path, config_files: &[String]) -> Vec<Workspace> {
+        let mut workspaces = Vec::new();
+
+        // pnpm-workspace.yaml
+        if config_files.contains(&"pnpm-workspace.yaml".to_string()) {
+            if let Ok(content) = std::fs::read_to_string(cwd.join("pnpm-workspace.yaml")) {
+                for line in content.lines() {
+                    let trimmed = line
+                        .trim()
+                        .trim_start_matches("- ")
+                        .trim_matches('\'')
+                        .trim_matches('"');
+                    if trimmed.contains('*') {
+                        let base = trimmed.trim_end_matches("/*").trim_end_matches("/**");
+                        let base_path = cwd.join(base);
+                        if base_path.is_dir() {
+                            if let Ok(entries) = std::fs::read_dir(&base_path) {
+                                for entry in entries.filter_map(|e| e.ok()) {
+                                    if entry.path().is_dir() {
+                                        let name = format!(
+                                            "{}/{}",
+                                            base,
+                                            entry.file_name().to_string_lossy()
+                                        );
+                                        let langs = Self::detect_workspace_languages(&entry.path());
+                                        workspaces.push(Workspace {
+                                            name,
+                                            path: entry.path(),
+                                            languages: langs,
+                                        });
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // package.json workspaces (only if pnpm-workspace.yaml didn't produce results)
+        if workspaces.is_empty() && config_files.contains(&"package.json".to_string()) {
+            if let Ok(content) = std::fs::read_to_string(cwd.join("package.json")) {
+                if let Ok(json) = serde_json::from_str::<serde_json::Value>(&content) {
+                    if let Some(ws) = json.get("workspaces") {
+                        let patterns: Vec<String> = match ws {
+                            serde_json::Value::Array(arr) => arr
+                                .iter()
+                                .filter_map(|v| v.as_str().map(String::from))
+                                .collect(),
+                            serde_json::Value::Object(obj) => obj
+                                .get("packages")
+                                .and_then(|p| p.as_array())
+                                .map(|arr| {
+                                    arr.iter()
+                                        .filter_map(|v| v.as_str().map(String::from))
+                                        .collect()
+                                })
+                                .unwrap_or_default(),
+                            _ => vec![],
+                        };
+                        for pattern in patterns {
+                            let base = pattern.trim_end_matches("/*").trim_end_matches("/**");
+                            let base_path = cwd.join(base);
+                            if base_path.is_dir() {
+                                if let Ok(entries) = std::fs::read_dir(&base_path) {
+                                    for entry in entries.filter_map(|e| e.ok()) {
+                                        if entry.path().is_dir() {
+                                            let name = format!(
+                                                "{}/{}",
+                                                base,
+                                                entry.file_name().to_string_lossy()
+                                            );
+                                            let langs =
+                                                Self::detect_workspace_languages(&entry.path());
+                                            workspaces.push(Workspace {
+                                                name,
+                                                path: entry.path(),
+                                                languages: langs,
+                                            });
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // nx.json — projects are typically in apps/, libs/, packages/
+        if workspaces.is_empty() && config_files.contains(&"nx.json".to_string()) {
+            for dir in ["apps", "libs", "packages"] {
+                let base = cwd.join(dir);
+                if base.is_dir() {
+                    if let Ok(entries) = std::fs::read_dir(&base) {
+                        for entry in entries.filter_map(|e| e.ok()) {
+                            if entry.path().is_dir() {
+                                let name =
+                                    format!("{}/{}", dir, entry.file_name().to_string_lossy());
+                                let langs = Self::detect_workspace_languages(&entry.path());
+                                workspaces.push(Workspace {
+                                    name,
+                                    path: entry.path(),
+                                    languages: langs,
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        workspaces
+    }
+
+    fn detect_workspace_languages(path: &Path) -> Vec<String> {
+        let mut langs = Vec::new();
+        if path.join("tsconfig.json").exists() || path.join("package.json").exists() {
+            langs.push("typescript".to_string());
+        }
+        if path.join("Cargo.toml").exists() {
+            langs.push("rust".to_string());
+        }
+        if path.join("go.mod").exists() {
+            langs.push("go".to_string());
+        }
+        if path.join("pyproject.toml").exists() || path.join("setup.py").exists() {
+            langs.push("python".to_string());
+        }
+        if path.join("pubspec.yaml").exists() {
+            langs.push("dart".to_string());
+        }
+        langs
+    }
+
     // ── Pattern-based detection (from patterns.yaml) ──────────────
 
     fn detect_languages_from_patterns(
@@ -782,6 +935,13 @@ impl ProjectFingerprint {
             }
         }
 
+        if !self.workspaces.is_empty() {
+            println!("\nMonorepo ({} workspaces)", self.workspaces.len());
+            for ws in &self.workspaces {
+                println!("  {:<30} {}", ws.name, ws.languages.join(", "));
+            }
+        }
+
         let total_files: usize = self.file_counts.values().sum();
         println!("\nTotal files scanned: {}", total_files);
     }
@@ -811,5 +971,170 @@ impl ProjectFingerprint {
             tags.push(d.name.clone());
         }
         tags
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+    use std::path::PathBuf;
+
+    fn temp_dir(name: &str) -> PathBuf {
+        let dir = std::env::temp_dir().join(format!("aictx-scanner-test-{}", name));
+        let _ = fs::create_dir_all(&dir);
+        dir
+    }
+
+    fn cleanup(dir: &PathBuf) {
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn detects_monorepo_config_files_nx() {
+        let dir = temp_dir("mono-nx");
+        fs::write(dir.join("nx.json"), "{}").unwrap();
+        let fp = Scanner::scan(&dir).unwrap();
+        assert!(fp.workspaces.is_empty());
+        cleanup(&dir);
+    }
+
+    #[test]
+    fn detects_monorepo_config_files_turbo() {
+        let dir = temp_dir("mono-turbo");
+        fs::write(dir.join("turbo.json"), "{}").unwrap();
+        let fp = Scanner::scan(&dir).unwrap();
+        assert!(fp.workspaces.is_empty());
+        cleanup(&dir);
+    }
+
+    #[test]
+    fn detects_monorepo_config_files_lerna() {
+        let dir = temp_dir("mono-lerna");
+        fs::write(dir.join("lerna.json"), "{}").unwrap();
+        let fp = Scanner::scan(&dir).unwrap();
+        assert!(fp.workspaces.is_empty());
+        cleanup(&dir);
+    }
+
+    #[test]
+    fn detects_monorepo_config_files_rush() {
+        let dir = temp_dir("mono-rush");
+        fs::write(dir.join("rush.json"), "{}").unwrap();
+        let fp = Scanner::scan(&dir).unwrap();
+        assert!(fp.workspaces.is_empty());
+        cleanup(&dir);
+    }
+
+    #[test]
+    fn detects_pnpm_workspaces() {
+        let dir = temp_dir("pnpm-ws");
+        fs::create_dir_all(dir.join("packages/app-a")).unwrap();
+        fs::create_dir_all(dir.join("packages/lib-b")).unwrap();
+        fs::write(dir.join("packages/app-a/package.json"), r#"{"name":"app-a"}"#).unwrap();
+        fs::write(dir.join("packages/lib-b/tsconfig.json"), "{}").unwrap();
+        fs::write(
+            dir.join("pnpm-workspace.yaml"),
+            "packages:\n  - 'packages/*'\n",
+        )
+        .unwrap();
+        let fp = Scanner::scan(&dir).unwrap();
+        assert!(!fp.workspaces.is_empty(), "Expected workspaces to be detected");
+        let names: Vec<&str> = fp.workspaces.iter().map(|w| w.name.as_str()).collect();
+        assert!(names.iter().any(|n| n.contains("app-a")), "got: {:?}", names);
+        assert!(names.iter().any(|n| n.contains("lib-b")), "got: {:?}", names);
+        cleanup(&dir);
+    }
+
+    #[test]
+    fn pnpm_workspace_detects_languages() {
+        let dir = temp_dir("pnpm-ws-langs");
+        fs::create_dir_all(dir.join("packages/ts-pkg")).unwrap();
+        fs::write(dir.join("packages/ts-pkg/tsconfig.json"), "{}").unwrap();
+        fs::create_dir_all(dir.join("packages/rust-pkg")).unwrap();
+        fs::write(
+            dir.join("packages/rust-pkg/Cargo.toml"),
+            "[package]\nname=\"rust-pkg\"\nversion=\"0.1.0\"\n",
+        )
+        .unwrap();
+        fs::write(
+            dir.join("pnpm-workspace.yaml"),
+            "packages:\n  - 'packages/*'\n",
+        )
+        .unwrap();
+        let fp = Scanner::scan(&dir).unwrap();
+        let ts_pkg = fp
+            .workspaces
+            .iter()
+            .find(|w| w.name.contains("ts-pkg"))
+            .expect("ts-pkg not found");
+        assert!(ts_pkg.languages.contains(&"typescript".to_string()));
+        let rust_pkg = fp
+            .workspaces
+            .iter()
+            .find(|w| w.name.contains("rust-pkg"))
+            .expect("rust-pkg not found");
+        assert!(rust_pkg.languages.contains(&"rust".to_string()));
+        cleanup(&dir);
+    }
+
+    #[test]
+    fn detects_package_json_workspaces() {
+        let dir = temp_dir("pkg-json-ws");
+        fs::create_dir_all(dir.join("apps/web")).unwrap();
+        fs::create_dir_all(dir.join("apps/api")).unwrap();
+        fs::write(dir.join("apps/web/package.json"), r#"{"name":"web"}"#).unwrap();
+        fs::write(dir.join("apps/api/package.json"), r#"{"name":"api"}"#).unwrap();
+        fs::write(
+            dir.join("package.json"),
+            r#"{"name":"root","workspaces":["apps/*"]}"#,
+        )
+        .unwrap();
+        let fp = Scanner::scan(&dir).unwrap();
+        assert!(!fp.workspaces.is_empty(), "Expected workspaces from package.json");
+        let names: Vec<&str> = fp.workspaces.iter().map(|w| w.name.as_str()).collect();
+        assert!(names.iter().any(|n| n.contains("web")), "got: {:?}", names);
+        assert!(names.iter().any(|n| n.contains("api")), "got: {:?}", names);
+        cleanup(&dir);
+    }
+
+    #[test]
+    fn detects_nx_workspaces() {
+        let dir = temp_dir("nx-ws");
+        fs::create_dir_all(dir.join("apps/frontend")).unwrap();
+        fs::create_dir_all(dir.join("libs/shared")).unwrap();
+        fs::write(dir.join("apps/frontend/package.json"), r#"{"name":"frontend"}"#).unwrap();
+        fs::write(dir.join("libs/shared/tsconfig.json"), "{}").unwrap();
+        fs::write(dir.join("nx.json"), r#"{"version":2}"#).unwrap();
+        let fp = Scanner::scan(&dir).unwrap();
+        assert!(!fp.workspaces.is_empty(), "Expected nx workspaces");
+        let names: Vec<&str> = fp.workspaces.iter().map(|w| w.name.as_str()).collect();
+        assert!(names.iter().any(|n| n.contains("frontend")), "got: {:?}", names);
+        assert!(names.iter().any(|n| n.contains("shared")), "got: {:?}", names);
+        cleanup(&dir);
+    }
+
+    #[test]
+    fn workspace_struct_fields() {
+        let ws = Workspace {
+            name: "packages/my-pkg".to_string(),
+            path: PathBuf::from("/tmp/my-pkg"),
+            languages: vec!["typescript".to_string()],
+        };
+        assert_eq!(ws.name, "packages/my-pkg");
+        assert_eq!(ws.languages, vec!["typescript".to_string()]);
+    }
+
+    #[test]
+    fn no_workspaces_for_plain_rust_project() {
+        let dir = temp_dir("plain-rust");
+        fs::write(
+            dir.join("Cargo.toml"),
+            "[package]\nname=\"plain\"\nversion=\"0.1.0\"\n",
+        )
+        .unwrap();
+        let fp = Scanner::scan(&dir).unwrap();
+        assert!(fp.workspaces.is_empty());
+        cleanup(&dir);
     }
 }
