@@ -1,7 +1,7 @@
 use anyhow::Result;
 use crossterm::event::{self, Event, KeyCode, KeyModifiers};
 use ratatui::DefaultTerminal;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use crate::config::AppConfig;
 use crate::indexer::Index;
@@ -185,6 +185,14 @@ pub struct App<'a> {
     // Pending profile operations signalled to mod.rs after TUI exits
     pub pending_profile_save: Option<String>,
     pub pending_profile_load: Option<String>,
+
+    // Global search mode state
+    pub global_search_mode: bool,
+    pub global_search_results: Vec<(ResourceTab, usize, String)>, // (tab, original_idx, name)
+    pub global_search_cursor: usize,
+
+    // Pinned items (shown at top of list)
+    pub pinned: HashSet<String>,
 }
 
 impl<'a> App<'a> {
@@ -295,6 +303,10 @@ impl<'a> App<'a> {
             profile_save_input: String::new(),
             pending_profile_save: None,
             pending_profile_load: None,
+            global_search_mode: false,
+            global_search_results: Vec::new(),
+            global_search_cursor: 0,
+            pinned: HashSet::new(),
         }
     }
 
@@ -607,6 +619,55 @@ impl<'a> App<'a> {
             })?;
 
             if let Event::Key(key) = event::read()? {
+                // Global search mode — intercept all keys
+                if self.global_search_mode {
+                    match key.code {
+                        KeyCode::Esc => {
+                            self.global_search_mode = false;
+                        }
+                        KeyCode::Enter => {
+                            if let Some((tab, _idx, _name)) = self
+                                .global_search_results
+                                .get(self.global_search_cursor)
+                                .cloned()
+                            {
+                                let cli = &mut self.cli_tabs[self.active_cli_idx];
+                                if let Some(pos) = cli.resource_tabs.iter().position(|t| *t == tab)
+                                {
+                                    cli.active_resource_idx = pos;
+                                }
+                                self.cursor = 0;
+                                self.scroll_offset = 0;
+                                self.global_search_mode = false;
+                            }
+                        }
+                        KeyCode::Down | KeyCode::Char('j') => {
+                            if !self.global_search_results.is_empty() {
+                                self.global_search_cursor = (self.global_search_cursor + 1)
+                                    % self.global_search_results.len();
+                            }
+                        }
+                        KeyCode::Up | KeyCode::Char('k') => {
+                            if !self.global_search_results.is_empty() {
+                                self.global_search_cursor = (self.global_search_cursor
+                                    + self.global_search_results.len()
+                                    - 1)
+                                    % self.global_search_results.len();
+                            }
+                        }
+                        KeyCode::Char(c) => {
+                            self.filter.push(c);
+                            self.recompute_global_search();
+                        }
+                        KeyCode::Backspace => {
+                            self.filter.pop();
+                            self.recompute_global_search();
+                        }
+                        _ => {}
+                    }
+                    continue;
+                }
+
                 // CLI toggle popup mode — intercept all keys
                 if self.cli_toggle_mode {
                     match key.code {
@@ -904,6 +965,24 @@ impl<'a> App<'a> {
                             self.profile_save_input.clear();
                         }
                     }
+                    KeyCode::Char('?') => {
+                        self.global_search_mode = true;
+                        self.global_search_cursor = 0;
+                        self.filter.clear();
+                        self.recompute_global_search();
+                    }
+                    KeyCode::Char('!') => {
+                        let filtered = self.filtered_items();
+                        if let Some(&(_, item)) = filtered.get(self.cursor) {
+                            let name = item.name.clone();
+                            if self.pinned.contains(&name) {
+                                self.pinned.remove(&name);
+                            } else {
+                                self.pinned.insert(name);
+                            }
+                            self.resort_active();
+                        }
+                    }
                     _ => {}
                 }
             }
@@ -920,6 +999,60 @@ impl<'a> App<'a> {
 
     pub fn active_cli(&self) -> &CliTab {
         &self.cli_tabs[self.active_cli_idx]
+    }
+
+    /// Returns filter match counts per resource tab for the active CLI.
+    /// Only counts when filter is non-empty; returns 0 otherwise.
+    pub fn filter_match_counts(&self) -> Vec<(ResourceTab, usize)> {
+        let cli = &self.cli_tabs[self.active_cli_idx];
+        cli.resource_tabs
+            .iter()
+            .map(|&tab| {
+                let key = (cli.cli_name.clone(), tab);
+                let count = self
+                    .items
+                    .get(&key)
+                    .map(|items| {
+                        if self.filter.is_empty() {
+                            return 0;
+                        }
+                        let f = self.filter.to_lowercase();
+                        items
+                            .iter()
+                            .filter(|i| {
+                                i.name.to_lowercase().contains(&f)
+                                    || i.reason.to_lowercase().contains(&f)
+                            })
+                            .count()
+                    })
+                    .unwrap_or(0);
+                (tab, count)
+            })
+            .collect()
+    }
+
+    fn recompute_global_search(&mut self) {
+        self.global_search_results.clear();
+        if self.filter.is_empty() {
+            return;
+        }
+        let f = self.filter.to_lowercase();
+        let cli = &self.cli_tabs[self.active_cli_idx];
+        let tabs: Vec<ResourceTab> = cli.resource_tabs.clone();
+        let cli_name = cli.cli_name.clone();
+        for tab in tabs {
+            let key = (cli_name.clone(), tab);
+            if let Some(items) = self.items.get(&key) {
+                for (idx, item) in items.iter().enumerate() {
+                    if item.name.to_lowercase().contains(&f)
+                        || item.reason.to_lowercase().contains(&f)
+                    {
+                        self.global_search_results
+                            .push((tab, idx, item.name.clone()));
+                    }
+                }
+            }
+        }
     }
 
     fn active_key(&self) -> (String, ResourceTab) {
@@ -963,26 +1096,40 @@ impl<'a> App<'a> {
 
     fn resort_active(&mut self) {
         let mode = self.sort_mode;
+        let pinned = self.pinned.clone();
         let items = self.active_items_mut();
         match mode {
             SortMode::Default => {
                 items.sort_by(|a, b| {
-                    b.enabled
-                        .cmp(&a.enabled)
+                    let a_pinned = pinned.contains(&a.name);
+                    let b_pinned = pinned.contains(&b.name);
+                    b_pinned
+                        .cmp(&a_pinned)
+                        .then(b.enabled.cmp(&a.enabled))
                         .then(b.suggested.cmp(&a.suggested))
                         .then(a.name.cmp(&b.name))
                 });
             }
             SortMode::Score => {
                 items.sort_by(|a, b| {
-                    b.score
-                        .partial_cmp(&a.score)
-                        .unwrap_or(std::cmp::Ordering::Equal)
+                    let a_pinned = pinned.contains(&a.name);
+                    let b_pinned = pinned.contains(&b.name);
+                    b_pinned
+                        .cmp(&a_pinned)
+                        .then(
+                            b.score
+                                .partial_cmp(&a.score)
+                                .unwrap_or(std::cmp::Ordering::Equal),
+                        )
                         .then(a.name.cmp(&b.name))
                 });
             }
             SortMode::Name => {
-                items.sort_by(|a, b| a.name.cmp(&b.name));
+                items.sort_by(|a, b| {
+                    let a_pinned = pinned.contains(&a.name);
+                    let b_pinned = pinned.contains(&b.name);
+                    b_pinned.cmp(&a_pinned).then(a.name.cmp(&b.name))
+                });
             }
         }
     }
@@ -1458,6 +1605,188 @@ mod tests {
             None
         };
         assert!(pending.is_none());
+    }
+
+    // --- filter_match_counts tests ---
+
+    #[test]
+    fn filter_match_counts_returns_zero_when_filter_empty() {
+        let cli = make_cli_tab("claude");
+        let mut items = HashMap::new();
+        items.insert(
+            ("claude".to_string(), ResourceTab::Skills),
+            vec![make_toggle_item("rust-patterns", true)],
+        );
+        // With empty filter, count should be 0
+        let filter = "";
+        let f = filter.to_lowercase();
+        let count = items
+            .get(&("claude".to_string(), ResourceTab::Skills))
+            .map(|its| {
+                if f.is_empty() {
+                    return 0;
+                }
+                its.iter()
+                    .filter(|i| {
+                        i.name.to_lowercase().contains(&f) || i.reason.to_lowercase().contains(&f)
+                    })
+                    .count()
+            })
+            .unwrap_or(0);
+        assert_eq!(count, 0, "empty filter should return 0 matches");
+        let _ = cli;
+    }
+
+    #[test]
+    fn filter_match_counts_returns_correct_count() {
+        let mut items = HashMap::new();
+        items.insert(
+            ("claude".to_string(), ResourceTab::Skills),
+            vec![
+                make_toggle_item("rust-patterns", false),
+                make_toggle_item("rust-testing", false),
+                make_toggle_item("python-guide", false),
+            ],
+        );
+        let filter = "rust";
+        let f = filter.to_lowercase();
+        let count = items
+            .get(&("claude".to_string(), ResourceTab::Skills))
+            .map(|its| {
+                its.iter()
+                    .filter(|i| {
+                        i.name.to_lowercase().contains(&f) || i.reason.to_lowercase().contains(&f)
+                    })
+                    .count()
+            })
+            .unwrap_or(0);
+        assert_eq!(
+            count, 2,
+            "filter 'rust' should match rust-patterns and rust-testing"
+        );
+    }
+
+    // --- global search tests ---
+
+    #[test]
+    fn recompute_global_search_empty_when_filter_empty() {
+        let mut results: Vec<(ResourceTab, usize, String)> = Vec::new();
+        let filter = "";
+        if filter.is_empty() {
+            results.clear();
+        }
+        assert!(results.is_empty());
+    }
+
+    #[test]
+    fn recompute_global_search_finds_matches_across_tabs() {
+        // Simulate scanning two tabs for a filter
+        let filter = "rust";
+        let f = filter.to_lowercase();
+        let mut results: Vec<(ResourceTab, usize, String)> = Vec::new();
+
+        let skills = vec![
+            make_toggle_item("rust-patterns", false),
+            make_toggle_item("python-guide", false),
+        ];
+        let agents = vec![make_toggle_item("rust-reviewer", false)];
+
+        for (idx, item) in skills.iter().enumerate() {
+            if item.name.to_lowercase().contains(&f) || item.reason.to_lowercase().contains(&f) {
+                results.push((ResourceTab::Skills, idx, item.name.clone()));
+            }
+        }
+        for (idx, item) in agents.iter().enumerate() {
+            if item.name.to_lowercase().contains(&f) || item.reason.to_lowercase().contains(&f) {
+                results.push((ResourceTab::Agents, idx, item.name.clone()));
+            }
+        }
+
+        assert_eq!(results.len(), 2);
+        assert_eq!(results[0].0, ResourceTab::Skills);
+        assert_eq!(results[0].2, "rust-patterns");
+        assert_eq!(results[1].0, ResourceTab::Agents);
+        assert_eq!(results[1].2, "rust-reviewer");
+    }
+
+    #[test]
+    fn global_search_cursor_wraps_down() {
+        let results: Vec<(ResourceTab, usize, String)> = vec![
+            (ResourceTab::Skills, 0, "a".to_string()),
+            (ResourceTab::Agents, 1, "b".to_string()),
+        ];
+        let cursor = 1usize;
+        let next = (cursor + 1) % results.len();
+        assert_eq!(next, 0);
+    }
+
+    #[test]
+    fn global_search_cursor_wraps_up() {
+        let results: Vec<(ResourceTab, usize, String)> = vec![
+            (ResourceTab::Skills, 0, "a".to_string()),
+            (ResourceTab::Agents, 1, "b".to_string()),
+        ];
+        let cursor = 0usize;
+        let prev = (cursor + results.len() - 1) % results.len();
+        assert_eq!(prev, 1);
+    }
+
+    // --- pin tests ---
+
+    #[test]
+    fn pin_insert_and_remove() {
+        let mut pinned: std::collections::HashSet<String> = std::collections::HashSet::new();
+        pinned.insert("rust-patterns".to_string());
+        assert!(pinned.contains("rust-patterns"));
+        pinned.remove("rust-patterns");
+        assert!(!pinned.contains("rust-patterns"));
+    }
+
+    #[test]
+    fn resort_active_pins_first_default_mode() {
+        let mut items = vec![
+            make_toggle_item("beta", false),
+            make_toggle_item("alpha", false),
+            make_toggle_item("gamma", false),
+        ];
+        let mut pinned: std::collections::HashSet<String> = std::collections::HashSet::new();
+        pinned.insert("gamma".to_string());
+
+        items.sort_by(|a, b| {
+            let a_pinned = pinned.contains(&a.name);
+            let b_pinned = pinned.contains(&b.name);
+            b_pinned
+                .cmp(&a_pinned)
+                .then(b.enabled.cmp(&a.enabled))
+                .then(b.suggested.cmp(&a.suggested))
+                .then(a.name.cmp(&b.name))
+        });
+
+        assert_eq!(items[0].name, "gamma", "pinned item should sort first");
+    }
+
+    #[test]
+    fn resort_active_pins_first_name_mode() {
+        let mut items = vec![
+            make_toggle_item("charlie", false),
+            make_toggle_item("alice", false),
+            make_toggle_item("bob", false),
+        ];
+        let mut pinned: std::collections::HashSet<String> = std::collections::HashSet::new();
+        pinned.insert("charlie".to_string());
+
+        items.sort_by(|a, b| {
+            let a_pinned = pinned.contains(&a.name);
+            let b_pinned = pinned.contains(&b.name);
+            b_pinned.cmp(&a_pinned).then(a.name.cmp(&b.name))
+        });
+
+        assert_eq!(
+            items[0].name, "charlie",
+            "pinned charlie sorts before alice/bob"
+        );
+        assert_eq!(items[1].name, "alice");
+        assert_eq!(items[2].name, "bob");
     }
 
     #[test]

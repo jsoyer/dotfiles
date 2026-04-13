@@ -43,7 +43,9 @@ pub fn draw(frame: &mut Frame, app: &App) {
     draw_content(frame, app, chunks[3]);
     draw_footer(frame, app, chunks[4]);
 
-    if app.preview_mode {
+    if app.global_search_mode {
+        draw_global_search(frame, app, chunks[3]);
+    } else if app.preview_mode {
         draw_preview(frame, app, chunks[3]);
     } else if app.cli_toggle_mode {
         draw_cli_toggle(frame, app, chunks[3]);
@@ -122,6 +124,7 @@ fn draw_resource_tabs(frame: &mut Frame, app: &App, area: Rect) {
         return;
     }
     let cli = app.active_cli();
+    let match_counts = app.filter_match_counts();
 
     let tab_titles: Vec<Line> = cli
         .resource_tabs
@@ -132,7 +135,22 @@ fn draw_resource_tabs(frame: &mut Frame, app: &App, area: Rect) {
                 .map(|v| v.iter().filter(|i| i.enabled).count())
                 .unwrap_or(0);
             let total = items.map(|v| v.len()).unwrap_or(0);
-            Line::from(format!(" {} {}/{} ", rt.label(), enabled, total))
+            let count_str = if !app.filter.is_empty() {
+                match_counts
+                    .iter()
+                    .find(|(t, _)| t == rt)
+                    .map(|(_, c)| format!(" ({})", c))
+                    .unwrap_or_default()
+            } else {
+                String::new()
+            };
+            Line::from(format!(
+                " {} {}/{}{} ",
+                rt.label(),
+                enabled,
+                total,
+                count_str
+            ))
         })
         .collect();
 
@@ -290,13 +308,18 @@ fn draw_content(frame: &mut Frame, app: &App, area: Rect) {
                 vec![Span::raw("                  ")]
             };
 
+            let is_pinned = app.pinned.contains(&item.name);
+            let pin_prefix = if is_pinned { "* " } else { "  " };
+            let pin_style = Style::default().fg(YELLOW).add_modifier(Modifier::BOLD);
+
             let mut line_spans = vec![
                 Span::styled(
                     if is_selected { "> " } else { "  " },
                     Style::default().fg(MAUVE),
                 ),
                 Span::styled(format!("{} ", checkbox_str), checkbox_style),
-                Span::styled(format!("{:<30}", item.name), name_style),
+                Span::styled(pin_prefix.to_string(), pin_style),
+                Span::styled(format!("{:<28}", item.name), name_style),
                 Span::raw("  "),
                 Span::styled(format!("{:<12}", status_label), status_style),
                 Span::raw("  "),
@@ -398,6 +421,13 @@ fn draw_footer(frame: &mut Frame, app: &App, area: Rect) {
             ("Esc/q", "cancel"),
             ("j/k", "scroll"),
         ]
+    } else if app.global_search_mode {
+        vec![
+            ("Esc", "close"),
+            ("Enter", "jump to tab"),
+            ("j/k", "nav"),
+            ("type", "search"),
+        ]
     } else if app.filtering {
         vec![("Esc", "cancel"), ("Enter", "confirm"), ("type", "filter")]
     } else {
@@ -415,6 +445,8 @@ fn draw_footer(frame: &mut Frame, app: &App, area: Rect) {
                 },
             ),
             ("/", "filter"),
+            ("?", "global search"),
+            ("!", "pin to top"),
             ("i", "install"),
             ("t", "toggle CLIs"),
             ("p", "profiles"),
@@ -642,6 +674,52 @@ fn draw_profile_selector(frame: &mut Frame, app: &App, area: Rect) {
         "  Enter: load  s: save current  Esc: close",
         Style::default().fg(SUBTEXT),
     )));
+
+    frame.render_widget(Paragraph::new(lines), inner);
+}
+
+fn draw_global_search(frame: &mut Frame, app: &App, area: Rect) {
+    frame.render_widget(Clear, area);
+    let block = Block::default()
+        .borders(Borders::ALL)
+        .title(format!(" Search: {} ", app.filter))
+        .border_style(Style::default().fg(MAUVE));
+    let inner = block.inner(area);
+    frame.render_widget(block, area);
+
+    if app.global_search_results.is_empty() {
+        let msg = if app.filter.is_empty() {
+            "Type to search..."
+        } else {
+            "No matches"
+        };
+        frame.render_widget(Paragraph::new(format!("  {}", msg)), inner);
+        return;
+    }
+
+    let lines: Vec<Line> = app
+        .global_search_results
+        .iter()
+        .enumerate()
+        .map(|(i, (tab, _, name))| {
+            let cursor = if i == app.global_search_cursor {
+                "▸ "
+            } else {
+                "  "
+            };
+            let tag = format!("[{:<8}]", tab.label());
+            let style = if i == app.global_search_cursor {
+                Style::default().fg(MAUVE).add_modifier(Modifier::BOLD)
+            } else {
+                Style::default().fg(TEXT)
+            };
+            Line::from(vec![
+                Span::styled(cursor, style),
+                Span::styled(tag, Style::default().fg(SUBTEXT)),
+                Span::styled(format!(" {}", name), style),
+            ])
+        })
+        .collect();
 
     frame.render_widget(Paragraph::new(lines), inner);
 }
