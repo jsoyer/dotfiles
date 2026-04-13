@@ -214,6 +214,88 @@ fn trim_nonexistent_file_fails() {
     assert!(!output.status.success());
 }
 
+// ── Completions ─────────────────────────────────────────────────────────
+
+#[test]
+fn completions_zsh_contains_dynamic_resource_completer() {
+    let output = run_cctx(&["completions", "zsh"]);
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("_aictx_resources"),
+        "zsh completions should define _aictx_resources function"
+    );
+    assert!(
+        stdout.contains("_aictx_cli_names"),
+        "zsh completions should define _aictx_cli_names function"
+    );
+    assert!(
+        stdout.contains("compdef"),
+        "zsh completions should override enable/disable with compdef"
+    );
+    assert!(
+        stdout.contains("aictx enable"),
+        "zsh completions should include override for 'aictx enable'"
+    );
+    assert!(
+        stdout.contains("aictx disable"),
+        "zsh completions should include override for 'aictx disable'"
+    );
+}
+
+#[test]
+fn completions_zsh_cli_names_includes_known_clis() {
+    let output = run_cctx(&["completions", "zsh"]);
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("claude"),
+        "zsh completions should list claude as a CLI target"
+    );
+    assert!(
+        stdout.contains("qwen"),
+        "zsh completions should list qwen as a CLI target"
+    );
+}
+
+#[test]
+fn completions_bash_contains_dynamic_resource_completer() {
+    let output = run_cctx(&["completions", "bash"]);
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("_aictx_enable_complete"),
+        "bash completions should define _aictx_enable_complete function"
+    );
+    assert!(
+        stdout.contains("~/.aictx/skills"),
+        "bash completions should scan ~/.aictx/skills"
+    );
+    assert!(
+        stdout.contains("claude"),
+        "bash completions should list claude as a CLI target"
+    );
+}
+
+#[test]
+fn completions_fish_contains_dynamic_resource_completer() {
+    let output = run_cctx(&["completions", "fish"]);
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("enable disable"),
+        "fish completions should target enable/disable subcommands"
+    );
+    assert!(
+        stdout.contains("~/.aictx/skills"),
+        "fish completions should scan ~/.aictx/skills"
+    );
+    assert!(
+        stdout.contains("claude"),
+        "fish completions should list claude as a CLI target"
+    );
+}
+
 // ── Config set/get roundtrip ────────────────────────────────────────────
 
 #[test]

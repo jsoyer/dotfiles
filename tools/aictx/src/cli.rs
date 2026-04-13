@@ -202,6 +202,9 @@ pub enum PluginAction {
     Search {
         /// Search query
         query: String,
+        /// Sort results: name, stars, updated (default: stars)
+        #[arg(long, default_value = "stars")]
+        sort: String,
     },
     /// Refresh resource cache from all sources
     Refresh,

@@ -116,6 +116,12 @@ pub struct RemoteResource {
     /// URL to fetch the actual content from (for download/install)
     #[serde(default)]
     pub download_url: String,
+    /// GitHub star count for the source repo (populated when available)
+    #[serde(default)]
+    pub stars: Option<u32>,
+    /// ISO-8601 timestamp of last update (populated when available)
+    #[serde(default)]
+    pub updated_at: Option<String>,
 }
 
 fn default_resource_type() -> ResourceType {
@@ -241,11 +247,13 @@ impl PluginManager {
         Ok(all)
     }
 
-    /// Fuzzy search by name, description, or tags.
-    pub fn search(&self, query: &str) -> Result<Vec<RemoteResource>> {
+    /// Fuzzy search by name, description, or tags, with optional sorting.
+    ///
+    /// `sort` values: `"stars"` (default), `"name"`, `"updated"`, `""` (cache order).
+    pub fn search(&self, query: &str, sort: &str) -> Result<Vec<RemoteResource>> {
         let query_lower = query.to_lowercase();
         let all = self.all_available()?;
-        Ok(all
+        let mut results: Vec<RemoteResource> = all
             .into_iter()
             .filter(|e| {
                 e.name.to_lowercase().contains(&query_lower)
@@ -254,7 +262,16 @@ impl PluginManager {
                         .iter()
                         .any(|t| t.to_lowercase().contains(&query_lower))
             })
-            .collect())
+            .collect();
+
+        match sort {
+            "stars" => results.sort_by(|a, b| b.stars.unwrap_or(0).cmp(&a.stars.unwrap_or(0))),
+            "name" => results.sort_by(|a, b| a.name.cmp(&b.name)),
+            "updated" => results.sort_by(|a, b| b.updated_at.cmp(&a.updated_at)),
+            _ => {} // default: preserve cache order
+        }
+
+        Ok(results)
     }
 
     /// Download and install a remote resource to the appropriate local dir.
@@ -499,6 +516,25 @@ pub fn add_source(
 
 // ── Fetch implementations ───────────────────────────────────────────────
 
+/// Fetch the star count for a GitHub repo (owner/repo).  Returns None on any
+/// network or parse failure so callers degrade gracefully.
+fn fetch_repo_stars(repo: &str) -> Option<u32> {
+    let url = format!("https://api.github.com/repos/{}", repo);
+    let output = std::process::Command::new("curl")
+        .args([
+            "-s",
+            "--max-time",
+            "3",
+            "-H",
+            "Accept: application/vnd.github.v3+json",
+            &url,
+        ])
+        .output()
+        .ok()?;
+    let json: serde_json::Value = serde_json::from_slice(&output.stdout).ok()?;
+    json.get("stargazers_count")?.as_u64().map(|n| n as u32)
+}
+
 fn fetch_source(source: &PluginSource) -> Result<Vec<RemoteResource>> {
     match source.source_type {
         SourceType::GithubRepo | SourceType::GithubMarketplace => fetch_github_repo(source),
@@ -511,6 +547,21 @@ fn fetch_github_repo(source: &PluginSource) -> Result<Vec<RemoteResource>> {
     let repo = source.repo.as_deref().unwrap_or_default();
     if repo.is_empty() {
         return Ok(vec![]);
+    }
+
+    // Fetch star count once per repo — applied to all resources from this source.
+    let repo_stars = fetch_repo_stars(repo);
+
+    /// Annotate all entries with the repo star count (if not already set).
+    fn annotate_stars(mut entries: Vec<RemoteResource>, stars: Option<u32>) -> Vec<RemoteResource> {
+        if let Some(s) = stars {
+            for e in &mut entries {
+                if e.stars.is_none() {
+                    e.stars = Some(s);
+                }
+            }
+        }
+        entries
     }
 
     // Try fetching a resources.json manifest from the repo
@@ -526,7 +577,7 @@ fn fetch_github_repo(source: &PluginSource) -> Result<Vec<RemoteResource>> {
     if output.status.success() {
         let text = String::from_utf8_lossy(&output.stdout);
         if let Ok(entries) = serde_json::from_str::<Vec<RemoteResource>>(&text) {
-            return Ok(entries);
+            return Ok(annotate_stars(entries, repo_stars));
         }
     }
 
@@ -542,7 +593,7 @@ fn fetch_github_repo(source: &PluginSource) -> Result<Vec<RemoteResource>> {
     if output.status.success() {
         let text = String::from_utf8_lossy(&output.stdout);
         if let Ok(entries) = serde_json::from_str::<Vec<RemoteResource>>(&text) {
-            return Ok(entries);
+            return Ok(annotate_stars(entries, repo_stars));
         }
     }
 
@@ -554,11 +605,8 @@ fn fetch_github_repo(source: &PluginSource) -> Result<Vec<RemoteResource>> {
 
     if output.status.success() {
         let text = String::from_utf8_lossy(&output.stdout);
-        return Ok(parse_markdown_resources(
-            &text,
-            &source.name,
-            &source.resources,
-        ));
+        let entries = parse_markdown_resources(&text, &source.name, &source.resources);
+        return Ok(annotate_stars(entries, repo_stars));
     }
 
     Ok(vec![])
@@ -669,6 +717,8 @@ fn parse_markdown_resources(
                         install_id: name.to_lowercase().replace(' ', "-"),
                         resource_type: current_type,
                         download_url,
+                        stars: None,
+                        updated_at: None,
                     });
                 }
             }
@@ -707,7 +757,9 @@ mod tests {
             install_id: "test-plugin".to_string(),
             resource_type: ResourceType::Skill,
             download_url: String::new(),
-        }];
+                                stars: None,
+                        updated_at: None,
+                        }];
 
         cache.write("test-src", &entries).unwrap();
         assert!(cache.is_fresh("test-src"));
@@ -784,7 +836,9 @@ mod tests {
                 install_id: "rust-analyzer".to_string(),
                 resource_type: ResourceType::Skill,
                 download_url: String::new(),
-            },
+                                    stars: None,
+                        updated_at: None,
+                        },
             RemoteResource {
                 name: "prettier".to_string(),
                 description: "Code formatter".to_string(),
@@ -794,13 +848,15 @@ mod tests {
                 install_id: "prettier".to_string(),
                 resource_type: ResourceType::Plugin,
                 download_url: String::new(),
-            },
+                                    stars: None,
+                        updated_at: None,
+                        },
         ];
         let json = serde_json::to_string(&entries).unwrap();
         std::fs::write(cache_dir.join("test.json"), json).unwrap();
 
         let pm = PluginManager::new(&tmp).unwrap();
-        let results = pm.search("rust").unwrap();
+        let results = pm.search("rust", "").unwrap();
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].name, "rust-analyzer");
 

@@ -554,17 +554,22 @@ fn run_plugin(config: &AppConfig, resolved: &ResolvedScope, action: PluginAction
                 }
             }
         }
-        PluginAction::Search { query } => {
+        PluginAction::Search { query, sort } => {
             let pm = plugins::PluginManager::new(&config.paths.config_dir)?;
-            let results = pm.search(&query)?;
+            let results = pm.search(&query, &sort)?;
             if results.is_empty() {
                 println!("No resources matching '{}'.", query);
             } else {
                 println!("Resources matching '{}' ({}):", query, results.len());
                 for entry in &results {
+                    let stars = entry.stars.map(|s| format!("* {}", s)).unwrap_or_default();
+                    let updated = entry.updated_at.as_deref()
+                        .map(|d| format!("[{}]", &d[..d.len().min(7)]))
+                        .unwrap_or_default();
                     println!(
-                        "  [{:<7}] {:<30} {} ({})",
-                        entry.resource_type, entry.install_id, entry.description, entry.source_name
+                        "  [{:<7}] {:<30} {}  {} {}  ({})",
+                        entry.resource_type, entry.install_id, entry.description,
+                        stars, updated, entry.source_name
                     );
                 }
             }
@@ -797,18 +802,98 @@ fn run_update(config: &AppConfig) -> Result<()> {
 
 // ── Completions command ─────────────────────────────────────────────────
 
+fn completions_dynamic_snippet(shell: clap_complete::Shell) -> &'static str {
+    match shell {
+        clap_complete::Shell::Zsh => {
+            r#"
+# Dynamic completions for aictx resource names
+_aictx_resources() {
+  local -a resources
+  local aictx_dir="${HOME}/.aictx"
+  if [[ -d "$aictx_dir/skills" ]]; then
+    resources+=("${(@f)$(ls "$aictx_dir/skills/" 2>/dev/null)}")
+  fi
+  if [[ -d "$aictx_dir/agents" ]]; then
+    for f in "$aictx_dir/agents/"*.md(N); do
+      resources+=("${f:t:r}")
+    done
+  fi
+  if [[ -d "$aictx_dir/commands" ]]; then
+    for f in "$aictx_dir/commands/"*.md(N); do
+      resources+=("${f:t:r}")
+    done
+  fi
+  if [[ -d "$aictx_dir/hooks" ]]; then
+    for f in "$aictx_dir/hooks/"*.sh(N); do
+      resources+=("${f:t:r}")
+    done
+  fi
+  _describe 'resource' resources
+}
+
+_aictx_cli_names() {
+  local -a clis
+  clis=(claude qwen vibe codex kimi opencode gemini-cli copilot-cli)
+  _describe 'cli' clis
+}
+
+# Override completions for enable/disable subcommands
+compdef '_arguments "1:resource:_aictx_resources" "--cli[CLI targets]:cli:_aictx_cli_names" "--type[Resource type]:(skill agent command hook)"' 'aictx enable'
+compdef '_arguments "1:resource:_aictx_resources" "--cli[CLI targets]:cli:_aictx_cli_names" "--type[Resource type]:(skill agent command hook)"' 'aictx disable'
+"#
+        }
+        clap_complete::Shell::Bash => {
+            r#"
+# Dynamic completions for aictx resource names
+_aictx_enable_complete() {
+  local cur="${COMP_WORDS[COMP_CWORD]}"
+  local prev="${COMP_WORDS[COMP_CWORD-1]}"
+  if [[ "$prev" == "--cli" ]]; then
+    COMPREPLY=($(compgen -W "claude qwen vibe codex kimi opencode gemini-cli copilot-cli" -- "$cur"))
+  elif [[ "$prev" == "--type" ]]; then
+    COMPREPLY=($(compgen -W "skill agent command hook" -- "$cur"))
+  else
+    local resources=""
+    [[ -d ~/.aictx/skills ]] && resources+=" $(ls ~/.aictx/skills/ 2>/dev/null)"
+    [[ -d ~/.aictx/agents ]] && resources+=" $(ls ~/.aictx/agents/ 2>/dev/null | sed 's/\.md$//')"
+    [[ -d ~/.aictx/commands ]] && resources+=" $(ls ~/.aictx/commands/ 2>/dev/null | sed 's/\.md$//')"
+    COMPREPLY=($(compgen -W "$resources" -- "$cur"))
+  fi
+}
+complete -F _aictx_enable_complete aictx_enable
+complete -F _aictx_enable_complete aictx_disable
+"#
+        }
+        clap_complete::Shell::Fish => {
+            r#"
+# Dynamic completions for aictx resource names
+complete -c aictx -n '__fish_seen_subcommand_from enable disable' -a '(ls ~/.aictx/skills/ 2>/dev/null; ls ~/.aictx/agents/ 2>/dev/null | string replace -r "\.md$" ""; ls ~/.aictx/commands/ 2>/dev/null | string replace -r "\.md$" "")'
+complete -c aictx -n '__fish_seen_subcommand_from enable disable' -l cli -a 'claude qwen vibe codex kimi opencode gemini-cli copilot-cli'
+complete -c aictx -n '__fish_seen_subcommand_from enable disable' -l type -a 'skill agent command hook'
+"#
+        }
+        _ => "",
+    }
+}
+
 fn run_completions(shell: clap_complete::Shell, install: bool) -> Result<()> {
     use clap::CommandFactory;
     let mut cmd = cli::Cli::command();
 
     if !install {
-        clap_complete::generate(shell, &mut cmd, "aictx", &mut std::io::stdout());
+        let mut buf = Vec::new();
+        clap_complete::generate(shell, &mut cmd, "aictx", &mut buf);
+        let snippet = completions_dynamic_snippet(shell);
+        buf.extend_from_slice(snippet.as_bytes());
+        std::io::Write::write_all(&mut std::io::stdout(), &buf)?;
         return Ok(());
     }
 
-    // Generate to buffer
+    // Generate to buffer, then append dynamic completion snippet
     let mut buf = Vec::new();
     clap_complete::generate(shell, &mut cmd, "aictx", &mut buf);
+    let snippet = completions_dynamic_snippet(shell);
+    buf.extend_from_slice(snippet.as_bytes());
     let content = String::from_utf8(buf)?;
 
     let home = dirs::home_dir().unwrap_or_else(|| std::path::PathBuf::from("/tmp"));
@@ -842,7 +927,7 @@ fn run_completions(shell: clap_complete::Shell, install: bool) -> Result<()> {
         }
     };
 
-    std::fs::write(&dest, content)?;
+    std::fs::write(&dest, &content)?;
     eprintln!("Installed completions to {}", dest.display());
     Ok(())
 }
