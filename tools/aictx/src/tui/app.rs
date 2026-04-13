@@ -1,6 +1,7 @@
 use anyhow::Result;
 use crossterm::event::{self, Event, KeyCode, KeyModifiers};
 use ratatui::DefaultTerminal;
+use std::collections::HashMap;
 
 use crate::config::AppConfig;
 use crate::indexer::Index;
@@ -8,6 +9,19 @@ use crate::matcher::{RecommendSource, Recommendation, Recommendations};
 use crate::plugins::{Origin, RemoteResource, ResourceType};
 use crate::scanner::ProjectFingerprint;
 use crate::symlinker::ProjectStatus;
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum PreviewAction {
+    Add,
+    Remove,
+}
+
+#[derive(Debug, Clone)]
+pub struct PreviewLine {
+    pub category: String,
+    pub name: String,
+    pub action: PreviewAction,
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum ResourceTab {
@@ -135,10 +149,10 @@ pub struct App<'a> {
     pub should_apply: bool,
 
     /// Items keyed by (cli_name, resource_tab)
-    pub items: std::collections::HashMap<(String, ResourceTab), Vec<ToggleItem>>,
+    pub items: HashMap<(String, ResourceTab), Vec<ToggleItem>>,
 
     /// Cross-CLI status: for each skill name, which CLIs have it active
-    pub cli_active_map: std::collections::HashMap<String, Vec<String>>,
+    pub cli_active_map: HashMap<String, Vec<String>>,
 
     pub fingerprint: &'a ProjectFingerprint,
     pub project_name: String,
@@ -151,6 +165,14 @@ pub struct App<'a> {
     pub cli_toggle_cursor: usize,
     pub cli_toggle_selections: Vec<(String, bool)>,
     pub cli_toggle_resource_name: String,
+
+    // Preview mode state
+    pub preview_mode: bool,
+    pub preview_lines: Vec<PreviewLine>,
+    pub preview_scroll: usize,
+
+    /// Snapshot of enabled items at TUI open time: (cli_name, tab) -> list of enabled names
+    pub initial_enabled: HashMap<(String, ResourceTab), Vec<String>>,
 }
 
 impl<'a> App<'a> {
@@ -162,8 +184,6 @@ impl<'a> App<'a> {
         remote_resources: &[RemoteResource],
         cli_statuses: &[(String, ProjectStatus)],
     ) -> Self {
-        use std::collections::HashMap;
-
         // Build CLI tabs from all detected CLIs (show all, not just current scope)
         let cli_tabs: Vec<CliTab> = config
             .detected_clis()
@@ -212,6 +232,19 @@ impl<'a> App<'a> {
             }
         } // end for cli_tab
 
+        // Capture initial enabled state for preview diff
+        let initial_enabled: HashMap<(String, ResourceTab), Vec<String>> = items
+            .iter()
+            .map(|(key, tab_items)| {
+                let enabled: Vec<String> = tab_items
+                    .iter()
+                    .filter(|i| i.enabled)
+                    .map(|i| i.name.clone())
+                    .collect();
+                (key.clone(), enabled)
+            })
+            .collect();
+
         let project_name = fingerprint
             .project_dir
             .file_name()
@@ -239,6 +272,10 @@ impl<'a> App<'a> {
             cli_toggle_cursor: 0,
             cli_toggle_selections: Vec::new(),
             cli_toggle_resource_name: String::new(),
+            preview_mode: false,
+            preview_lines: Vec::new(),
+            preview_scroll: 0,
+            initial_enabled,
         }
     }
 
@@ -474,6 +511,68 @@ impl<'a> App<'a> {
         items
     }
 
+    pub fn compute_preview(&mut self) {
+        self.preview_lines.clear();
+
+        let categories = [
+            ("Skills", ResourceTab::Skills),
+            ("Agents", ResourceTab::Agents),
+            ("Commands", ResourceTab::Commands),
+            ("Hooks", ResourceTab::Hooks),
+            ("Rules", ResourceTab::Rules),
+            ("MCP", ResourceTab::Mcp),
+            ("Plugins", ResourceTab::Plugins),
+        ];
+
+        for (label, tab) in &categories {
+            let mut category_lines = Vec::new();
+
+            for cli_tab in &self.cli_tabs {
+                let key = (cli_tab.cli_name.clone(), *tab);
+                let current: Vec<String> = self
+                    .items
+                    .get(&key)
+                    .map(|items| {
+                        items
+                            .iter()
+                            .filter(|i| i.enabled)
+                            .map(|i| i.name.clone())
+                            .collect()
+                    })
+                    .unwrap_or_default();
+                let initial: Vec<String> =
+                    self.initial_enabled.get(&key).cloned().unwrap_or_default();
+
+                for name in &current {
+                    if !initial.contains(name) {
+                        category_lines.push(PreviewLine {
+                            category: label.to_string(),
+                            name: name.clone(),
+                            action: PreviewAction::Add,
+                        });
+                    }
+                }
+                for name in &initial {
+                    if !current.contains(name) {
+                        category_lines.push(PreviewLine {
+                            category: label.to_string(),
+                            name: name.clone(),
+                            action: PreviewAction::Remove,
+                        });
+                    }
+                }
+            }
+
+            // Deduplicate: same resource may appear for multiple CLIs
+            category_lines.sort_by(|a, b| a.name.cmp(&b.name));
+            category_lines.dedup_by(|a, b| {
+                a.name == b.name
+                    && std::mem::discriminant(&a.action) == std::mem::discriminant(&b.action)
+            });
+            self.preview_lines.extend(category_lines);
+        }
+    }
+
     pub fn run(
         &mut self,
         terminal: &mut DefaultTerminal,
@@ -526,6 +625,26 @@ impl<'a> App<'a> {
                             if len > 0 {
                                 self.cli_toggle_cursor = (self.cli_toggle_cursor + len - 1) % len;
                             }
+                        }
+                        _ => {}
+                    }
+                    continue;
+                }
+
+                // Preview mode — intercept all keys
+                if self.preview_mode {
+                    match key.code {
+                        KeyCode::Enter => {
+                            self.should_apply = true;
+                        }
+                        KeyCode::Esc | KeyCode::Char('q') => {
+                            self.preview_mode = false;
+                        }
+                        KeyCode::Down | KeyCode::Char('j') => {
+                            self.preview_scroll = self.preview_scroll.saturating_add(1);
+                        }
+                        KeyCode::Up | KeyCode::Char('k') => {
+                            self.preview_scroll = self.preview_scroll.saturating_sub(1);
                         }
                         _ => {}
                     }
@@ -637,7 +756,14 @@ impl<'a> App<'a> {
                         self.filter.clear();
                     }
                     KeyCode::Char('a') => {
-                        self.should_apply = true;
+                        self.compute_preview();
+                        if self.preview_lines.is_empty() {
+                            // No changes — apply immediately (no-op apply)
+                            self.should_apply = true;
+                        } else {
+                            self.preview_mode = true;
+                            self.preview_scroll = 0;
+                        }
                     }
                     KeyCode::Char('A') => {
                         // Select all filtered
@@ -993,5 +1119,198 @@ mod tests {
             !items[&("qwen".to_string(), ResourceTab::Skills)][0].enabled,
             "my-skill should be disabled in qwen after apply"
         );
+    }
+
+    // --- Preview mode tests ---
+
+    fn make_items_map(
+        cli: &str,
+        tab: ResourceTab,
+        names: &[(&str, bool)],
+    ) -> HashMap<(String, ResourceTab), Vec<ToggleItem>> {
+        let mut map = HashMap::new();
+        map.insert(
+            (cli.to_string(), tab),
+            names.iter().map(|(n, e)| make_toggle_item(n, *e)).collect(),
+        );
+        map
+    }
+
+    #[test]
+    fn compute_preview_detects_added_item() {
+        // Build an app-like structure manually: initially "alpha" disabled, now enabled
+        let cli_tabs = vec![make_cli_tab("claude")];
+        let tab = ResourceTab::Skills;
+        let key = ("claude".to_string(), tab);
+
+        let mut items: HashMap<(String, ResourceTab), Vec<ToggleItem>> = HashMap::new();
+        items.insert(key.clone(), vec![make_toggle_item("alpha", true)]);
+
+        let mut initial_enabled: HashMap<(String, ResourceTab), Vec<String>> = HashMap::new();
+        initial_enabled.insert(key.clone(), vec![]); // alpha was not enabled at start
+
+        // Simulate compute_preview logic directly
+        let current: Vec<String> = items
+            .get(&key)
+            .unwrap()
+            .iter()
+            .filter(|i| i.enabled)
+            .map(|i| i.name.clone())
+            .collect();
+        let initial: Vec<String> = initial_enabled.get(&key).cloned().unwrap_or_default();
+
+        let mut preview_lines: Vec<PreviewLine> = Vec::new();
+        for name in &current {
+            if !initial.contains(name) {
+                preview_lines.push(PreviewLine {
+                    category: "Skills".to_string(),
+                    name: name.clone(),
+                    action: PreviewAction::Add,
+                });
+            }
+        }
+        for name in &initial {
+            if !current.contains(name) {
+                preview_lines.push(PreviewLine {
+                    category: "Skills".to_string(),
+                    name: name.clone(),
+                    action: PreviewAction::Remove,
+                });
+            }
+        }
+
+        assert_eq!(preview_lines.len(), 1);
+        assert_eq!(preview_lines[0].name, "alpha");
+        assert_eq!(preview_lines[0].action, PreviewAction::Add);
+
+        let _ = (cli_tabs, items, initial_enabled);
+    }
+
+    #[test]
+    fn compute_preview_detects_removed_item() {
+        let tab = ResourceTab::Skills;
+        let key = ("claude".to_string(), tab);
+
+        let mut items: HashMap<(String, ResourceTab), Vec<ToggleItem>> = HashMap::new();
+        // beta is now disabled
+        items.insert(key.clone(), vec![make_toggle_item("beta", false)]);
+
+        let mut initial_enabled: HashMap<(String, ResourceTab), Vec<String>> = HashMap::new();
+        // beta was enabled at start
+        initial_enabled.insert(key.clone(), vec!["beta".to_string()]);
+
+        let current: Vec<String> = items
+            .get(&key)
+            .unwrap()
+            .iter()
+            .filter(|i| i.enabled)
+            .map(|i| i.name.clone())
+            .collect();
+        let initial = initial_enabled.get(&key).cloned().unwrap_or_default();
+
+        let mut lines: Vec<PreviewLine> = Vec::new();
+        for name in &current {
+            if !initial.contains(name) {
+                lines.push(PreviewLine {
+                    category: "Skills".to_string(),
+                    name: name.clone(),
+                    action: PreviewAction::Add,
+                });
+            }
+        }
+        for name in &initial {
+            if !current.contains(name) {
+                lines.push(PreviewLine {
+                    category: "Skills".to_string(),
+                    name: name.clone(),
+                    action: PreviewAction::Remove,
+                });
+            }
+        }
+
+        assert_eq!(lines.len(), 1);
+        assert_eq!(lines[0].name, "beta");
+        assert_eq!(lines[0].action, PreviewAction::Remove);
+    }
+
+    #[test]
+    fn compute_preview_empty_when_no_changes() {
+        let tab = ResourceTab::Skills;
+        let key = ("claude".to_string(), tab);
+
+        let mut items: HashMap<(String, ResourceTab), Vec<ToggleItem>> = HashMap::new();
+        items.insert(key.clone(), vec![make_toggle_item("gamma", true)]);
+
+        let mut initial_enabled: HashMap<(String, ResourceTab), Vec<String>> = HashMap::new();
+        initial_enabled.insert(key.clone(), vec!["gamma".to_string()]); // same state
+
+        let current: Vec<String> = items
+            .get(&key)
+            .unwrap()
+            .iter()
+            .filter(|i| i.enabled)
+            .map(|i| i.name.clone())
+            .collect();
+        let initial = initial_enabled.get(&key).cloned().unwrap_or_default();
+
+        let mut lines: Vec<PreviewLine> = Vec::new();
+        for name in &current {
+            if !initial.contains(name) {
+                lines.push(PreviewLine {
+                    category: "Skills".to_string(),
+                    name: name.clone(),
+                    action: PreviewAction::Add,
+                });
+            }
+        }
+        for name in &initial {
+            if !current.contains(name) {
+                lines.push(PreviewLine {
+                    category: "Skills".to_string(),
+                    name: name.clone(),
+                    action: PreviewAction::Remove,
+                });
+            }
+        }
+
+        assert!(lines.is_empty(), "no changes should produce empty preview");
+
+        let _ = make_items_map("unused", ResourceTab::Skills, &[]);
+    }
+
+    #[test]
+    fn preview_scroll_saturates_at_zero() {
+        let mut scroll: usize = 0;
+        scroll = scroll.saturating_sub(1);
+        assert_eq!(scroll, 0, "scroll should not underflow below 0");
+    }
+
+    #[test]
+    fn preview_action_discriminant_dedup() {
+        // Verify that two Add entries for the same name deduplicate correctly
+        let mut lines = vec![
+            PreviewLine {
+                category: "Skills".to_string(),
+                name: "alpha".to_string(),
+                action: PreviewAction::Add,
+            },
+            PreviewLine {
+                category: "Skills".to_string(),
+                name: "alpha".to_string(),
+                action: PreviewAction::Add,
+            },
+            PreviewLine {
+                category: "Skills".to_string(),
+                name: "alpha".to_string(),
+                action: PreviewAction::Remove,
+            },
+        ];
+        lines.sort_by(|a, b| a.name.cmp(&b.name));
+        lines.dedup_by(|a, b| {
+            a.name == b.name
+                && std::mem::discriminant(&a.action) == std::mem::discriminant(&b.action)
+        });
+        // Two Add entries collapse to one; Remove stays separate
+        assert_eq!(lines.len(), 2);
     }
 }

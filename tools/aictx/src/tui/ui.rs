@@ -6,14 +6,14 @@ use ratatui::{
     Frame,
 };
 
-use super::app::{App, ResourceTab};
+use super::app::{App, PreviewAction, ResourceTab};
 use crate::doctor;
 use crate::plugins::Origin;
 
 // Catppuccin Mocha palette
 const BLUE: Color = Color::Rgb(137, 180, 250);
 const GREEN: Color = Color::Rgb(166, 227, 161);
-const _RED: Color = Color::Rgb(243, 139, 168);
+const RED: Color = Color::Rgb(243, 139, 168);
 const YELLOW: Color = Color::Rgb(249, 226, 175);
 const MAUVE: Color = Color::Rgb(203, 166, 247);
 const TEAL: Color = Color::Rgb(148, 226, 213);
@@ -43,7 +43,9 @@ pub fn draw(frame: &mut Frame, app: &App) {
     draw_content(frame, app, chunks[3]);
     draw_footer(frame, app, chunks[4]);
 
-    if app.cli_toggle_mode {
+    if app.preview_mode {
+        draw_preview(frame, app, chunks[3]);
+    } else if app.cli_toggle_mode {
         draw_cli_toggle(frame, app, chunks[3]);
     }
 }
@@ -388,7 +390,13 @@ fn draw_content(frame: &mut Frame, app: &App, area: Rect) {
 }
 
 fn draw_footer(frame: &mut Frame, app: &App, area: Rect) {
-    let keys = if app.filtering {
+    let keys = if app.preview_mode {
+        vec![
+            ("Enter", "confirm apply"),
+            ("Esc/q", "cancel"),
+            ("j/k", "scroll"),
+        ]
+    } else if app.filtering {
         vec![("Esc", "cancel"), ("Enter", "confirm"), ("type", "filter")]
     } else {
         vec![
@@ -408,7 +416,7 @@ fn draw_footer(frame: &mut Frame, app: &App, area: Rect) {
             ("i", "install"),
             ("t", "toggle CLIs"),
             ("A/N", "all/none"),
-            ("a", "apply"),
+            ("a", "preview+apply"),
             ("q", "quit"),
         ]
     };
@@ -434,6 +442,56 @@ fn draw_footer(frame: &mut Frame, app: &App, area: Rect) {
     );
 
     frame.render_widget(footer, area);
+}
+
+fn draw_preview(frame: &mut Frame, app: &App, area: Rect) {
+    frame.render_widget(Clear, area);
+
+    let block = Block::default()
+        .borders(Borders::ALL)
+        .title(" Preview — Enter: apply  Esc: cancel  j/k: scroll ")
+        .border_style(Style::default().fg(MAUVE));
+
+    let inner = block.inner(area);
+    frame.render_widget(block, area);
+
+    if app.preview_lines.is_empty() {
+        let p = Paragraph::new("  No changes to apply.");
+        frame.render_widget(p, inner);
+        return;
+    }
+
+    let mut lines: Vec<Line> = Vec::new();
+    let mut current_category = String::new();
+
+    for pl in &app.preview_lines {
+        if pl.category != current_category {
+            if !current_category.is_empty() {
+                lines.push(Line::from(""));
+            }
+            lines.push(Line::from(Span::styled(
+                format!("  {}", pl.category),
+                Style::default().fg(BLUE).add_modifier(Modifier::BOLD),
+            )));
+            current_category = pl.category.clone();
+        }
+
+        let (symbol, color) = match pl.action {
+            PreviewAction::Add => ("+", GREEN),
+            PreviewAction::Remove => ("-", RED),
+        };
+
+        lines.push(Line::from(Span::styled(
+            format!("    {} {}", symbol, pl.name),
+            Style::default().fg(color),
+        )));
+    }
+
+    // Apply scroll offset
+    let visible_lines: Vec<Line> = lines.into_iter().skip(app.preview_scroll).collect();
+
+    let paragraph = Paragraph::new(visible_lines);
+    frame.render_widget(paragraph, inner);
 }
 
 fn draw_cli_toggle(frame: &mut Frame, app: &App, area: Rect) {
