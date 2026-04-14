@@ -346,9 +346,16 @@ impl AppConfig {
             .filter(|cli| {
                 match &cli.detect {
                     None => true, // always present (e.g., claude)
-                    Some(_) => {
-                        // Fast check: if the CLI's config_dir exists, it's installed
+                    Some(cmd) => {
+                        // Fast: config_dir exists, or fallback: run detect command
                         cli.config_dir.exists()
+                            || std::process::Command::new("sh")
+                                .args(["-c", cmd])
+                                .stdout(std::process::Stdio::null())
+                                .stderr(std::process::Stdio::null())
+                                .status()
+                                .map(|s| s.success())
+                                .unwrap_or(false)
                     }
                 }
             })
