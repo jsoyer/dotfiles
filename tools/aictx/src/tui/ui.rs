@@ -334,13 +334,10 @@ fn draw_content(frame: &mut Frame, app: &App, area: Rect) {
                 ),
                 Span::styled(format!("{} ", checkbox_str), checkbox_style),
                 Span::styled(pin_prefix.to_string(), pin_style),
-                Span::styled(format!("{:<28}", item.name), name_style),
-                Span::raw("  "),
-                Span::styled(format!("{:<12}", status_label), status_style),
-                Span::raw("  "),
-                Span::styled(format!("[{}]", source_label), source_style),
-                Span::raw("  link "),
-                Span::styled(link_label.to_string(), link_style),
+                Span::styled(format!("[{}] ", source_label), source_style),
+                Span::styled(format!("{:<30}", item.name), name_style),
+                Span::styled(format!(" {:<10}", status_label), status_style),
+                Span::styled(format!(" {}", link_label), link_style),
                 Span::raw("  "),
             ];
             line_spans.extend(score_spans);
