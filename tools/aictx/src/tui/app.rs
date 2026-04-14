@@ -403,8 +403,11 @@ impl<'a> App<'a> {
         }
 
         items.sort_by(|a, b| {
+            let a_local = matches!(a.origin, Origin::Local);
+            let b_local = matches!(b.origin, Origin::Local);
             b.enabled
                 .cmp(&a.enabled)
+                .then(b_local.cmp(&a_local))
                 .then(b.suggested.cmp(&a.suggested))
                 .then(a.name.cmp(&b.name))
         });
@@ -1116,9 +1119,12 @@ impl<'a> App<'a> {
                 items.sort_by(|a, b| {
                     let a_pinned = pinned.contains(&a.name);
                     let b_pinned = pinned.contains(&b.name);
+                    let a_local = matches!(a.origin, Origin::Local);
+                    let b_local = matches!(b.origin, Origin::Local);
                     b_pinned
                         .cmp(&a_pinned)
                         .then(b.enabled.cmp(&a.enabled))
+                        .then(b_local.cmp(&a_local))
                         .then(b.suggested.cmp(&a.suggested))
                         .then(a.name.cmp(&b.name))
                 });

@@ -185,12 +185,16 @@ fn source_indicator(
 ) -> (&'static str, Style) {
     match item.origin {
         Origin::Local => (
-            "local",
-            Style::default().fg(theme.green).add_modifier(Modifier::DIM),
+            "L",
+            Style::default()
+                .fg(theme.green)
+                .add_modifier(Modifier::BOLD),
         ),
         Origin::Remote => (
-            "remote",
-            Style::default().fg(theme.blue).add_modifier(Modifier::DIM),
+            "R",
+            Style::default()
+                .fg(theme.peach)
+                .add_modifier(Modifier::BOLD),
         ),
     }
 }
@@ -334,7 +338,7 @@ fn draw_content(frame: &mut Frame, app: &App, area: Rect) {
                 Span::raw("  "),
                 Span::styled(format!("{:<12}", status_label), status_style),
                 Span::raw("  "),
-                Span::styled(format!("{:<8}", source_label), source_style),
+                Span::styled(format!("{:<2}", source_label), source_style),
                 Span::raw("  link "),
                 Span::styled(link_label.to_string(), link_style),
                 Span::raw("  "),
