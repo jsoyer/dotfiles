@@ -321,7 +321,7 @@ impl AppConfig {
                     project_dir: ".copilot".to_string(),
                     supports: vec!["skills".to_string()],
                     scopes: vec!["global".to_string()],
-                    detect: Some("which github-copilot-cli".to_string()),
+                    detect: Some("which copilot".to_string()),
                 },
             ],
         }
