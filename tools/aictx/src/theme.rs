@@ -148,6 +148,7 @@ impl Theme {
         }
     }
 
+    #[allow(dead_code)]
     pub fn available() -> &'static [&'static str] {
         &[
             "catppuccin-mocha",

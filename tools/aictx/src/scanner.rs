@@ -76,6 +76,7 @@ impl PatternsConfig {
 }
 
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct Workspace {
     pub name: String,
     pub path: PathBuf,
