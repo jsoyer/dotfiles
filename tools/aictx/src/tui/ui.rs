@@ -338,7 +338,7 @@ fn draw_content(frame: &mut Frame, app: &App, area: Rect) {
                 Span::raw("  "),
                 Span::styled(format!("{:<12}", status_label), status_style),
                 Span::raw("  "),
-                Span::styled(format!("{:<2}", source_label), source_style),
+                Span::styled(format!("[{}]", source_label), source_style),
                 Span::raw("  link "),
                 Span::styled(link_label.to_string(), link_style),
                 Span::raw("  "),
