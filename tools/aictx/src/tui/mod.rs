@@ -65,8 +65,22 @@ pub fn run(
         let before_status = crate::symlinker::status(config, resolved)
             .unwrap_or_else(|_| ProjectStatus::empty(resolved.scope));
 
-        let mut merged = crate::matcher::Recommendations::default();
-        for (_cli, recs) in &all_selections {
+        // Seed merged from claude's selections as the authoritative base.
+        // Claude is the only CLI that supports agents, commands, hooks, rules, mcp,
+        // and plugins in project scope — use its selections directly rather than
+        // attempting a union from all CLI tabs, which can lose items.
+        let mut merged = if let Some(claude_recs) = all_selections.get("claude") {
+            claude_recs.clone()
+        } else {
+            crate::matcher::Recommendations::default()
+        };
+        for (cli_name, recs) in &all_selections {
+            if cli_name == "claude" {
+                continue; // already seeded merged from claude above
+            }
+            // Non-claude CLIs only support skills (global scope only).
+            // Union their skills into the merged set, then defensively union
+            // any other resource types in case a custom config adds support.
             for s in &recs.skills {
                 if !merged.skills.iter().any(|m| m.name == s.name) {
                     merged.skills.push(s.clone());
