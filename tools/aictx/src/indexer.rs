@@ -41,9 +41,60 @@ pub struct Index {
 
 impl Index {
     pub fn build(config: &AppConfig) -> Result<Self> {
-        let skills = Self::index_dir(&config.paths.skills_dir, "skill")?;
-        let agents = Self::index_dir(&config.paths.agents_dir, "agent")?;
-        let commands = Self::index_dir(&config.paths.commands_dir, "command")?;
+        let mut skills = Self::index_dir(&config.paths.skills_dir, "skill")?;
+
+        // Also scan CLI skill directories and merge (dedup by name)
+        for cli in config.detected_clis() {
+            if cli.supports.contains(&"skills".to_string()) {
+                let cli_skills_dir = cli.config_dir.join("skills");
+                if cli_skills_dir.exists() && cli_skills_dir != config.paths.skills_dir {
+                    if let Ok(extra) = Self::index_dir(&cli_skills_dir, "skill") {
+                        for entry in extra {
+                            if !skills.iter().any(|s| s.name == entry.name) {
+                                skills.push(entry);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        let mut agents = Self::index_dir(&config.paths.agents_dir, "agent")?;
+
+        // Also scan CLI agent directories and merge (dedup by name)
+        for cli in config.detected_clis() {
+            if cli.supports.contains(&"agents".to_string()) {
+                let cli_agents_dir = cli.config_dir.join("agents");
+                if cli_agents_dir.exists() && cli_agents_dir != config.paths.agents_dir {
+                    if let Ok(extra) = Self::index_dir(&cli_agents_dir, "agent") {
+                        for entry in extra {
+                            if !agents.iter().any(|a| a.name == entry.name) {
+                                agents.push(entry);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        let mut commands = Self::index_dir(&config.paths.commands_dir, "command")?;
+
+        // Also scan CLI command directories and merge (dedup by name)
+        for cli in config.detected_clis() {
+            if cli.supports.contains(&"commands".to_string()) {
+                let cli_commands_dir = cli.config_dir.join("commands");
+                if cli_commands_dir.exists() && cli_commands_dir != config.paths.commands_dir {
+                    if let Ok(extra) = Self::index_dir(&cli_commands_dir, "command") {
+                        for entry in extra {
+                            if !commands.iter().any(|c| c.name == entry.name) {
+                                commands.push(entry);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         let hooks = Self::index_hooks_dir(&config.paths.hooks_dir)?;
 
         Ok(Self {

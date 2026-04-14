@@ -105,6 +105,7 @@ pub enum SortMode {
     Default, // enabled > suggested > alpha
     Score,   // highest score first
     Name,    // alphabetical
+    Origin,  // local first, then remote
 }
 
 impl SortMode {
@@ -112,7 +113,8 @@ impl SortMode {
         match self {
             SortMode::Default => SortMode::Score,
             SortMode::Score => SortMode::Name,
-            SortMode::Name => SortMode::Default,
+            SortMode::Name => SortMode::Origin,
+            SortMode::Origin => SortMode::Default,
         }
     }
 
@@ -122,6 +124,7 @@ impl SortMode {
             SortMode::Default => "default",
             SortMode::Score => "score",
             SortMode::Name => "name",
+            SortMode::Origin => "origin",
         }
     }
 }
@@ -1139,6 +1142,18 @@ impl<'a> App<'a> {
                     let a_pinned = pinned.contains(&a.name);
                     let b_pinned = pinned.contains(&b.name);
                     b_pinned.cmp(&a_pinned).then(a.name.cmp(&b.name))
+                });
+            }
+            SortMode::Origin => {
+                items.sort_by(|a, b| {
+                    let a_pinned = pinned.contains(&a.name);
+                    let b_pinned = pinned.contains(&b.name);
+                    let a_local = matches!(a.origin, Origin::Local);
+                    let b_local = matches!(b.origin, Origin::Local);
+                    b_pinned
+                        .cmp(&a_pinned)
+                        .then(b_local.cmp(&a_local))
+                        .then(a.name.cmp(&b.name))
                 });
             }
         }

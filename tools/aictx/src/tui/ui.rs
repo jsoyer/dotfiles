@@ -10,7 +10,6 @@ use super::app::{App, PreviewAction, ResourceTab};
 use crate::doctor;
 use crate::plugins::Origin;
 
-
 pub fn draw(frame: &mut Frame, app: &App) {
     let area = frame.area();
     let chunks = Layout::default()
@@ -61,7 +60,11 @@ fn draw_header(frame: &mut Frame, app: &App, area: Rect) {
     );
 
     let header = Paragraph::new(header_text)
-        .style(Style::default().fg(app.theme.blue).add_modifier(Modifier::BOLD))
+        .style(
+            Style::default()
+                .fg(app.theme.blue)
+                .add_modifier(Modifier::BOLD),
+        )
         .block(
             Block::default()
                 .borders(Borders::BOTTOM)
@@ -163,7 +166,10 @@ fn capitalize(s: &str) -> String {
     }
 }
 
-fn status_indicator(item: &super::app::ToggleItem, theme: &crate::theme::Theme) -> (&'static str, Style) {
+fn status_indicator(
+    item: &super::app::ToggleItem,
+    theme: &crate::theme::Theme,
+) -> (&'static str, Style) {
     if item.enabled {
         ("🟢 installed", Style::default().fg(theme.green))
     } else if item.available {
@@ -173,14 +179,26 @@ fn status_indicator(item: &super::app::ToggleItem, theme: &crate::theme::Theme) 
     }
 }
 
-fn source_indicator(item: &super::app::ToggleItem, theme: &crate::theme::Theme) -> (&'static str, Style) {
+fn source_indicator(
+    item: &super::app::ToggleItem,
+    theme: &crate::theme::Theme,
+) -> (&'static str, Style) {
     match item.origin {
-        Origin::Local => ("cache", Style::default().fg(theme.subtext)),
-        Origin::Remote => ("remote", Style::default().fg(theme.peach)),
+        Origin::Local => (
+            "local",
+            Style::default().fg(theme.green).add_modifier(Modifier::DIM),
+        ),
+        Origin::Remote => (
+            "remote",
+            Style::default().fg(theme.blue).add_modifier(Modifier::DIM),
+        ),
     }
 }
 
-fn symlink_indicator(item: &super::app::ToggleItem, theme: &crate::theme::Theme) -> (&'static str, Style) {
+fn symlink_indicator(
+    item: &super::app::ToggleItem,
+    theme: &crate::theme::Theme,
+) -> (&'static str, Style) {
     if item.enabled {
         ("✔", Style::default().fg(theme.green))
     } else {
@@ -220,7 +238,9 @@ fn draw_content(frame: &mut Frame, app: &App, area: Rect) {
             let (checkbox_str, checkbox_style) = if item.enabled {
                 (
                     "[x]",
-                    Style::default().fg(app.theme.green).add_modifier(Modifier::BOLD),
+                    Style::default()
+                        .fg(app.theme.green)
+                        .add_modifier(Modifier::BOLD),
                 )
             } else if item.suggested {
                 ("[~]", Style::default().fg(app.theme.mauve))
@@ -231,7 +251,9 @@ fn draw_content(frame: &mut Frame, app: &App, area: Rect) {
             // Name: white for active, mauve for suggested, dim for inactive
             // Blue+bold override when cursor is on it
             let name_style = if is_selected {
-                Style::default().fg(app.theme.blue).add_modifier(Modifier::BOLD)
+                Style::default()
+                    .fg(app.theme.blue)
+                    .add_modifier(Modifier::BOLD)
             } else if item.enabled {
                 Style::default().fg(app.theme.text)
             } else if item.suggested {
@@ -297,7 +319,9 @@ fn draw_content(frame: &mut Frame, app: &App, area: Rect) {
 
             let is_pinned = app.pinned.contains(&item.name);
             let pin_prefix = if is_pinned { "* " } else { "  " };
-            let pin_style = Style::default().fg(app.theme.yellow).add_modifier(Modifier::BOLD);
+            let pin_style = Style::default()
+                .fg(app.theme.yellow)
+                .add_modifier(Modifier::BOLD);
 
             let mut line_spans = vec![
                 Span::styled(
@@ -352,6 +376,7 @@ fn draw_content(frame: &mut Frame, app: &App, area: Rect) {
         super::app::SortMode::Default => "",
         super::app::SortMode::Score => " [sort: score]",
         super::app::SortMode::Name => " [sort: name]",
+        super::app::SortMode::Origin => " [sort: origin]",
     };
     let title = format!(" {}{}{}", rtab_label, sort_label, scroll_indicator);
 
@@ -370,11 +395,15 @@ fn draw_content(frame: &mut Frame, app: &App, area: Rect) {
             Line::from(vec![
                 Span::styled(
                     " / ",
-                    Style::default().fg(app.theme.yellow).add_modifier(Modifier::BOLD),
+                    Style::default()
+                        .fg(app.theme.yellow)
+                        .add_modifier(Modifier::BOLD),
                 ),
                 Span::styled(
                     &app.filter,
-                    Style::default().fg(app.theme.text).add_modifier(Modifier::BOLD),
+                    Style::default()
+                        .fg(app.theme.text)
+                        .add_modifier(Modifier::BOLD),
                 ),
                 Span::styled(
                     "_",
@@ -429,6 +458,7 @@ fn draw_footer(frame: &mut Frame, app: &App, area: Rect) {
                     super::app::SortMode::Default => "sort",
                     super::app::SortMode::Score => "sort:score",
                     super::app::SortMode::Name => "sort:name",
+                    super::app::SortMode::Origin => "sort:origin",
                 },
             ),
             ("/", "filter"),
@@ -449,7 +479,9 @@ fn draw_footer(frame: &mut Frame, app: &App, area: Rect) {
             vec![
                 Span::styled(
                     format!(" {} ", key),
-                    Style::default().fg(app.theme.yellow).add_modifier(Modifier::BOLD),
+                    Style::default()
+                        .fg(app.theme.yellow)
+                        .add_modifier(Modifier::BOLD),
                 ),
                 Span::styled(format!("{} ", desc), Style::default().fg(app.theme.subtext)),
                 Span::styled(" | ", Style::default().fg(app.theme.surface)),
@@ -493,7 +525,9 @@ fn draw_preview(frame: &mut Frame, app: &App, area: Rect) {
             }
             lines.push(Line::from(Span::styled(
                 format!("  {}", pl.category),
-                Style::default().fg(app.theme.blue).add_modifier(Modifier::BOLD),
+                Style::default()
+                    .fg(app.theme.blue)
+                    .add_modifier(Modifier::BOLD),
             )));
             current_category = pl.category.clone();
         }
@@ -548,12 +582,16 @@ fn draw_cli_toggle(frame: &mut Frame, app: &App, area: Rect) {
             let is_cursor = i == app.cli_toggle_cursor;
             let checkbox = if *enabled { "[x]" } else { "[ ]" };
             let checkbox_style = if *enabled {
-                Style::default().fg(app.theme.green).add_modifier(Modifier::BOLD)
+                Style::default()
+                    .fg(app.theme.green)
+                    .add_modifier(Modifier::BOLD)
             } else {
                 Style::default().fg(app.theme.overlay)
             };
             let name_style = if is_cursor {
-                Style::default().fg(app.theme.mauve).add_modifier(Modifier::BOLD)
+                Style::default()
+                    .fg(app.theme.mauve)
+                    .add_modifier(Modifier::BOLD)
             } else {
                 Style::default().fg(app.theme.subtext)
             };
@@ -575,12 +613,16 @@ fn draw_cli_toggle(frame: &mut Frame, app: &App, area: Rect) {
     lines.push(Line::from(vec![
         Span::styled(
             "  Space",
-            Style::default().fg(app.theme.yellow).add_modifier(Modifier::BOLD),
+            Style::default()
+                .fg(app.theme.yellow)
+                .add_modifier(Modifier::BOLD),
         ),
         Span::styled(": toggle  ", Style::default().fg(app.theme.subtext)),
         Span::styled(
             "Enter",
-            Style::default().fg(app.theme.yellow).add_modifier(Modifier::BOLD),
+            Style::default()
+                .fg(app.theme.yellow)
+                .add_modifier(Modifier::BOLD),
         ),
         Span::styled(": apply", Style::default().fg(app.theme.subtext)),
     ]));
@@ -618,7 +660,10 @@ fn draw_profile_selector(frame: &mut Frame, app: &App, area: Rect) {
 
     if app.profile_save_mode {
         let lines = vec![
-            Line::from(Span::styled("  Profile name:", Style::default().fg(app.theme.text))),
+            Line::from(Span::styled(
+                "  Profile name:",
+                Style::default().fg(app.theme.text),
+            )),
             Line::from(Span::styled(
                 format!("  > {}_", app.profile_save_input),
                 Style::default().fg(app.theme.green),
@@ -644,7 +689,9 @@ fn draw_profile_selector(frame: &mut Frame, app: &App, area: Rect) {
                 "  "
             };
             let style = if i == app.profile_cursor {
-                Style::default().fg(app.theme.mauve).add_modifier(Modifier::BOLD)
+                Style::default()
+                    .fg(app.theme.mauve)
+                    .add_modifier(Modifier::BOLD)
             } else {
                 Style::default().fg(app.theme.text)
             };
@@ -696,7 +743,9 @@ fn draw_global_search(frame: &mut Frame, app: &App, area: Rect) {
             };
             let tag = format!("[{:<8}]", tab.label());
             let style = if i == app.global_search_cursor {
-                Style::default().fg(app.theme.mauve).add_modifier(Modifier::BOLD)
+                Style::default()
+                    .fg(app.theme.mauve)
+                    .add_modifier(Modifier::BOLD)
             } else {
                 Style::default().fg(app.theme.text)
             };
