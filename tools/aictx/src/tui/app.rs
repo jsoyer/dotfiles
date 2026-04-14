@@ -634,6 +634,17 @@ impl<'a> App<'a> {
                 super::ui::draw(frame, self);
             })?;
 
+            // Check exit conditions BEFORE blocking on the next keypress.
+            // This matters for preview mode: Enter sets should_apply = true then
+            // `continue`s back to the top of the loop.  Without this early check
+            // the loop would block on event::read() waiting for a second keypress.
+            if self.should_quit {
+                return Ok(None);
+            }
+            if self.should_apply {
+                return Ok(Some(self.build_all_selections()));
+            }
+
             if let Event::Key(key) = event::read()? {
                 // Global search mode — intercept all keys
                 if self.global_search_mode {
@@ -1001,14 +1012,6 @@ impl<'a> App<'a> {
                     }
                     _ => {}
                 }
-            }
-
-            if self.should_quit {
-                return Ok(None);
-            }
-
-            if self.should_apply {
-                return Ok(Some(self.build_all_selections()));
             }
         }
     }
