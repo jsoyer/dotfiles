@@ -130,10 +130,7 @@ pub fn run(
             resolved.scope,
         );
 
-        crate::symlinker::apply(config, resolved, &merged)?;
-        println!("Applied successfully.");
-
-        // Process pending installs
+        // Process pending installs BEFORE apply so newly installed items can be symlinked
         if !pending_installs.is_empty() {
             let pm = PluginManager::new(&config.paths.config_dir)?;
             let all = pm.all_available().unwrap_or_default();
@@ -152,7 +149,52 @@ pub fn run(
                     }
                 }
             }
+
+            // Add freshly installed items to merged so they get symlinked by apply()
+            for name in &pending_installs {
+                if config.paths.skills_dir.join(name).exists() {
+                    if !merged.skills.iter().any(|r| r.name == *name) {
+                        merged.skills.push(crate::matcher::Recommendation {
+                            name: name.clone(),
+                            score: 0.0,
+                            reason: "installed".into(),
+                            source: crate::matcher::RecommendSource::Scanner,
+                        });
+                    }
+                } else if config
+                    .paths
+                    .agents_dir
+                    .join(format!("{}.md", name))
+                    .exists()
+                {
+                    if !merged.agents.iter().any(|r| r.name == *name) {
+                        merged.agents.push(crate::matcher::Recommendation {
+                            name: name.clone(),
+                            score: 0.0,
+                            reason: "installed".into(),
+                            source: crate::matcher::RecommendSource::Scanner,
+                        });
+                    }
+                } else if config
+                    .paths
+                    .commands_dir
+                    .join(format!("{}.md", name))
+                    .exists()
+                {
+                    if !merged.commands.iter().any(|r| r.name == *name) {
+                        merged.commands.push(crate::matcher::Recommendation {
+                            name: name.clone(),
+                            score: 0.0,
+                            reason: "installed".into(),
+                            source: crate::matcher::RecommendSource::Scanner,
+                        });
+                    }
+                }
+            }
         }
+
+        crate::symlinker::apply(config, resolved, &merged)?;
+        println!("Applied successfully.");
 
         // Process pending uninstalls
         if !pending_uninstalls.is_empty() {

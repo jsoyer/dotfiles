@@ -1146,7 +1146,25 @@ impl<'a> App<'a> {
 
     fn toggle_current(&mut self) {
         let filtered = self.filtered_items();
-        if let Some(&(real_idx, _)) = filtered.get(self.cursor) {
+        let info = filtered
+            .get(self.cursor)
+            .map(|&(idx, item)| (idx, item.origin, item.available, item.name.clone()));
+
+        if let Some((real_idx, origin, available, name)) = info {
+            // For remote (not-yet-installed) items, toggling ON auto-queues an install;
+            // toggling OFF removes it from the install queue instead of enabling/disabling.
+            if origin == Origin::Remote && !available {
+                if self.pending_installs.contains(&name) {
+                    self.pending_installs.retain(|n| n != &name);
+                    let items = self.active_items_mut();
+                    items[real_idx].reason = items[real_idx].reason.replace(" [INSTALL]", "");
+                } else {
+                    self.pending_installs.push(name.clone());
+                    let items = self.active_items_mut();
+                    items[real_idx].reason.push_str(" [INSTALL]");
+                }
+                return;
+            }
             let items = self.active_items_mut();
             items[real_idx].enabled = !items[real_idx].enabled;
         }
