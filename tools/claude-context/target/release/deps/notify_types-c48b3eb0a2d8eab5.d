@@ -1,0 +1,10 @@
+/Users/jeromesoyer/.local/share/chezmoi/tools/claude-context/target/release/deps/notify_types-c48b3eb0a2d8eab5.d: /Users/jeromesoyer/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/notify-types-1.0.1/src/lib.rs /Users/jeromesoyer/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/notify-types-1.0.1/src/debouncer_full.rs /Users/jeromesoyer/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/notify-types-1.0.1/src/debouncer_mini.rs /Users/jeromesoyer/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/notify-types-1.0.1/src/event.rs
+
+/Users/jeromesoyer/.local/share/chezmoi/tools/claude-context/target/release/deps/libnotify_types-c48b3eb0a2d8eab5.rlib: /Users/jeromesoyer/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/notify-types-1.0.1/src/lib.rs /Users/jeromesoyer/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/notify-types-1.0.1/src/debouncer_full.rs /Users/jeromesoyer/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/notify-types-1.0.1/src/debouncer_mini.rs /Users/jeromesoyer/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/notify-types-1.0.1/src/event.rs
+
+/Users/jeromesoyer/.local/share/chezmoi/tools/claude-context/target/release/deps/libnotify_types-c48b3eb0a2d8eab5.rmeta: /Users/jeromesoyer/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/notify-types-1.0.1/src/lib.rs /Users/jeromesoyer/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/notify-types-1.0.1/src/debouncer_full.rs /Users/jeromesoyer/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/notify-types-1.0.1/src/debouncer_mini.rs /Users/jeromesoyer/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/notify-types-1.0.1/src/event.rs
+
+/Users/jeromesoyer/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/notify-types-1.0.1/src/lib.rs:
+/Users/jeromesoyer/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/notify-types-1.0.1/src/debouncer_full.rs:
+/Users/jeromesoyer/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/notify-types-1.0.1/src/debouncer_mini.rs:
+/Users/jeromesoyer/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/notify-types-1.0.1/src/event.rs:

@@ -1,0 +1,8 @@
+/Users/jeromesoyer/.local/share/chezmoi/tools/claude-context/target/debug/deps/zeroize-af4d7d2e266982c3.d: /Users/jeromesoyer/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/zeroize-1.8.2/src/lib.rs /Users/jeromesoyer/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/zeroize-1.8.2/src/aarch64.rs
+
+/Users/jeromesoyer/.local/share/chezmoi/tools/claude-context/target/debug/deps/libzeroize-af4d7d2e266982c3.rlib: /Users/jeromesoyer/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/zeroize-1.8.2/src/lib.rs /Users/jeromesoyer/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/zeroize-1.8.2/src/aarch64.rs
+
+/Users/jeromesoyer/.local/share/chezmoi/tools/claude-context/target/debug/deps/libzeroize-af4d7d2e266982c3.rmeta: /Users/jeromesoyer/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/zeroize-1.8.2/src/lib.rs /Users/jeromesoyer/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/zeroize-1.8.2/src/aarch64.rs
+
+/Users/jeromesoyer/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/zeroize-1.8.2/src/lib.rs:
+/Users/jeromesoyer/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/zeroize-1.8.2/src/aarch64.rs:
