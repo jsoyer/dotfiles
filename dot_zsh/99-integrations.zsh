@@ -59,14 +59,6 @@ if (( $+commands[direnv] )); then
 fi
 
 # ============================================================================
-# Zoxide - Smarter cd command (cached init)
-# Must be initialized LAST among cd-hooking tools
-# ============================================================================
-if (( $+commands[zoxide] )); then
-  _cache_eval zoxide 'zoxide init --cmd cd zsh'
-fi
-
-# ============================================================================
 # OrbStack - Docker/Kubernetes alternative (macOS only)
 # ============================================================================
 if [[ "${IS_MACOS}" == "true" ]] && [[ -f ~/.orbstack/shell/init.zsh ]]; then
@@ -130,4 +122,13 @@ if (( $+commands[aictx] )); then
   }
   autoload -Uz add-zsh-hook
   add-zsh-hook chpwd _aictx_auto_apply
+fi
+
+# ============================================================================
+# Zoxide - Smarter cd command (cached init)
+# Must be initialized LAST — after all other cd-hooking tools and integrations
+# ============================================================================
+export _ZO_DOCTOR=0
+if (( $+commands[zoxide] )); then
+  _cache_eval zoxide 'zoxide init --cmd cd zsh'
 fi

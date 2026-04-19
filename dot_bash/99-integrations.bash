@@ -77,14 +77,6 @@ if command -v direnv >/dev/null 2>&1; then
 fi
 
 # ============================================================================
-# Zoxide - Smarter cd command (cached)
-# Must be initialized LAST among cd-hooking tools
-# ============================================================================
-if command -v zoxide >/dev/null 2>&1; then
-  _cache_eval zoxide 'zoxide init --cmd cd bash'
-fi
-
-# ============================================================================
 # OrbStack - Docker/Kubernetes alternative (macOS only)
 # ============================================================================
 if [[ "${IS_MACOS}" == "true" ]] && [[ -f ~/.orbstack/shell/init.bash ]]; then
@@ -152,6 +144,7 @@ command -v chezmoi >/dev/null 2>&1 && _chezmoi_bg_update
 
 # ============================================================================
 # ai-context auto-apply on cd (checks project-map.yaml)
+# Uses PROMPT_COMMAND to detect directory changes (compatible with zoxide)
 # ============================================================================
 if command -v aictx &>/dev/null; then
   _aictx_auto_apply() {
@@ -162,6 +155,21 @@ if command -v aictx &>/dev/null; then
       aictx apply --auto --yes &>/dev/null &
     fi
   }
-  _aictx_orig_cd() { builtin cd "$@" && _aictx_auto_apply; }
-  alias cd='_aictx_orig_cd'
+  _aictx_last_dir="$PWD"
+  _aictx_chpwd_check() {
+    if [[ "$PWD" != "$_aictx_last_dir" ]]; then
+      _aictx_last_dir="$PWD"
+      _aictx_auto_apply
+    fi
+  }
+  PROMPT_COMMAND="_aictx_chpwd_check${PROMPT_COMMAND:+;$PROMPT_COMMAND}"
+fi
+
+# ============================================================================
+# Zoxide - Smarter cd command (cached)
+# Must be initialized LAST — after all other cd-hooking tools and integrations
+# ============================================================================
+export _ZO_DOCTOR=0
+if command -v zoxide >/dev/null 2>&1; then
+  _cache_eval zoxide 'zoxide init --cmd cd bash'
 fi
