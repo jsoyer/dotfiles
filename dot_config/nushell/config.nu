@@ -1425,6 +1425,8 @@ def --env mkd [...args: string] {
 # ============================================================================
 # Claude Code
 # ============================================================================
+alias cc = claude --dangerously-skip-permissions
+alias ccc = claude --dangerously-skip-permissions -c
 alias cco = claude --model opus
 alias ccs = claude --model sonnet
 alias cch = claude --model haiku
