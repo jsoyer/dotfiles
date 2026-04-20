@@ -11,3 +11,6 @@ AGENTS.md
 .claude/
 .omc/
 .serena/
+
+# Rust build artifacts (tools/claude-context)
+tools/claude-context/target/
