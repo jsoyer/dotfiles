@@ -79,6 +79,7 @@ set -gx MACHINE_PROFILE "{{ .machine_profile }}"
 set -gx LANG en_US.UTF-8
 set -gx EDITOR nvim
 set -gx DOCKER_CONFIG $HOME/.docker
+set -gx BASH_MAX_OUTPUT_LENGTH 15000
 
 {{ if eq .chezmoi.os "darwin" -}}
 # Homebrew Cask appdir based on machine profile

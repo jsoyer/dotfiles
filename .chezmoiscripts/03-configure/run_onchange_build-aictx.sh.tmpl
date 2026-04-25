@@ -3,7 +3,7 @@
 # Build aictx from source if cargo is available
 # Managed by chezmoi — reruns when source files change
 
-# source hash: {{ glob "tools/aictx/src/**/*.rs" | join "\n" | sha256sum }}
+# source hash: {{ concat (glob "tools/aictx/src/**/*.rs") (glob "tools/aictx/Cargo.*") | join "\n" | sha256sum }}
 
 set -euo pipefail
 

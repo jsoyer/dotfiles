@@ -69,6 +69,7 @@ fi
 
 START_TS="$(date +%s)"
 ERRORS=()
+SKIP_UPDATE=false
 
 log "chezmoi-autoupdate started on ${HOSTNAME_SHORT}"
 
@@ -92,13 +93,23 @@ log "Phase A: auto-heal"
 ## A1. Git conflicts in chezmoi source dir
 if [[ -d "${CHEZMOI_SOURCE}/.git" ]]; then
     if git -C "${CHEZMOI_SOURCE}" status --porcelain 2>/dev/null | grep -q "^UU\|^AA\|^DD"; then
-        log "A1: Resolving git merge conflicts"
-        git -C "${CHEZMOI_SOURCE}" rebase --abort 2>/dev/null || true
-        git -C "${CHEZMOI_SOURCE}" merge --abort 2>/dev/null || true
-        git -C "${CHEZMOI_SOURCE}" reset --hard "origin/main" 2>/dev/null \
-            || git -C "${CHEZMOI_SOURCE}" reset --hard "origin/master" 2>/dev/null \
-            || ERRORS+=("A1: git reset failed")
-        log "A1: Reset to origin/main"
+        if [[ "${CHEZMOI_AUTOUPDATE_DESTRUCTIVE:-0}" == "1" ]]; then
+            log "A1: Resolving git merge conflicts destructively"
+            git -C "${CHEZMOI_SOURCE}" rebase --abort 2>/dev/null || true
+            git -C "${CHEZMOI_SOURCE}" merge --abort 2>/dev/null || true
+            git -C "${CHEZMOI_SOURCE}" reset --hard "origin/main" 2>/dev/null \
+                || git -C "${CHEZMOI_SOURCE}" reset --hard "origin/master" 2>/dev/null \
+                || ERRORS+=("A1: git reset failed")
+            log "A1: Reset to origin/main"
+        else
+            ERRORS+=("A1: git conflicts detected; manual intervention required")
+            SKIP_UPDATE=true
+            log "A1: Conflicts detected; skipping update in safe mode"
+        fi
+    elif [[ -n "$(git -C "${CHEZMOI_SOURCE}" status --porcelain 2>/dev/null)" ]]; then
+        ERRORS+=("A1: local chezmoi source changes present; skipping unattended update")
+        SKIP_UPDATE=true
+        log "A1: Local changes detected; skipping update"
     fi
 fi
 
@@ -177,16 +188,13 @@ if [[ "${NETWORK_METERED}" == "true" ]]; then
     log "Network is metered — heavy operations will be skipped"
 fi
 
-## A7. Ensure git remote is reachable (fallback SSH → HTTPS for headless machines)
+## A7. Check git remote reachability without mutating remote configuration
 if [[ -d "${CHEZMOI_SOURCE}/.git" ]]; then
     _remote_url="$(git -C "${CHEZMOI_SOURCE}" remote get-url origin 2>/dev/null || true)"
     if [[ "${_remote_url}" == git@* ]]; then
         # Test SSH connectivity to GitHub (2s timeout)
         if ! ssh -o BatchMode=yes -o ConnectTimeout=2 -o StrictHostKeyChecking=accept-new git@github.com 2>&1 | grep -qi "successfully"; then
-            # SSH failed — switch to HTTPS (works for public repos without auth)
-            _https_url="$(echo "${_remote_url}" | sed 's|git@github.com:|https://github.com/|')"
-            git -C "${CHEZMOI_SOURCE}" remote set-url origin "${_https_url}"
-            log "A7: SSH unavailable, switched remote to HTTPS (${_https_url})"
+            log "A7: SSH unavailable; leaving origin unchanged (${_remote_url})"
         fi
     fi
 fi
@@ -198,8 +206,11 @@ log "Phase B: chezmoi update"
 
 UPDATE_EXIT=0
 export CHEZMOI_AUTOUPDATE=1
-if command -v chezmoi >/dev/null 2>&1; then
-    chezmoi update --no-tty --keep-going --force >>"${LOG_FILE}" 2>&1 || UPDATE_EXIT=$?
+if [[ "${SKIP_UPDATE}" == "true" ]]; then
+    UPDATE_EXIT=1
+    log_err "chezmoi update skipped due to unsafe source state"
+elif command -v chezmoi >/dev/null 2>&1; then
+    chezmoi update --no-tty --keep-going >>"${LOG_FILE}" 2>&1 || UPDATE_EXIT=$?
     if [[ ${UPDATE_EXIT} -ne 0 ]]; then
         ERRORS+=("B: chezmoi update exited with code ${UPDATE_EXIT}")
         log_err "chezmoi update failed (exit ${UPDATE_EXIT})"
