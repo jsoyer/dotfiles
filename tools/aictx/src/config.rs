@@ -211,10 +211,7 @@ impl AppConfig {
                 .into_iter()
                 .map(String::from)
                 .collect(),
-                mcp: vec!["context7", "fetch", "github", "1password", "obsidian"]
-                    .into_iter()
-                    .map(String::from)
-                    .collect(),
+                mcp: vec![],
                 rules: vec!["common".to_string()],
                 plugins: vec![],
                 theme: default_theme(),

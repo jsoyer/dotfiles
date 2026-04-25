@@ -58,12 +58,8 @@ base:
     - update-docs
     - update-codemaps
 
-  mcp:
-    - context7
-    - fetch
-    - github
-    - 1password
-    - obsidian
+  # MCP selections are opt-in until server definitions are modeled explicitly.
+  mcp: []
 
   rules:
     - common
@@ -83,6 +79,7 @@ paths:
   skills_dir: "~/.aictx/skills"
   agents_dir: "~/.aictx/agents"
   commands_dir: "~/.aictx/commands"
+  hooks_dir: "~/.aictx/hooks"
   rules_dir: "~/.aictx/rules"
   config_dir: "~/.config/aictx"
   profiles_dir: "~/.config/aictx/profiles"
@@ -123,3 +120,15 @@ cli_registry:
     project_dir: ".opencode"
     supports: [skills]
     detect: "which opencode"
+
+  - name: gemini-cli
+    config_dir: "~/.gemini"
+    project_dir: ".gemini"
+    supports: [skills]
+    detect: "which gemini"
+
+  - name: copilot-cli
+    config_dir: "~/.copilot"
+    project_dir: ".copilot"
+    supports: [skills]
+    detect: "which copilot"

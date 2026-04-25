@@ -42,7 +42,9 @@ fn main() -> Result<()> {
         smart: false,
         offline: false,
     }) {
-        Command::Tui { smart, offline } => run_tui(&config, &resolved, smart, offline, cli.theme.clone()),
+        Command::Tui { smart, offline } => {
+            run_tui(&config, &resolved, smart, offline, cli.theme.clone())
+        }
         Command::Scan => run_scan(),
         Command::Apply {
             profile,
@@ -79,7 +81,13 @@ fn main() -> Result<()> {
     }
 }
 
-fn run_tui(config: &AppConfig, resolved: &ResolvedScope, smart: bool, offline: bool, theme_override: Option<String>) -> Result<()> {
+fn run_tui(
+    config: &AppConfig,
+    resolved: &ResolvedScope,
+    smart: bool,
+    offline: bool,
+    theme_override: Option<String>,
+) -> Result<()> {
     verbose!(
         "Scope: {} (target: {})",
         resolved.scope,
@@ -153,9 +161,7 @@ fn run_tui(config: &AppConfig, resolved: &ResolvedScope, smart: bool, offline: b
         })
         .collect();
 
-    let resolved_theme_name = theme_override
-        .as_deref()
-        .unwrap_or(&config.base.theme);
+    let resolved_theme_name = theme_override.as_deref().unwrap_or(&config.base.theme);
     let theme = theme::Theme::by_name(resolved_theme_name);
 
     tui::run(
@@ -984,32 +990,12 @@ _aictx_cli_names() {
         }
         clap_complete::Shell::Bash => {
             r#"
-# Dynamic completions for aictx resource names
-_aictx_enable_complete() {
-  local cur="${COMP_WORDS[COMP_CWORD]}"
-  local prev="${COMP_WORDS[COMP_CWORD-1]}"
-  if [[ "$prev" == "--cli" ]]; then
-    COMPREPLY=($(compgen -W "claude qwen vibe codex kimi opencode gemini-cli copilot-cli" -- "$cur"))
-  elif [[ "$prev" == "--type" ]]; then
-    COMPREPLY=($(compgen -W "skill agent command hook" -- "$cur"))
-  else
-    local resources=""
-    [[ -d ~/.aictx/skills ]] && resources+=" $(command ls ~/.aictx/skills/ 2>/dev/null)"
-    [[ -d ~/.aictx/agents ]] && resources+=" $(command ls ~/.aictx/agents/ 2>/dev/null | sed 's/\.md$//')"
-    [[ -d ~/.aictx/commands ]] && resources+=" $(command ls ~/.aictx/commands/ 2>/dev/null | sed 's/\.md$//')"
-    COMPREPLY=($(compgen -W "$resources" -- "$cur"))
-  fi
-}
-complete -F _aictx_enable_complete 'aictx enable'
-complete -F _aictx_enable_complete 'aictx disable'
+# No dynamic resource completions: top-level enable/disable commands do not exist.
 "#
         }
         clap_complete::Shell::Fish => {
             r#"
-# Dynamic completions for aictx resource names
-complete -c aictx -n '__fish_seen_subcommand_from enable disable' -a '(ls ~/.aictx/skills/ 2>/dev/null; ls ~/.aictx/agents/ 2>/dev/null | string replace -r "\.md$" ""; ls ~/.aictx/commands/ 2>/dev/null | string replace -r "\.md$" "")'
-complete -c aictx -n '__fish_seen_subcommand_from enable disable' -l cli -a 'claude qwen vibe codex kimi opencode gemini-cli copilot-cli'
-complete -c aictx -n '__fish_seen_subcommand_from enable disable' -l type -a 'skill agent command hook'
+# No dynamic resource completions: top-level enable/disable commands do not exist.
 "#
         }
         _ => "",

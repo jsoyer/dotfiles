@@ -319,20 +319,14 @@ impl PluginManager {
                     resource.name,
                     skill_dir.display()
                 );
-                println!(
-                    "  Run `aictx enable {}` to activate for your CLI tools.",
-                    resource.install_id
-                );
+                println!("  Run `aictx apply` or save/apply a profile to activate it.");
             }
             ResourceType::Agent => {
                 std::fs::create_dir_all(agents_dir)?;
                 let path = agents_dir.join(format!("{}.md", resource.install_id));
                 std::fs::write(&path, content.as_ref())?;
                 println!("Installed agent '{}' to {}", resource.name, path.display());
-                println!(
-                    "  Run `aictx enable {}` to activate for your CLI tools.",
-                    resource.install_id
-                );
+                println!("  Run `aictx apply` or save/apply a profile to activate it.");
             }
             ResourceType::Command => {
                 std::fs::create_dir_all(commands_dir)?;
@@ -343,10 +337,7 @@ impl PluginManager {
                     resource.name,
                     path.display()
                 );
-                println!(
-                    "  Run `aictx enable {}` to activate for your CLI tools.",
-                    resource.install_id
-                );
+                println!("  Run `aictx apply` or save/apply a profile to activate it.");
             }
             ResourceType::Hook => {
                 println!(
@@ -420,10 +411,7 @@ impl PluginManager {
                 if skill_dir.exists() {
                     std::fs::remove_dir_all(&skill_dir)?;
                     println!("Uninstalled skill '{}'", name);
-                    println!(
-                        "  Note: Run `aictx disable {}` to remove any active symlinks.",
-                        name
-                    );
+                    println!("  Note: Run `aictx reset` or re-apply your desired profile to remove active symlinks.");
                 } else {
                     bail!("Skill '{}' not found in {}", name, skills_dir.display());
                 }
@@ -433,10 +421,7 @@ impl PluginManager {
                 if path.exists() {
                     std::fs::remove_file(&path)?;
                     println!("Uninstalled agent '{}'", name);
-                    println!(
-                        "  Note: Run `aictx disable {}` to remove any active symlinks.",
-                        name
-                    );
+                    println!("  Note: Run `aictx reset` or re-apply your desired profile to remove active symlinks.");
                 } else {
                     bail!("Agent '{}' not found in {}", name, agents_dir.display());
                 }
@@ -446,10 +431,7 @@ impl PluginManager {
                 if path.exists() {
                     std::fs::remove_file(&path)?;
                     println!("Uninstalled command '{}'", name);
-                    println!(
-                        "  Note: Run `aictx disable {}` to remove any active symlinks.",
-                        name
-                    );
+                    println!("  Note: Run `aictx reset` or re-apply your desired profile to remove active symlinks.");
                 } else {
                     bail!("Command '{}' not found in {}", name, commands_dir.display());
                 }

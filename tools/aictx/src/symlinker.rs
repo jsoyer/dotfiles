@@ -260,14 +260,20 @@ pub fn reset(config: &AppConfig, resolved: &ResolvedScope) -> Result<()> {
         let target = cli_target_dir(cli, resolved);
 
         if resolved.supports_symlinks {
-            for subdir in ["skills", "agents", "commands", "hooks", "rules"] {
+            for (subdir, source_root) in [
+                ("skills", &config.paths.skills_dir),
+                ("agents", &config.paths.agents_dir),
+                ("commands", &config.paths.commands_dir),
+                ("hooks", &config.paths.hooks_dir),
+                ("rules", &config.paths.rules_dir),
+            ] {
                 let dir = target.join(subdir);
                 if dir.exists() {
-                    // Only remove symlinks, not real files
+                    // Only remove symlinks previously created from the aictx source tree.
                     if let Ok(entries) = std::fs::read_dir(&dir) {
                         for entry in entries.filter_map(|e| e.ok()) {
                             let path = entry.path();
-                            if path.read_link().is_ok() {
+                            if is_aictx_owned_symlink(&path, source_root) {
                                 std::fs::remove_file(&path)?;
                             }
                         }
@@ -423,10 +429,10 @@ fn create_symlinks(
     std::fs::create_dir_all(target_dir)
         .with_context(|| format!("Failed to create {}", target_dir.display()))?;
 
-    // Clean existing symlinks
+    // Clean existing aictx-owned symlinks only. Preserve user-managed links.
     if let Ok(entries) = std::fs::read_dir(target_dir) {
         for entry in entries.filter_map(|e| e.ok()) {
-            if entry.path().read_link().is_ok() {
+            if is_aictx_owned_symlink(&entry.path(), source_dir) {
                 std::fs::remove_file(entry.path())?;
             }
         }
@@ -451,6 +457,18 @@ fn create_symlinks(
                 let filename = source.file_name().unwrap();
                 target_dir.join(filename)
             };
+
+            if target.exists() || target.read_link().is_ok() {
+                if is_aictx_owned_symlink(&target, source_dir) {
+                    std::fs::remove_file(&target)?;
+                } else {
+                    eprintln!(
+                        "Skipping {} because it is not an aictx-owned symlink",
+                        target.display()
+                    );
+                    continue;
+                }
+            }
 
             #[cfg(unix)]
             std::os::unix::fs::symlink(&source, &target).with_context(|| {
@@ -477,7 +495,15 @@ fn create_symlinks(
 
 fn symlink_dir(source: &Path, target: &Path) -> Result<()> {
     if target.exists() || target.read_link().is_ok() {
-        std::fs::remove_file(target).or_else(|_| std::fs::remove_dir_all(target))?;
+        if is_aictx_owned_symlink(target, source.parent().unwrap_or(source)) {
+            std::fs::remove_file(target)?;
+        } else {
+            eprintln!(
+                "Skipping {} because it is not an aictx-owned symlink",
+                target.display()
+            );
+            return Ok(());
+        }
     }
 
     #[cfg(unix)]
@@ -487,6 +513,20 @@ fn symlink_dir(source: &Path, target: &Path) -> Result<()> {
     std::os::windows::fs::symlink_dir(source, target)?;
 
     Ok(())
+}
+
+fn is_aictx_owned_symlink(path: &Path, source_root: &Path) -> bool {
+    let Ok(link_target) = path.read_link() else {
+        return false;
+    };
+    let resolved_target = if link_target.is_absolute() {
+        link_target
+    } else {
+        path.parent()
+            .unwrap_or_else(|| Path::new("."))
+            .join(link_target)
+    };
+    resolved_target.starts_with(source_root)
 }
 
 /// Determine the settings file path based on scope.
@@ -519,6 +559,19 @@ fn merge_settings_file(path: &Path, extra_mcp: &[String], plugins: &[String]) ->
         serde_json::Map::new()
     };
 
+    // Record MCP server selections. aictx only tracks names here; concrete
+    // server definitions stay user-managed in the CLI's native config.
+    if !extra_mcp.is_empty() {
+        let mut enabled_mcp = serde_json::Map::new();
+        for server in extra_mcp {
+            enabled_mcp.insert(server.clone(), serde_json::Value::Bool(true));
+        }
+        settings.insert(
+            "enabledMcpServers".to_string(),
+            serde_json::Value::Object(enabled_mcp),
+        );
+    }
+
     // Merge plugins
     if !plugins.is_empty() {
         let mut enabled = serde_json::Map::new();
@@ -547,6 +600,7 @@ fn remove_cctx_keys_from_settings(path: &Path) -> Result<()> {
         serde_json::from_str(&content).unwrap_or_default();
 
     settings.remove("enabledPlugins");
+    settings.remove("enabledMcpServers");
 
     if settings.is_empty() {
         std::fs::remove_file(path)?;
@@ -645,7 +699,18 @@ fn read_settings_from_file(path: &Path) -> (Vec<String>, Vec<String>) {
         })
         .unwrap_or_default();
 
-    (Vec::new(), plugins)
+    let mcp = json
+        .get("enabledMcpServers")
+        .and_then(|v| v.as_object())
+        .map(|obj| {
+            obj.iter()
+                .filter(|(_, v)| v.as_bool().unwrap_or(false))
+                .map(|(k, _)| k.clone())
+                .collect()
+        })
+        .unwrap_or_default();
+
+    (mcp, plugins)
 }
 
 /// Set all plugins to enabled or disabled in a settings file.
@@ -721,5 +786,61 @@ impl ProjectStatus {
         if !self.agents.is_empty() {
             println!("  Active agents: {}", self.agents.join(", "));
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::is_aictx_owned_symlink;
+    use std::path::PathBuf;
+
+    #[cfg(unix)]
+    #[test]
+    fn owned_symlink_points_under_source_root() {
+        let root = std::env::temp_dir().join("aictx-owned-symlink-test");
+        let _ = std::fs::remove_dir_all(&root);
+        let source_root = root.join("source");
+        let target_root = root.join("target");
+        std::fs::create_dir_all(&source_root).unwrap();
+        std::fs::create_dir_all(&target_root).unwrap();
+        let source = source_root.join("skill");
+        std::fs::create_dir_all(&source).unwrap();
+        let link = target_root.join("skill");
+        std::os::unix::fs::symlink(&source, &link).unwrap();
+
+        assert!(is_aictx_owned_symlink(&link, &source_root));
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn foreign_symlink_is_not_owned() {
+        let root = std::env::temp_dir().join("aictx-foreign-symlink-test");
+        let _ = std::fs::remove_dir_all(&root);
+        let source_root = root.join("source");
+        let foreign_root = root.join("foreign");
+        let target_root = root.join("target");
+        std::fs::create_dir_all(&source_root).unwrap();
+        std::fs::create_dir_all(&foreign_root).unwrap();
+        std::fs::create_dir_all(&target_root).unwrap();
+        let foreign = foreign_root.join("skill");
+        std::fs::create_dir_all(&foreign).unwrap();
+        let link = target_root.join("skill");
+        std::os::unix::fs::symlink(&foreign, &link).unwrap();
+
+        assert!(!is_aictx_owned_symlink(&link, &source_root));
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn real_file_is_not_owned_symlink() {
+        let root = std::env::temp_dir().join("aictx-real-file-test");
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(&root).unwrap();
+        let file = root.join("file");
+        std::fs::write(&file, "not a symlink").unwrap();
+
+        assert!(!is_aictx_owned_symlink(&file, &PathBuf::from("/tmp/aictx")));
+        let _ = std::fs::remove_dir_all(&root);
     }
 }
