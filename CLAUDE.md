@@ -57,7 +57,7 @@ macOS, Fedora, Fedora Atomic, Toolbox, Arch, OmArchy, Ubuntu, RPi, Windows. GUI 
 - `CLAUDE.md`, `workflow/`, and `docs/` document the Compound/Context engineering process this workflow enforces.
 - `settings.json` centralizes permissions and hook wiring (PostToolUse/Stop/PreToolUse/UserPromptSubmit/etc.).
 - `hooks/` implements deterministic gates (quality, invariants, cleanup) that reference scripts in `hooks/lib/` and `workflow/`.
-- Skills and agents are sourced from `~/.aictx/` (deployed by chezmoi from `dot_aictx/`). `aictx enable/disable/apply` manages symlinks to each CLI.
+- Skills and agents are sourced from `~/.aictx/` (deployed by chezmoi from `dot_aictx/`). `aictx apply` and `aictx reset` manage symlinks to each CLI.
 - `aictx` keeps per-project overrides aligned by re-linking `~/.claude` agents/skills on every directory change (`aictx apply --auto`).
 
 ### Secret Management

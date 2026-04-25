@@ -18,6 +18,7 @@ This repository is the source of truth for chezmoi-managed dotfiles. Keep it foc
 - Prefer manifests over hardcoded package lists.
 - Any vendored upstream content needs provenance: source URL, commit/version, update command, and local patches.
 - Any tracked binary artifact needs source and checksum documentation.
+- Keep provenance in `docs/PROVENANCE.md` when adding or updating vendored resources or binary artifacts.
 
 ## Current Priorities
 
@@ -36,7 +37,7 @@ This repository is the source of truth for chezmoi-managed dotfiles. Keep it foc
    Align docs, CLI, and config. Either implement or remove documented commands like `enable` and `disable`. Make `--auto` meaningful or remove it. Only remove symlinks owned by `aictx`.
 
 5. Vendor provenance
-   Add provenance files for `dot_aictx`, `dot_claude`, and binary zellij plugins.
+   Keep `docs/PROVENANCE.md` current for `dot_aictx`, `dot_claude`, and binary zellij plugins.
 
 ## Follow-up Work Items
 
