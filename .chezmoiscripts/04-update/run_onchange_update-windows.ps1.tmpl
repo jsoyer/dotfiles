@@ -3,6 +3,11 @@
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 
+if ($env:CHEZMOI_AUTOUPDATE -eq '1' -and $env:CHEZMOI_AUTOUPDATE_UPGRADES -ne '1') {
+    Write-Host 'Skipping Scoop upgrades during unattended chezmoi autoupdate. Set CHEZMOI_AUTOUPDATE_UPGRADES=1 to opt in.' -ForegroundColor Yellow
+    exit 0
+}
+
 # Update Scoop packages
 if (-not (Get-Command scoop -ErrorAction SilentlyContinue)) {
     Write-Error "Scoop is not installed. Run the install script first."

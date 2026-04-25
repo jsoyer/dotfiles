@@ -12,6 +12,7 @@
 #   F  Save changelog marker (last-seen-commit)
 #
 # Env vars for notifications:
+#   CHEZMOI_AUTOUPDATE_UPGRADES — set to 1 to allow package upgrades during unattended autoupdate
 #   CHEZMOI_NTFY_TOPIC    — ntfy topic name
 #   CHEZMOI_NTFY_URL      — ntfy server URL (default: https://ntfy.sh)
 #   CHEZMOI_NTFY_TOKEN    — ntfy auth token (for self-hosted with auth)

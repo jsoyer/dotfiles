@@ -3,6 +3,12 @@
 # Update Homebrew packages
 
 set -euo pipefail
+
+if [[ "${CHEZMOI_AUTOUPDATE:-0}" == "1" && "${CHEZMOI_AUTOUPDATE_UPGRADES:-0}" != "1" ]]; then
+    echo "Skipping Homebrew upgrades during unattended chezmoi autoupdate. Set CHEZMOI_AUTOUPDATE_UPGRADES=1 to opt in."
+    exit 0
+fi
+
 eval "$(brew shellenv)"
 
 echo "Updating Homebrew..."

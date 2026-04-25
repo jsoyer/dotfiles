@@ -4,6 +4,11 @@
 
 set -euo pipefail
 
+if [[ "${CHEZMOI_AUTOUPDATE:-0}" == "1" && "${CHEZMOI_AUTOUPDATE_UPGRADES:-0}" != "1" ]]; then
+    echo "Skipping App Store upgrades during unattended chezmoi autoupdate. Set CHEZMOI_AUTOUPDATE_UPGRADES=1 to opt in."
+    exit 0
+fi
+
 echo "📱 Updating macOS App Store apps..."
 
 if command -v mas &> /dev/null; then
