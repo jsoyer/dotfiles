@@ -31,7 +31,7 @@ This repository is the source of truth for chezmoi-managed dotfiles. Keep it foc
    Unattended autoupdate sets `CHEZMOI_AUTOUPDATE=1`. Package upgrade scripts must skip in that mode unless `CHEZMOI_AUTOUPDATE_UPGRADES=1` is explicitly set. Manual `chezmoi apply` or direct script execution can still run upgrades.
 
 3. Package automation cleanup
-   Convert evolving package lists from `run_once` to `run_onchange`. Make Windows consume `Scoopfile.json`. Avoid swallowing important package manager failures with bare `|| true`.
+   Keep evolving package lists in manifests or `run_onchange` scripts. Windows consumes `dot_private/Scoopfile.json`.
 
 4. aictx correctness
    Align docs, CLI, and config. Either implement or remove documented commands like `enable` and `disable`. Make `--auto` meaningful or remove it. Only remove symlinks owned by `aictx`.

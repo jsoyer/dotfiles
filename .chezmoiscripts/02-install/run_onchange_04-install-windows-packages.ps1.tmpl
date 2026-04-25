@@ -5,6 +5,10 @@
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 
+$scoopManifest = @'
+{{ include "dot_private/Scoopfile.json" }}
+'@ | ConvertFrom-Json
+
 # =============================================================================
 # Install Scoop if not present
 # =============================================================================
@@ -18,13 +22,15 @@ if (-not (Get-Command scoop -ErrorAction SilentlyContinue)) {
 # Add buckets
 # =============================================================================
 Write-Host "Adding Scoop buckets..." -ForegroundColor Cyan
-if (-not (scoop bucket list | Select-String -Quiet 'extras'))        { scoop bucket add extras }
-if (-not (scoop bucket list | Select-String -Quiet 'versions'))      { scoop bucket add versions }
-if (-not (scoop bucket list | Select-String -Quiet 'nirsoft'))       { scoop bucket add nirsoft }
-if (-not (scoop bucket list | Select-String -Quiet 'sysinternals'))  { scoop bucket add sysinternals https://github.com/niheaven/scoop-sysinternals }
-if (-not (scoop bucket list | Select-String -Quiet 'nerd-fonts'))    { scoop bucket add nerd-fonts https://github.com/matthewjberger/scoop-nerd-fonts }
-if (-not (scoop bucket list | Select-String -Quiet 'nonportable'))   { scoop bucket add nonportable }
-if (-not (scoop bucket list | Select-String -Quiet 'java'))          { scoop bucket add java }
+foreach ($bucket in $scoopManifest.buckets) {
+    if (-not (scoop bucket list | Select-String -Quiet $bucket.name)) {
+        if ($bucket.source) {
+            scoop bucket add $bucket.name $bucket.source
+        } else {
+            scoop bucket add $bucket.name
+        }
+    }
+}
 
 # =============================================================================
 # Install packages
@@ -41,22 +47,17 @@ function Install-ScoopPackages {
 }
 
 Write-Host "Installing Scoop packages (main)..." -ForegroundColor Cyan
-Install-ScoopPackages @(
-    '1password-cli', '7zip', 'chezmoi', 'claude-code', 'codex',
-    'dark', 'docker', 'git', 'innounp', 'neovim', 'opencode', 'uv'
-)
-
-Write-Host "Installing Scoop packages (extras)..." -ForegroundColor Cyan
-Install-ScoopPackages @(
-    'brave', 'chatgpt', 'discord', 'googlechrome', 'komorebi',
-    'powertoys', 'sysinternals', 'tor-browser', 'vscode', 'whkd', 'zed'
-)
-
-Write-Host "Installing Scoop packages (versions - jdownloader)..." -ForegroundColor Cyan
-try { Install-ScoopPackages @('jdownloader') } catch { Write-Warning "jdownloader install failed (non-fatal): $_" }
-
-Write-Host "Installing Scoop packages (java)..." -ForegroundColor Cyan
-Install-ScoopPackages @('temurin25-jre')
+foreach ($app in $scoopManifest.apps) {
+    try {
+        Install-ScoopPackages @($app.name)
+    } catch {
+        if ($app.optional) {
+            Write-Warning "$($app.name) install failed (non-fatal): $_"
+        } else {
+            throw
+        }
+    }
+}
 
 Write-Host "Scoop setup complete." -ForegroundColor Green
 {{ end -}}

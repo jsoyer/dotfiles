@@ -2,10 +2,38 @@
   "buckets": [
     { "name": "main" },
     { "name": "extras" },
-    { "name": "versions" }
+    { "name": "versions" },
+    { "name": "nirsoft" },
+    { "name": "sysinternals", "source": "https://github.com/niheaven/scoop-sysinternals" },
+    { "name": "nerd-fonts", "source": "https://github.com/matthewjberger/scoop-nerd-fonts" },
+    { "name": "nonportable" },
+    { "name": "java" }
   ],
   "apps": [
+    { "name": "1password-cli", "bucket": "main" },
+    { "name": "7zip", "bucket": "main" },
     { "name": "git", "bucket": "main" },
-    { "name": "chezmoi", "bucket": "main" }
+    { "name": "chezmoi", "bucket": "main" },
+    { "name": "claude-code", "bucket": "main" },
+    { "name": "codex", "bucket": "main" },
+    { "name": "dark", "bucket": "main" },
+    { "name": "docker", "bucket": "main" },
+    { "name": "innounp", "bucket": "main" },
+    { "name": "neovim", "bucket": "main" },
+    { "name": "opencode", "bucket": "main" },
+    { "name": "uv", "bucket": "main" },
+    { "name": "brave", "bucket": "extras" },
+    { "name": "chatgpt", "bucket": "extras" },
+    { "name": "discord", "bucket": "extras" },
+    { "name": "googlechrome", "bucket": "extras" },
+    { "name": "komorebi", "bucket": "extras" },
+    { "name": "powertoys", "bucket": "extras" },
+    { "name": "sysinternals", "bucket": "extras" },
+    { "name": "tor-browser", "bucket": "extras" },
+    { "name": "vscode", "bucket": "extras" },
+    { "name": "whkd", "bucket": "extras" },
+    { "name": "zed", "bucket": "extras" },
+    { "name": "jdownloader", "bucket": "versions", "optional": true },
+    { "name": "temurin25-jre", "bucket": "java" }
   ]
 }
