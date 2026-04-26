@@ -19,6 +19,9 @@ This repository is the source of truth for chezmoi-managed dotfiles. Keep it foc
 - Any vendored upstream content needs provenance: source URL, commit/version, update command, and local patches.
 - Any tracked binary artifact needs source and checksum documentation.
 - Keep provenance in `docs/PROVENANCE.md` when adding or updating vendored resources or binary artifacts.
+- Audit tracked file size with `docs/LARGE_FILES.md` before adding new binaries or large vendored assets.
+- Use `cmupgrade` for manual package upgrades; unattended autoupdate must stay lightweight.
+- Use `chezmoi-test-scripts` before changing `.chezmoiscripts/` behavior.
 
 ## Current Priorities
 
@@ -29,6 +32,8 @@ This repository is the source of truth for chezmoi-managed dotfiles. Keep it foc
    Make `chezmoi-autoupdate` stop on conflicts or dirty state instead of resetting hard. Do not mutate Git remotes automatically. Split dotfile sync from package upgrades.
 
    Unattended autoupdate sets `CHEZMOI_AUTOUPDATE=1`. Package upgrade scripts must skip in that mode unless `CHEZMOI_AUTOUPDATE_UPGRADES=1` is explicitly set. Manual `chezmoi apply` or direct script execution can still run upgrades.
+
+   `chezmoi-autoupdate` must never wait for prompts. It runs source pull and apply as separate phases with stdin closed and `CHEZMOI_AUTOUPDATE_TIMEOUT` guarding each phase.
 
 3. Package automation cleanup
    Keep evolving package lists in manifests or `run_onchange` scripts. Windows consumes `dot_private/Scoopfile.json`.

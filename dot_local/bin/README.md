@@ -112,6 +112,35 @@ sync-mcp-servers --dry-run # Preview changes (chezmoi diff)
 
 ## Configuration & Development
 
+### cmupgrade
+
+**Purpose:** Manual package/system upgrade entry point. This keeps unattended `chezmoi-autoupdate` lightweight while preserving an explicit command for full upgrades.
+
+**Usage:**
+```bash
+cmupgrade --dry-run
+cmupgrade --yes
+```
+
+**What it does:**
+1. Runs available platform package upgrades (`brew`, `apt`, `dnf`, `pacman`, `rpm-ostree`, `flatpak`).
+2. Updates selected developer tools when present (`uv`, `claude`).
+3. Requires confirmation unless `--yes` or `--dry-run` is used.
+
+### chezmoi-test-scripts
+
+**Purpose:** Render `.chezmoiscripts/**/*.tmpl` and syntax-check rendered shell scripts.
+
+**Usage:**
+```bash
+chezmoi-test-scripts
+```
+
+**What it does:**
+1. Renders every script template with `chezmoi execute-template`.
+2. Runs `bash -n` on rendered shell scripts.
+3. Runs PowerShell parsing when `pwsh` is available.
+
 ### claude-init
 
 **Purpose:** Generate a `CLAUDE.md` file for the current project

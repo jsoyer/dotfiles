@@ -1,0 +1,54 @@
+#!/usr/bin/env bash
+# Render chezmoi script templates and syntax-check rendered scripts where possible.
+
+set -euo pipefail
+
+SOURCE_DIR="${CHEZMOI_SOURCE_PATH:-${HOME}/.local/share/chezmoi}"
+if [[ ! -d "${SOURCE_DIR}/.chezmoiscripts" ]]; then
+    SOURCE_DIR="$(pwd)"
+fi
+
+tmpdir="$(mktemp -d)"
+trap 'rm -rf "${tmpdir}"' EXIT
+
+failures=0
+checked=0
+rendered=0
+
+while IFS= read -r -d '' template; do
+    checked=$((checked + 1))
+    rel="${template#"${SOURCE_DIR}/"}"
+    out="${tmpdir}/${rel//\//__}"
+
+    if ! chezmoi --source "${SOURCE_DIR}" execute-template < "${template}" > "${out}"; then
+        printf 'render failed: %s\n' "${rel}" >&2
+        failures=$((failures + 1))
+        continue
+    fi
+
+    if [[ ! -s "${out}" ]]; then
+        continue
+    fi
+    rendered=$((rendered + 1))
+
+    first_line="$(sed -n '1p' "${out}")"
+    case "${first_line}:${rel}" in
+        *bash*:*|*sh*:*)
+            if ! bash -n "${out}"; then
+                printf 'bash syntax failed: %s\n' "${rel}" >&2
+                failures=$((failures + 1))
+            fi
+            ;;
+        *pwsh*:*|*powershell*:*|*.ps1.tmpl)
+            if command -v pwsh >/dev/null 2>&1; then
+                if ! pwsh -NoProfile -Command 'param([string]$Path) $errors = $null; [System.Management.Automation.PSParser]::Tokenize((Get-Content -Raw -LiteralPath $Path), [ref]$errors) | Out-Null; if ($errors) { throw $errors[0] }' "${out}"; then
+                    printf 'powershell syntax failed: %s\n' "${rel}" >&2
+                    failures=$((failures + 1))
+                fi
+            fi
+            ;;
+    esac
+done < <(find "${SOURCE_DIR}/.chezmoiscripts" -type f -name '*.tmpl' -print0 | sort -z)
+
+printf 'checked=%s rendered=%s failures=%s\n' "${checked}" "${rendered}" "${failures}"
+[[ "${failures}" -eq 0 ]]

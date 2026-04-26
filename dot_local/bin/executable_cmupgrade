@@ -1,0 +1,80 @@
+#!/usr/bin/env bash
+# Manual system/package upgrade entry point. Unattended chezmoi autoupdate does not call this.
+
+set -euo pipefail
+
+YES=false
+DRY_RUN=false
+
+usage() {
+    cat <<'EOF'
+Usage: cmupgrade [--yes] [--dry-run]
+
+Runs package upgrades manually for the current platform/profile.
+This is intentionally separate from chezmoi-autoupdate.
+EOF
+}
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --yes|-y) YES=true ;;
+        --dry-run|-n) DRY_RUN=true ;;
+        --help|-h) usage; exit 0 ;;
+        *) printf 'Unknown option: %s\n' "$1" >&2; usage >&2; exit 2 ;;
+    esac
+    shift
+done
+
+run() {
+    printf '+ %s\n' "$*"
+    if [[ "${DRY_RUN}" == "false" ]]; then
+        "$@"
+    fi
+}
+
+if [[ "${YES}" == "false" && "${DRY_RUN}" == "false" ]]; then
+    read -r -p "Run package upgrades on this machine? [y/N] " reply
+    case "${reply}" in
+        y|Y|yes|YES) ;;
+        *) printf 'Cancelled.\n'; exit 0 ;;
+    esac
+fi
+
+if command -v brew >/dev/null 2>&1; then
+    run brew update
+    run brew upgrade
+    run brew cleanup
+fi
+
+if command -v apt >/dev/null 2>&1; then
+    run sudo apt update
+    run sudo apt dist-upgrade -y
+    run sudo apt autoremove -y
+fi
+
+if command -v dnf >/dev/null 2>&1; then
+    run sudo dnf upgrade -y
+fi
+
+if command -v pacman >/dev/null 2>&1; then
+    run sudo pacman -Syu --noconfirm
+    if command -v yay >/dev/null 2>&1; then
+        run yay -Sua --noconfirm
+    fi
+fi
+
+if command -v rpm-ostree >/dev/null 2>&1; then
+    run sudo rpm-ostree upgrade
+fi
+
+if command -v flatpak >/dev/null 2>&1; then
+    run flatpak update -y
+fi
+
+if command -v uv >/dev/null 2>&1; then
+    run uv self update
+fi
+
+if command -v claude >/dev/null 2>&1; then
+    run claude update
+fi
