@@ -30,6 +30,7 @@ fi
 # ============================================================================
 path_prepend "${HOME}/.cargo/bin"
 path_prepend "${HOME}/.local/bin"
+path_prepend "${HOME}/.npm-global/bin"
 path_prepend "${HOME}/.opencode/bin"
 
 # ============================================================================
