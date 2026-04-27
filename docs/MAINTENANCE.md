@@ -47,7 +47,7 @@ This repository is the source of truth for chezmoi-managed dotfiles. Keep it foc
     Keep `docs/PROVENANCE.md` current for `dot_aictx`, `dot_claude`, and binary zellij plugins.
 
 6. Zellij plugin updates
-   Add a pinned Zellij plugin manifest and `update-zellij-plugins` command so WASM upgrades download to a temporary file, verify SHA-256, then replace tracked binaries only on checksum match. Track this in Beads issue `dotfiles-b49`.
+   Use the pinned Zellij plugin manifest and `update-zellij-plugins` command so WASM upgrades download to a temporary file, verify SHA-256, then replace tracked binaries only on checksum match.
 
 ## Follow-up Work Items
 
@@ -55,4 +55,4 @@ This repository is the source of truth for chezmoi-managed dotfiles. Keep it foc
 - Add tests around `aictx apply` symlink behavior and cleanup ownership.
 - Add a safe mode to `chezmoi-autoupdate` and make it the default.
 - Review `.chezmoi.toml.tmpl` auto-add, auto-commit, and auto-push defaults per machine profile.
-- Add a reproducible updater for Zellij WASM plugins (`dotfiles-b49`).
+- For Zellij WASM upgrades, run `update-zellij-plugins --check`, then bump individual plugins intentionally.

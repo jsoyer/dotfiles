@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "plugins": [
+    {
+      "name": "zjstatus",
+      "type": "github-release-asset",
+      "repo": "dj95/zjstatus",
+      "tag": "v0.22.0",
+      "asset": "zjstatus.wasm",
+      "url": "https://github.com/dj95/zjstatus/releases/download/v0.22.0/zjstatus.wasm",
+      "path": "dot_config/zellij/plugins/zjstatus.wasm",
+      "sha256": "4de426d20b1cbf861272e927aeeb5b49d92c17f0e2bb9d173f85bf7f0154dd53"
+    },
+    {
+      "name": "zellij-datetime",
+      "type": "github-release-asset",
+      "repo": "h1romas4/zellij-datetime",
+      "tag": "v0.21.0",
+      "asset": "zellij-datetime.wasm",
+      "url": "https://github.com/h1romas4/zellij-datetime/releases/download/v0.21.0/zellij-datetime.wasm",
+      "path": "dot_config/zellij/plugins/zellij-datetime.wasm",
+      "sha256": "a15321dcb9457b885c63d5e67041f3f299a87727f568cbe00c7df5404bac1041"
+    },
+    {
+      "name": "empty-zellij-sessionizer",
+      "type": "local-empty-placeholder",
+      "path": "dot_config/zellij/plugins/empty_zellij-sessionizer.wasm",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ]
+}

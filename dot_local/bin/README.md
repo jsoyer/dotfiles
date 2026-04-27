@@ -155,6 +155,24 @@ ai-resource-dedup-report > docs/.artifacts-ai-resource-dedup.md
 2. Reports identical, different, Claude-only, and aictx-only counts.
 3. Does not delete or modify resources.
 
+### update-zellij-plugins
+
+**Purpose:** Verify and intentionally upgrade tracked Zellij WASM plugins using a pinned lockfile.
+
+**Usage:**
+```bash
+update-zellij-plugins
+update-zellij-plugins --check
+update-zellij-plugins --bump zjstatus
+update-zellij-plugins --bump zellij-datetime
+```
+
+**What it does:**
+1. Reads `dot_config/zellij/plugins/plugins.lock.json`.
+2. Downloads release assets to temporary files.
+3. Verifies SHA-256 before replacing tracked `.wasm` files.
+4. Keeps new GitHub releases opt-in via `--bump`.
+
 ### claude-init
 
 **Purpose:** Generate a `CLAUDE.md` file for the current project

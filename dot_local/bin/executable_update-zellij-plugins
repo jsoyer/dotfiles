@@ -1,0 +1,199 @@
+#!/usr/bin/env python3
+"""Reproducibly verify or update tracked Zellij WASM plugins."""
+
+from __future__ import annotations
+
+import argparse
+import hashlib
+import json
+import os
+import sys
+import tempfile
+import urllib.error
+import urllib.request
+from pathlib import Path
+
+
+LOCK_PATH = Path("dot_config/zellij/plugins/plugins.lock.json")
+USER_AGENT = "dotfiles-update-zellij-plugins"
+
+
+def source_dir() -> Path:
+    configured = Path(os.environ.get("CHEZMOI_SOURCE_PATH", Path.home() / ".local/share/chezmoi"))
+    if (configured / LOCK_PATH).exists():
+        return configured
+    cwd = Path.cwd()
+    if (cwd / LOCK_PATH).exists():
+        return cwd
+    raise SystemExit(f"Could not find {LOCK_PATH}; run from chezmoi source or set CHEZMOI_SOURCE_PATH")
+
+
+def read_json(url: str) -> dict:
+    req = urllib.request.Request(url, headers={"Accept": "application/vnd.github+json", "User-Agent": USER_AGENT})
+    with urllib.request.urlopen(req, timeout=30) as response:
+        return json.loads(response.read().decode("utf-8"))
+
+
+def download(url: str, destination: Path) -> None:
+    req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
+    with urllib.request.urlopen(req, timeout=120) as response, destination.open("wb") as handle:
+        while True:
+            chunk = response.read(1024 * 1024)
+            if not chunk:
+                break
+            handle.write(chunk)
+
+
+def sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def load_lock(root: Path) -> dict:
+    with (root / LOCK_PATH).open() as handle:
+        return json.load(handle)
+
+
+def save_lock(root: Path, lock: dict) -> None:
+    path = root / LOCK_PATH
+    data = json.dumps(lock, indent=2, sort_keys=False) + "\n"
+    tmp = path.with_suffix(".json.tmp")
+    tmp.write_text(data)
+    tmp.replace(path)
+
+
+def remote_plugins(lock: dict) -> list[dict]:
+    return [plugin for plugin in lock["plugins"] if plugin.get("type") == "github-release-asset"]
+
+
+def find_plugin(lock: dict, name: str) -> dict:
+    for plugin in lock["plugins"]:
+        if plugin["name"] == name:
+            return plugin
+    raise SystemExit(f"Unknown plugin: {name}")
+
+
+def latest_release(plugin: dict) -> dict:
+    return read_json(f"https://api.github.com/repos/{plugin['repo']}/releases/latest")
+
+
+def find_asset(release: dict, asset_name: str) -> dict:
+    for asset in release.get("assets", []):
+        if asset.get("name") == asset_name:
+            return asset
+    raise SystemExit(f"Release {release.get('tag_name')} does not contain asset {asset_name}")
+
+
+def verify_or_install(root: Path, plugin: dict, dry_run: bool) -> bool:
+    target = root / plugin["path"]
+    expected = plugin["sha256"]
+
+    if plugin.get("type") == "local-empty-placeholder":
+        current = sha256(target) if target.exists() else "missing"
+        ok = current == expected
+        print(f"{plugin['name']}: {'ok' if ok else 'mismatch'} ({current})")
+        return ok
+
+    if target.exists() and sha256(target) == expected:
+        print(f"{plugin['name']}: ok ({plugin['tag']})")
+        return True
+
+    print(f"{plugin['name']}: installing pinned {plugin['tag']}")
+    with tempfile.NamedTemporaryFile(delete=False) as tmp_file:
+        tmp = Path(tmp_file.name)
+    try:
+        download(plugin["url"], tmp)
+        actual = sha256(tmp)
+        if actual != expected:
+            print(f"{plugin['name']}: checksum mismatch: expected {expected}, got {actual}", file=sys.stderr)
+            return False
+        if dry_run:
+            print(f"{plugin['name']}: dry-run, would replace {target}")
+            return True
+        target.parent.mkdir(parents=True, exist_ok=True)
+        tmp.replace(target)
+        print(f"{plugin['name']}: replaced {target}")
+        return True
+    finally:
+        if tmp.exists():
+            tmp.unlink()
+
+
+def check_latest(lock: dict) -> int:
+    outdated = 0
+    for plugin in remote_plugins(lock):
+        release = latest_release(plugin)
+        latest = release["tag_name"]
+        if latest == plugin["tag"]:
+            print(f"{plugin['name']}: pinned {plugin['tag']}, latest {latest} (ok)")
+        else:
+            outdated += 1
+            print(f"{plugin['name']}: pinned {plugin['tag']}, latest {latest}")
+    return outdated
+
+
+def bump(root: Path, lock: dict, name: str, dry_run: bool) -> None:
+    plugin = find_plugin(lock, name)
+    if plugin.get("type") != "github-release-asset":
+        raise SystemExit(f"{name} is not a GitHub release asset")
+
+    release = latest_release(plugin)
+    asset = find_asset(release, plugin["asset"])
+    latest = release["tag_name"]
+    url = asset["browser_download_url"]
+
+    if latest == plugin["tag"]:
+        print(f"{name}: already pinned to latest {latest}")
+        return
+
+    with tempfile.NamedTemporaryFile(delete=False) as tmp_file:
+        tmp = Path(tmp_file.name)
+    try:
+        print(f"{name}: downloading {latest}")
+        download(url, tmp)
+        actual = sha256(tmp)
+        target = root / plugin["path"]
+        print(f"{name}: {plugin['tag']} -> {latest}")
+        print(f"{name}: sha256 {actual}")
+        if dry_run:
+            print(f"{name}: dry-run, lock and {target} unchanged")
+            return
+        plugin["tag"] = latest
+        plugin["url"] = url
+        plugin["sha256"] = actual
+        save_lock(root, lock)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        tmp.replace(target)
+        print(f"{name}: updated lock and replaced {target}")
+    finally:
+        if tmp.exists():
+            tmp.unlink()
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--check", action="store_true", help="check latest GitHub releases without changing files")
+    parser.add_argument("--bump", metavar="PLUGIN", help="pin PLUGIN to its latest GitHub release and replace the WASM")
+    parser.add_argument("--dry-run", action="store_true", help="show intended changes without writing files")
+    args = parser.parse_args()
+
+    root = source_dir()
+    lock = load_lock(root)
+
+    if args.check:
+        return 1 if check_latest(lock) else 0
+    if args.bump:
+        bump(root, lock, args.bump, args.dry_run)
+        return 0
+
+    ok = True
+    for plugin in lock["plugins"]:
+        ok = verify_or_install(root, plugin, args.dry_run) and ok
+    return 0 if ok else 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
