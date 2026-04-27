@@ -160,7 +160,7 @@ Dotfiles management aliases and functions.
 | `cdiff` | `chezmoi diff` | Preview changes |
 | `cedit` | `chezmoi edit` | Edit dotfile |
 | `cadd` | `chezmoi add` | Add file to chezmoi |
-| `creadd` | `chezmoi re-add` | Re-add file (auto-commits + auto-pushes) |
+| `creadd` | `chezmoi re-add` | Re-add file to source tree; commit explicitly unless `CHEZMOI_AUTO_GIT=1` |
 | `cs` | `chezmoi status` | Status of managed files |
 | `ccd` | `chezmoi cd` | Navigate to chezmoi source |
 

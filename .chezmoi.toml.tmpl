@@ -1,7 +1,7 @@
 [git]
-    autoAdd = true
-    autoCommit = true
-    autoPush = true
+    autoAdd = {{ if eq (env "CHEZMOI_AUTO_GIT") "1" }}true{{ else }}false{{ end }}
+    autoCommit = {{ if eq (env "CHEZMOI_AUTO_GIT") "1" }}true{{ else }}false{{ end }}
+    autoPush = {{ if eq (env "CHEZMOI_AUTO_GIT") "1" }}true{{ else }}false{{ end }}
     commitMessageTemplateFile = ".commit_message.tmpl"
 
 [data]

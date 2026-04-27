@@ -12,10 +12,10 @@ Chezmoi-managed dotfiles for cross-platform configuration (macOS, Fedora, Arch, 
 chezmoi apply                     # Apply changes to home directory
 chezmoi diff                      # Preview what would be applied
 chezmoi update                    # Update from git and apply
-chezmoi re-add ~/.config/tool/x   # Re-add file (auto-commits + auto-pushes)
+chezmoi re-add ~/.config/tool/x   # Re-add file to the source tree
 ```
 
-Note: `chezmoi.toml` has `autoAdd`, `autoCommit`, and `autoPush` enabled.
+Note: broad `chezmoi.toml` Git automation is opt-in via `CHEZMOI_AUTO_GIT=1`; package wrappers commit their owned manifests explicitly.
 
 ## Chezmoi File Naming
 

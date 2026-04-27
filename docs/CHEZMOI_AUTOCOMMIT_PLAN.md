@@ -12,21 +12,21 @@ This repository currently relies on chezmoi automation and package-manager wrapp
 - Wrapper scripts may combine package installation side effects with Git side effects.
 - Multi-machine use can create unexpected rebase/conflict loops.
 
-## Recommended Target Defaults
+## Final Defaults
 
-- Personal primary workstation: allow wrapper-managed manifest commits, but keep broad `autoAdd` conservative.
-- Servers and unattended machines: no automatic commit or push; apply only committed source state.
-- CI/test destinations: never auto-commit or auto-push.
-- Package wrappers: keep explicit Git sync only for manifest changes they own.
+- Broad chezmoi `[git] autoAdd`, `autoCommit`, and `autoPush` are disabled by default.
+- Set `CHEZMOI_AUTO_GIT=1` only for an explicit interactive render if broad chezmoi Git automation is desired.
+- Package wrappers commit and push only the manifest files they own with explicit Git commands.
+- Servers, unattended machines, and CI should leave `CHEZMOI_AUTO_GIT` unset.
 
 ## Audit Steps
 
 1. Read `.chezmoi.toml.tmpl` and list current `autoAdd`, `autoCommit`, and `autoPush` values by profile.
 2. Map which scripts rely on chezmoi auto-commit behavior versus explicit `git` commands.
 3. Classify machine profiles into primary, secondary, server, toolbox, and CI.
-4. Propose profile-specific defaults without changing behavior in the first pass.
-5. Run `chezmoi execute-template < .chezmoi.toml.tmpl` for representative profiles.
-6. Change one profile class at a time and verify wrappers still update manifests correctly.
+4. Render `.chezmoi.toml.tmpl` with `CHEZMOI_AUTO_GIT` unset and verify all three global auto flags are false.
+5. Render with `CHEZMOI_AUTO_GIT=1` and verify all three global auto flags are true.
+6. Verify wrappers that previously used `chezmoi re-add` now commit their owned manifests explicitly.
 
 ## Rollback
 
@@ -34,6 +34,6 @@ This repository currently relies on chezmoi automation and package-manager wrapp
 - Run `chezmoi apply ~/.config/chezmoi/chezmoi.toml`.
 - Manually inspect `git status` before rerunning package wrappers.
 
-## Open Decision
+## Decision
 
-The main decision is whether `autoPush` should remain enabled on any machine. My recommendation is to keep automatic pushes only inside explicit wrapper scripts and disable broad chezmoi-level `autoPush` for unattended machines.
+Broad `autoPush` no longer remains enabled by default on any machine. Automatic pushes are limited to explicit wrapper scripts and only for wrapper-owned package manifests.

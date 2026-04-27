@@ -28,7 +28,7 @@ cup   # chezmoi update + brew upgrade/apt upgrade/dnf upgrade
 
 ```bash
 vim ~/.config/starship/starship-desktop.toml          # edit locally
-chezmoi re-add ~/.config/starship/starship-desktop.toml  # auto-commits + auto-pushes
+chezmoi re-add ~/.config/starship/starship-desktop.toml  # update source tree; commit explicitly unless CHEZMOI_AUTO_GIT=1
 ```
 
 ### Check for drift
@@ -55,7 +55,7 @@ dnf install ripgrep    # Fedora: dnfw handles Dnffile sync
 
 ```bash
 chezmoi add ~/.config/tool/config.toml
-# autoAdd + autoCommit + autoPush handles the rest
+# Commit explicitly; broad chezmoi Git automation is opt-in via CHEZMOI_AUTO_GIT=1
 ```
 
 ### Convert a file to a template

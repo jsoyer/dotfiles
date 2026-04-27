@@ -117,7 +117,7 @@ graph TD
     ALIAS --> WRAPPER[Wrapper script<br>breww / aptw / dnfw / ...]
     WRAPPER --> PKG[Package manager<br>installs package]
     WRAPPER --> MANIFEST[Updates manifest<br>Brewfile_* / Aptfile_* / ...]
-    MANIFEST --> GIT[autoCommit + autoPush<br>chezmoi syncs to GitHub]
+    MANIFEST --> GIT[explicit wrapper commit/push<br>syncs to GitHub]
     GIT --> OTHER[Other machines<br>chezmoi apply]
     OTHER --> ONCHANGE[run_onchange_<br>detects manifest hash change]
     ONCHANGE --> INSTALL[Installs missing<br>packages from manifest]

@@ -290,11 +290,11 @@ nvim ~/.config/alacritty/alacritty.toml
 # 2. Test your changes
 # (reload app, run commands, etc.)
 
-# 3. Sync to chezmoi (auto-commits & pushes!)
+# 3. Sync to chezmoi, then commit explicitly unless CHEZMOI_AUTO_GIT=1
 chezmoi re-add ~/.config/alacritty/alacritty.toml
 ```
 
-With `autoCommit` and `autoPush` enabled in your `chezmoi.toml`, this automatically:
+With `CHEZMOI_AUTO_GIT=1` at config render time, chezmoi can still auto-commit and auto-push. By default, broad chezmoi Git automation is disabled and wrapper scripts commit only their owned manifests.
 - ✅ Adds changes to chezmoi
 - ✅ Commits to git
 - ✅ Pushes to GitHub
@@ -607,9 +607,9 @@ Your `chezmoi.toml` is configured for **automatic synchronization**:
 
 ```toml
 [git]
-    autoAdd = true      # Automatically add changes
-    autoCommit = true   # Automatically commit
-    autoPush = true     # Automatically push to GitHub
+    autoAdd = false     # Opt in with CHEZMOI_AUTO_GIT=1
+    autoCommit = false  # Opt in with CHEZMOI_AUTO_GIT=1
+    autoPush = false    # Opt in with CHEZMOI_AUTO_GIT=1
 
 [data]
     name = "Jerome Soyer"

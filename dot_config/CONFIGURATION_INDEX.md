@@ -686,7 +686,7 @@ All configurations are managed with **Chezmoi** and synced to GitHub:
 
 **Repository**: `github.com/jsoyer/dotfiles`
 **Master Machine**: MacBook Pro
-**Auto-sync**: Enabled (autoCommit + autoPush)
+**Auto-sync**: Broad chezmoi auto-commit/push is opt-in via `CHEZMOI_AUTO_GIT=1`; wrappers sync owned manifests explicitly.
 
 ### Quick Commands
 ```bash

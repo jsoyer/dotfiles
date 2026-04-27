@@ -502,7 +502,7 @@ chezmoi apply
 chezmoi re-add dot_private/Aptfile_ubuntu_desktop
 ```
 
-This commits and pushes automatically (if `autoCommit` and `autoPush` are enabled).
+Wrapper scripts commit and push owned manifest changes explicitly. Plain `chezmoi re-add` updates the source tree; commit explicitly unless `CHEZMOI_AUTO_GIT=1` was used when rendering chezmoi config.
 
 ---
 

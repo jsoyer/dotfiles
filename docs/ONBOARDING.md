@@ -41,7 +41,7 @@ Make sure the config is correct before adding it to chezmoi.
 chezmoi add ~/.config/newtool/config.toml
 ```
 
-This copies the file to `dot_config/newtool/config.toml` in the source directory and (with `autoCommit` + `autoPush` enabled) commits and pushes it.
+This copies the file to `dot_config/newtool/config.toml` in the source directory. Commit explicitly unless you intentionally rendered chezmoi config with `CHEZMOI_AUTO_GIT=1`.
 
 **Step 4: Make it a template (if needed)**
 
@@ -78,12 +78,12 @@ Use the wrapper scripts -- they install the package **and** update the tracked m
 
 | Platform | Command | What happens |
 |----------|---------|-------------|
-| macOS | `brew install foo` | `breww` installs + updates `Brewfile_*` + auto-pushes |
-| Debian/Ubuntu | `apt install foo` | `aptw` installs + updates `Aptfile_*` + auto-pushes |
-| Fedora | `dnf install foo` | `dnfw` installs + updates `Dnffile_*` + auto-pushes |
-| Arch | `pacman -S foo` | `pacmanw` installs + updates `Pacfile_*` + auto-pushes |
-| Arch (AUR) | `yay -S foo` | `yayw` installs + updates `Pacfile_aur_*` + auto-pushes |
-| Windows | `scoop install foo` | `scoopw` installs + updates `Scoopfile.json` + auto-pushes |
+| macOS | `brew install foo` | `breww` installs + updates `Brewfile_*` + pushes wrapper-owned manifest changes |
+| Debian/Ubuntu | `apt install foo` | `aptw` installs + updates `Aptfile_*` + pushes wrapper-owned manifest changes |
+| Fedora | `dnf install foo` | `dnfw` installs + updates `Dnffile_*` + pushes wrapper-owned manifest changes |
+| Arch | `pacman -S foo` | `pacmanw` installs + updates `Pacfile_*` + pushes wrapper-owned manifest changes |
+| Arch (AUR) | `yay -S foo` | `yayw` installs + updates `Pacfile_aur_*` + pushes wrapper-owned manifest changes |
+| Windows | `scoop install foo` | `scoopw` installs + updates `Scoopfile.json` + pushes wrapper-owned manifest changes |
 
 The wrapper aliases are set up in `~/.zsh/10-aliases.zsh`.
 

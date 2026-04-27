@@ -16,6 +16,7 @@ trap 'rm -rf "${tmpdir}"' EXIT
 failures=0
 checked=0
 rendered=0
+diff_timeout="${CHEZMOI_TEST_TIMEOUT:-60}"
 
 while IFS= read -r -d '' template; do
     checked=$((checked + 1))
@@ -52,7 +53,7 @@ while IFS= read -r -d '' template; do
     esac
 done < <(find "${SOURCE_DIR}/.chezmoiscripts" -type f -name '*.tmpl' -print0 | sort -z)
 
-if ! chezmoi --source "${SOURCE_DIR}" --destination "${DESTINATION_DIR}" diff --no-tty --no-pager >/dev/null; then
+if ! timeout "${diff_timeout}s" chezmoi --source "${SOURCE_DIR}" --destination "${DESTINATION_DIR}" diff --no-tty --no-pager >/dev/null; then
     printf 'chezmoi diff failed for source=%s destination=%s\n' "${SOURCE_DIR}" "${DESTINATION_DIR}" >&2
     failures=$((failures + 1))
 fi

@@ -22,8 +22,10 @@ Each wrapper:
 1. Intercepts package manager command (via shell alias)
 2. Runs the actual package manager (e.g., `apt install`)
 3. Updates the profile-specific manifest file
-4. Commits and pushes to Git automatically (via chezmoi `autoCommit` + `autoPush`)
+4. Commits and pushes wrapper-owned manifest changes explicitly with Git
 5. Other machines detect the manifest hash change and install missing packages
+
+Chezmoi's broad `[git] autoAdd/autoCommit/autoPush` defaults are disabled unless `CHEZMOI_AUTO_GIT=1` is set while rendering `.chezmoi.toml.tmpl`. Package wrappers do not rely on those global settings.
 
 **Example workflow:**
 ```bash
@@ -442,7 +444,7 @@ Custom Chezmoi status indicator in prompt:
 brew install ripgrep              # macOS/Linux: breww intercepts
 # OR
 apt install ripgrep               # Debian/Ubuntu: aptw intercepts
-# Manifest updates + auto-commits
+# Manifest updates + explicit wrapper commits
 # Other machines run chezmoi apply and install ripgrep automatically
 ```
 

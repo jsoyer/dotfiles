@@ -25,6 +25,7 @@ This repository is the source of truth for chezmoi-managed dotfiles. Keep it foc
 - Use `chezmoi-test-scripts` before changing `.chezmoiscripts/` behavior.
 - Use `ai-resource-dedup-report` before removing duplicated `dot_claude` or `dot_aictx` resources.
 - Review `.chezmoi.toml.tmpl` auto-commit behavior with `docs/CHEZMOI_AUTOCOMMIT_PLAN.md` before changing defaults.
+- Keep broad chezmoi Git automation opt-in via `CHEZMOI_AUTO_GIT=1`; wrappers should commit only their owned manifests explicitly.
 
 ## Current Priorities
 
@@ -55,5 +56,5 @@ This repository is the source of truth for chezmoi-managed dotfiles. Keep it foc
 - Fix local `bd` runtime dependency so Beads can track this cleanup work again.
 - Add tests around `aictx apply` symlink behavior and cleanup ownership.
 - Add a safe mode to `chezmoi-autoupdate` and make it the default.
-- Review `.chezmoi.toml.tmpl` auto-add, auto-commit, and auto-push defaults per machine profile using `docs/CHEZMOI_AUTOCOMMIT_PLAN.md`.
+- Keep `.chezmoi.toml.tmpl` Git automation opt-in and wrapper-owned manifest sync explicit.
 - For Zellij WASM upgrades, run `update-zellij-plugins --check`, then bump individual plugins intentionally.
