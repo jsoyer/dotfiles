@@ -5,11 +5,11 @@
       "name": "zjstatus",
       "type": "github-release-asset",
       "repo": "dj95/zjstatus",
-      "tag": "v0.22.0",
+      "tag": "v0.23.0",
       "asset": "zjstatus.wasm",
-      "url": "https://github.com/dj95/zjstatus/releases/download/v0.22.0/zjstatus.wasm",
+      "url": "https://github.com/dj95/zjstatus/releases/download/v0.23.0/zjstatus.wasm",
       "path": "dot_config/zellij/plugins/zjstatus.wasm",
-      "sha256": "4de426d20b1cbf861272e927aeeb5b49d92c17f0e2bb9d173f85bf7f0154dd53"
+      "sha256": "e006901223524239db618021e4cc5d17f82dc4bfae5432895ba41f03f13861ff"
     },
     {
       "name": "zellij-datetime",

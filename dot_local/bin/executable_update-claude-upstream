@@ -20,12 +20,12 @@ PROVENANCE = Path("docs/PROVENANCE.md")
 
 
 def root_dir() -> Path:
-    configured = Path(os.environ.get("CHEZMOI_SOURCE_PATH", Path.home() / ".local/share/chezmoi"))
-    if (configured / MANIFEST).exists():
-        return configured
     cwd = Path.cwd()
     if (cwd / MANIFEST).exists():
         return cwd
+    configured = Path(os.environ.get("CHEZMOI_SOURCE_PATH", Path.home() / ".local/share/chezmoi"))
+    if (configured / MANIFEST).exists():
+        return configured
     raise SystemExit(f"Could not find {MANIFEST}; run from chezmoi source or set CHEZMOI_SOURCE_PATH")
 
 
@@ -63,11 +63,31 @@ def export_tree(repo_dir: Path, commit: str, destination: Path) -> None:
 def rel_files(directory: Path) -> set[Path]:
     if not directory.exists():
         return set()
-    return {path.relative_to(directory) for path in directory.rglob("*") if path.is_file()}
+    return {path.relative_to(directory) for path in directory.rglob("*") if path.is_file() or path.is_symlink()}
 
 
 def same(a: Path, b: Path) -> bool:
+    if a.is_symlink() or b.is_symlink():
+        return a.is_symlink() and b.is_symlink() and os.readlink(a) == os.readlink(b)
     return a.exists() and b.exists() and filecmp.cmp(a, b, shallow=False)
+
+
+def chezmoi_target_rel(path: Path) -> Path:
+    translated = []
+    for part in path.parts:
+        for prefix in ("executable_", "private_", "symlink_", "dot_"):
+            if part.startswith(prefix):
+                part = part.removeprefix(prefix)
+                break
+        translated.append(part)
+    return Path(*translated)
+
+
+def local_files_by_target(local_dir: Path) -> dict[Path, Path]:
+    files: dict[Path, Path] = {}
+    for rel in sorted(rel_files(local_dir)):
+        files[chezmoi_target_rel(rel)] = rel
+    return files
 
 
 def is_binary(path: Path) -> bool:
@@ -81,6 +101,10 @@ def copy_file(src: Path, dst: Path, dry_run: bool) -> None:
     if dry_run:
         return
     dst.parent.mkdir(parents=True, exist_ok=True)
+    if src.is_symlink():
+        dst.unlink(missing_ok=True)
+        os.symlink(os.readlink(src), dst)
+        return
     shutil.copy2(src, dst)
 
 
@@ -193,20 +217,26 @@ def patch_report(root: Path, manifest: dict) -> int:
         export_tree(repo_dir, pinned_full, base_dir)
 
         base_files = rel_files(base_dir)
-        local_files = rel_files(local_dir)
-        local_only = sorted(local_files - base_files)
-        upstream_missing = sorted(base_files - local_files)
-        locally_modified = sorted(rel for rel in base_files & local_files if not same(base_dir / rel, local_dir / rel))
-        identical = sorted(rel for rel in base_files & local_files if same(base_dir / rel, local_dir / rel))
+        local_by_target = local_files_by_target(local_dir)
+        local_targets = set(local_by_target)
+        local_only = sorted(local_targets - base_files)
+        upstream_missing = sorted(base_files - local_targets)
+        common = base_files & local_targets
+        locally_modified = sorted(rel for rel in common if not same(base_dir / rel, local_dir / local_by_target[rel]))
+        identical = sorted(rel for rel in common if same(base_dir / rel, local_dir / local_by_target[rel]))
 
         print(f"dot_claude local patch report against upstream {pinned_full[:8]}")
         print(f"identical_to_upstream: {len(identical)}")
         print(f"locally_modified: {len(locally_modified)}")
         for rel in locally_modified:
-            print(f"  M {rel}")
+            local_rel = local_by_target[rel]
+            suffix = f" ({local_rel})" if local_rel != rel else ""
+            print(f"  M {rel}{suffix}")
         print(f"local_only: {len(local_only)}")
         for rel in local_only:
-            print(f"  A {rel}")
+            local_rel = local_by_target[rel]
+            suffix = f" ({local_rel})" if local_rel != rel else ""
+            print(f"  A {rel}{suffix}")
         print(f"upstream_missing_locally: {len(upstream_missing)}")
         for rel in upstream_missing:
             print(f"  D {rel}")

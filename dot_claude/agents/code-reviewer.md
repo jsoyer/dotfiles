@@ -5,7 +5,7 @@ description: >
   catch issues the executor might have missed, and check adherence to project
   patterns. Cannot modify files.
 model: sonnet
-tools: Read, Grep, Glob
+tools: Read, Grep, Glob, LSP
 permissionMode: readonly
 ---
 
@@ -23,6 +23,17 @@ and report findings. You CANNOT and SHOULD NOT modify any files.
 5. **Tests**: Do tests verify behavior or just output? Any missing coverage?
 6. **Coherence**: Is the code consistent with the rest of the codebase?
 7. **Spec-Implementation Reconciliation**: Verify that auth types, config constants, API contracts, and integration definitions in the sprint spec match the implemented code. Flag any divergence where the implementation changed approach without updating the spec.
+
+## Using LSP for Deeper Review
+
+When reviewing a changed function/symbol, prefer LSP over Grep:
+
+- `findReferences` — list every call site of a renamed/modified symbol. If the sprint renamed a function, any call site not updated is a BLOCKING issue.
+- `goToDefinition` — follow imports to confirm the real implementation (not a shadowed name)
+- `hover` / `documentSymbol` — check type signatures match the spec's declared contracts
+- `incomingCalls` / `outgoingCalls` — understand blast radius before approving
+
+Use LSP BEFORE reporting PASS on renames, signature changes, or shared-contract modifications.
 
 ## Output Format
 

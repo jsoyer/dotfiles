@@ -175,7 +175,7 @@ update-claude-upstream --update
 2. Builds a three-way merge: pinned upstream base, latest upstream, local `dot_claude/`.
 3. Preserves local-only patches and writes conflict markers when upstream and local edits overlap.
 4. Updates the upstream pin only after a clean update.
-5. Reports local patch inventory against the pinned upstream snapshot with `--patch-report`.
+5. Reports local patch inventory against the pinned upstream snapshot with `--patch-report`, normalizing chezmoi prefixes such as `executable_` and `symlink_`.
 
 ### verify-claude-vendor
 

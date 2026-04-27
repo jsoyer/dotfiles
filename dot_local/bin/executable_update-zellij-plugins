@@ -7,6 +7,7 @@ import argparse
 import hashlib
 import json
 import os
+import shutil
 import sys
 import tempfile
 import urllib.error
@@ -19,12 +20,12 @@ USER_AGENT = "dotfiles-update-zellij-plugins"
 
 
 def source_dir() -> Path:
-    configured = Path(os.environ.get("CHEZMOI_SOURCE_PATH", Path.home() / ".local/share/chezmoi"))
-    if (configured / LOCK_PATH).exists():
-        return configured
     cwd = Path.cwd()
     if (cwd / LOCK_PATH).exists():
         return cwd
+    configured = Path(os.environ.get("CHEZMOI_SOURCE_PATH", Path.home() / ".local/share/chezmoi"))
+    if (configured / LOCK_PATH).exists():
+        return configured
     raise SystemExit(f"Could not find {LOCK_PATH}; run from chezmoi source or set CHEZMOI_SOURCE_PATH")
 
 
@@ -144,10 +145,13 @@ def bump(root: Path, lock: dict, name: str, dry_run: bool) -> None:
     asset = find_asset(release, plugin["asset"])
     latest = release["tag_name"]
     url = asset["browser_download_url"]
+    target = root / plugin["path"]
 
     if latest == plugin["tag"]:
-        print(f"{name}: already pinned to latest {latest}")
-        return
+        if target.exists() and sha256(target) == plugin["sha256"]:
+            print(f"{name}: already pinned to latest {latest}")
+            return
+        print(f"{name}: lock is current but tracked asset needs refresh")
 
     with tempfile.NamedTemporaryFile(delete=False) as tmp_file:
         tmp = Path(tmp_file.name)
@@ -155,7 +159,6 @@ def bump(root: Path, lock: dict, name: str, dry_run: bool) -> None:
         print(f"{name}: downloading {latest}")
         download(url, tmp)
         actual = sha256(tmp)
-        target = root / plugin["path"]
         print(f"{name}: {plugin['tag']} -> {latest}")
         print(f"{name}: sha256 {actual}")
         if dry_run:
@@ -166,7 +169,7 @@ def bump(root: Path, lock: dict, name: str, dry_run: bool) -> None:
         plugin["sha256"] = actual
         save_lock(root, lock)
         target.parent.mkdir(parents=True, exist_ok=True)
-        tmp.replace(target)
+        shutil.move(str(tmp), target)
         print(f"{name}: updated lock and replaced {target}")
     finally:
         if tmp.exists():

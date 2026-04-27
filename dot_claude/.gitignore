@@ -43,6 +43,7 @@ todos/
 usage-data/
 
 # Exclude evolution data that contains project-specific info
+evolution/*.lock
 evolution/error-registry.json
 evolution/model-performance.json
 evolution/workflow-changelog.md
@@ -56,3 +57,4 @@ hooks/.pending/
 
 # Exclude session state markers (preflight, compound, completion evidence)
 state/
+skills/git-worktree

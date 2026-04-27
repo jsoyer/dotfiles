@@ -166,6 +166,14 @@ The sprint-executor prompt MUST include:
 Receive structured summaries from sprint-executor agents. For each:
 
 - Verify tasks were completed (check the sprint spec file for `[x]` checkboxes)
+- **Verify commits exist on the worktree branch** — the sprint-executor's self-report is not trusted:
+  ```bash
+  # From the main repo root, not the worktree:
+  git log <worktree-branch> --not main --oneline
+  git -C <worktree-path> status --porcelain
+  ```
+  If `git log` shows zero commits OR `git status` shows uncommitted changes, the delegation lost work.
+  Do NOT merge. Restart the sprint in the main worktree.
 - Note any blocked tasks or issues
 
 ### Step 6: Merge (parallel batches only)
@@ -288,10 +296,12 @@ Agent(description: "Review batch N changes",
 
 After merge and code review (or after single sprint completes):
 
-- Run full test suite via Execution Config (build + lint + type-check + test)
-- New code follows patterns from previous sprints
-- No regressions, no conflicting imports, no duplicate components
+- Verify commits landed: `git log --oneline <merge-base>..HEAD` shows expected sprint commits
+- Verify file scope: `git diff --stat <merge-base>..HEAD` matches declared sprint boundaries
+- New code follows patterns from previous sprints (code-reviewer already checked this in Step 6.6)
 - API contracts maintained if multiple sprints touch the same interface
+
+**Do NOT re-run the full test suite here.** Sprint-executors already ran build/lint/typecheck/test per sprint (Step 1 item 10), and Step 6.3 ran the post-merge suite once. The full E2E run happens in `plan-build-test` Phase 5. Running tests a third time wastes budget without adding signal — if those earlier runs passed, the integrated state is verified. If they failed, you wouldn't reach Step 7.
 
 ### Step 8: Dev Server Smoke Test (Content-Verified)
 

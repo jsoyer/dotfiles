@@ -5,7 +5,7 @@
 [![License: MIT](https://img.shields.io/github/license/vinicius91carvalho/.claude)](LICENSE)
 [![Claude Code](https://img.shields.io/badge/Claude_Code-workflow_system-blueviolet)](https://docs.anthropic.com/en/docs/claude-code)
 [![Languages](https://img.shields.io/badge/languages-16_supported-blue)](#supported-languages)
-[![Hooks](https://img.shields.io/badge/hooks-18_enforced-green)](#safety-enforcement-hooks)
+[![Hooks](https://img.shields.io/badge/hooks-17_enforced-green)](#safety-enforcement-hooks)
 
 A portable AI engineering system for Claude Code that applies automatically to every project. Built on the Compound Engineering philosophy: each unit of work makes subsequent units easier — not harder.
 
@@ -121,19 +121,21 @@ The system uses deterministic hooks — real code that runs before/after every a
 | `block-heavy-bash.sh` | PreToolUse(Bash) | Soft-blocks heavy build/test commands in the main agent (delegate to subagent) |
 | `check-docs-updated.sh` | PreToolUse(Bash) | Blocks push if hooks/skills/agents changed without doc updates |
 | `check-test-exists.sh` | PreToolUse(Write/Edit) | TDD gate — blocks production code edits without test file (16 languages) |
-| `enforce-delegation.sh` | PreToolUse(Read/Grep/Bash/Agent) | Soft-blocks after 4+ direct reads; enforces orchestrator-delegates pattern |
+| `enforce-delegation.sh` | PreToolUse(Read/Grep/Bash/Agent) | Soft-blocks after 2+ direct reads; immediately blocks files ≥50KB; enforces orchestrator-delegates pattern |
 | `post-edit-quality.sh` | PostToolUse(Write/Edit) | Auto-formats code using detected formatter (Biome, ruff, rustfmt, gofmt, etc.) |
 | `check-invariants.sh` | PostToolUse(Write/Edit) | Verifies INVARIANTS.md rules after edits |
 | `scan-secrets.sh` | PostToolUse(Write/Edit) | Scans edited files for exposed secrets and credentials |
+| `progress-signal.sh` | PostToolUse(Write/Edit/MultiEdit) | Writes sprint-finalized signal when all sprints complete; gates Stop hook execution |
 | `end-of-turn-typecheck.sh` | Stop | Static type checking (tsc, cargo check, go vet, mypy, pyright, etc.) |
 | `cleanup-artifacts.sh` | Stop | Moves stray media files to `.artifacts/` and updates `.gitignore` |
-| `cleanup-worktrees.sh` | Stop | Prunes stale worktrees and removes merged sprint branches |
-| `compound-reminder.sh` | Stop | Blocks exit without learning capture |
+| `cleanup-worktrees.sh` | (orchestrator) | Prunes stale worktrees and removes merged sprint branches |
+| `compound-reminder.sh` | (signal-gated) | Blocks session end without learning capture when sprint-finalized signal is present |
 | `verify-completion.sh` | Stop | Blocks premature completion without evidence |
 | `session-start.sh` | SessionStart | Detects proot-distro ARM64, warns about issues, loads session state |
 | `reset-delegation-counter.sh` | UserPromptSubmit | Resets the delegation read counter each turn |
 | `compact-save.sh` | PreCompact | Saves session state before context compression |
 | `compact-restore.sh` | PostCompact | Restores session state after context compression |
+| `authorize-stop-hooks.sh` | (Bash utility) | One-shot helper Claude calls before task completion to authorize Stop hook execution |
 | `scripts/validate-i18n-keys.sh` | Pre-commit (via ship-test-ensure) | Cross-validates all i18n t() keys exist in all locale files |
 | `scripts/verify-worktree-merge.sh` | Post-merge (via orchestrator) | Detects files silently overwritten by worktree merges |
 | `scripts/worktree-preflight.sh` | Orchestrator step 0 | Detects project languages, installs deps per-language in worktrees |
@@ -198,10 +200,12 @@ The system includes a self-test suite (`test-workflow-mods/run-tests.sh`) with 4
 │   ├── reset-delegation-counter.sh # Resets read counter each turn
 │   ├── end-of-turn-typecheck.sh  # Static type checking (all langs)
 │   ├── cleanup-artifacts.sh      # Moves stray media to .artifacts/
-│   ├── cleanup-worktrees.sh      # Prunes stale worktrees
+│   ├── cleanup-worktrees.sh      # Prunes stale worktrees (orchestrator utility)
 │   ├── compact-save.sh           # Saves state before context compression
 │   ├── compact-restore.sh        # Restores state after context compression
-│   ├── compound-reminder.sh      # Blocks session end without learning capture
+│   ├── progress-signal.sh        # Writes sprint-finalized signal; gates Stop hooks
+│   ├── compound-reminder.sh      # Signal-gated: blocks session end without learning capture
+│   ├── authorize-stop-hooks.sh   # Bash utility: authorizes Stop hook execution
 │   ├── verify-completion.sh      # Blocks premature completion claims
 │   ├── session-start.sh          # Environment detection and session init
 │   ├── approve.sh                # Soft-block approval entry point

@@ -109,21 +109,27 @@ context: fork
       - **Write to temp file first**, validate JSON parses, then replace original
 
    b. **Model performance update** — ALWAYS record model performance, even on first session.
-      - Read `~/.claude/evolution/model-performance.json`
-      - **JSON safety:** Backup to `model-performance.json.bak` before modifying.
-        Validate JSON before and after write. Restore from backup if corrupt.
-      - For each model used in this session, update the relevant task type:
-        - Increment `attempts`
-        - If succeeded on first try: increment `first_try_success`
-        - If model was upgraded mid-task: increment `required_upgrade`
-      - **Source of truth for model performance:** Read from sprint-executor return summaries
-        (`model_requested`, `first_try_success`, `task_types`) and orchestrator metrics
-        (`sprint_model_performance`). Don't guess — use the structured data.
-      - **Check adaptation thresholds:**
-        - If any task type has `attempts >= 10` and `first_try_success / attempts < 0.7`:
-          → Propose model upgrade to user (e.g., sonnet → opus for that task type)
-        - If any task type has `attempts >= 10` and `first_try_success / attempts > 0.9`:
-          → Propose model downgrade to user (e.g., sonnet → haiku for cost savings)
+      - **Use the record script** (atomic, flock-serialized — do NOT hand-edit the JSON):
+        ```bash
+        bash ~/.claude/hooks/scripts/record-model-performance.sh <model> <task_type> <first_try_success>
+        ```
+        - `model`: `sonnet` | `opus` | `haiku`
+        - `task_type`: free-form label (e.g., `sprint_execution`, `verification`, `bug_fix`,
+          `implementation`, `compound`, `file_scanning`)
+        - `first_try_success`: `true` | `false`
+      - **Source of truth:** Read from sprint-executor return summaries (`model_requested`,
+        `first_try_success`, `task_types`) and orchestrator metrics (`sprint_model_performance`).
+        Don't guess — use the structured data. Call the script once per (model, task_type, outcome) triple.
+      - **Check adaptation thresholds** using the evaluate script:
+        ```bash
+        bash ~/.claude/hooks/scripts/evaluate-model-performance.sh
+        ```
+        - Reports upgrade candidates (samples >= 10, success rate < 70%)
+        - Reports downgrade candidates (samples >= 10, success rate >= 90%)
+        - Reports watch list (samples >= 5, not yet at threshold)
+      - **If the evaluator emits proposals:** surface them to the user with the rationale.
+        User approves → document the change in `~/.claude/evolution/workflow-changelog.md`
+        and update the default model in the relevant agent frontmatter.
 
    c. **Memory promotion** — if a learning applies across all projects:
       - Write to `~/.claude/projects/-root/memory/` (use appropriate memory type: feedback, project, or reference)

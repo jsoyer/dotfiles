@@ -5,7 +5,7 @@
   "upstream": {
     "repo": "https://github.com/vinicius91carvalho/.claude.git",
     "branch": "main",
-    "pinned_commit": "e1b64fcb"
+    "pinned_commit": "59f35666"
   },
   "local_patches": {
     "description": "Local changes are tracked as normal commits in this dotfiles repository under dot_claude/.",

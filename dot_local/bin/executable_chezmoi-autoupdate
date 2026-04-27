@@ -54,26 +54,24 @@ summarize_chezmoi_conflicts() {
 
 preflight_sensitive_targets() {
     local target output rc
-    for target in "${HOME}/.ssh"; do
-        [[ -e "${target}" ]] || continue
-        output="$(timeout "${CHEZMOI_PHASE_TIMEOUT}s" chezmoi verify --no-tty "${target}" 2>&1 </dev/null)"
-        rc=$?
-        if [[ ${rc} -eq 0 ]]; then
-            log "B2-preflight: ${target} verified"
-            continue
-        fi
-        if grep -qi "not managed" <<<"${output}"; then
-            log "B2-preflight: ${target} not managed, skipping"
-            continue
-        fi
+    target="${HOME}/.ssh"
+    [[ -e "${target}" ]] || return 0
+    output="$(timeout "${CHEZMOI_PHASE_TIMEOUT}s" chezmoi verify --no-tty "${target}" 2>&1 </dev/null)"
+    rc=$?
+    if [[ ${rc} -eq 0 ]]; then
+        log "B2-preflight: ${target} verified"
+        return 0
+    fi
+    if grep -qi "not managed" <<<"${output}"; then
+        log "B2-preflight: ${target} not managed, skipping"
+        return 0
+    fi
 
-        printf '%s\n' "${output}" >> "${LOG_FILE}"
-        ERRORS+=("B2-preflight: sensitive target drift detected: ${target}")
-        log_err "sensitive target drift detected before apply: ${target}"
-        log_err "manual resolution: run 'chezmoi diff ${target}', then apply/skip intentionally"
-        return 1
-    done
-    return 0
+    printf '%s\n' "${output}" >> "${LOG_FILE}"
+    ERRORS+=("B2-preflight: sensitive target drift detected: ${target}")
+    log_err "sensitive target drift detected before apply: ${target}"
+    log_err "manual resolution: run 'chezmoi diff ${target}', then apply/skip intentionally"
+    return 1
 }
 
 # ---------------------------------------------------------------------------

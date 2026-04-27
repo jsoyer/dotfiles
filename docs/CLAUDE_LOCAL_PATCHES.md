@@ -8,6 +8,7 @@
 - Treat every commit touching `dot_claude/` after an upstream update as a local patch.
 - Do not edit `~/.claude` directly for durable changes; edit `dot_claude/` or re-add intentional changes into this repo.
 - Run `verify-claude-vendor` before pushing changes touching `dot_claude/`.
+- `update-claude-upstream --patch-report` normalizes chezmoi source prefixes like `executable_` and `symlink_` before comparing with upstream paths.
 
 ## Known Local Patch Areas
 

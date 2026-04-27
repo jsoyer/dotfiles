@@ -7,8 +7,7 @@ description: >
   "let's build something new". This is for greenfield projects — not for adding features to existing
   ones (use /plan for that). Runs a structured discovery interview, applies battle-tested architecture
   defaults, generates a full PRD with adversarial analysis, and outputs sprint-ready specs compatible
-  with /plan-build-test.
-context: fork
+  with /plan-build-test.s
 ---
 
 # Create Project: From Idea to Production-Grade PRD

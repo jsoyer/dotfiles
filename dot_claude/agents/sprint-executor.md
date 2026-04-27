@@ -5,7 +5,7 @@ description: >
   implemented in isolation. Receives sprint spec content from orchestrator or
   direct user invocation.
 model: sonnet
-tools: Read, Write, Edit, Bash, Glob, Grep
+tools: Read, Write, Edit, Bash, Glob, Grep, LSP
 isolation: worktree
 permissionMode: default
 maxTurns: 200
@@ -28,10 +28,11 @@ create or modify for the first time in this sprint.
 
 ## Test Framework
 
-**This project uses Vitest** with structural/mock patterns. Do NOT use `@testing-library/react`,
-`@testing-library/jest-dom`, or any `@testing-library/*` imports — they are NOT installed.
-Use `vitest` imports (`describe`, `it`, `expect`, `vi`) and mock patterns. If the sprint spec
-does not specify a test framework, default to Vitest. Never install testing-library packages.
+Use the test framework declared in the project's CLAUDE.md Execution Config or in the
+sprint spec. If unclear, write tests that match the patterns used in existing test files
+in the project. **Never install a new test framework or add testing dependencies without
+explicit project approval** — if the project uses Vitest, don't pull in `@testing-library/*`;
+if the project uses Jest, don't pull in `vitest`. Match what exists.
 
 ## What You Receive
 

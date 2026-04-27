@@ -8,7 +8,6 @@ description: >
   functionality", or when user provides a feature description to execute. Also
   triggers when user wants to work through pending task files. After local testing
   completes, user manually verifies, then uses /ship-test-ensure to deploy.
-context: fork
 ---
 
 # Plan, Build & Test — Local Development Workflow
@@ -56,11 +55,23 @@ Create the session learnings file at the configured path (from project CLAUDE.md
 
 ### Step 0.1: Check for PRD with progress.json
 
-Search the task file location (from project CLAUDE.md) for `progress.json` files:
+Resolve the search roots in this order — **do not stop at the first miss**; merge results from every step that finds anything, because a project can have plans in multiple places:
 
-1. Find all `progress.json` files in the task directory tree
-2. Read each and check for sprints with `"status": "not_started"` or `"status": "in_progress"`
-3. Also read the session learnings file for any `## Active Task Queue` (legacy format or simple tasks)
+1. **Build Candidate tags** (authoritative handshake from `/plan`):
+   ```bash
+   git tag -l 'build-candidate/*'
+   ```
+   For each tag, read `git show <tag> --stat` to find the PRD directory (spec.md + sprints/ + progress.json). These are plans that `/plan` explicitly declared ready for execution.
+2. **Configured location** — `task-file-location` from project CLAUDE.md `## Execution Config`.
+3. **Convention fallbacks** (when neither tags nor config give results):
+   `docs/tasks/**/progress.json`, `tasks/**/progress.json`, `.tasks/**/progress.json`.
+
+Then for each `progress.json` found:
+
+1. Read each and check for sprints with `"status": "not_started"` or `"status": "in_progress"`
+2. Also read the session learnings file for any `## Active Task Queue` (legacy format or simple tasks)
+
+**If Build Candidate tags exist but the configured `task-file-location` missed them**, note this as a config drift — the project CLAUDE.md `task-file-location` should be updated to the actual PRD directory. Surface this to the user after executing the plan, not before (don't block execution on config cleanup).
 
 ### Step 0.2: Route Decision
 
@@ -85,13 +96,20 @@ Search the task file location (from project CLAUDE.md) for `progress.json` files
 
 Spawn a single **Explore agent** (`subagent_type: "Explore"`, `model: "haiku"`) with this prompt:
 
-> Search all markdown files in the task file directory (from project CLAUDE.md) for unchecked items (`- [ ]`). Also search for `progress.json` files with incomplete sprints. For each file that contains pending items:
+> Search for pending work using this resolution order (merge results from every step that yields anything):
+>
+> a. **Build Candidate tags:** `git tag -l 'build-candidate/*'` — each tag points to a PRD directory. Read `git show <tag> --stat` to find the directory.
+> b. **Configured location:** `task-file-location` from project CLAUDE.md `## Execution Config` (if present).
+> c. **Convention fallbacks:** `docs/tasks/`, `tasks/`, `.tasks/`.
+>
+> Within each root, search all markdown files for unchecked items (`- [ ]`) and all `progress.json` files with incomplete sprints. For each file that contains pending items:
 >
 > 1. Return the full file path
 > 2. Count the number of `- [ ]` (pending) and `- [x]` (completed) items
 > 3. List each pending item's text
 > 4. List ALL files referenced or likely modified by each pending item
 > 5. If a `progress.json` exists in the same directory, note it
+> 6. If the source was a Build Candidate tag, note the tag name too
 >
 > Also check if the user's current request describes a NEW task that doesn't have a task file yet.
 >
@@ -188,37 +206,52 @@ Execute task batches in order. The execution strategy depends on whether a task 
 - **PRD+Sprint task** — Has a `progress.json` with sprint entries → delegate to **orchestrator agent** (one per batch)
 - **Simple task** — Standard checklist without sprint structure → execute with **general-purpose agent**
 
-### Step 3.1: For PRD+Sprint Tasks — One Orchestrator Per Batch
+### Step 3.1: For PRD+Sprint Tasks — One Batch Per Session (HARD RULE)
 
-**CRITICAL: Spawn one orchestrator agent per batch. Each gets fresh context.**
+**CRITICAL: This skill executes EXACTLY ONE batch per session, then stops.**
+The main agent does NOT loop through batches. Multi-batch loops in the main
+agent accumulate context (orchestrator return reports + progress.json re-reads
++ session-learnings updates) and trigger repeated `/compact`, turning a short
+PRD into hours of degraded execution. The user starts a fresh
+`/plan-build-test` session per batch — Phase 0 picks up the next pending batch
+from `progress.json`.
 
-Read `progress.json` to determine batch order. Loop:
+Execute exactly ONE batch:
 
-```
-for each batch (ordered by batch number):
-  1. Read progress.json for current state
-  2. Read session learnings for accumulated rules
-  3. Read previous batch's Agent Notes from sprint spec files
-  4. Spawn orchestrator agent for THIS batch only:
+1. Read `progress.json` — find the lowest-numbered batch whose sprints are
+   `not_started` or `in_progress`. This is THE batch for this session.
+2. Read session learnings for accumulated rules.
+3. Read previous batch's Agent Notes from prior sprint spec files (if any).
+4. Spawn orchestrator agent for THIS batch only:
 
-     Agent(description: "Batch N: Sprint(s) [X,Y]",
-           prompt: "Execute batch N.
+   Agent(description: "Batch N: Sprint(s) [X,Y]",
+         prompt: "Execute batch N.
 
-           PRD directory: [path]
-           progress.json path: [path]
-           Batch assignment: Sprints [list]
-           Previous Agent Notes: [from prior sprint spec files]
-           Execution Config: [commands from project CLAUDE.md]
-           Session learnings rules: [relevant rules]
-           Context files: [key reference files]",
-           subagent_type: "orchestrator",
-           model: "opus")
+         PRD directory: [path]
+         progress.json path: [path]
+         Batch assignment: Sprints [list]
+         Previous Agent Notes: [from prior sprint spec files]
+         Execution Config: [commands from project CLAUDE.md]
+         Session learnings rules: [relevant rules]
+         Context files: [key reference files]",
+         subagent_type: "orchestrator",
+         model: "opus")
 
-  5. Receive results from orchestrator
-  6. Re-read progress.json (orchestrator updated it)
-  7. Update session learnings (status, errors, new rules)
-  8. If batch had blocked sprints: decide whether to continue or stop
-```
+5. Receive results from orchestrator.
+6. Re-read progress.json (orchestrator updated it).
+7. Update session learnings (status, errors, new rules from this batch only).
+8. Route based on progress.json state:
+   - **More `not_started`/`in_progress` batches remain:**
+     Report batch N results. Tell user: "Batch N done. **Start a new session
+     and run `/plan-build-test` again** to pick up batch N+1 from
+     progress.json." **STOP. Do NOT proceed to Phase 4/5/6.** The next
+     session's Phase 0 resume gate will pick up where this one left off.
+   - **ALL batches complete:**
+     Proceed to Phase 4 (Post-Implementation Review), then Phase 5 (Live
+     Verification), then Phase 6 (Learning). These phases only run on the
+     session that finishes the final batch.
+   - **Batch had blocked sprints:** Report blocked state and STOP — user
+     decides retry / re-plan / abandon.
 
 ### Step 3.2: For Simple Tasks — General-Purpose Agent
 

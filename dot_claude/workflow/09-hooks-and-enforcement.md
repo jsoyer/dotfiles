@@ -57,8 +57,8 @@ While `CLAUDE.md` provides guidelines the model "should" follow, `settings.json`
 │  ┌──────────────────┐                                               │
 │  │  PreToolUse      │ ◄── Runs BEFORE Read/Grep/Glob/Bash/Agent     │
 │  │  (Read|Grep|     │     enforce-delegation.sh: soft-blocks after  │
-│  │   Glob|Bash|     │     4+ direct reads — enforces orchestrator   │
-│  │   Task|Agent)    │     delegation pattern                        │
+│  │   Glob|Bash|     │     2+ direct reads or ≥50KB files —          │
+│  │   Task|Agent)    │     enforces orchestrator delegation pattern   │
 │  └──────────────────┘                                               │
 │                                                                     │
 │  ┌──────────────────┐                                               │
@@ -66,6 +66,7 @@ While `CLAUDE.md` provides guidelines the model "should" follow, `settings.json`
 │  │  (Write|Edit|    │     post-edit-quality.sh: auto-format code    │
 │  │   MultiEdit)     │     check-invariants.sh: verify INVARIANTS.md │
 │  │                  │     scan-secrets.sh: detect exposed secrets    │
+│  │                  │     progress-signal.sh: sprint-finalized gate  │
 │  └──────────────────┘                                               │
 │                                                                     │
 │  ┌──────────────────┐                                               │
@@ -82,9 +83,6 @@ While `CLAUDE.md` provides guidelines the model "should" follow, `settings.json`
 │  │  Stop            │ ◄── Runs when the agent tries to end session  │
 │  │  (always)        │     end-of-turn-typecheck.sh: static checking │
 │  │                  │     cleanup-artifacts.sh: moves stray media   │
-│  │                  │     cleanup-worktrees.sh: prunes worktrees    │
-│  │                  │     compound-reminder.sh: BLOCK if compound   │
-│  │                  │     hasn't run after task completion           │
 │  │                  │     verify-completion.sh: BLOCK if task marked │
 │  │                  │     complete without evidence marker           │
 │  └──────────────────┘                                               │
@@ -112,16 +110,18 @@ While `CLAUDE.md` provides guidelines the model "should" follow, `settings.json`
 | `check-docs-updated.sh` | PreToolUse(Bash) | `git push` | Block push if workflow files changed without doc updates | Yes (exit 2 if stale) |
 | `block-heavy-bash.sh` | PreToolUse(Bash) | Heavy commands | Soft-blocks build/test/lint commands in main agent | Soft block |
 | `check-test-exists.sh` | PreToolUse(Write/Edit) | Every file edit | TDD gate — require test file (16 languages) | Yes (exit 2 if missing) |
-| `enforce-delegation.sh` | PreToolUse(Read/Grep/etc) | 4+ direct reads | Soft-blocks main agent; enforces delegation to subagents | Soft block |
+| `enforce-delegation.sh` | PreToolUse(Read/Grep/etc) | 2+ direct reads or ≥50KB file | Soft-blocks main agent; enforces delegation to subagents | Soft block |
 | `post-edit-quality.sh` | PostToolUse(Write/Edit) | Every file edit | Auto-format code (all languages) | Yes (exit 2 on lint errors) |
 | `check-invariants.sh` | PostToolUse(Write/Edit) | Every file edit | Verify INVARIANTS.md rules | Yes (exit 2 on violation) |
 | `scan-secrets.sh` | PostToolUse(Write/Edit) | Every file edit | Scan for exposed secrets and credentials | Yes (exit 2 if found) |
+| `progress-signal.sh` | PostToolUse(Write/Edit) | Every file edit | Write sprint-finalized signal when all sprints complete; gates Stop hooks | No |
 | `compact-save.sh` | PreCompact | Before compression | Save session state to survive context compression | No |
 | `compact-restore.sh` | PostCompact | After compression | Restore session state after context compression | No |
 | `end-of-turn-typecheck.sh` | Stop | End of turn | Static type checking (all languages) | Yes (exit 2 on type errors) |
 | `cleanup-artifacts.sh` | Stop | End of turn | Move stray media files to `.artifacts/` | No |
-| `cleanup-worktrees.sh` | Stop | End of turn | Prune stale worktrees and merged branches | No |
-| `compound-reminder.sh` | Stop | End of turn | Ensure /compound ran | Yes (exit 2 if skipped) |
+| `cleanup-worktrees.sh` | (orchestrator) | Sprint completion | Prune stale worktrees and merged branches | No |
+| `compound-reminder.sh` | (signal-gated) | Sprint finalized | Block session end without learning capture when sprint-finalized signal is present | Yes (exit 2 if skipped) |
+| `authorize-stop-hooks.sh` | (Bash utility) | Task completion | One-shot helper Claude calls before finishing a task to authorize Stop hook execution | No |
 | `verify-completion.sh` | Stop | End of turn | Block premature completion | Yes (exit 2 without evidence) |
 | `validate-i18n-keys.sh` | (ship-test-ensure) | Pre-commit | Cross-validate i18n keys across locales | No (informational) |
 | `verify-worktree-merge.sh` | (orchestrator) | Post-merge | Detect silent overwrites from worktree merges | No (informational) |
@@ -227,15 +227,16 @@ Run type checker
     └─ Crash (tsgo only) ──► fallback to tsc
 ```
 
-## Stop Hook: compound-reminder.sh
+## Signal-Gated Hook: compound-reminder.sh
 
-**BLOCKING** hook that prevents session end without learning capture:
+**BLOCKING** hook that prevents session end without learning capture — but only fires when `progress-signal.sh` has written a sprint-finalized marker:
 
 ```
-Agent wants to stop
+Agent tries to stop
     │
     ▼
-Any progress.json with all sprints "complete"? ─── No ──► allow stop
+sprint-finalized signal exists? ─── No ──► allow stop (silent)
+(~/.claude/state/.sprint-finalized-$SESSION_ID)
     │
    Yes
     │
@@ -243,12 +244,14 @@ Any progress.json with all sprints "complete"? ─── No ──► allow stop
 Was /compound run?
     │
     ├─ Yes ──► allow stop
-    └─ No ──► BLOCK
-             "Completed task detected but /compound hasn't run.
-              Run /compound to capture learnings, or dismiss to skip."
+    └─ No ──► BLOCK (exit 2)
+             "Sprint finalized. Run /compound to capture learnings."
+             (blocks once per sprint; signal cleared on compound completion)
 ```
 
-**Why this is the most important hook:** Without learning capture, the workflow never improves. The compound step is where the system transforms individual task experience into permanent system improvement. Making it blocking ensures it's never skipped.
+**Note:** No longer registered in settings.json Stop hooks. The signal-gated architecture means this only fires when `progress-signal.sh` detects that all sprints in a `progress.json` are complete — never on Q&A turns or exploratory sessions.
+
+**Why this is the most important hook:** Without learning capture, the workflow never improves. The compound step is where the system transforms individual task experience into permanent system improvement. Making it blocking at sprint completion ensures it's never skipped.
 
 ## settings.json Configuration
 
@@ -259,8 +262,9 @@ Was /compound run?
     "NODE_OPTIONS": "--max-old-space-size=2048",
     "CHOKIDAR_USEPOLLING": "true",
     "WATCHPACK_POLLING": "true",
-    "CLAUDE_AUTOCOMPACT_PCT_OVERRIDE": "62"
+    "CLAUDE_AUTOCOMPACT_PCT_OVERRIDE": "40"
   },
+  "model": "sonnet",
   "permissions": {
     "allow": ["Read", "Write", "Edit", "Bash", "Glob", "Grep", "Agent", "Skill", "..."],
     "deny": []
@@ -280,7 +284,8 @@ Was /compound run?
 | `ENABLE_LSP_TOOL` | Enables Language Server Protocol (goToDefinition, findReferences, etc.) |
 | `NODE_OPTIONS` | Increases Node.js memory limit (essential for proot-distro ARM64; harmless for non-Node projects) |
 | `CHOKIDAR_USEPOLLING` / `WATCHPACK_POLLING` | Enables polling-based file watching (Node.js only; harmless for others) |
-| `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE` | Controls when context auto-compacts (per-window targets managed by `set-compact.sh`) |
+| `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE` | Controls when context auto-compacts; target 80K tokens for all window sizes (managed by `set-compact.sh`) |
+| `model` | Default model for all Claude Code sessions in this repo (`"sonnet"` = claude-sonnet-4-6) |
 | `permissions.allow` | Explicit allow list of tools for autonomous execution — compensated by hook safety |
 | `effortLevel: "high"` | Claude invests more tokens/reasoning in responses |
 | `statusLine` | Custom status line command for the Claude Code UI |
@@ -387,9 +392,34 @@ collecting all INVARIANTS.md files
 
 **Why this matters:** INVARIANTS.md defines cross-cutting contracts (permission string formats, entity statuses, API conventions). Without enforcement, agents independently invent incompatible vocabularies — tests pass locally but integration breaks.
 
+## PostToolUse: progress-signal.sh
+
+Runs **after** every Write, Edit, or MultiEdit on any file. When the edited file is a `progress.json` under `docs/tasks/`, it checks whether all sprints are complete. If so, it writes a sprint-finalized signal that gates `compound-reminder.sh` and `verify-completion.sh`.
+
+```
+File was edited
+    │
+    ▼
+Is it a progress.json under docs/tasks/? ─── No ──► skip
+    │
+   Yes
+    │
+    ▼
+All sprints "complete"? ─── No ──► skip
+    │
+   Yes
+    │
+    ▼
+Write ~/.claude/state/.sprint-finalized-$SESSION_ID
+(contains absolute path of the finalized progress.json)
+Clear compound-warned and verify-warned markers for this session
+```
+
+**Why this matters:** The signal-gated architecture means `compound-reminder.sh` and `verify-completion.sh` only fire after real sprint completion — not on every Q&A turn or exploratory session. This eliminates false positives that caused friction when the agent was not doing task work.
+
 ## Stop Hook: verify-completion.sh
 
-**BLOCKING** hook that prevents the agent from claiming task completion without evidence:
+**BLOCKING** hook that prevents the agent from claiming task completion without evidence. Guards on the `authorize-stop-hooks.sh` signal first to avoid firing on Q&A turns:
 
 ```
 Agent wants to stop
@@ -398,6 +428,12 @@ Agent wants to stop
 stop_hook_active? ─── Yes ──► allow (prevents infinite loop)
     │
    No
+    │
+    ▼
+~/.claude/state/.stop-hooks-ok-$SESSION_ID exists? ─── No ──► allow (not a task turn)
+(signal written by authorize-stop-hooks.sh; consumed one-shot)
+    │
+   Yes (consume signal)
     │
     ▼
 Any progress.json with "complete" sprints
