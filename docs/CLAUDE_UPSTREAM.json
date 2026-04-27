@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "name": "claude-workflow-system",
+  "local_path": "dot_claude",
+  "upstream": {
+    "repo": "https://github.com/vinicius91carvalho/.claude.git",
+    "branch": "main",
+    "pinned_commit": "e1b64fcb"
+  },
+  "local_patches": {
+    "description": "Local changes are tracked as normal commits in this dotfiles repository under dot_claude/.",
+    "manifest": "docs/CLAUDE_LOCAL_PATCHES.md"
+  }
+}

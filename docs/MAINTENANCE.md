@@ -26,6 +26,7 @@ This repository is the source of truth for chezmoi-managed dotfiles. Keep it foc
 - Use `ai-resource-dedup-report` before removing duplicated `dot_claude` or `dot_aictx` resources.
 - Review `.chezmoi.toml.tmpl` auto-commit behavior with `docs/CHEZMOI_AUTOCOMMIT_PLAN.md` before changing defaults.
 - Keep broad chezmoi Git automation opt-in via `CHEZMOI_AUTO_GIT=1`; wrappers should commit only their owned manifests explicitly.
+- Update vendored `dot_claude/` only through `update-claude-upstream` so upstream provenance and local patches remain tracked.
 
 ## Current Priorities
 

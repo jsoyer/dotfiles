@@ -158,6 +158,34 @@ ai-resource-dedup-report > docs/.artifacts-ai-resource-dedup.md
 2. Reports identical, different, Claude-only, and aictx-only counts.
 3. Does not delete or modify resources.
 
+### update-claude-upstream
+
+**Purpose:** Update vendored `dot_claude/` from `vinicius91carvalho/.claude` while preserving local patches.
+
+**Usage:**
+```bash
+update-claude-upstream --check
+update-claude-upstream --patch-report
+update-claude-upstream --update --dry-run
+update-claude-upstream --update
+```
+
+**What it does:**
+1. Reads `docs/CLAUDE_UPSTREAM.json` for repo, branch, and pinned commit.
+2. Builds a three-way merge: pinned upstream base, latest upstream, local `dot_claude/`.
+3. Preserves local-only patches and writes conflict markers when upstream and local edits overlap.
+4. Updates the upstream pin only after a clean update.
+5. Reports local patch inventory against the pinned upstream snapshot with `--patch-report`.
+
+### verify-claude-vendor
+
+**Purpose:** Validate that `dot_claude/` is tracked as vendored content and provenance metadata matches.
+
+**Usage:**
+```bash
+verify-claude-vendor
+```
+
 ### update-zellij-plugins
 
 **Purpose:** Verify and intentionally upgrade tracked Zellij WASM plugins using a pinned lockfile.

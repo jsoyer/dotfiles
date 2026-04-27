@@ -96,6 +96,12 @@ jobs:
           python3 -m py_compile dot_local/bin/executable_update-zellij-plugins
           python3 dot_local/bin/executable_update-zellij-plugins
 
+      - name: Validate Claude vendor metadata
+        run: |
+          python3 -m json.tool docs/CLAUDE_UPSTREAM.json >/dev/null
+          python3 -m py_compile dot_local/bin/executable_update-claude-upstream dot_local/bin/executable_verify-claude-vendor
+          python3 dot_local/bin/executable_verify-claude-vendor
+
       - name: Check for secrets
         run: |
           PATTERNS="sk-[a-zA-Z0-9]{20,}|ghp_[a-zA-Z0-9]{36}|xoxb-[0-9]{10,}|AKIA[0-9A-Z]{16}"

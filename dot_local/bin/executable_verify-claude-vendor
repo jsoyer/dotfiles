@@ -1,0 +1,55 @@
+#!/usr/bin/env python3
+"""Validate that vendored dot_claude metadata and tracked state are consistent."""
+
+from __future__ import annotations
+
+import json
+import os
+import subprocess
+import sys
+from pathlib import Path
+
+
+ROOT = Path(os.environ.get("CHEZMOI_SOURCE_PATH", Path.cwd()))
+if not (ROOT / "dot_claude").exists():
+    ROOT = Path.cwd()
+
+MANIFEST = ROOT / "docs/CLAUDE_UPSTREAM.json"
+PROVENANCE = ROOT / "docs/PROVENANCE.md"
+DOT_CLAUDE = ROOT / "dot_claude"
+
+
+def fail(message: str) -> int:
+    print(f"FAIL: {message}", file=sys.stderr)
+    return 1
+
+
+def git(args: list[str]) -> str:
+    return subprocess.check_output(["git", *args], cwd=ROOT, text=True).strip()
+
+
+def main() -> int:
+    if not MANIFEST.exists():
+        return fail(f"missing {MANIFEST.relative_to(ROOT)}")
+    manifest = json.loads(MANIFEST.read_text())
+    pinned = manifest["upstream"]["pinned_commit"]
+
+    if not DOT_CLAUDE.exists():
+        return fail("missing dot_claude/")
+    if (DOT_CLAUDE / ".git").exists():
+        return fail("dot_claude must not be a nested git repository")
+
+    tracked = git(["ls-files", "dot_claude"])
+    if not tracked:
+        return fail("dot_claude has no tracked files")
+
+    provenance = PROVENANCE.read_text() if PROVENANCE.exists() else ""
+    if pinned not in provenance:
+        return fail(f"pinned commit {pinned} missing from docs/PROVENANCE.md")
+
+    print(f"OK: dot_claude tracked files={len(tracked.splitlines())}, pinned={pinned}")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

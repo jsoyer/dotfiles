@@ -9,8 +9,9 @@ This file documents tracked third-party or generated content that is not authore
 - Purpose: vendored Claude Workflow System deployed to `~/.claude/` by chezmoi.
 - Upstream: https://github.com/vinicius91carvalho/.claude
 - Pinned revision: `e1b64fcb` as documented in `CLAUDE.md`.
-- Update command: refresh from the upstream repository, review local changes, then re-run `chezmoi diff` before applying.
-- Local patches: repository-specific RTK, Beads, and personal workflow instructions may be layered through this dotfiles repository. Review `git diff dot_claude/` after any upstream refresh.
+- Metadata: `docs/CLAUDE_UPSTREAM.json`.
+- Update command: `update-claude-upstream --check`, then `update-claude-upstream --update --dry-run`, then `update-claude-upstream --update` when ready.
+- Local patches: repository-specific RTK, Beads, and personal workflow instructions are tracked as normal commits under `dot_claude/`; see `docs/CLAUDE_LOCAL_PATCHES.md`.
 
 ### `dot_aictx/`
 
