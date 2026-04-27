@@ -1,0 +1,67 @@
+#!/usr/bin/env bash
+# Report duplicate AI resources between dot_claude and dot_aictx.
+
+set -euo pipefail
+
+SOURCE_DIR="${CHEZMOI_SOURCE_PATH:-${HOME}/.local/share/chezmoi}"
+if [[ ! -d "${SOURCE_DIR}/dot_claude" || ! -d "${SOURCE_DIR}/dot_aictx" ]]; then
+    SOURCE_DIR="$(pwd)"
+fi
+
+if [[ ! -d "${SOURCE_DIR}/dot_claude" || ! -d "${SOURCE_DIR}/dot_aictx" ]]; then
+    printf 'Could not find dot_claude and dot_aictx under %s\n' "${SOURCE_DIR}" >&2
+    exit 1
+fi
+
+printf '# AI Resource Deduplication Report\n\n'
+printf 'Source: `%s`\n\n' "${SOURCE_DIR}"
+printf '| Category | Identical | Different | Claude only | aictx only |\n'
+printf '| --- | ---: | ---: | ---: | ---: |\n'
+
+for category in skills agents commands hooks rules; do
+    claude_dir="${SOURCE_DIR}/dot_claude/${category}"
+    aictx_dir="${SOURCE_DIR}/dot_aictx/${category}"
+    identical=0
+    different=0
+    claude_only=0
+    aictx_only=0
+
+    tmp_claude="$(mktemp)"
+    tmp_aictx="$(mktemp)"
+    trap 'rm -f "${tmp_claude:-}" "${tmp_aictx:-}"' EXIT
+
+    if [[ -d "${claude_dir}" ]]; then
+        (cd "${claude_dir}" && find . -type f -print | sort) > "${tmp_claude}"
+    fi
+    if [[ -d "${aictx_dir}" ]]; then
+        (cd "${aictx_dir}" && find . -type f -print | sort) > "${tmp_aictx}"
+    fi
+
+    while IFS= read -r rel; do
+        [[ -n "${rel}" ]] || continue
+        if [[ -f "${aictx_dir}/${rel}" ]]; then
+            claude_hash="$(sha256sum "${claude_dir}/${rel}" | cut -d' ' -f1)"
+            aictx_hash="$(sha256sum "${aictx_dir}/${rel}" | cut -d' ' -f1)"
+            if [[ "${claude_hash}" == "${aictx_hash}" ]]; then
+                identical=$((identical + 1))
+            else
+                different=$((different + 1))
+            fi
+        else
+            claude_only=$((claude_only + 1))
+        fi
+    done < "${tmp_claude}"
+
+    while IFS= read -r rel; do
+        [[ -n "${rel}" ]] || continue
+        if [[ ! -f "${claude_dir}/${rel}" ]]; then
+            aictx_only=$((aictx_only + 1))
+        fi
+    done < "${tmp_aictx}"
+
+    printf '| `%s` | %s | %s | %s | %s |\n' "${category}" "${identical}" "${different}" "${claude_only}" "${aictx_only}"
+    rm -f "${tmp_claude}" "${tmp_aictx}"
+    trap - EXIT
+done
+
+printf '\nUse this as an inventory only. Do not delete from `dot_claude/` until `aictx apply` is verified to recreate required runtime links.\n'

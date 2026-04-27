@@ -141,6 +141,20 @@ chezmoi-test-scripts
 2. Runs `bash -n` on rendered shell scripts.
 3. Runs PowerShell parsing when `pwsh` is available.
 
+### ai-resource-dedup-report
+
+**Purpose:** Inventory duplicate AI resources between `dot_claude/` and `dot_aictx/` before any cleanup.
+
+**Usage:**
+```bash
+ai-resource-dedup-report > docs/.artifacts-ai-resource-dedup.md
+```
+
+**What it does:**
+1. Compares `skills`, `agents`, `commands`, `hooks`, and `rules` by relative path and SHA-256.
+2. Reports identical, different, Claude-only, and aictx-only counts.
+3. Does not delete or modify resources.
+
 ### claude-init
 
 **Purpose:** Generate a `CLAUDE.md` file for the current project

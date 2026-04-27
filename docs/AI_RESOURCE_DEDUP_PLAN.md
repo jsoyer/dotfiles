@@ -19,6 +19,7 @@ Reduce duplication between `dot_claude/` and `dot_aictx/` without breaking Claud
 ## Migration Steps
 
 1. Inventory overlaps by category: `skills`, `agents`, `commands`, `hooks`, `rules`.
+   Use `ai-resource-dedup-report` to generate the first hash-based inventory.
 2. For each overlapping category, compare names and content hashes between `dot_claude/` and `dot_aictx/`.
 3. Classify each duplicate as identical, Claude-specific variant, or stale copy.
 4. Remove only identical/stale duplicates from `dot_claude/` after verifying `aictx apply` recreates the expected links.

@@ -42,6 +42,16 @@ HOSTNAME_SHORT="$(hostname -s 2>/dev/null || hostname)"
 log() { printf '[%s] %s\n' "$(date '+%H:%M:%S')" "$*" >> "${LOG_FILE}"; }
 log_err() { printf '[%s] ERROR: %s\n' "$(date '+%H:%M:%S')" "$*" | tee -a "${LOG_FILE}" >&2; }
 
+summarize_chezmoi_conflicts() {
+    local conflict_targets
+    conflict_targets="$(grep -Eo '^([^ ]+|/[^ ]+) has changed since chezmoi last wrote it' "${LOG_FILE}" 2>/dev/null | sed 's/ has changed since chezmoi last wrote it$//' | sort -u | paste -sd ', ' -)"
+    if [[ -n "${conflict_targets}" ]]; then
+        log_err "chezmoi target conflict(s): ${conflict_targets}"
+        log_err "manual resolution: run 'chezmoi diff', then apply intentionally with overwrite/skip choices"
+        ERRORS+=("B: local target conflicts: ${conflict_targets}")
+    fi
+}
+
 # ---------------------------------------------------------------------------
 # Prep
 # ---------------------------------------------------------------------------
@@ -226,6 +236,7 @@ elif command -v chezmoi >/dev/null 2>&1; then
             ERRORS+=("B: chezmoi phase timed out after ${CHEZMOI_PHASE_TIMEOUT}s")
             log_err "chezmoi phase timed out after ${CHEZMOI_PHASE_TIMEOUT}s"
         fi
+        summarize_chezmoi_conflicts
         ERRORS+=("B: chezmoi update exited with code ${UPDATE_EXIT}")
         log_err "chezmoi update failed (exit ${UPDATE_EXIT})"
     else

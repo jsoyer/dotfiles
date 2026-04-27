@@ -23,6 +23,8 @@ This file documents tracked third-party or generated content that is not authore
 
 Tracked binary artifacts are allowed only when they are runtime inputs and have documented source and checksum.
 
+Planned improvement: `dotfiles-b49` will replace the manual update flow with a pinned manifest plus `update-zellij-plugins`, verifying downloaded WASM files before replacement.
+
 | Path | Source | Update command | SHA-256 |
 | --- | --- | --- | --- |
 | `dot_config/zellij/plugins/zjstatus.wasm` | https://github.com/dj95/zjstatus releases | `wget https://github.com/dj95/zjstatus/releases/latest/download/zjstatus.wasm -O dot_config/zellij/plugins/zjstatus.wasm` | `4de426d20b1cbf861272e927aeeb5b49d92c17f0e2bb9d173f85bf7f0154dd53` |
