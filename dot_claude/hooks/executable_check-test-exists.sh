@@ -143,10 +143,17 @@ find_project_root() {
   return 1
 }
 
-if ! has_test_infra "$PROJECT_DIR" "$FILE_LANG"; then
+# Walk up from the edited file to find the nearest manifest root.
+# In monorepos (e.g. noxys/noxys-api/go.mod), CLAUDE_PROJECT_DIR points at the
+# repo root but the manifest lives in a sub-package. Use the per-file manifest
+# root as the source of truth for has_test_infra so Go/Rust/etc. convention-
+# based infra (go.mod, Cargo.toml) is detected even in nested packages.
+DETECTED_ROOT=$(find_project_root "$FILE_PATH") || DETECTED_ROOT=""
+EFFECTIVE_ROOT="${DETECTED_ROOT:-$PROJECT_DIR}"
+
+if ! has_test_infra "$EFFECTIVE_ROOT" "$FILE_LANG"; then
   # Only soft-block if file is in a production directory AND inside a real project
   if is_in_production_dir "$FILE_PATH"; then
-    DETECTED_ROOT=$(find_project_root "$FILE_PATH") || DETECTED_ROOT=""
     if [ -n "$DETECTED_ROOT" ]; then
       # File is inside a real project with no test infra — educational soft-block
       PENDING_DIR="${HOME}/.claude/hooks/.pending"
