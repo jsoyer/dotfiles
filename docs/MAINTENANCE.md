@@ -24,6 +24,7 @@ This repository is the source of truth for chezmoi-managed dotfiles. Keep it foc
 - Use `cmupgrade` for manual package upgrades; unattended autoupdate must stay lightweight.
 - Use `chezmoi-test-scripts` before changing `.chezmoiscripts/` behavior.
 - Use `ai-resource-dedup-report` before removing duplicated `dot_claude` or `dot_aictx` resources.
+- Review `.chezmoi.toml.tmpl` auto-commit behavior with `docs/CHEZMOI_AUTOCOMMIT_PLAN.md` before changing defaults.
 
 ## Current Priorities
 
@@ -54,5 +55,5 @@ This repository is the source of truth for chezmoi-managed dotfiles. Keep it foc
 - Fix local `bd` runtime dependency so Beads can track this cleanup work again.
 - Add tests around `aictx apply` symlink behavior and cleanup ownership.
 - Add a safe mode to `chezmoi-autoupdate` and make it the default.
-- Review `.chezmoi.toml.tmpl` auto-add, auto-commit, and auto-push defaults per machine profile.
+- Review `.chezmoi.toml.tmpl` auto-add, auto-commit, and auto-push defaults per machine profile using `docs/CHEZMOI_AUTOCOMMIT_PLAN.md`.
 - For Zellij WASM upgrades, run `update-zellij-plugins --check`, then bump individual plugins intentionally.

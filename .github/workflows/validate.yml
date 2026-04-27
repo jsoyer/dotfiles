@@ -33,6 +33,12 @@ jobs:
       - name: Install chezmoi
         run: sh -c "$(curl -fsLS get.chezmoi.io)" -- -b /usr/local/bin
 
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Whitespace check
+        run: git diff --check
+
       - name: Validate templates
         run: |
           # Verify all templates parse without errors
@@ -78,6 +84,17 @@ jobs:
           if [[ "$ERRORS" -gt 0 ]]; then
             exit 1
           fi
+
+      - name: Chezmoi script render checks
+        run: |
+          mkdir -p /tmp/chezmoi-dest
+          CHEZMOI_SOURCE_PATH="$(pwd)" CHEZMOI_DESTINATION_PATH=/tmp/chezmoi-dest bash dot_local/bin/executable_chezmoi-test-scripts
+
+      - name: Validate Zellij plugin updater
+        run: |
+          python3 -m json.tool dot_config/zellij/plugins/plugins.lock.json >/dev/null
+          python3 -m py_compile dot_local/bin/executable_update-zellij-plugins
+          python3 dot_local/bin/executable_update-zellij-plugins
 
       - name: Check for secrets
         run: |
@@ -171,6 +188,13 @@ jobs:
           else
             echo "Scoopfile schema: SKIP (no Scoopfile.json)"
           fi
+
+      - name: aictx tests
+        working-directory: tools/aictx
+        run: |
+          cargo fmt --check
+          cargo check
+          cargo test
 
       - name: ShellCheck
         run: |

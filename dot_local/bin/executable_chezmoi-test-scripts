@@ -7,6 +7,8 @@ SOURCE_DIR="${CHEZMOI_SOURCE_PATH:-${HOME}/.local/share/chezmoi}"
 if [[ ! -d "${SOURCE_DIR}/.chezmoiscripts" ]]; then
     SOURCE_DIR="$(pwd)"
 fi
+DESTINATION_DIR="${CHEZMOI_DESTINATION_PATH:-${HOME}}"
+mkdir -p "${DESTINATION_DIR}"
 
 tmpdir="$(mktemp -d)"
 trap 'rm -rf "${tmpdir}"' EXIT
@@ -49,6 +51,11 @@ while IFS= read -r -d '' template; do
             ;;
     esac
 done < <(find "${SOURCE_DIR}/.chezmoiscripts" -type f -name '*.tmpl' -print0 | sort -z)
+
+if ! chezmoi --source "${SOURCE_DIR}" --destination "${DESTINATION_DIR}" diff --no-tty --no-pager >/dev/null; then
+    printf 'chezmoi diff failed for source=%s destination=%s\n' "${SOURCE_DIR}" "${DESTINATION_DIR}" >&2
+    failures=$((failures + 1))
+fi
 
 printf 'checked=%s rendered=%s failures=%s\n' "${checked}" "${rendered}" "${failures}"
 [[ "${failures}" -eq 0 ]]

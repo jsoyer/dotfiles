@@ -140,6 +140,7 @@ chezmoi-test-scripts
 1. Renders every script template with `chezmoi execute-template`.
 2. Runs `bash -n` on rendered shell scripts.
 3. Runs PowerShell parsing when `pwsh` is available.
+4. Runs `chezmoi diff --no-tty --no-pager` against `CHEZMOI_DESTINATION_PATH` or `$HOME`.
 
 ### ai-resource-dedup-report
 

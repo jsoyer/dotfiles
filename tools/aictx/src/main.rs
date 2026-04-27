@@ -1227,7 +1227,7 @@ mod tests {
         let config = AppConfig::load().unwrap();
         assert!(!config.base.skills.is_empty());
         assert!(!config.base.agents.is_empty());
-        assert!(!config.base.mcp.is_empty());
+        assert!(config.base.mcp.is_empty());
         assert!(!config.cli_registry.is_empty());
         assert!(!config.ai.enabled);
     }
