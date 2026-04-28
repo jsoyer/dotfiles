@@ -53,9 +53,17 @@ summarize_chezmoi_conflicts() {
 }
 
 preflight_sensitive_targets() {
-    local target output rc
+    local target output rc managed_entries
     target="${HOME}/.ssh"
     [[ -e "${target}" ]] || return 0
+
+    managed_entries="$(timeout "${CHEZMOI_PHASE_TIMEOUT}s" chezmoi managed --include files,symlinks --path-style absolute "${target}" 2>/dev/null </dev/null || true)"
+    if [[ -z "${managed_entries}" ]]; then
+        log "B2-preflight: ${target} has no managed sensitive files, skipping"
+        return 0
+    fi
+
+    log "B2-preflight: verifying managed sensitive files under ${target}: ${managed_entries//$'\n'/, }"
     output="$(timeout "${CHEZMOI_PHASE_TIMEOUT}s" chezmoi verify --no-tty "${target}" 2>&1 </dev/null)"
     rc=$?
     if [[ ${rc} -eq 0 ]]; then
