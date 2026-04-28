@@ -254,13 +254,13 @@ if [[ "${SKIP_UPDATE}" == "true" ]]; then
     log_err "chezmoi update skipped due to unsafe source state"
 elif command -v chezmoi >/dev/null 2>&1; then
     log "B1: pulling chezmoi source"
-    timeout "${CHEZMOI_PHASE_TIMEOUT}s" chezmoi update --apply=false --no-tty --keep-going >>"${LOG_FILE}" 2>&1 </dev/null || UPDATE_EXIT=$?
+    timeout "${CHEZMOI_PHASE_TIMEOUT}s" git -C "${CHEZMOI_SOURCE}" pull --ff-only >>"${LOG_FILE}" 2>&1 </dev/null || UPDATE_EXIT=$?
 
     if [[ ${UPDATE_EXIT} -eq 0 ]]; then
         log "B2-preflight: checking sensitive targets"
         if preflight_sensitive_targets; then
             log "B2: applying chezmoi changes"
-            timeout "${CHEZMOI_PHASE_TIMEOUT}s" chezmoi apply --no-tty --keep-going >>"${LOG_FILE}" 2>&1 </dev/null || UPDATE_EXIT=$?
+            timeout "${CHEZMOI_PHASE_TIMEOUT}s" chezmoi apply --exclude dirs --no-tty --keep-going >>"${LOG_FILE}" 2>&1 </dev/null || UPDATE_EXIT=$?
         else
             UPDATE_EXIT=1
         fi
