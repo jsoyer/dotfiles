@@ -269,10 +269,25 @@ When invoked:
            col_map["title"] = 0
        return col_map
 
-   _JUNK = re.compile(r'^(\d+\.?\d*|[A-Z]\d+|jerome|vincent|claude|total|phase \d+|sprint \d+|—|-|n/a)$', re.I)
+   _JUNK = re.compile(r'^(\d+\.?\d*|[A-Z]\d+|jerome|vincent|claude|total|phase \d+|sprint \d+|—|-|n/a|S\d+\s*\(.*)$', re.I)
+
+   # Bug #3 fix: detect ✅ Done / ✓ Done suffix embedded inside the title cell.
+   _TITLE_DONE_SUFFIX_RE = re.compile(r'\s*(?:✅|✓)\s*Done\s*$|\s*✅\s*$', re.IGNORECASE)
+
+   def strip_done_suffix(title):
+       """Return (cleaned_title, completed_flag). If title ends with ✅ Done / ✓ Done / ✅, strip and flag."""
+       if not title:
+           return title, False
+       if _TITLE_DONE_SUFFIX_RE.search(title):
+           return _TITLE_DONE_SUFFIX_RE.sub('', title).strip(), True
+       return title, False
 
    def is_valid_title(t):
        if not t or len(t) < 5:
+           return False
+       if re.match(r'^S\d+\s*\(', t.strip()):
+           return False
+       if re.match(r'(?i)^phase\s+\d+\s+[-—]+', t.strip()):
            return False
        return not _JUNK.match(t.strip())
 
@@ -313,6 +328,8 @@ When invoked:
            # Extract [#N] before stripping
            inline_issue_id = extract_issue_id(raw_title_cell)
            raw_title = re.sub(r'\[#\d+\]', '', re.sub(r'\*+', '', raw_title_cell)).strip()
+           # Bug #3: status emoji embedded in title cell
+           raw_title, title_done = strip_done_suffix(raw_title)
            if raw_title.startswith("~~") or not is_valid_title(raw_title):
                continue
 
@@ -327,7 +344,7 @@ When invoked:
            priority = p_match.group(0) if p_match else "P2"
            e_match = re.search(r'(\d+(?:\.\d+)?)\s*[jd]', get("effort"))
            effort = float(e_match.group(1)) if e_match else None
-           completed = is_done(get("status"))
+           completed = is_done(get("status")) or title_done
 
            items.append({
                "id": None,
@@ -356,6 +373,25 @@ When invoked:
        re.MULTILINE
    )
 
+   # Bug #2 fix: reject sprint section dividers like
+   #   "### S6 (May 5-16) --- AGENT..."
+   #   "### W17-18 (Apr 7-11) --- ..."
+   # Whitelist: ID must be a real task ID (alpha prefix + optional -digit/-alpha-digit),
+   # never purely sprint-like (S\d+, S\d+-S?\d+, W\d+-\d+, P\d+, PHASE\d+).
+   _SPRINT_ID_RE = re.compile(r'^(?:S\d+(?:-S?\d+)?|W\d+(?:-\d+)?|P\d+|PHASE\d+)$', re.IGNORECASE)
+   _DIVIDER_TITLE_RE = re.compile(r'^\(.+?\).*-{2,}', re.IGNORECASE)  # "(May 5-16) --- AGENT"
+
+   def is_sprint_divider_heading(item_id, title_part):
+       """True when this ### heading is a sprint section divider, not a task heading."""
+       if _SPRINT_ID_RE.match(item_id or ""):
+           return True
+       if title_part and _DIVIDER_TITLE_RE.match(title_part.strip()):
+           return True
+       # Multi-dash separator inside title => divider
+       if title_part and re.search(r'\s-{3,}\s', title_part):
+           return True
+       return False
+
    def parse_heading_items(src_text):
        """
        Extract structured items from ### ID — title headings with metadata blocks.
@@ -371,10 +407,16 @@ When invoked:
            if m:
                item_id = m.group(1)
                title_part = m.group(2).strip()
+               # Bug #2: skip sprint section dividers
+               if is_sprint_divider_heading(item_id, title_part):
+                   i += 1
+                   continue
                # Extract any [#N] marker from the heading line
                inline_id = extract_issue_id(line)
                # Strip [#N] from title
                title_clean = re.sub(r'\[#\d+\]', '', title_part).strip()
+               # Bug #3: status emoji embedded in heading title
+               title_clean, heading_done = strip_done_suffix(title_clean)
 
                # Read metadata from following lines (until blank line or next ## / ###)
                meta = {"priority": "P2", "effort": None, "sprint": None, "area": "api"}
@@ -410,7 +452,7 @@ When invoked:
                    "sprint": sprint_val,
                    "area": meta["area"],
                    "repo": repo,
-                   "completed": False,
+                   "completed": heading_done,
                    "source": "heading",
                })
            i += 1
@@ -479,12 +521,24 @@ When invoked:
            return 0.0
        return len(ta & tb) / min(len(ta), len(tb))
 
-   def match_item(rm_item, by_num, by_norm_title, project_list):
-       # Tier 1: [#N] marker
+   # Bug #1 fix: helper extracting just the repo NAME from full org/repo or repo string
+   def short_repo(full):
+       if not full:
+           return ""
+       return full.rsplit("/", 1)[-1]
+
+   def match_item(rm_item, by_num, by_norm_title, project_list, by_repo_num=None):
+       # Tier 1: [#N] marker — composite (repo, num) lookup post-Phase 3a moves
        if rm_item.get("inline_issue_id"):
            num = rm_item["inline_issue_id"]
+           rm_repo = short_repo(rm_item.get("repo", ""))
+           if by_repo_num and rm_repo and (rm_repo, num) in by_repo_num:
+               return by_repo_num[(rm_repo, num)], "id", 1.0
+           # Fallback: bare-num lookup for items without repo context — log warning
            if num in by_num:
-               return by_num[num], "id", 1.0
+               import sys
+               print(f"WARNING: ambiguous [#{num}] '{rm_item.get('title','')[:60]}' — no repo context, falling back to bare-num match", file=sys.stderr)
+               return by_num[num], "id-fallback", 1.0
        # Tier 2: exact normalized title
        norm = normalize_title(rm_item["title"])
        if norm in by_norm_title:
