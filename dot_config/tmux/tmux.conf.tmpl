@@ -60,8 +60,15 @@ set -g set-titles-string '#{pane_title}'
 # ============================================================================
 # Local vs SSH: prefix and status position
 # ============================================================================
-if-shell '[ -z "$SSH_TTY" ]' 'set -g prefix ^A; bind ^A last-window; set -g status-position top; set -g pane-active-border-style "fg=magenta,bg=default"; set -g pane-border-style "fg=brightblack,bg=default"'
-if-shell '[ -n "$SSH_TTY" ]' 'set -g prefix ^B; bind ^B last-window; set -g status-position bottom'
+if-shell '[ -z "$SSH_TTY" ]' 'set -g prefix ^A'
+if-shell '[ -z "$SSH_TTY" ]' 'bind ^A last-window'
+if-shell '[ -z "$SSH_TTY" ]' 'set -g status-position top'
+if-shell '[ -z "$SSH_TTY" ]' 'set -g pane-active-border-style "fg=magenta,bg=default"'
+if-shell '[ -z "$SSH_TTY" ]' 'set -g pane-border-style "fg=brightblack,bg=default"'
+
+if-shell '[ -n "$SSH_TTY" ]' 'set -g prefix ^B'
+if-shell '[ -n "$SSH_TTY" ]' 'bind ^B last-window'
+if-shell '[ -n "$SSH_TTY" ]' 'set -g status-position bottom'
 
 # Catppuccin config (catppuccin plugin overrides status in local mode)
 set -g @catppuccin_flavour 'mocha'
@@ -126,7 +133,19 @@ run '~/.config/tmux/plugins/tpm/tpm'
 # ============================================================================
 # Snazzy override AFTER tpm (catppuccin sets status, we override in SSH)
 # ============================================================================
-if-shell '[ -n "$SSH_TTY" ]' "set -g status-style 'bg=#282a36 fg=#eff0eb'; set -g status-left-length 50; set -g status-right-length 100; set -g status-left '#[fg={{ $sshIconColor }},bold]{{ $sshIcon }} #[fg=#f3f99d,bold]#S #[fg=#5af78e]│ '; set -g status-right '#[fg=#5af78e]│ #[fg=#57c7ff]#H #[fg=#5af78e]│ #[fg=#ff6ac1]%d/%m #[fg=#f3f99d]%H:%M '; set -g window-status-format '#[fg=#9aedfe] #I:#W '; set -g window-status-current-format '#[fg=#282a36,bg=#57c7ff,bold] #I:#W#{?window_zoomed_flag, 󰊓,} '; set -g window-status-separator ''; set -g pane-border-style 'fg=#3a3d4d'; set -g pane-active-border-style 'fg=#57c7ff'; set -g message-style 'bg=#57c7ff fg=#282a36'; set -g message-command-style 'bg=#ff6ac1 fg=#282a36'; set -g mode-style 'bg=#3a3d4d fg=#eff0eb'"
+if-shell '[ -n "$SSH_TTY" ]' "set -g status-style 'bg=#282a36 fg=#eff0eb'"
+if-shell '[ -n "$SSH_TTY" ]' "set -g status-left-length 50"
+if-shell '[ -n "$SSH_TTY" ]' "set -g status-right-length 100"
+if-shell '[ -n "$SSH_TTY" ]' "set -g status-left '#[fg={{ $sshIconColor }},bold]{{ $sshIcon }} #[fg=#f3f99d,bold]#S #[fg=#5af78e]│ '"
+if-shell '[ -n "$SSH_TTY" ]' "set -g status-right '#[fg=#5af78e]│ #[fg=#57c7ff]#H #[fg=#5af78e]│ #[fg=#ff6ac1]%d/%m #[fg=#f3f99d]%H:%M '"
+if-shell '[ -n "$SSH_TTY" ]' "set -g window-status-format '#[fg=#9aedfe] #I:#W '"
+if-shell '[ -n "$SSH_TTY" ]' "set -g window-status-current-format '#[fg=#282a36,bg=#57c7ff,bold] #I:#W#{?window_zoomed_flag, 󰊓,} '"
+if-shell '[ -n "$SSH_TTY" ]' "set -g window-status-separator ''"
+if-shell '[ -n "$SSH_TTY" ]' "set -g pane-border-style 'fg=#3a3d4d'"
+if-shell '[ -n "$SSH_TTY" ]' "set -g pane-active-border-style 'fg=#57c7ff'"
+if-shell '[ -n "$SSH_TTY" ]' "set -g message-style 'bg=#57c7ff fg=#282a36'"
+if-shell '[ -n "$SSH_TTY" ]' "set -g message-command-style 'bg=#ff6ac1 fg=#282a36'"
+if-shell '[ -n "$SSH_TTY" ]' "set -g mode-style 'bg=#3a3d4d fg=#eff0eb'"
 
 # ============================================================================
 # Keybindings
