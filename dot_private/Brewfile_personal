@@ -337,7 +337,6 @@ brew "rtk"
 brew "ruff"
 brew "rust"
 brew "rust-analyzer"
-brew "scala"
 brew "scalaenv"
 brew "sesh"
 brew "sevenzip"
@@ -569,7 +568,6 @@ mas "Presentify", id: 1507246666
 mas "Raycast Companion", id: 6738274497
 mas "Remote Desktop", id: 409907375
 mas "Save to Raindrop.io", id: 1549370672
-mas "stoic", id: 1312926037
 mas "Tailscale", id: 1475387142
 mas "TestFlight", id: 899247664
 mas "Xcode", id: 497799835
