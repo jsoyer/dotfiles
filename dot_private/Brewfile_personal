@@ -504,7 +504,6 @@ cask "karabiner-elements"
 cask "kitty"
 cask "latest"
 cask "ledger-wallet"
-cask "linear"
 cask "little-snitch"
 cask "lm-studio"
 cask "localsend"
@@ -529,7 +528,6 @@ cask "opencode-desktop"
 cask "orbstack"
 cask "dorcha-inc/orla/orla"
 cask "pearcleaner"
-cask "pika"
 cask "plaud"
 cask "pocket-casts"
 cask "leonardocardoso/poirot/poirot"
@@ -569,7 +567,6 @@ mas "Developer", id: 640199958
 mas "djay Pro", id: 450527929
 mas "Everhour", id: 1539652800
 mas "FaceScreen", id: 6702028512
-mas "Flighty", id: 1358823008
 mas "iCompta", id: 1149778308
 mas "iMovie", id: 408981434
 mas "Infuse", id: 1136220934
