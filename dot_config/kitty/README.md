@@ -60,6 +60,9 @@ shell /opt/homebrew/bin/nu
 ### Copy/Paste
 - `Cmd+C` / `Ctrl+Shift+C` - Copy
 - `Cmd+V` / `Ctrl+Shift+V` - Paste
+- `Ctrl+Alt+F1` / `Ctrl+Alt+F2` - Copy/paste from internal buffer `a`
+- `Ctrl+Alt+F3` / `Ctrl+Alt+F4` - Copy/paste from internal buffer `b`
+- `Ctrl+Alt+F5` / `Ctrl+Alt+F6` - Copy/paste from internal buffer `c`
 
 ### Search
 - `Cmd+F` / `Ctrl+Shift+F` - Search with fzf
@@ -78,6 +81,28 @@ shell /opt/homebrew/bin/nu
 ### Window Management
 - `Cmd+N` / `Ctrl+Shift+N` - New window
 - `Cmd+W` / `Ctrl+Shift+W` - Close window
+
+### Splits Layout
+- `F4` - New split, automatic direction based on current window shape
+- `F5` - New horizontal split, windows stacked one above the other
+- `F6` - New vertical split, windows side by side
+- `F7` - Rotate the current split axis
+- `Shift+Up/Left/Right/Down` - Move the active window in that direction
+- `Ctrl+Up/Left/Right/Down` - Focus the neighboring window in that direction
+- `Ctrl+Shift+Up/Left/Right/Down` - Move the active window to the matching screen edge
+- `Ctrl+.` - Set the current split bias to 80%
+- `Ctrl+,` - Reset the current split bias to 50%
+- `Ctrl+Alt+H` - Toggle horizontal maximization for the active window
+- `Ctrl+Alt+V` - Toggle vertical maximization for the active window
+
+### Window Resizing
+- `Ctrl+Alt+Left` - Make the active window narrower
+- `Ctrl+Alt+Right` - Make the active window wider
+- `Ctrl+Alt+Up` - Make the active window taller
+- `Ctrl+Alt+Down` - Make the active window shorter by 3 cells
+- `Ctrl+Alt+Home` - Reset all window sizes in the current tab
+
+The resizing shortcuts add `Alt` compared to Kitty's documentation because `Ctrl+Arrow` is reserved for Splits focus navigation. On macOS, the left Option key is configured as Alt.
 
 ### Tab Management
 - `Cmd+T` / `Ctrl+Shift+T` - New tab

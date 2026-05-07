@@ -57,6 +57,7 @@ window_alert_on_bell no
 # Window Layout
 # ============================================================================
 
+enabled_layouts splits:split_axis=horizontal,tall,fat,grid,horizontal,vertical,stack
 remember_window_size  yes
 initial_window_width  800
 initial_window_height 600
@@ -187,11 +188,58 @@ map cmd+v paste_from_clipboard
 map ctrl+shift+c copy_to_clipboard
 map ctrl+shift+v paste_from_clipboard
 
+# Internal copy/paste buffers
+map ctrl+alt+f1 copy_to_buffer a
+map ctrl+alt+f2 paste_from_buffer a
+map ctrl+alt+f3 copy_to_buffer b
+map ctrl+alt+f4 paste_from_buffer b
+map ctrl+alt+f5 copy_to_buffer c
+map ctrl+alt+f6 paste_from_buffer c
+
 # Window management
 map cmd+n new_os_window
 map ctrl+shift+n new_os_window
 map cmd+w close_window
 map ctrl+shift+w close_window
+
+# Splits layout
+# F4-F7, Shift+arrows, Ctrl+arrows and Ctrl+Shift+arrows follow kitty's
+# documented Splits Layout examples for a consistent macOS/Linux workflow.
+map f4 launch --location=split
+map f5 launch --location=hsplit
+map f6 launch --location=vsplit
+map f7 layout_action rotate
+
+map shift+up move_window up
+map shift+left move_window left
+map shift+right move_window right
+map shift+down move_window down
+
+map ctrl+up neighboring_window up
+map ctrl+left neighboring_window left
+map ctrl+right neighboring_window right
+map ctrl+down neighboring_window down
+
+map ctrl+shift+up layout_action move_to_screen_edge top
+map ctrl+shift+left layout_action move_to_screen_edge left
+map ctrl+shift+right layout_action move_to_screen_edge right
+map ctrl+shift+down layout_action move_to_screen_edge bottom
+
+map ctrl+. layout_action bias 80
+map ctrl+, layout_action bias 50
+
+# The kitty docs also show Ctrl+Shift+Right/Up for axis maximization, but those
+# keys are already used above for move_to_screen_edge to stay close to Splits.
+map ctrl+alt+h layout_action maximize horizontal
+map ctrl+alt+v layout_action maximize vertical
+
+# Window resizing uses the same directions as kitty's docs, with Alt added to
+# avoid conflicting with Ctrl+arrows focus navigation.
+map ctrl+alt+left resize_window narrower
+map ctrl+alt+right resize_window wider
+map ctrl+alt+up resize_window taller
+map ctrl+alt+down resize_window shorter 3
+map ctrl+alt+home resize_window reset
 
 # Tab management
 map cmd+t new_tab
