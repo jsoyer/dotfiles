@@ -152,6 +152,11 @@ if [[ "$COMMAND" =~ git[[:space:]]+push[[:space:]] ]] && [[ "$COMMAND" =~ [[:spa
   ask "SOFT BLOCK: git push with + refspec (force push) detected. Re-approve if intentional."
 fi
 
+# Obsidian vault is main-only (Noxys agent governance) — allow direct push to main/master
+if [[ "$COMMAND" =~ git[[:space:]]+push[[:space:]] ]] && [[ "$COMMAND" =~ obsidian-vault ]] && [[ "$COMMAND" =~ [[:space:]](main|master)([[:space:]]|$) ]]; then
+  exit 0
+fi
+
 # Match "git push ... main/master" with any number of flags/options before the branch name
 # Catches: git push origin main, git push -u origin main, git push --set-upstream origin main
 if [[ "$COMMAND" =~ git[[:space:]]+push[[:space:]] ]] && [[ "$COMMAND" =~ [[:space:]](main|master)([[:space:]]|$) ]]; then

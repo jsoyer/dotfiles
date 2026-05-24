@@ -327,6 +327,16 @@ run_hook "git push -u origin main"
 assert_stdout_contains '"permissionDecision"' "git push -u origin main is soft-blocked"
 
 cleanup
+run_hook "cd ~/Documents/Github/jsoyer/obsidian-vault && git push origin main"
+assert_stdout_empty "obsidian-vault git push origin main is allowed"
+assert_exit 0 "obsidian-vault git push origin main exits 0"
+
+cleanup
+run_hook "cd /home/jeromesoyer/Documents/Github/jsoyer/obsidian-vault && git push -u origin main"
+assert_stdout_empty "obsidian-vault git push -u origin main is allowed"
+assert_exit 0 "obsidian-vault git push -u origin main exits 0"
+
+cleanup
 run_hook "git push --set-upstream origin master"
 assert_stdout_contains '"permissionDecision"' "git push --set-upstream origin master is soft-blocked"
 
