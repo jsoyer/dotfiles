@@ -550,12 +550,12 @@ cask "tex-live-utility"
 cask "utm"
 cask "visual-studio-code"
 cask "whatsapp"
+cask "wispr-flow"
 cask "xquartz"
 cask "zed"
 cask "zoom"
 mas "Amphetamine", id: 937984704
 mas "Developer", id: 640199958
-mas "djay Pro", id: 450527929
 mas "FaceScreen", id: 6702028512
 mas "iMovie", id: 408981434
 mas "Infuse", id: 1136220934
