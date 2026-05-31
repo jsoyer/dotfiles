@@ -12,6 +12,10 @@
 # rpi:             {{ include "dot_private/Brewfile_rpi" | sha256sum }}
 # fedora_atomic:   {{ include "dot_private/Brewfile_fedora_atomic" | sha256sum }}
 {{- end }}
+{{- $hostbrew := printf "dot_private/Brewfile_%s" .chezmoi.hostname }}
+{{- if stat (printf "%s/%s" .chezmoi.sourceDir $hostbrew) }}
+# host-overlay: {{ include $hostbrew | sha256sum }}
+{{- end }}
 
 set -uo pipefail  # no -e: brew bundle returns non-zero if some deps fail (non-fatal)
 eval "$(brew shellenv)"
@@ -67,6 +71,12 @@ echo "  (skipping mas apps — set install_mas=true in chezmoi.toml to enable)"
 cat "$BREWFILE_DIR/Brewfile_macos" "$BREWFILE_DIR/Brewfile_personal" | grep -v '^mas ' | brew_bundle_2pass_stdin
 {{-     end }}
 {{-   end }}
+# Per-hostname overlay: machine-specific brews layered on top of the base.
+_hostbrewfile="$BREWFILE_DIR/Brewfile_{{ .chezmoi.hostname }}"
+if [[ -f "$_hostbrewfile" ]]; then
+    echo "🍺 brew bundle (hostname overlay: {{ .chezmoi.hostname }})"
+    brew_bundle_2pass "$_hostbrewfile" || true
+fi
 {{- else if eq .chezmoi.os "linux" }}
 {{-   if or (hasPrefix "bbh-network" .chezmoi.hostname) (hasPrefix "omv-" .chezmoi.hostname) }}
 echo "🍺 brew bundle install (rpi profile)"
@@ -84,5 +94,11 @@ echo "🍺 brew bundle install (linux brew-only)"
 brew_bundle_2pass "$BREWFILE_DIR/Brewfile_brew_only"
 {{-     end }}
 {{-   end }}
+# Per-hostname overlay: machine-specific brews layered on top of the base.
+_hostbrewfile="$BREWFILE_DIR/Brewfile_{{ .chezmoi.hostname }}"
+if [[ -f "$_hostbrewfile" ]]; then
+    echo "🍺 brew bundle (hostname overlay: {{ .chezmoi.hostname }})"
+    brew_bundle_2pass "$_hostbrewfile" || true
+fi
 {{- end }}
 {{ end -}}

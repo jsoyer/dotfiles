@@ -2,11 +2,17 @@
 """
 Smart Homebrew wrapper that automatically keeps the profile-specific
 Brewfile up to date and syncs changes to Git.
+
+The shared base Brewfile (selected by MACHINE_PROFILE) is NEVER overwritten
+by a dump. Instead, a per-hostname overlay (Brewfile_<hostname>) receives
+only the delta: installed − base − blacklist.
 """
 
+import argparse
 import os
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 # --- Configuration ---
@@ -41,8 +47,13 @@ NATIVE_WRAPPER = {
 }
 
 
+def get_hostname() -> str:
+    """Return the short hostname (no domain)."""
+    return os.uname().nodename.split(".")[0]
+
+
 def get_target_brewfile():
-    """Determine the target Brewfile based on machine profile."""
+    """Return the shared base Brewfile path for the current profile (read-only reference)."""
     profile = os.environ.get("MACHINE_PROFILE")
     if profile == "mac-pro":
         return BREWFILE_DIR / "Brewfile_pro"
@@ -56,6 +67,11 @@ def get_target_brewfile():
         return BREWFILE_DIR / "Brewfile_brew_only"
     else:
         return None
+
+
+def get_host_brewfile() -> Path:
+    """Return the per-hostname overlay Brewfile path."""
+    return BREWFILE_DIR / f"Brewfile_{get_hostname()}"
 
 
 def check_native_available(args):
@@ -82,7 +98,7 @@ def run_brew_command(args):
 
 
 def load_blacklist() -> set:
-    """Load the set of blacklisted package names from Brewfile_blacklist."""
+    """Load the set of blacklisted package identity strings from Brewfile_blacklist."""
     blacklist_path = BREWFILE_DIR / "Brewfile_blacklist"
     if not blacklist_path.exists():
         return set()
@@ -96,45 +112,144 @@ def load_blacklist() -> set:
     return packages
 
 
-def filter_brewfile_blacklist(brewfile_path: Path, blacklist: set) -> int:
-    """Remove blacklisted entries from the Brewfile. Returns count of removed lines."""
-    if not brewfile_path.exists() or not blacklist:
-        return 0
-    lines = brewfile_path.read_text().splitlines(keepends=True)
-    filtered = []
-    removed = 0
-    for line in lines:
-        # Match brew/cask/mas lines: brew "pkg", cask "pkg", tap "pkg/repo"
-        stripped = line.strip()
-        matched = False
-        for pkg in blacklist:
-            # e.g. brew "go@1.19" or cask "skyfonts"
-            if f'"{pkg}"' in stripped or f"'{pkg}'" in stripped:
-                matched = True
-                break
-        if matched:
-            removed += 1
-        else:
-            filtered.append(line)
-    if removed > 0:
-        brewfile_path.write_text("".join(filtered))
-        print(f"{YELLOW}Blacklist: removed {removed} entries from {brewfile_path.name}{NC}")
-    return removed
+def _extract_identity(line: str) -> str | None:
+    """
+    Extract the canonical identity string from a Brewfile line.
+
+    Returns the quoted name for brew/cask/tap/mas lines, e.g.:
+      brew "git"        → git
+      cask "1password"  → 1password
+      tap "homebrew/core" → homebrew/core
+      mas "Amphetamine", id: 937984704 → Amphetamine
+    Returns None for comments or blank lines.
+    """
+    stripped = line.strip()
+    if not stripped or stripped.startswith("#"):
+        return None
+    for keyword in ("brew", "cask", "tap", "mas"):
+        if stripped.startswith(keyword + " "):
+            # Extract the first quoted token
+            for q in ('"', "'"):
+                start = stripped.find(q)
+                if start != -1:
+                    end = stripped.find(q, start + 1)
+                    if end != -1:
+                        return stripped[start + 1:end]
+    return None
 
 
-def update_brewfile(target_brewfile):
-    """Update the specified Brewfile with 'brew bundle dump', then apply blacklist."""
-    print(f"\n{YELLOW}Updating Brewfile: {target_brewfile.name}{NC}")
-    cmd = ["brew", "bundle", "dump", "--file", str(target_brewfile), "--force"]
-    result = subprocess.run(cmd, capture_output=True, text=True)
+def parse_brewfile_entries(path: Path) -> dict[str, str]:
+    """
+    Parse a Brewfile and return a mapping of identity → full original line.
+    Only brew/cask/tap/mas lines are included.
+    """
+    if not path.exists():
+        return {}
+    entries: dict[str, str] = {}
+    for line in path.read_text().splitlines():
+        identity = _extract_identity(line)
+        if identity is not None:
+            entries[identity] = line
+    return entries
 
-    if result.returncode == 0:
-        print(f"{GREEN}Brewfile updated successfully.{NC}")
+
+def _is_blacklisted(line: str, blacklist: set) -> bool:
+    """Return True if the line matches any blacklist entry."""
+    stripped = line.strip()
+    for pkg in blacklist:
+        if f'"{pkg}"' in stripped or f"'{pkg}'" in stripped:
+            return True
+    return False
+
+
+def dump_host_overlay(base_brewfile: Path | None):
+    """
+    Full delta-dump flow:
+    1. brew bundle dump → tmp file (full installed state)
+    2. Parse tmp, base, and blacklist
+    3. host_entries = tmp − base − blacklist
+    4. Write host overlay file
+    """
+    hostname = get_hostname()
+    host_file = get_host_brewfile()
+
+    print(f"\n{YELLOW}Dumping host overlay: {host_file.name}{NC}")
+
+    with tempfile.NamedTemporaryFile(suffix=".Brewfile", delete=False, mode="w") as tf:
+        tmp_path = Path(tf.name)
+
+    try:
+        result = subprocess.run(
+            ["brew", "bundle", "dump", "--file", str(tmp_path), "--force"],
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode != 0:
+            print(f"{RED}Warning: brew bundle dump failed: {result.stderr}{NC}")
+            return
+
+        tmp_entries = parse_brewfile_entries(tmp_path)
+        base_entries = parse_brewfile_entries(base_brewfile) if base_brewfile else {}
         blacklist = load_blacklist()
-        if blacklist:
-            filter_brewfile_blacklist(target_brewfile, blacklist)
-    else:
-        print(f"Warning: failed to update Brewfile: {result.stderr}")
+
+        host_lines = []
+        for identity, line in tmp_entries.items():
+            if identity in base_entries:
+                continue
+            if _is_blacklisted(line, blacklist):
+                continue
+            host_lines.append(line)
+
+        host_file.parent.mkdir(parents=True, exist_ok=True)
+        header = (
+            f"# Host overlay for {hostname} — extras beyond the shared base.\n"
+            f"# Managed by breww. Do not edit manually.\n"
+        )
+        host_file.write_text(header + "\n".join(host_lines) + ("\n" if host_lines else ""))
+        print(
+            f"{GREEN}Host overlay written: {len(host_lines)} entries "
+            f"({len(tmp_entries) - len(host_lines)} in base/blacklist){NC}"
+        )
+    finally:
+        tmp_path.unlink(missing_ok=True)
+
+
+def promote_entry(name: str, base_brewfile: Path | None):
+    """
+    Move a single entry identified by <name> from the host overlay into the base file.
+    """
+    if base_brewfile is None:
+        print(f"{RED}Error: no base Brewfile for current profile — cannot promote{NC}")
+        sys.exit(1)
+
+    host_file = get_host_brewfile()
+    if not host_file.exists():
+        print(f"{RED}Error: host overlay {host_file.name} does not exist{NC}")
+        sys.exit(1)
+
+    host_entries = parse_brewfile_entries(host_file)
+    if name not in host_entries:
+        print(f"{RED}Error: '{name}' not found in {host_file.name}{NC}")
+        sys.exit(1)
+
+    line_to_promote = host_entries[name]
+
+    # Remove from host overlay
+    host_lines = [
+        l for l in host_file.read_text().splitlines()
+        if _extract_identity(l) != name
+    ]
+    host_file.write_text("\n".join(host_lines) + "\n")
+    print(f"{GREEN}Removed '{name}' from {host_file.name}{NC}")
+
+    # Append to base
+    base_content = base_brewfile.read_text()
+    if not base_content.endswith("\n"):
+        base_content += "\n"
+    base_brewfile.write_text(base_content + line_to_promote + "\n")
+    print(f"{GREEN}Added '{name}' to {base_brewfile.name}{NC}")
+
+    sync_to_git()
 
 
 def sync_to_git():
@@ -161,19 +276,47 @@ def sync_to_git():
 
 def main():
     import shutil
+
+    # Handle --promote before the brew-binary check (it's a pure-manifest operation)
+    if "--promote" in sys.argv:
+        idx = sys.argv.index("--promote")
+        if idx + 1 >= len(sys.argv):
+            print(f"{RED}Error: --promote requires a package name argument{NC}")
+            sys.exit(1)
+        entry_name = sys.argv[idx + 1]
+        base_brewfile = get_target_brewfile()
+        promote_entry(entry_name, base_brewfile)
+        sync_to_git()
+        return
+
     if not shutil.which("brew"):
         print(f"{RED}brew not found. Install Homebrew first: https://brew.sh{NC}")
         sys.exit(1)
 
     args = sys.argv[1:]
 
-    if not args:
-        subprocess.run(["brew", "--help"])
+    if not args or args[0] in ("--help", "-h"):
+        hostname = get_hostname()
+        base_brewfile = get_target_brewfile()
+        print(
+            f"breww — Homebrew wrapper with per-host overlay manifest sync\n\n"
+            f"Usage:\n"
+            f"  breww install <pkg>         Install + update host overlay\n"
+            f"  breww uninstall <pkg>       Uninstall + update host overlay\n"
+            f"  breww tap <repo>            Tap + update host overlay\n"
+            f"  breww untap <repo>          Untap + update host overlay\n"
+            f"  breww --promote <name>      Move entry from host overlay to base\n"
+            f"  breww <command>             Passthrough to brew\n\n"
+            f"Base file (read-only): {base_brewfile or 'unknown (check MACHINE_PROFILE)'}\n"
+            f"Host overlay:          {get_host_brewfile()}\n"
+            f"Hostname:              {hostname}\n"
+            f"MACHINE_PROFILE:       {os.environ.get('MACHINE_PROFILE', 'unset')}\n"
+        )
         return
 
-    # Determine the target Brewfile
-    target_brewfile = get_target_brewfile()
-    if not target_brewfile:
+    # Determine the base Brewfile (read-only reference; never dumped onto)
+    base_brewfile = get_target_brewfile()
+    if not base_brewfile:
         print(
             "Warning: unrecognized machine profile. Running brew without Brewfile sync."
         )
@@ -187,11 +330,11 @@ def main():
     # Run the brew command
     returncode = run_brew_command(args)
 
-    # If command succeeded and modified packages, update the Brewfile
+    # If command succeeded and modified packages, dump the host overlay delta
     if returncode == 0 and any(
         cmd in args for cmd in ["install", "uninstall", "tap", "untap"]
     ):
-        update_brewfile(target_brewfile)
+        dump_host_overlay(base_brewfile)
         sync_to_git()
 
     sys.exit(returncode)

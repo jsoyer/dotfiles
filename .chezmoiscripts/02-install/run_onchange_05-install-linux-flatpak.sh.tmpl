@@ -4,7 +4,36 @@
 {{- $isFedoraAtomic  := eq $mp "fedora-atomic" -}}
 {{- $isFedoraDesktop := eq $mp "fedora-desktop" -}}
 {{- if or $isFedoraAtomic $isFedoraDesktop $isUbuntuDesktop -}}
+{{- $hostOverlayPath := printf "%s/dot_private/Flatpakfile_%s" .chezmoi.sourceDir .chezmoi.hostname -}}
 #!/usr/bin/env bash
+# run_onchange hash sources (reruns when any relevant file changes):
+{{- if $isFedoraAtomic }}
+{{- $atomicBase := printf "%s/dot_private/Flatpakfile_fedora_atomic" .chezmoi.sourceDir -}}
+{{- if stat $atomicBase }}
+#   fedora-atomic base: {{ include $atomicBase | sha256sum }}
+{{- else }}
+#   fedora-atomic base: (absent)
+{{- end -}}
+{{- end -}}
+{{- if $isUbuntuDesktop }}
+{{- $ubuntuBase := printf "%s/dot_private/Flatpakfile_ubuntu_desktop" .chezmoi.sourceDir -}}
+{{- if stat $ubuntuBase }}
+#   ubuntu-desktop base: {{ include $ubuntuBase | sha256sum }}
+{{- else }}
+#   ubuntu-desktop base: (absent)
+{{- end -}}
+{{- end -}}
+{{- if $isFedoraDesktop }}
+{{- $fedoraBase := printf "%s/dot_private/Flatpakfile_fedora_desktop" .chezmoi.sourceDir -}}
+{{- if stat $fedoraBase }}
+#   fedora-desktop base: {{ include $fedoraBase | sha256sum }}
+{{- else }}
+#   fedora-desktop base: (absent)
+{{- end -}}
+{{- end -}}
+{{- if stat $hostOverlayPath }}
+#   host overlay: {{ include $hostOverlayPath | sha256sum }}
+{{- end }}
 # =============================================================================
 # Flatpak Packages Installation (reruns when this package list changes)
 # =============================================================================
@@ -41,40 +70,34 @@ echo "Refreshing Flathub metadata..."
 sudo flatpak update --appstream flathub --system 2>/dev/null || true
 
 echo "Installing Flatpak packages (Fedora Atomic)..."
-for pkg in \
-    best.ellie.StartupConfiguration \
-    com.brave.Browser \
-    com.discordapp.Discord \
-    com.google.Chrome \
-    com.obsproject.Studio \
-    dev.edfloreshz.CosmicTweaks \
-    dev.zed.Zed \
-    io.dbeaver.DBeaverCommunity \
-    io.github.BuddySirJava.SSH-Studio \
-    io.github.cosmic_utils.camera \
-    io.github.shiftey.Desktop \
-    io.podman_desktop.PodmanDesktop \
-    md.obsidian.Obsidian \
-    org.fedoraproject.MediaWriter \
-    org.filezillaproject.Filezilla \
-    org.gnome.Firmware \
-    org.gnome.Loupe \
-    org.gnome.Photos \
-    org.localsend.localsend_app \
-    org.remmina.Remmina \
-    org.signal.Signal \
-    org.telegram.desktop \
-    org.torproject.torbrowser-launcher \
-    org.videolan.VLC \
-    tech.feliciano.pocket-casts
-do
+
+_install_flatpak_atomic() {
+    local pkg="$1"
     if flatpak info "$pkg" &>/dev/null; then
         echo "  $pkg already installed"
     else
         echo "  Installing $pkg..."
-        sudo flatpak install --system --noninteractive flathub "$pkg" || _pkgfail "flatpak (fedora-atomic): ${pkg}"
+        sudo flatpak install --system --noninteractive flathub "$pkg" \
+            || _pkgfail "flatpak (fedora-atomic): ${pkg}"
     fi
-done
+}
+
+# --- base manifest (fedora-atomic) ---
+_base="{{ printf "%s/dot_private/Flatpakfile_fedora_atomic" .chezmoi.sourceDir }}"
+if [[ -f "$_base" && -s "$_base" ]]; then
+    mapfile -t _apps < <(grep -v '^\s*#' "$_base" | grep -v '^\s*$')
+    for pkg in "${_apps[@]}"; do _install_flatpak_atomic "$pkg"; done
+fi
+
+# --- per-hostname overlay ---
+_host_file="{{ $hostOverlayPath }}"
+if [[ -f "$_host_file" && -s "$_host_file" ]]; then
+    mapfile -t _host_apps < <(grep -v '^\s*#' "$_host_file" | grep -v '^\s*$')
+    if (( ${#_host_apps[@]} > 0 )); then
+        echo "Installing host-overlay Flatpak packages ({{ .chezmoi.hostname }}, Fedora Atomic)..."
+        for pkg in "${_host_apps[@]}"; do _install_flatpak_atomic "$pkg"; done
+    fi
+fi
 {{- end }}
 
 {{- if $isUbuntuDesktop }}
@@ -95,21 +118,34 @@ echo "Refreshing Flathub metadata..."
 flatpak update --appstream flathub --user 2>/dev/null || true
 
 echo "Installing Flatpak packages (Ubuntu Desktop)..."
-for pkg in \
-    com.discordapp.Discord \
-    io.github.shiftey.Desktop \
-    md.obsidian.Obsidian \
-    org.localsend.localsend_app \
-    org.telegram.desktop \
-    tech.feliciano.pocket-casts
-do
+
+_install_flatpak_ubuntu() {
+    local pkg="$1"
     if flatpak info --user "$pkg" &>/dev/null; then
         echo "  $pkg already installed"
     else
         echo "  Installing $pkg..."
-        flatpak install --user --noninteractive flathub "$pkg" || _pkgfail "flatpak (ubuntu-desktop): ${pkg}"
+        flatpak install --user --noninteractive flathub "$pkg" \
+            || _pkgfail "flatpak (ubuntu-desktop): ${pkg}"
     fi
-done
+}
+
+# --- base manifest (ubuntu-desktop) ---
+_base="{{ printf "%s/dot_private/Flatpakfile_ubuntu_desktop" .chezmoi.sourceDir }}"
+if [[ -f "$_base" && -s "$_base" ]]; then
+    mapfile -t _apps < <(grep -v '^\s*#' "$_base" | grep -v '^\s*$')
+    for pkg in "${_apps[@]}"; do _install_flatpak_ubuntu "$pkg"; done
+fi
+
+# --- per-hostname overlay ---
+_host_file="{{ $hostOverlayPath }}"
+if [[ -f "$_host_file" && -s "$_host_file" ]]; then
+    mapfile -t _host_apps < <(grep -v '^\s*#' "$_host_file" | grep -v '^\s*$')
+    if (( ${#_host_apps[@]} > 0 )); then
+        echo "Installing host-overlay Flatpak packages ({{ .chezmoi.hostname }}, Ubuntu Desktop)..."
+        for pkg in "${_host_apps[@]}"; do _install_flatpak_ubuntu "$pkg"; done
+    fi
+fi
 {{- end }}
 
 {{- if $isFedoraDesktop }}
@@ -128,21 +164,34 @@ echo "Refreshing Flathub metadata..."
 flatpak update --appstream flathub --user 2>/dev/null || true
 
 echo "Installing Flatpak packages (Fedora Desktop)..."
-for pkg in \
-    com.discordapp.Discord \
-    io.github.shiftey.Desktop \
-    md.obsidian.Obsidian \
-    org.localsend.localsend_app \
-    org.signal.Signal \
-    tech.feliciano.pocket-casts
-do
+
+_install_flatpak_fedora() {
+    local pkg="$1"
     if flatpak info --user "$pkg" &>/dev/null; then
         echo "  $pkg already installed"
     else
         echo "  Installing $pkg..."
-        flatpak install --user --noninteractive flathub "$pkg" || _pkgfail "flatpak (fedora-desktop): ${pkg}"
+        flatpak install --user --noninteractive flathub "$pkg" \
+            || _pkgfail "flatpak (fedora-desktop): ${pkg}"
     fi
-done
+}
+
+# --- base manifest (fedora-desktop) ---
+_base="{{ printf "%s/dot_private/Flatpakfile_fedora_desktop" .chezmoi.sourceDir }}"
+if [[ -f "$_base" && -s "$_base" ]]; then
+    mapfile -t _apps < <(grep -v '^\s*#' "$_base" | grep -v '^\s*$')
+    for pkg in "${_apps[@]}"; do _install_flatpak_fedora "$pkg"; done
+fi
+
+# --- per-hostname overlay ---
+_host_file="{{ $hostOverlayPath }}"
+if [[ -f "$_host_file" && -s "$_host_file" ]]; then
+    mapfile -t _host_apps < <(grep -v '^\s*#' "$_host_file" | grep -v '^\s*$')
+    if (( ${#_host_apps[@]} > 0 )); then
+        echo "Installing host-overlay Flatpak packages ({{ .chezmoi.hostname }}, Fedora Desktop)..."
+        for pkg in "${_host_apps[@]}"; do _install_flatpak_fedora "$pkg"; done
+    fi
+fi
 {{- end }}
 
 if ((${#_PKG_FAILURES[@]})); then

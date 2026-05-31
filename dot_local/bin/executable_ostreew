@@ -1,8 +1,13 @@
 #!/usr/bin/env bash
-# ostreew — rpm-ostree wrapper that keeps Rpmfile_fedora_atomic in sync
-# Usage: ostreew install foo   → installs + adds to Rpmfile_fedora_atomic
-#        ostreew uninstall foo → removes + removes from Rpmfile_fedora_atomic
+# ostreew — rpm-ostree wrapper that keeps Rpmfile manifests in sync
+# Usage: ostreew install foo   → installs + adds to host overlay
+#        ostreew uninstall foo → removes + removes from host overlay
+#        ostreew dump          → recompute host overlay from installed − base
 #        ostreew upgrade       → passthrough
+#
+# Model:
+#   Base file    (Rpmfile_fedora_atomic)  = curated shared base — NEVER modified by ostreew
+#   Host overlay (Rpmfile_<hostname>)     = machine-specific extras (delta)
 
 set -euo pipefail
 
@@ -13,7 +18,16 @@ RED='\033[0;31m'
 NC='\033[0m'
 
 CHEZMOI_SOURCE_PATH="${CHEZMOI_SOURCE_PATH:-${HOME}/.local/share/chezmoi}"
-MANIFEST="${CHEZMOI_SOURCE_PATH}/dot_private/Rpmfile_fedora_atomic"
+MANIFEST_DIR="${CHEZMOI_SOURCE_PATH}/dot_private"
+
+# --- Hostname (short, no domain) ---
+HOSTNAME_SHORT="$(uname -n | cut -d. -f1)"
+
+# Base file (read-only reference)
+BASE_MANIFEST="${MANIFEST_DIR}/Rpmfile_fedora_atomic"
+
+# Host overlay
+HOST_MANIFEST="${MANIFEST_DIR}/Rpmfile_${HOSTNAME_SHORT}"
 
 validate_pkg() {
     local pkg="$1"
@@ -25,32 +39,79 @@ validate_pkg() {
 
 add_to_manifest() {
     local pkg="$1"
-    if grep -qxF "$pkg" "$MANIFEST" 2>/dev/null; then
-        printf '%b\n' "${YELLOW}${pkg} already in Rpmfile_fedora_atomic${NC}"
+    if grep -qxF "$pkg" "$HOST_MANIFEST" 2>/dev/null; then
+        printf '%b\n' "${YELLOW}${pkg} already in $(basename "$HOST_MANIFEST")${NC}"
         return
     fi
-    printf '%s\n' "$pkg" >> "$MANIFEST"
-    printf '%b\n' "${GREEN}Added ${pkg} to Rpmfile_fedora_atomic${NC}"
+    printf '%s\n' "$pkg" >> "$HOST_MANIFEST"
+    printf '%b\n' "${GREEN}Added ${pkg} to $(basename "$HOST_MANIFEST")${NC}"
 }
 
 remove_from_manifest() {
     local pkg="$1"
-    if ! grep -qxF "$pkg" "$MANIFEST" 2>/dev/null; then
-        printf '%b\n' "${YELLOW}${pkg} not in Rpmfile_fedora_atomic${NC}"
+    if ! grep -qxF "$pkg" "$HOST_MANIFEST" 2>/dev/null; then
+        printf '%b\n' "${YELLOW}${pkg} not in $(basename "$HOST_MANIFEST")${NC}"
         return
     fi
     local tmp
     tmp="$(mktemp)"
-    grep -vxF "$pkg" "$MANIFEST" > "$tmp"
-    mv "$tmp" "$MANIFEST"
-    printf '%b\n' "${GREEN}Removed ${pkg} from Rpmfile_fedora_atomic${NC}"
+    grep -vxF "$pkg" "$HOST_MANIFEST" > "$tmp"
+    mv "$tmp" "$HOST_MANIFEST"
+    printf '%b\n' "${GREEN}Removed ${pkg} from $(basename "$HOST_MANIFEST")${NC}"
+}
+
+# --- Dump host overlay: installed − base ---
+dump_host_overlay() {
+    printf '\n%b\n' "${YELLOW}Dumping host overlay: $(basename "$HOST_MANIFEST")${NC}"
+
+    local installed_tmp base_tmp
+    installed_tmp="$(mktemp)"
+    base_tmp="$(mktemp)"
+
+    # rpm-ostree status --json lists layered packages; fall back to rpm -qa for user-installed
+    if command -v rpm-ostree &>/dev/null; then
+        rpm-ostree status --json 2>/dev/null \
+            | python3 -c "
+import json, sys
+data = json.load(sys.stdin)
+pkgs = []
+for d in data.get('deployments', []):
+    pkgs.extend(d.get('requested-packages', []))
+    pkgs.extend(d.get('requested-local-packages', []))
+for p in sorted(set(pkgs)):
+    print(p)
+" 2>/dev/null | sort > "$installed_tmp" || rpm -qa --queryformat '%{NAME}\n' 2>/dev/null | sort > "$installed_tmp"
+    else
+        rpm -qa --queryformat '%{NAME}\n' 2>/dev/null | sort > "$installed_tmp"
+    fi
+
+    if [[ -f "$BASE_MANIFEST" ]]; then
+        grep -v '^\s*#' "$BASE_MANIFEST" | grep -v '^\s*$' | sort > "$base_tmp"
+    else
+        : > "$base_tmp"
+    fi
+
+    local delta_pkgs
+    delta_pkgs="$(comm -23 "$installed_tmp" "$base_tmp")"
+
+    rm -f "$installed_tmp" "$base_tmp"
+
+    {
+        printf '# Host overlay for %s — extras beyond Rpmfile_fedora_atomic base.\n' "$HOSTNAME_SHORT"
+        printf '# Managed by ostreew. Do not edit manually.\n'
+        printf '%s\n' "$delta_pkgs"
+    } > "$HOST_MANIFEST"
+
+    local count
+    count="$(printf '%s\n' "$delta_pkgs" | grep -c '\S' || true)"
+    printf '%b\n' "${GREEN}Host overlay written: ${count} entries${NC}"
 }
 
 sync_to_git() {
     git -C "$CHEZMOI_SOURCE_PATH" pull --rebase origin main 2>/dev/null || true
-    if ! git -C "$CHEZMOI_SOURCE_PATH" diff --quiet "$MANIFEST" 2>/dev/null; then
-        git -C "$CHEZMOI_SOURCE_PATH" add "$MANIFEST"
-        git -C "$CHEZMOI_SOURCE_PATH" commit -m "feat(ostreew): update $(basename "$MANIFEST")"
+    if ! git -C "$CHEZMOI_SOURCE_PATH" diff --quiet "$HOST_MANIFEST" 2>/dev/null; then
+        git -C "$CHEZMOI_SOURCE_PATH" add "$HOST_MANIFEST"
+        git -C "$CHEZMOI_SOURCE_PATH" commit -m "feat(ostreew): update $(basename "$HOST_MANIFEST")"
         git -C "$CHEZMOI_SOURCE_PATH" push
     fi
 }
@@ -63,6 +124,10 @@ SUBCMD="$1"
 shift
 
 case "$SUBCMD" in
+    dump)
+        dump_host_overlay
+        sync_to_git
+        ;;
     install)
         PKGS=()
         FLAGS=()
@@ -81,6 +146,7 @@ case "$SUBCMD" in
         done
         printf '%b\n' "${BLUE}Installing (rpm-ostree): ${PKGS[*]}${NC}"
         sudo rpm-ostree install --apply-live "${FLAGS[@]}" "${PKGS[@]}"
+        # Add to host overlay (not base — base is read-only)
         for pkg in "${PKGS[@]}"; do
             add_to_manifest "$pkg"
         done
@@ -101,6 +167,7 @@ case "$SUBCMD" in
         fi
         printf '%b\n' "${BLUE}Removing (rpm-ostree): ${PKGS[*]}${NC}"
         sudo rpm-ostree uninstall --apply-live "${FLAGS[@]}" "${PKGS[@]}"
+        # Remove from host overlay
         for pkg in "${PKGS[@]}"; do
             remove_from_manifest "$pkg"
         done

@@ -1,9 +1,14 @@
 #!/usr/bin/env bash
 # aptw — apt wrapper that keeps Aptfile manifests in sync with chezmoi
 # Usage: aptw <apt-subcommand> [args...]
-#        aptw install foo    → installs + adds to Aptfile
-#        aptw remove foo     → removes + removes from Aptfile
+#        aptw install foo    → installs + adds to host overlay Aptfile
+#        aptw remove foo     → removes + removes from host overlay Aptfile
+#        aptw dump           → recompute host overlay from installed − base − blacklist
 #        aptw upgrade/search → passthrough
+#
+# Model:
+#   Base file   (Aptfile_<profile>)  = curated shared base — NEVER modified by aptw
+#   Host overlay (Aptfile_<hostname>) = machine-specific extras (delta)
 
 set -euo pipefail
 
@@ -18,6 +23,9 @@ NC='\033[0m'
 CHEZMOI_SOURCE_PATH="${CHEZMOI_SOURCE_PATH:-${HOME}/.local/share/chezmoi}"
 MANIFEST_DIR="${CHEZMOI_SOURCE_PATH}/dot_private"
 
+# --- Hostname (short, no domain) ---
+HOSTNAME_SHORT="$(uname -n | cut -d. -f1)"
+
 # --- Package name validation ---
 validate_pkg() {
     local pkg="$1"
@@ -28,8 +36,8 @@ validate_pkg() {
     fi
 }
 
-# --- Determine target Aptfile based on MACHINE_PROFILE ---
-get_aptfile() {
+# --- Determine base Aptfile (read-only reference) ---
+get_base_aptfile() {
     case "${MACHINE_PROFILE:-}" in
         rpi)             printf '%s' "${MANIFEST_DIR}/Aptfile_rpi" ;;
         ubuntu-desktop)  printf '%s' "${MANIFEST_DIR}/Aptfile_ubuntu_desktop" ;;
@@ -37,6 +45,19 @@ get_aptfile() {
         debian)          printf '%s' "${MANIFEST_DIR}/Aptfile_debian" ;;
         *)               printf '' ;;
     esac
+}
+
+# --- Host overlay file ---
+get_host_aptfile() {
+    printf '%s' "${MANIFEST_DIR}/Aptfile_${HOSTNAME_SHORT}"
+}
+
+# --- Load base packages into a temp file for comm/grep ---
+load_base_pkgs() {
+    local base="$1"
+    if [[ -f "$base" ]]; then
+        grep -v '^\s*#' "$base" | grep -v '^\s*$' | sort
+    fi
 }
 
 # --- Add package to manifest (idempotent) ---
@@ -69,6 +90,44 @@ remove_from_manifest() {
     printf '%b\n' "${GREEN}Removed '${pkg}' from $(basename "$manifest")${NC}"
 }
 
+# --- Dump host overlay: installed − base ---
+dump_host_overlay() {
+    local base_file host_file
+    base_file="$(get_base_aptfile)"
+    host_file="$(get_host_aptfile)"
+
+    printf '\n%b\n' "${YELLOW}Dumping host overlay: $(basename "$host_file")${NC}"
+
+    # Collect manually-installed packages
+    local installed_tmp base_tmp
+    installed_tmp="$(mktemp)"
+    base_tmp="$(mktemp)"
+
+    apt-mark showmanual 2>/dev/null | sort > "$installed_tmp"
+
+    if [[ -n "$base_file" && -f "$base_file" ]]; then
+        load_base_pkgs "$base_file" > "$base_tmp"
+    else
+        : > "$base_tmp"
+    fi
+
+    # Delta: installed − base (comm -23 requires both inputs sorted)
+    local delta_pkgs
+    delta_pkgs="$(comm -23 "$installed_tmp" "$base_tmp")"
+
+    rm -f "$installed_tmp" "$base_tmp"
+
+    {
+        printf '# Host overlay for %s — extras beyond the shared base.\n' "$HOSTNAME_SHORT"
+        printf '# Managed by aptw. Do not edit manually.\n'
+        printf '%s\n' "$delta_pkgs"
+    } > "$host_file"
+
+    local count
+    count="$(printf '%s\n' "$delta_pkgs" | grep -c '\S' || true)"
+    printf '%b\n' "${GREEN}Host overlay written: ${count} entries${NC}"
+}
+
 # --- Git sync ---
 sync_to_git() {
     local manifest="$1"
@@ -96,19 +155,23 @@ check_brew_duplicate() {
 
 # --- Help ---
 show_help() {
-    local aptfile
-    aptfile="$(get_aptfile)"
+    local base_file host_file
+    base_file="$(get_base_aptfile)"
+    host_file="$(get_host_aptfile)"
     cat <<EOF
-aptw — apt wrapper with Aptfile manifest sync
+aptw — apt wrapper with per-host overlay Aptfile sync
 
 Usage:
-  aptw install <pkg>    Install package and add to Aptfile
-  aptw remove <pkg>     Remove package and remove from Aptfile
+  aptw install <pkg>    Install package and add to host overlay
+  aptw remove <pkg>     Remove package and remove from host overlay
+  aptw dump             Recompute host overlay from: installed − base
   aptw upgrade          Upgrade all packages (no manifest change)
   aptw <subcommand>     Passthrough to apt
 
-Aptfile location: ${aptfile:-unknown (check MACHINE_PROFILE)}
-MACHINE_PROFILE: ${MACHINE_PROFILE:-unset}
+Base file (read-only): ${base_file:-unknown (check MACHINE_PROFILE)}
+Host overlay:          ${host_file}
+Hostname:              ${HOSTNAME_SHORT}
+MACHINE_PROFILE:       ${MACHINE_PROFILE:-unset}
 EOF
 }
 
@@ -121,7 +184,7 @@ fi
 SUBCOMMAND="$1"
 shift
 
-APTFILE="$(get_aptfile)"
+HOST_APTFILE="$(get_host_aptfile)"
 
 case "$SUBCOMMAND" in
     install)
@@ -138,14 +201,11 @@ case "$SUBCOMMAND" in
         for pkg in "$@"; do
             check_brew_duplicate "$pkg"
         done
-        if [[ -n "$APTFILE" ]]; then
-            for pkg in "$@"; do
-                add_to_manifest "$APTFILE" "$pkg"
-            done
-            sync_to_git "$APTFILE" "install" "$*"
-        else
-            printf '%b\n' "${YELLOW}Warning: no Aptfile for profile '${MACHINE_PROFILE:-unset}' — skipping manifest sync${NC}"
-        fi
+        # Add to host overlay (not base — base is read-only)
+        for pkg in "$@"; do
+            add_to_manifest "$HOST_APTFILE" "$pkg"
+        done
+        sync_to_git "$HOST_APTFILE" "install" "$*"
         ;;
     remove|purge)
         if [[ $# -eq 0 ]]; then
@@ -157,14 +217,15 @@ case "$SUBCOMMAND" in
         done
         printf '%b\n' "${BLUE}Running: sudo apt-get ${SUBCOMMAND} -y $*${NC}"
         sudo apt-get "$SUBCOMMAND" -y "$@"
-        if [[ -n "$APTFILE" ]]; then
-            for pkg in "$@"; do
-                remove_from_manifest "$APTFILE" "$pkg"
-            done
-            sync_to_git "$APTFILE" "remove" "$*"
-        else
-            printf '%b\n' "${YELLOW}Warning: no Aptfile for profile '${MACHINE_PROFILE:-unset}' — skipping manifest sync${NC}"
-        fi
+        # Remove from host overlay
+        for pkg in "$@"; do
+            remove_from_manifest "$HOST_APTFILE" "$pkg"
+        done
+        sync_to_git "$HOST_APTFILE" "remove" "$*"
+        ;;
+    dump)
+        dump_host_overlay
+        sync_to_git "$HOST_APTFILE" "dump" "host-overlay"
         ;;
     upgrade|update|autoremove|autoclean|clean|search|show|list|depends|rdepends)
         # Passthrough — no manifest change needed

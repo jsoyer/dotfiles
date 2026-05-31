@@ -14,6 +14,26 @@ The manifest system provides:
 
 ---
 
+## Layered cascade: shared base + per-machine overlay
+
+Every manager reads two layers and installs their **union**:
+
+| Layer | Filename | Who edits it | Scope |
+| ----- | -------- | ------------ | ----- |
+| **Base** | `<Manager>file_<profile>` (e.g. `Aptfile_ubuntu_desktop`, `Dnffile_fedora_desktop`, `Brewfile_brew_only`) | curated by hand | shared by every machine of that profile |
+| **Overlay** | `<Manager>file_<hostname>` (e.g. `Brewfile_jsoyer-macOS`, `Pacfile_<host>`) | written automatically by the wrappers | extras specific to one machine |
+
+- `<hostname>` = `{{ .chezmoi.hostname }}` in templates, `uname -n \| cut -d. -f1` in wrappers.
+- **Install** = base, then the host overlay **only if it exists** (`[[ -f ]]` guard → a machine with no overlay behaves exactly as before).
+- **Wrappers** write `installed − base − blacklist` to the overlay and **never touch the base**, so two machines of the same profile never clobber each other's package list.
+- **Promote** a package to the shared base by moving its line from `<Manager>file_<hostname>` into the profile base (or `breww --promote <name>`), then commit.
+
+Overlay filenames per manager: `Brewfile_<host>`, `Aptfile_<host>`, `Dnffile_<host>`,
+`Pacfile_<host>` (+ `Pacfile_aur_<host>`), `Rpmfile_<host>`, `Snapfile_<host>`,
+`Flatpakfile_<host>` (mas apps live in `Brewfile_<host>`).
+
+---
+
 ## Manifest Files by Platform
 
 ### macOS (Homebrew)
@@ -86,6 +106,21 @@ The manifest system provides:
 **OmArchy special support:** Prompts for optional config overrides (shell, nvim, tmux, git, window manager)
 
 **Installation:** Via `run_onchange_install-linux-packages.sh.tmpl`
+
+---
+
+### Linux - Flatpak (desktop & Atomic)
+
+| File | Purpose | Profile | Type |
+|------|---------|---------|------|
+| `Flatpakfile_fedora_atomic` | Flatpak apps (system-wide) | fedora-atomic | Base |
+| `Flatpakfile_ubuntu_desktop` | Flatpak apps (`--user`) | ubuntu-desktop | Base |
+| `Flatpakfile_fedora_desktop` | Flatpak apps (`--user`) | fedora-desktop | Base |
+| `Flatpakfile_<hostname>` | Per-machine extras | any | Overlay |
+
+**Wrapper:** `flatpakw` (install/remove/dump → host overlay)
+
+**Installation:** Via `run_onchange_05-install-linux-flatpak.sh.tmpl` (flathub remote auto-added)
 
 ---
 
@@ -248,7 +283,13 @@ All package managers have wrapper scripts that:
 | `yayw` | `yay` | Arch AUR |
 | `breww` | `brew` | macOS/Linuxbrew |
 | `ostreew` | `rpm-ostree` | Fedora Atomic |
+| `snapw` | `snap` | Ubuntu desktop |
+| `masw` | `mas` | macOS App Store |
+| `flatpakw` | `flatpak` | Linux desktop/Atomic |
 | `scoopw` | `scoop` | Windows |
+
+> All wrappers now write the **per-hostname overlay** (`<Manager>file_<hostname>`),
+> not the shared profile base. See "Layered cascade" above.
 
 #### Example: Installing a Package
 
@@ -261,12 +302,10 @@ apt install htop  # → aptw install htop
 
 # Steps that happen automatically:
 # 1. aptw install htop
-# 2. Detect MACHINE_PROFILE (ubuntu-desktop)
-# 3. Run: apt list --installed > Aptfile_ubuntu_desktop
-# 4. Add "htop" to Aptfile_ubuntu_desktop
-# 5. chezmoi add dot_private/Aptfile_ubuntu_desktop
-# 6. git commit "packages: add htop to ubuntu-desktop"
-# 7. git push
+# 2. Detect MACHINE_PROFILE (ubuntu-desktop) -> base = Aptfile_ubuntu_desktop
+# 3. Compute delta: installed (apt-mark showmanual) minus the base
+# 4. Write the delta to the HOST OVERLAY: Aptfile_<hostname>  (base is untouched)
+# 5. git add / commit / pull --rebase / push the overlay
 ```
 
 ---
@@ -508,5 +547,5 @@ Wrapper scripts commit and push owned manifest changes explicitly. Plain `chezmo
 
 ## Last Updated
 
-**Date:** 2026-03-28
-**Changes:** Added hybrid native/Flatpak GUI support, CLI AI tools, OmArchy support, optional ocx installation
+**Date:** 2026-05-31
+**Changes:** Layered cascade — shared per-profile base + per-hostname overlay across all managers (brew/apt/dnf/pacman/AUR/rpm-ostree/snap/mas/flatpak); wrappers now dump the machine delta to `<Manager>file_<hostname>` instead of clobbering the shared base; flatpak onboarded into manifests with `flatpakw`.

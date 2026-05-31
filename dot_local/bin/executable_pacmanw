@@ -1,9 +1,15 @@
 #!/usr/bin/env bash
 # pacmanw — pacman wrapper that keeps Pacfile manifests in sync with chezmoi
 # Usage: pacmanw <pacman-subcommand> [args...]
-#        pacmanw -S foo     → installs + adds to Pacfile
-#        pacmanw -R foo     → removes + removes from Pacfile
+#        pacmanw -S foo     → installs + adds to host overlay Pacfile
+#        pacmanw -R foo     → removes + removes from host overlay Pacfile
+#        pacmanw dump       → recompute host overlays from installed − base
 #        pacmanw -Syu       → passthrough (system upgrade)
+#
+# Model:
+#   Base file         (Pacfile_arch_<profile>)  = curated shared base — NEVER modified
+#   Host overlay (native) (Pacfile_<hostname>)      = machine-specific extras (official repos)
+#   Host overlay (AUR)    (Pacfile_aur_<hostname>)  = machine-specific AUR extras
 
 set -euo pipefail
 
@@ -16,6 +22,9 @@ NC='\033[0m'
 CHEZMOI_SOURCE_PATH="${CHEZMOI_SOURCE_PATH:-${HOME}/.local/share/chezmoi}"
 MANIFEST_DIR="${CHEZMOI_SOURCE_PATH}/dot_private"
 
+# --- Hostname (short, no domain) ---
+HOSTNAME_SHORT="$(uname -n | cut -d. -f1)"
+
 validate_pkg() {
     local pkg="$1"
     [[ "$pkg" == */* ]] && { printf '%b\n' "${RED}Error: invalid package name: '${pkg}'${NC}" >&2; exit 1; }
@@ -25,12 +34,30 @@ validate_pkg() {
     fi
 }
 
-get_pacfile() {
+# --- Base Pacfile (read-only reference) ---
+get_base_pacfile() {
     case "${MACHINE_PROFILE:-}" in
         arch-desktop) printf '%s' "${MANIFEST_DIR}/Pacfile_arch_desktop" ;;
         arch-server)  printf '%s' "${MANIFEST_DIR}/Pacfile_arch_server" ;;
         *)            printf '' ;;
     esac
+}
+
+# --- Host overlay files ---
+get_host_pacfile() {
+    printf '%s' "${MANIFEST_DIR}/Pacfile_${HOSTNAME_SHORT}"
+}
+
+get_host_aur_pacfile() {
+    printf '%s' "${MANIFEST_DIR}/Pacfile_aur_${HOSTNAME_SHORT}"
+}
+
+# --- Load base packages into sorted list ---
+load_base_pkgs() {
+    local base="$1"
+    if [[ -f "$base" ]]; then
+        grep -v '^\s*#' "$base" | grep -v '^\s*$' | sort
+    fi
 }
 
 add_to_manifest() {
@@ -63,12 +90,85 @@ check_brew_duplicate() {
     fi
 }
 
+# --- Dump host overlays: (native + AUR) − base ---
+dump_host_overlays() {
+    local base_file host_file host_aur_file
+    base_file="$(get_base_pacfile)"
+    host_file="$(get_host_pacfile)"
+    host_aur_file="$(get_host_aur_pacfile)"
+
+    printf '\n%b\n' "${YELLOW}Dumping host overlays for ${HOSTNAME_SHORT}...${NC}"
+
+    local native_tmp aur_tmp base_tmp
+    native_tmp="$(mktemp)"
+    aur_tmp="$(mktemp)"
+    base_tmp="$(mktemp)"
+
+    # Native explicitly-installed packages (pacman -Qqe minus AUR)
+    pacman -Qqe 2>/dev/null | sort > "$native_tmp"
+    # AUR packages (foreign packages from pacman -Qqem)
+    pacman -Qqem 2>/dev/null | sort > "$aur_tmp"
+
+    if [[ -n "$base_file" && -f "$base_file" ]]; then
+        load_base_pkgs "$base_file" > "$base_tmp"
+    else
+        : > "$base_tmp"
+    fi
+
+    # Native delta: explicit − base (AUR is separate, so subtract it too)
+    local native_delta aur_delta
+    native_delta="$(comm -23 "$native_tmp" "$base_tmp" | comm -23 - "$aur_tmp")"
+    aur_delta="$(comm -23 "$aur_tmp" "$base_tmp")"
+
+    rm -f "$native_tmp" "$aur_tmp" "$base_tmp"
+
+    # Write native host overlay
+    {
+        printf '# Host overlay for %s — native extras beyond the shared base.\n' "$HOSTNAME_SHORT"
+        printf '# Managed by pacmanw. Do not edit manually.\n'
+        printf '%s\n' "$native_delta"
+    } > "$host_file"
+    local native_count
+    native_count="$(printf '%s\n' "$native_delta" | grep -c '\S' || true)"
+    printf '%b\n' "${GREEN}Native overlay written: ${native_count} entries → $(basename "$host_file")${NC}"
+
+    # Write AUR host overlay
+    {
+        printf '# AUR host overlay for %s — AUR extras beyond the shared base.\n' "$HOSTNAME_SHORT"
+        printf '# Managed by pacmanw. Do not edit manually.\n'
+        printf '%s\n' "$aur_delta"
+    } > "$host_aur_file"
+    local aur_count
+    aur_count="$(printf '%s\n' "$aur_delta" | grep -c '\S' || true)"
+    printf '%b\n' "${GREEN}AUR overlay written: ${aur_count} entries → $(basename "$host_aur_file")${NC}"
+}
+
 sync_to_git() {
     local manifest="$1"
     git -C "$CHEZMOI_SOURCE_PATH" pull --rebase origin main 2>/dev/null || true
     if ! git -C "$CHEZMOI_SOURCE_PATH" diff --quiet "$manifest" 2>/dev/null; then
         git -C "$CHEZMOI_SOURCE_PATH" add "$manifest"
         git -C "$CHEZMOI_SOURCE_PATH" commit -m "feat(pacmanw): update $(basename "$manifest")"
+        git -C "$CHEZMOI_SOURCE_PATH" push
+    fi
+}
+
+sync_host_overlays_to_git() {
+    local host_file host_aur_file
+    host_file="$(get_host_pacfile)"
+    host_aur_file="$(get_host_aur_pacfile)"
+    git -C "$CHEZMOI_SOURCE_PATH" pull --rebase origin main 2>/dev/null || true
+    local changed=0
+    if ! git -C "$CHEZMOI_SOURCE_PATH" diff --quiet "$host_file" 2>/dev/null; then
+        git -C "$CHEZMOI_SOURCE_PATH" add "$host_file"
+        changed=1
+    fi
+    if ! git -C "$CHEZMOI_SOURCE_PATH" diff --quiet "$host_aur_file" 2>/dev/null; then
+        git -C "$CHEZMOI_SOURCE_PATH" add "$host_aur_file"
+        changed=1
+    fi
+    if [[ $changed -eq 1 ]]; then
+        git -C "$CHEZMOI_SOURCE_PATH" commit -m "feat(pacmanw): update host overlays for ${HOSTNAME_SHORT}"
         git -C "$CHEZMOI_SOURCE_PATH" push
     fi
 }
@@ -82,6 +182,10 @@ SUBCMD="$1"
 shift
 
 case "$SUBCMD" in
+    dump)
+        dump_host_overlays
+        sync_host_overlays_to_git
+        ;;
     -S|--sync)
         # Check it's not an upgrade flag (-Syu, -Su, etc.)
         if [[ $# -eq 0 ]]; then
@@ -109,13 +213,12 @@ case "$SUBCMD" in
         for pkg in "${PKGS[@]}"; do
             check_brew_duplicate "$pkg"
         done
-        manifest="$(get_pacfile)"
-        if [[ -n "$manifest" ]]; then
-            for pkg in "${PKGS[@]}"; do
-                add_to_manifest "$manifest" "$pkg"
-            done
-            sync_to_git "$manifest"
-        fi
+        # Add to host overlay (not base — base is read-only)
+        host_manifest="$(get_host_pacfile)"
+        for pkg in "${PKGS[@]}"; do
+            add_to_manifest "$host_manifest" "$pkg"
+        done
+        sync_to_git "$host_manifest"
         ;;
     -R|--remove|-Rs|-Rns)
         PKGS=()
@@ -132,13 +235,12 @@ case "$SUBCMD" in
         fi
         printf '%b\n' "${BLUE}Removing: ${PKGS[*]}${NC}"
         sudo pacman "$SUBCMD" "${FLAGS[@]}" "${PKGS[@]}"
-        manifest="$(get_pacfile)"
-        if [[ -n "$manifest" ]]; then
-            for pkg in "${PKGS[@]}"; do
-                remove_from_manifest "$manifest" "$pkg"
-            done
-            sync_to_git "$manifest"
-        fi
+        # Remove from host overlay
+        host_manifest="$(get_host_pacfile)"
+        for pkg in "${PKGS[@]}"; do
+            remove_from_manifest "$host_manifest" "$pkg"
+        done
+        sync_to_git "$host_manifest"
         ;;
     *)
         exec sudo pacman "$SUBCMD" "$@"

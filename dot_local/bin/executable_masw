@@ -1,8 +1,12 @@
 #!/usr/bin/env bash
-# masw — mas wrapper that keeps Brewfile mas entries in sync with chezmoi
-# Usage: masw install <app_id>     → installs + adds to Brewfile
-#        masw uninstall <app_id>   → uninstalls + removes from Brewfile
+# masw — mas wrapper that keeps per-host Brewfile overlay mas entries in sync
+# Usage: masw install <app_id>     → installs + adds to host overlay Brewfile
+#        masw uninstall <app_id>   → uninstalls + removes from host overlay Brewfile
 #        masw list/search/upgrade  → passthrough
+#
+# Model:
+#   Base Brewfile (Brewfile_<profile>)  = curated shared base — NEVER modified by masw
+#   Host overlay  (Brewfile_<hostname>) = machine-specific extras (delta)
 
 set -euo pipefail
 
@@ -17,8 +21,16 @@ NC='\033[0m'
 CHEZMOI_SOURCE_PATH="${CHEZMOI_SOURCE_PATH:-${HOME}/.local/share/chezmoi}"
 MANIFEST_DIR="${CHEZMOI_SOURCE_PATH}/dot_private"
 
-# --- Determine target Brewfile ---
-get_brewfile() {
+# --- Hostname (short, no domain) ---
+HOSTNAME_SHORT="$(uname -n | cut -d. -f1)"
+
+# --- Host overlay Brewfile (per-hostname) ---
+get_host_brewfile() {
+    printf '%s' "${MANIFEST_DIR}/Brewfile_${HOSTNAME_SHORT}"
+}
+
+# --- Base Brewfile (read-only reference, for --help display only) ---
+get_base_brewfile() {
     case "${MACHINE_PROFILE:-}" in
         mac-personal) printf '%s' "${MANIFEST_DIR}/Brewfile_personal" ;;
         mac-pro)      printf '%s' "${MANIFEST_DIR}/Brewfile_pro" ;;
@@ -45,21 +57,24 @@ sync_to_git() {
 
 # --- Help ---
 show_help() {
-    local brewfile
-    brewfile="$(get_brewfile)"
+    local base_file host_file
+    base_file="$(get_base_brewfile)"
+    host_file="$(get_host_brewfile)"
     cat <<EOF
-masw — Mac App Store wrapper with Brewfile manifest sync
+masw — Mac App Store wrapper with per-host Brewfile overlay sync
 
 Usage:
-  masw install <app_id>      Install app and add to Brewfile
-  masw uninstall <app_id>    Uninstall app and remove from Brewfile
+  masw install <app_id>      Install app and add to host overlay
+  masw uninstall <app_id>    Uninstall app and remove from host overlay
   masw upgrade               Upgrade all App Store apps
   masw list                  List installed apps
   masw search <query>        Search App Store
   masw <subcommand>          Passthrough to mas
 
-Brewfile location: ${brewfile:-unknown (check MACHINE_PROFILE)}
-MACHINE_PROFILE: ${MACHINE_PROFILE:-unset}
+Base file (read-only): ${base_file:-unknown (check MACHINE_PROFILE)}
+Host overlay:          ${host_file}
+Hostname:              ${HOSTNAME_SHORT}
+MACHINE_PROFILE:       ${MACHINE_PROFILE:-unset}
 EOF
 }
 
@@ -72,7 +87,7 @@ fi
 SUBCOMMAND="$1"
 shift
 
-BREWFILE="$(get_brewfile)"
+HOST_BREWFILE="$(get_host_brewfile)"
 
 case "$SUBCOMMAND" in
     install|purchase)
@@ -84,20 +99,24 @@ case "$SUBCOMMAND" in
         printf '%b\n' "${BLUE}Running: mas install ${app_id}${NC}"
         mas install "$app_id"
 
-        if [[ -n "$BREWFILE" ]]; then
-            # Get app name from mas
-            app_name="$(mas info "$app_id" 2>/dev/null | head -1 | sed 's/ [0-9].*$//' || echo "Unknown")"
-            mas_line="mas \"${app_name}\", id: ${app_id}"
+        # Get app name from mas
+        app_name="$(mas info "$app_id" 2>/dev/null | head -1 | sed 's/ [0-9].*$//' || echo "Unknown")"
+        mas_line="mas \"${app_name}\", id: ${app_id}"
 
-            if grep -qF "id: ${app_id}" "$BREWFILE" 2>/dev/null; then
-                printf '%b\n' "${YELLOW}${app_name} (${app_id}) already in $(basename "$BREWFILE")${NC}"
-            else
-                printf '%s\n' "$mas_line" >> "$BREWFILE"
-                printf '%b\n' "${GREEN}Added '${mas_line}' to $(basename "$BREWFILE")${NC}"
-                sync_to_git "$BREWFILE" "install" "$app_name"
-            fi
+        # Write to host overlay (not base — base is read-only)
+        if grep -qF "id: ${app_id}" "$HOST_BREWFILE" 2>/dev/null; then
+            printf '%b\n' "${YELLOW}${app_name} (${app_id}) already in $(basename "$HOST_BREWFILE")${NC}"
         else
-            printf '%b\n' "${YELLOW}Warning: no Brewfile for profile '${MACHINE_PROFILE:-unset}' — skipping manifest sync${NC}"
+            # Ensure host overlay exists with a header if new
+            if [[ ! -f "$HOST_BREWFILE" ]]; then
+                {
+                    printf '# Host overlay for %s — extras beyond the shared base.\n' "$HOSTNAME_SHORT"
+                    printf '# Managed by masw/breww. Do not edit manually.\n'
+                } > "$HOST_BREWFILE"
+            fi
+            printf '%s\n' "$mas_line" >> "$HOST_BREWFILE"
+            printf '%b\n' "${GREEN}Added '${mas_line}' to $(basename "$HOST_BREWFILE")${NC}"
+            sync_to_git "$HOST_BREWFILE" "install" "$app_name"
         fi
         ;;
     uninstall)
@@ -114,16 +133,15 @@ case "$SUBCOMMAND" in
             printf '%b\n' "${YELLOW}mas uninstall failed — try removing from Applications manually${NC}"
         }
 
-        if [[ -n "$BREWFILE" ]]; then
-            if grep -qF "id: ${app_id}" "$BREWFILE" 2>/dev/null; then
-                tmp="$(mktemp)"
-                grep -vF "id: ${app_id}" "$BREWFILE" > "$tmp"
-                mv "$tmp" "$BREWFILE"
-                printf '%b\n' "${GREEN}Removed '${app_name}' (${app_id}) from $(basename "$BREWFILE")${NC}"
-                sync_to_git "$BREWFILE" "uninstall" "$app_name"
-            else
-                printf '%b\n' "${YELLOW}${app_id} not found in $(basename "$BREWFILE")${NC}"
-            fi
+        # Remove from host overlay only
+        if [[ -f "$HOST_BREWFILE" ]] && grep -qF "id: ${app_id}" "$HOST_BREWFILE" 2>/dev/null; then
+            tmp="$(mktemp)"
+            grep -vF "id: ${app_id}" "$HOST_BREWFILE" > "$tmp"
+            mv "$tmp" "$HOST_BREWFILE"
+            printf '%b\n' "${GREEN}Removed '${app_name}' (${app_id}) from $(basename "$HOST_BREWFILE")${NC}"
+            sync_to_git "$HOST_BREWFILE" "uninstall" "$app_name"
+        else
+            printf '%b\n' "${YELLOW}${app_id} not found in host overlay $(basename "$HOST_BREWFILE")${NC}"
         fi
         ;;
     list|search|info|upgrade|outdated|version|lucky|reset|signin|signout)

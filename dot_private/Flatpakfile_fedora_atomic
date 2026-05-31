@@ -1,0 +1,26 @@
+# fedora-atomic flatpak base
+best.ellie.StartupConfiguration
+com.brave.Browser
+com.discordapp.Discord
+com.google.Chrome
+com.obsproject.Studio
+dev.edfloreshz.CosmicTweaks
+dev.zed.Zed
+io.dbeaver.DBeaverCommunity
+io.github.BuddySirJava.SSH-Studio
+io.github.cosmic_utils.camera
+io.github.shiftey.Desktop
+io.podman_desktop.PodmanDesktop
+md.obsidian.Obsidian
+org.fedoraproject.MediaWriter
+org.filezillaproject.Filezilla
+org.gnome.Firmware
+org.gnome.Loupe
+org.gnome.Photos
+org.localsend.localsend_app
+org.remmina.Remmina
+org.signal.Signal
+org.telegram.desktop
+org.torproject.torbrowser-launcher
+org.videolan.VLC
+tech.feliciano.pocket-casts
