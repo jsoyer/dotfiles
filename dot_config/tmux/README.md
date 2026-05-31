@@ -120,6 +120,7 @@ Default tmux prefix, distinguishes RPi sessions from macOS.
 | `prefix + c` | New window (keeps path) |
 | `prefix + h/j/k/l` | Navigate panes (vim-style) |
 | `prefix + H/L` | Previous/Next window |
+| `Alt+h/l` | Previous/Next window without prefix |
 | `prefix + R` | Reload config |
 | `prefix + z` | Zoom pane |
 | `prefix + K` | Clear screen |
