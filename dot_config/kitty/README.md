@@ -102,7 +102,7 @@ shell /opt/homebrew/bin/nu
 - `Ctrl+Alt+Down` - Make the active window shorter by 3 cells
 - `Ctrl+Alt+Home` - Reset all window sizes in the current tab
 
-The resizing shortcuts add `Alt` compared to Kitty's documentation because `Ctrl+Arrow` is reserved for Splits focus navigation. On macOS, the left Option key is configured as Alt.
+The resizing shortcuts add `Alt` compared to Kitty's documentation because `Ctrl+Arrow` is reserved for Splits focus navigation. On macOS, the right Option key is configured as Alt so left Option remains available for normal text input.
 
 ### Tab Management
 - `Cmd+T` / `Ctrl+Shift+T` - New tab
