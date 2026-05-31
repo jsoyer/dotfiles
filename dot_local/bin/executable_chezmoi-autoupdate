@@ -132,6 +132,33 @@ fi
 # ---------------------------------------------------------------------------
 log "Phase A: auto-heal"
 
+## A0. Auto-commit owned package manifests (Brewfiles)
+# ---------------------------------------------------------------------------
+# A0: auto-commit owned package manifests
+# A routine `brew bundle dump` leaves dot_private/Brewfile* modified, which the
+# A1 guard below would treat as "unsafe" and skip the update indefinitely. If —
+# and only if — Brewfiles are the ONLY changes, commit+push them so the guard
+# sees a clean tree. Any other dirty path still trips the strict A1 guard.
+# ---------------------------------------------------------------------------
+if [[ -d "${CHEZMOI_SOURCE}/.git" ]]; then
+    _dirty_paths="$(git -C "${CHEZMOI_SOURCE}" status --porcelain 2>/dev/null | cut -c4-)"
+    if [[ -n "${_dirty_paths}" ]] \
+        && ! printf '%s\n' "${_dirty_paths}" | grep -v '^[[:space:]]*$' | grep -qv '^dot_private/Brewfile'; then
+        log "A0: only Brewfile manifests changed; auto-committing before update"
+        git -C "${CHEZMOI_SOURCE}" add -A
+        if git -C "${CHEZMOI_SOURCE}" commit -m "style(brew): update brewfiles via chezmoi-autoupdate" >/dev/null 2>&1; then
+            log "A0: committed Brewfile changes"
+            if git -C "${CHEZMOI_SOURCE}" push >/dev/null 2>&1; then
+                log "A0: pushed Brewfile changes"
+            else
+                log "A0: push failed; will retry next run"
+            fi
+        else
+            log "A0: nothing to commit"
+        fi
+    fi
+fi
+
 ## A1. Git conflicts in chezmoi source dir
 if [[ -d "${CHEZMOI_SOURCE}/.git" ]]; then
     if git -C "${CHEZMOI_SOURCE}" status --porcelain 2>/dev/null | grep -q "^UU\|^AA\|^DD"; then
