@@ -35,7 +35,7 @@ set-option -g terminal-features 'xterm*:clipboard'
 set-option -g terminal-overrides ',xterm-256color:RGB'
 set-option -g default-terminal "${TERM}"
 {{ if eq .chezmoi.os "darwin" -}}
-set-option -g default-shell {{ env "HOMEBREW_PREFIX" | default "/opt/homebrew" }}/bin/zsh
+set-option -g default-shell {{ template "brew-prefix" . }}/bin/zsh
 {{ else -}}
 set-option -g default-shell /usr/bin/zsh
 {{ end -}}

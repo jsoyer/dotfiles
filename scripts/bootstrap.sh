@@ -336,7 +336,13 @@ install_macos() {
     else
         log_info "Installing Homebrew..."
         /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-        eval "$(/opt/homebrew/bin/brew shellenv)"
+        for _brew in /opt/homebrew/bin/brew /usr/local/bin/brew; do
+            if [ -x "$_brew" ]; then
+                eval "$("$_brew" shellenv)"
+                break
+            fi
+        done
+        unset _brew
         log_success "🍺 Homebrew installed"
     fi
 

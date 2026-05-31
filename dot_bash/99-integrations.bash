@@ -19,9 +19,11 @@ fi
 # ============================================================================
 if [[ "${IS_MACOS}" == "true" ]]; then
   # Homebrew bash-completion (use $HOMEBREW_PREFIX to avoid subprocess)
-  if [[ -r "${HOMEBREW_PREFIX:-/opt/homebrew}/etc/profile.d/bash_completion.sh" ]]; then
-    source "${HOMEBREW_PREFIX:-/opt/homebrew}/etc/profile.d/bash_completion.sh"
+  _brew_prefix_comp="${HOMEBREW_PREFIX:-$(brew --prefix 2>/dev/null)}"
+  if [[ -n "${_brew_prefix_comp}" ]] && [[ -r "${_brew_prefix_comp}/etc/profile.d/bash_completion.sh" ]]; then
+    source "${_brew_prefix_comp}/etc/profile.d/bash_completion.sh"
   fi
+  unset _brew_prefix_comp
 else
   # Linux bash-completion
   if [[ -f /etc/bash_completion ]]; then
@@ -113,8 +115,12 @@ fi
 # ============================================================================
 if [[ -f /usr/share/bash-completion/completions/git ]]; then
   source /usr/share/bash-completion/completions/git
-elif [[ "${IS_MACOS}" == "true" ]] && [[ -f "${HOMEBREW_PREFIX:-/opt/homebrew}/etc/bash_completion.d/git-completion.bash" ]]; then
-  source "${HOMEBREW_PREFIX:-/opt/homebrew}/etc/bash_completion.d/git-completion.bash"
+elif [[ "${IS_MACOS}" == "true" ]]; then
+  _brew_prefix_git="${HOMEBREW_PREFIX:-$(brew --prefix 2>/dev/null)}"
+  if [[ -n "${_brew_prefix_git}" ]] && [[ -f "${_brew_prefix_git}/etc/bash_completion.d/git-completion.bash" ]]; then
+    source "${_brew_prefix_git}/etc/bash_completion.d/git-completion.bash"
+  fi
+  unset _brew_prefix_git
 fi
 
 # ============================================================================

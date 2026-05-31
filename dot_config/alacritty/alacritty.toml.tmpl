@@ -3,7 +3,7 @@
 
 [terminal.shell]
 {{ if eq .chezmoi.os "darwin" -}}
-program = "/opt/homebrew/bin/bash"
+program = "{{ template "brew-prefix" . }}/bin/bash"
 {{ else -}}
 program = "/usr/bin/bash"
 {{ end -}}

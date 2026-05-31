@@ -1,0 +1,5 @@
+{{- /* Homebrew install prefix by architecture (Homebrew's own rule):
+  Apple Silicon (arm64) -> /opt/homebrew, Intel (amd64) -> /usr/local.
+  Used by static GUI/terminal configs that cannot probe the shell at runtime.
+  Shell rc/env files probe the brew binary at runtime instead. */ -}}
+{{- if eq .chezmoi.arch "arm64" -}}/opt/homebrew{{- else -}}/usr/local{{- end -}}

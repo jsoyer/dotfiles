@@ -16,7 +16,7 @@ fi
 # ============================================================================
 # Zsh autosuggestions
 # ============================================================================
-_brew_prefix="${HOMEBREW_PREFIX:-/opt/homebrew}"
+_brew_prefix="${HOMEBREW_PREFIX:-$(brew --prefix 2>/dev/null)}"
 if [[ "${IS_MACOS}" == "true" ]]; then
   _zsh_autosuggest_path="${_brew_prefix}/share/zsh-autosuggestions/zsh-autosuggestions.zsh"
 else

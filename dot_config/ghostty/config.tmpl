@@ -3,7 +3,7 @@ font-family = "JetBrainsMono Nerd Font"
 font-size = 12
 shell-integration = zsh
 {{ if eq .chezmoi.os "darwin" -}}
-command = /opt/homebrew/bin/zsh
+command = {{ template "brew-prefix" . }}/bin/zsh
 {{ else -}}
 command = /usr/bin/zsh
 {{ end -}}

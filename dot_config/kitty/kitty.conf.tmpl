@@ -165,7 +165,7 @@ background_blur 30
 # ============================================================================
 
 {{ if eq .chezmoi.os "darwin" -}}
-shell /opt/homebrew/bin/nu
+shell {{ template "brew-prefix" . }}/bin/nu
 {{ else -}}
 shell /usr/bin/nu
 {{ end -}}
@@ -281,8 +281,8 @@ map cmd+home scroll_home
 map cmd+end scroll_end
 
 # Search
-map cmd+f launch --type=overlay --stdin-source=@screen_scrollback /opt/homebrew/bin/fzf --no-sort --no-mouse --exact -i
-map ctrl+shift+f launch --type=overlay --stdin-source=@screen_scrollback /opt/homebrew/bin/fzf --no-sort --no-mouse --exact -i
+map cmd+f launch --type=overlay --stdin-source=@screen_scrollback {{ template "brew-prefix" . }}/bin/fzf --no-sort --no-mouse --exact -i
+map ctrl+shift+f launch --type=overlay --stdin-source=@screen_scrollback {{ template "brew-prefix" . }}/bin/fzf --no-sort --no-mouse --exact -i
 
 # Reload config
 map cmd+shift+r load_config_file
