@@ -199,15 +199,16 @@ map ctrl+alt+f6 paste_from_buffer c
 # Window management
 map cmd+n new_os_window
 map ctrl+shift+n new_os_window
-map cmd+w close_window
+# cmd+w is reserved for close_tab (see Tab management section); ctrl+shift+w closes a window
 map ctrl+shift+w close_window
+map cmd+shift+w close_os_window
 
 # Splits layout
-# F4-F7, Shift+arrows, Ctrl+arrows and Ctrl+Shift+arrows follow kitty's
-# documented Splits Layout examples for a consistent macOS/Linux workflow.
-map f4 launch --location=split
-map f5 launch --location=hsplit
-map f6 launch --location=vsplit
+# F4-F7, Shift+arrows follow kitty's documented Splits Layout examples.
+# Splits open in the active pane's current working directory (--cwd=current).
+map f4 launch --location=split --cwd=current
+map f5 launch --location=hsplit --cwd=current
+map f6 launch --location=vsplit --cwd=current
 map f7 layout_action rotate
 
 map shift+up move_window up
@@ -215,10 +216,11 @@ map shift+left move_window left
 map shift+right move_window right
 map shift+down move_window down
 
-map ctrl+up neighboring_window up
-map ctrl+left neighboring_window left
-map ctrl+right neighboring_window right
-map ctrl+down neighboring_window down
+# Focus neighboring window (vim-style; avoids conflicts with ctrl+arrows in OS/shells)
+map ctrl+shift+h neighboring_window left
+map ctrl+shift+j neighboring_window down
+map ctrl+shift+k neighboring_window up
+map ctrl+shift+l neighboring_window right
 
 map ctrl+shift+up layout_action move_to_screen_edge top
 map ctrl+shift+left layout_action move_to_screen_edge left
@@ -228,24 +230,52 @@ map ctrl+shift+down layout_action move_to_screen_edge bottom
 map ctrl+. layout_action bias 80
 map ctrl+, layout_action bias 50
 
-# The kitty docs also show Ctrl+Shift+Right/Up for axis maximization, but those
-# keys are already used above for move_to_screen_edge to stay close to Splits.
+# Axis maximization (horizontal / vertical)
 map ctrl+alt+h layout_action maximize horizontal
 map ctrl+alt+v layout_action maximize vertical
 
-# Window resizing uses the same directions as kitty's docs, with Alt added to
-# avoid conflicting with Ctrl+arrows focus navigation.
-map ctrl+alt+left resize_window narrower
-map ctrl+alt+right resize_window wider
-map ctrl+alt+up resize_window taller
-map ctrl+alt+down resize_window shorter 3
-map ctrl+alt+home resize_window reset
+# Window resizing — ctrl+shift+alt+hjkl (neutral; ctrl+alt+arrows freed)
+map ctrl+shift+alt+h resize_window narrower
+map ctrl+shift+alt+l resize_window wider
+map ctrl+shift+alt+k resize_window taller
+map ctrl+shift+alt+j resize_window shorter 3
+map ctrl+shift+alt+0 resize_window reset
+
+# Additional window management
+map f8 next_layout
+map f9 toggle_layout stack
+map f12 start_resizing_window
+map ctrl+shift+o close_other_windows_in_tab
+map ctrl+shift+d detach_window
+
+# Focus window by number
+{{ if eq .chezmoi.os "darwin" -}}
+map cmd+ctrl+1 first_window
+map cmd+ctrl+2 second_window
+map cmd+ctrl+3 third_window
+map cmd+ctrl+4 fourth_window
+map cmd+ctrl+5 fifth_window
+map cmd+ctrl+6 sixth_window
+map cmd+ctrl+7 seventh_window
+map cmd+ctrl+8 eighth_window
+map cmd+ctrl+9 ninth_window
+{{ else -}}
+map alt+1 first_window
+map alt+2 second_window
+map alt+3 third_window
+map alt+4 fourth_window
+map alt+5 fifth_window
+map alt+6 sixth_window
+map alt+7 seventh_window
+map alt+8 eighth_window
+map alt+9 ninth_window
+{{ end -}}
 
 # Tab management
 map cmd+t new_tab
 map ctrl+shift+t new_tab
 map cmd+w close_tab
-map ctrl+shift+x close_tab
+map ctrl+shift+q close_tab
 map cmd+] next_tab
 map ctrl+shift+] next_tab
 map cmd+[ previous_tab
@@ -274,19 +304,36 @@ map ctrl+plus increase_font_size
 map ctrl+minus decrease_font_size
 map ctrl+0 restore_font_size
 
-# Scrolling
+# Scrollback / shell integration
 map shift+page_up scroll_page_up
 map shift+page_down scroll_page_down
 map cmd+home scroll_home
 map cmd+end scroll_end
+map ctrl+shift+b show_scrollback
+map ctrl+shift+z scroll_to_prompt -1
+map ctrl+shift+x scroll_to_prompt 1
+map ctrl+shift+e open_url_with_hints
+map ctrl+shift+g show_last_command_output
+map ctrl+shift+delete clear_terminal reset active
 
-# Search
-map cmd+f launch --type=overlay --stdin-source=@screen_scrollback {{ template "brew-prefix" . }}/bin/fzf --no-sort --no-mouse --exact -i
-map ctrl+shift+f launch --type=overlay --stdin-source=@screen_scrollback {{ template "brew-prefix" . }}/bin/fzf --no-sort --no-mouse --exact -i
+# Search (fzf path resolved per-machine at chezmoi apply time)
+map cmd+f launch --type=overlay --stdin-source=@screen_scrollback {{ lookPath "fzf" | default "fzf" }} --no-sort --no-mouse --exact -i
+map ctrl+shift+f launch --type=overlay --stdin-source=@screen_scrollback {{ lookPath "fzf" | default "fzf" }} --no-sort --no-mouse --exact -i
+
+# Kitty shell and config editing
+map ctrl+shift+escape kitty_shell window
+map ctrl+shift+f2 edit_config_file
 
 # Reload config
 map cmd+shift+r load_config_file
 map ctrl+shift+r load_config_file
+
+# Fullscreen
+{{ if eq .chezmoi.os "darwin" -}}
+map cmd+ctrl+f toggle_fullscreen
+{{ else -}}
+map f11 toggle_fullscreen
+{{ end -}}
 
 # ============================================================================
 # OS Specific

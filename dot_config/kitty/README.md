@@ -65,56 +65,94 @@ shell /opt/homebrew/bin/nu
 - `Ctrl+Alt+F5` / `Ctrl+Alt+F6` - Copy/paste from internal buffer `c`
 
 ### Search
-- `Cmd+F` / `Ctrl+Shift+F` - Search with fzf
+- `Cmd+F` / `Ctrl+Shift+F` - Search with fzf (path resolved at chezmoi apply time)
 
 ### Font Size
 - `Cmd+=` / `Ctrl+=` - Increase size
 - `Cmd+-` / `Ctrl+-` - Decrease size
 - `Cmd+0` / `Ctrl+0` - Reset size
 
-### Navigation
+### Navigation / Scrollback
 - `Shift+PageUp` - Scroll up
 - `Shift+PageDown` - Scroll down
 - `Cmd+Home` - Go to beginning
 - `Cmd+End` - Go to end
+- `Ctrl+Shift+B` - Show scrollback buffer in a pager
+- `Ctrl+Shift+Z` - Scroll to previous prompt
+- `Ctrl+Shift+X` - Scroll to next prompt
+- `Ctrl+Shift+E` - Open URL under cursor (hints mode)
+- `Ctrl+Shift+G` - Show last command output
+- `Ctrl+Shift+Delete` - Reset terminal
 
 ### Window Management
-- `Cmd+N` / `Ctrl+Shift+N` - New window
-- `Cmd+W` / `Ctrl+Shift+W` - Close window
+- `Cmd+N` / `Ctrl+Shift+N` - New OS window
+- `Ctrl+Shift+W` - Close window
+- `Cmd+Shift+W` - Close OS window (all tabs)
 
 ### Splits Layout
-- `F4` - New split, automatic direction based on current window shape
-- `F5` - New horizontal split, windows stacked one above the other
-- `F6` - New vertical split, windows side by side
+- `F4` - New split (auto direction), opens in current directory
+- `F5` - New horizontal split (windows stacked), opens in current directory
+- `F6` - New vertical split (windows side by side), opens in current directory
 - `F7` - Rotate the current split axis
+- `F8` - Cycle to next layout
+- `F9` - Toggle stack layout (zoom active split to fill tab; press again to restore)
+- `F12` - Enter interactive resize mode
 - `Shift+Up/Left/Right/Down` - Move the active window in that direction
-- `Ctrl+Up/Left/Right/Down` - Focus the neighboring window in that direction
+
+### Window Focus (vim-style)
+- `Ctrl+Shift+H` - Focus window to the left
+- `Ctrl+Shift+J` - Focus window below
+- `Ctrl+Shift+K` - Focus window above
+- `Ctrl+Shift+L` - Focus window to the right
+
+### Move Window to Screen Edge
 - `Ctrl+Shift+Up/Left/Right/Down` - Move the active window to the matching screen edge
+
+### Split Bias
 - `Ctrl+.` - Set the current split bias to 80%
 - `Ctrl+,` - Reset the current split bias to 50%
+
+### Axis Maximization
 - `Ctrl+Alt+H` - Toggle horizontal maximization for the active window
 - `Ctrl+Alt+V` - Toggle vertical maximization for the active window
 
-### Window Resizing
-- `Ctrl+Alt+Left` - Make the active window narrower
-- `Ctrl+Alt+Right` - Make the active window wider
-- `Ctrl+Alt+Up` - Make the active window taller
-- `Ctrl+Alt+Down` - Make the active window shorter by 3 cells
-- `Ctrl+Alt+Home` - Reset all window sizes in the current tab
+### Window Resizing (vim-style)
+- `Ctrl+Shift+Alt+H` - Make the active window narrower
+- `Ctrl+Shift+Alt+L` - Make the active window wider
+- `Ctrl+Shift+Alt+K` - Make the active window taller
+- `Ctrl+Shift+Alt+J` - Make the active window shorter by 3 cells
+- `Ctrl+Shift+Alt+0` - Reset all window sizes in the current tab
 
-The resizing shortcuts add `Alt` compared to Kitty's documentation because `Ctrl+Arrow` is reserved for Splits focus navigation. On macOS, the right Option key is configured as Alt so left Option remains available for normal text input.
+The resizing shortcuts use `Ctrl+Shift+Alt+hjkl` to stay neutral and avoid
+conflicting with OS/shell bindings. On macOS, the right Option key is
+configured as Alt (`macos_option_as_alt right`) so left Option remains
+available for normal text input.
+
+### Window Operations
+- `Ctrl+Shift+O` - Close all other windows in the current tab
+- `Ctrl+Shift+D` - Detach window (move to another tab or OS window)
+
+### Focus Window by Number
+- **macOS:** `Cmd+Ctrl+1` … `Cmd+Ctrl+9` - Focus window 1–9
+- **Linux:** `Alt+1` … `Alt+9` - Focus window 1–9
 
 ### Tab Management
 - `Cmd+T` / `Ctrl+Shift+T` - New tab
-- `Cmd+W` / `Ctrl+Shift+X` - Close tab
+- `Cmd+W` / `Ctrl+Shift+Q` - Close tab
 - `Cmd+]` / `Ctrl+Shift+]` - Next tab
 - `Cmd+[` / `Ctrl+Shift+[` - Previous tab
 - `Cmd+Shift+]` - Move tab forward
 - `Cmd+Shift+[` - Move tab backward
-- `Cmd+1` to `Cmd+9` - Go to tab 1-9
+- `Cmd+1` to `Cmd+9` - Go to tab 1–9
 
-### Configuration
+### Configuration & Shell
 - `Cmd+Shift+R` / `Ctrl+Shift+R` - Reload configuration
+- `Ctrl+Shift+F2` - Edit config file in $EDITOR
+- `Ctrl+Shift+Escape` - Open kitty shell (REPL)
+
+### Fullscreen
+- **macOS:** `Cmd+Ctrl+F` - Toggle fullscreen
+- **Linux:** `F11` - Toggle fullscreen
 
 ## Mouse
 
