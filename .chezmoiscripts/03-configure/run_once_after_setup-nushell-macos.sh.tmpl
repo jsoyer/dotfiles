@@ -1,0 +1,30 @@
+{{- if eq .chezmoi.os "darwin" -}}
+#!/usr/bin/env bash
+# =============================================================================
+# Nushell config location fix (macOS)
+# =============================================================================
+# On macOS, Nushell reads its config from ~/Library/Application Support/nushell,
+# NOT ~/.config/nushell where chezmoi deploys it (unless XDG_CONFIG_HOME is set,
+# which it is not for GUI-launched shells like kitty). Symlink the chezmoi-
+# managed *.nu files into Nushell's native dir so they are actually loaded.
+# Runs after files are applied (run_once_after_); idempotent (ln -sfn).
+set -uo pipefail
+
+xdg="${HOME}/.config/nushell"
+native="${HOME}/Library/Application Support/nushell"
+
+mkdir -p "$native"
+
+shopt -s nullglob
+linked=0
+for f in "${xdg}"/*.nu; do
+    ln -sfn "$f" "${native}/$(basename "$f")"
+    linked=$((linked + 1))
+done
+
+if [[ "$linked" -gt 0 ]]; then
+    echo "Nushell: linked ${linked} config file(s) from ${xdg} into native dir"
+else
+    echo "Nushell: no .nu files in ${xdg} to link (is dot_config/nushell applied?)" >&2
+fi
+{{- end -}}
