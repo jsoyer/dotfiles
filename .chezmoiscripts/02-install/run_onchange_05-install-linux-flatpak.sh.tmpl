@@ -9,7 +9,16 @@
 # Flatpak Packages Installation (reruns when this package list changes)
 # =============================================================================
 
-set -euo pipefail
+set -uo pipefail
+
+# A single failed package must never abort `chezmoi apply` and block the rest of
+# the config (mirrors run_onchange_03-brew-bundle.sh). Failures are collected and
+# reported at the end instead of aborting.
+_PKG_FAILURES=()
+_pkgfail() {
+    _PKG_FAILURES+=("$1")
+    echo "  ⚠️  ${1} failed — continuing so the rest of the config still applies" >&2
+}
 
 echo "Setting up Flatpak..."
 
@@ -63,7 +72,7 @@ do
         echo "  $pkg already installed"
     else
         echo "  Installing $pkg..."
-        sudo flatpak install --system --noninteractive flathub "$pkg" || echo "  Failed to install $pkg"
+        sudo flatpak install --system --noninteractive flathub "$pkg" || _pkgfail "flatpak (fedora-atomic): ${pkg}"
     fi
 done
 {{- end }}
@@ -98,7 +107,7 @@ do
         echo "  $pkg already installed"
     else
         echo "  Installing $pkg..."
-        flatpak install --user --noninteractive flathub "$pkg" || echo "  Failed to install $pkg"
+        flatpak install --user --noninteractive flathub "$pkg" || _pkgfail "flatpak (ubuntu-desktop): ${pkg}"
     fi
 done
 {{- end }}
@@ -107,7 +116,7 @@ done
 # Flatpak for Fedora Desktop (apps not available or outdated in DNF repos)
 if ! command -v flatpak &>/dev/null; then
     echo "Flatpak not found, installing via dnf..."
-    sudo dnf install -y flatpak
+    sudo dnf install -y flatpak || _pkgfail "dnf: flatpak (fedora-desktop)"
 fi
 
 # Add Flathub remote (user-level)
@@ -131,10 +140,17 @@ do
         echo "  $pkg already installed"
     else
         echo "  Installing $pkg..."
-        flatpak install --user --noninteractive flathub "$pkg" || echo "  Failed to install $pkg"
+        flatpak install --user --noninteractive flathub "$pkg" || _pkgfail "flatpak (fedora-desktop): ${pkg}"
     fi
 done
 {{- end }}
+
+if ((${#_PKG_FAILURES[@]})); then
+    echo ""
+    echo "⚠️  Some packages failed to install (your dotfiles config was still applied):"
+    printf '   - %s\n' "${_PKG_FAILURES[@]}"
+    echo "   Fix the cause and re-run: chezmoi apply"
+fi
 
 echo "Flatpak packages installation complete."
 {{ end -}}

@@ -6,7 +6,16 @@
 # Reruns when this desired toolbox list changes.
 # =============================================================================
 
-set -euo pipefail
+set -uo pipefail
+
+# A single failed toolbox creation must never abort `chezmoi apply` and block the
+# rest of the config (mirrors run_onchange_03-brew-bundle.sh). Failures are
+# collected and reported at the end instead of aborting.
+_PKG_FAILURES=()
+_pkgfail() {
+    _PKG_FAILURES+=("$1")
+    echo "  ⚠️  ${1} failed — continuing so the rest of the config still applies" >&2
+}
 
 if ! command -v toolbox &>/dev/null; then
     echo "⚠️  toolbox not found, skipping"
@@ -23,7 +32,7 @@ if toolbox list --containers 2>/dev/null | awk 'NR>1{print $2}' | grep -qx "${FE
     echo "📦 Fedora toolbox '${FEDORA_TOOLBOX}' already exists"
 else
     echo "📦 Creating Fedora ${FEDORA_VERSION} toolbox..."
-    toolbox create --distro fedora --release "${FEDORA_VERSION}" "${FEDORA_TOOLBOX}"
+    toolbox create --distro fedora --release "${FEDORA_VERSION}" "${FEDORA_TOOLBOX}" || _pkgfail "toolbox: create fedora-${FEDORA_VERSION}"
     echo "✅ Fedora toolbox '${FEDORA_TOOLBOX}' created"
 fi
 
@@ -36,8 +45,15 @@ if toolbox list --containers 2>/dev/null | awk 'NR>1{print $2}' | grep -qx "${AR
     echo "🐧 Arch toolbox '${ARCH_TOOLBOX}' already exists"
 else
     echo "🐧 Creating Arch Linux toolbox..."
-    toolbox create --distro arch --release rolling "${ARCH_TOOLBOX}"
+    toolbox create --distro arch --release rolling "${ARCH_TOOLBOX}" || _pkgfail "toolbox: create arch-rolling"
     echo "✅ Arch toolbox '${ARCH_TOOLBOX}' created"
+fi
+
+if ((${#_PKG_FAILURES[@]})); then
+    echo ""
+    echo "⚠️  Some packages failed to install (your dotfiles config was still applied):"
+    printf '   - %s\n' "${_PKG_FAILURES[@]}"
+    echo "   Fix the cause and re-run: chezmoi apply"
 fi
 
 echo "✅ Toolboxes setup complete!"

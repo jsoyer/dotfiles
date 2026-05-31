@@ -19,7 +19,16 @@
 # Linux Setup - Locale, Repositories, Tailscale
 # =============================================================================
 
-set -euo pipefail
+set -uo pipefail
+
+# A single failed package must never abort `chezmoi apply` and block the rest of
+# the config (mirrors run_onchange_03-brew-bundle.sh). Failures are collected and
+# reported at the end instead of aborting.
+_PKG_FAILURES=()
+_pkgfail() {
+    _PKG_FAILURES+=("$1")
+    echo "  ⚠️  ${1} failed — continuing so the rest of the config still applies" >&2
+}
 
 # =============================================================================
 # Raspberry Pi / Debian / Ubuntu - Locale configuration
@@ -146,7 +155,7 @@ fi
 # Debian/Ubuntu/RPi - Tailscale via official apt repo
 if ! command -v tailscale &>/dev/null; then
     echo "🔒 Installing Tailscale..."
-    curl -fsSL https://tailscale.com/install.sh | sh
+    curl -fsSL https://tailscale.com/install.sh | sh || _pkgfail "tailscale: install script (debian/ubuntu/rpi)"
     sudo systemctl enable --now tailscaled || true
     echo "🔒 Tailscale installed. Run 'sudo tailscale up' to authenticate."
 else
@@ -159,7 +168,7 @@ fi
 # Arch Linux - Tailscale via pacman
 if ! command -v tailscale &>/dev/null; then
     echo "🔒 Installing Tailscale..."
-    sudo pacman -S --needed --noconfirm tailscale
+    sudo pacman -S --needed --noconfirm tailscale || _pkgfail "pacman: tailscale (arch)"
     sudo systemctl enable --now tailscaled || true
     echo "🔒 Tailscale installed. Run 'sudo tailscale up' to authenticate."
 else
@@ -173,7 +182,7 @@ fi
 if ! rpm -q tailscale &>/dev/null; then
     echo "🔒 Installing Tailscale..."
     sudo dnf config-manager addrepo --from-repofile=https://pkgs.tailscale.com/stable/fedora/tailscale.repo
-    sudo dnf install -y tailscale
+    sudo dnf install -y tailscale || _pkgfail "dnf: tailscale (fedora)"
     sudo systemctl enable --now tailscaled || true
     echo "🔒 Tailscale installed. Run 'sudo tailscale up' to authenticate."
 else
@@ -198,6 +207,13 @@ fi
 {{- end }}
 
 {{- end }}
+
+if ((${#_PKG_FAILURES[@]})); then
+    echo ""
+    echo "⚠️  Some packages failed to install (your dotfiles config was still applied):"
+    printf '   - %s\n' "${_PKG_FAILURES[@]}"
+    echo "   Fix the cause and re-run: chezmoi apply"
+fi
 
 echo "✅ Linux setup complete!"
 {{- end }}

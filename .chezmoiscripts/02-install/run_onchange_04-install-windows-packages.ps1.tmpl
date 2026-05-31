@@ -2,8 +2,13 @@
 # Installs packages via Scoop on Windows machines.
 
 #Requires -Version 5.1
-$ErrorActionPreference = 'Stop'
+# Do NOT set ErrorActionPreference = 'Stop' — a single failed package must never
+# abort chezmoi apply and block the rest of the config. Failures are collected and
+# reported at the end instead.
+$ErrorActionPreference = 'Continue'
 Set-StrictMode -Version Latest
+
+$pkgFailures = [System.Collections.Generic.List[string]]::new()
 
 $scoopManifest = @'
 {{ include "dot_private/Scoopfile.json" }}
@@ -42,21 +47,32 @@ function Install-ScoopPackages {
     $missing = $Packages | Where-Object { -not (Test-Path "$scoopPath\apps\$_\current") }
     if ($missing) {
         scoop install $missing
-        if ($LASTEXITCODE -ne 0) { throw "scoop install failed for: $($missing -join ', ')" }
+        if ($LASTEXITCODE -ne 0) { return $false }
     }
+    return $true
 }
 
 Write-Host "Installing Scoop packages (main)..." -ForegroundColor Cyan
 foreach ($app in $scoopManifest.apps) {
     try {
-        Install-ScoopPackages @($app.name)
-    } catch {
-        if ($app.optional) {
-            Write-Warning "$($app.name) install failed (non-fatal): $_"
-        } else {
-            throw
+        $ok = Install-ScoopPackages @($app.name)
+        if (-not $ok) {
+            $msg = "scoop: $($app.name)"
+            Write-Warning "  ⚠️  $msg failed — continuing so the rest of the config still applies"
+            $pkgFailures.Add($msg)
         }
+    } catch {
+        $msg = "scoop: $($app.name)"
+        Write-Warning "  ⚠️  $msg failed ($($_)) — continuing so the rest of the config still applies"
+        $pkgFailures.Add($msg)
     }
+}
+
+if ($pkgFailures.Count -gt 0) {
+    Write-Host ""
+    Write-Host "⚠️  Some packages failed to install (your dotfiles config was still applied):" -ForegroundColor Yellow
+    foreach ($f in $pkgFailures) { Write-Host "   - $f" -ForegroundColor Yellow }
+    Write-Host "   Fix the cause and re-run: chezmoi apply" -ForegroundColor Yellow
 }
 
 Write-Host "Scoop setup complete." -ForegroundColor Green

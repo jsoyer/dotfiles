@@ -61,7 +61,16 @@
 # Rpmfile_fedora_atomic:  {{ include "dot_private/Rpmfile_fedora_atomic" | sha256sum }}
 {{- end }}
 
-set -euo pipefail
+set -uo pipefail
+
+# A single failed package must never abort `chezmoi apply` and block the rest of
+# the config (mirrors run_onchange_03-brew-bundle.sh). Failures are collected and
+# reported at the end instead of aborting.
+_PKG_FAILURES=()
+_pkgfail() {
+    _PKG_FAILURES+=("$1")
+    echo "  ⚠️  ${1} failed — continuing so the rest of the config still applies" >&2
+}
 
 # Cache directory for large installer scripts
 CHEZMOI_DL_CACHE="${XDG_CACHE_HOME:-${HOME}/.cache}/chezmoi-downloads"
@@ -187,7 +196,7 @@ echo "Installing Raspberry Pi packages via apt..."
 _aptfile="{{ .chezmoi.sourceDir }}/dot_private/Aptfile_rpi"
 if [[ -f "$_aptfile" ]]; then
     mapfile -t _pkgs < <(grep -v '^\s*#' "$_aptfile" | grep -v '^\s*$')
-    sudo apt update && sudo apt-get install -y "${_pkgs[@]}"
+    sudo apt update && sudo apt-get install -y "${_pkgs[@]}" || _pkgfail "apt: rpi base packages"
 fi
 
 # 1Password CLI — handled by run_once_install-1password.sh
@@ -197,7 +206,7 @@ if ! command -v gh &>/dev/null; then
     echo "Installing gh (GitHub CLI)..."
     tmp_key="$(mktemp)"
     if ! command -v wget &>/dev/null; then
-        sudo apt install -y wget
+        sudo apt install -y wget || _pkgfail "apt: wget (rpi)"
     fi
     wget -nv -O "$tmp_key" https://cli.github.com/packages/githubcli-archive-keyring.gpg
     sudo mkdir -p -m 755 /etc/apt/keyrings
@@ -206,7 +215,7 @@ if ! command -v gh &>/dev/null; then
     echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" \
         | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
     sudo apt update
-    sudo apt install -y gh
+    sudo apt install -y gh || _pkgfail "apt: gh (rpi)"
 fi
 
 # Install uv (provides uvx for MCP servers using Python)
@@ -226,7 +235,7 @@ echo "Installing Debian packages via apt..."
 _aptfile="{{ .chezmoi.sourceDir }}/dot_private/Aptfile_debian"
 if [[ -f "$_aptfile" ]]; then
     mapfile -t _pkgs < <(grep -v '^\s*#' "$_aptfile" | grep -v '^\s*$')
-    sudo apt update && sudo apt-get install -y "${_pkgs[@]}"
+    sudo apt update && sudo apt-get install -y "${_pkgs[@]}" || _pkgfail "apt: debian base packages"
 fi
 
 # Install starship via official installer (not in Debian apt)
@@ -242,7 +251,7 @@ if ! command -v op &>/dev/null; then
     echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/1password-archive-keyring.gpg] https://downloads.1password.com/linux/debian/$(dpkg --print-architecture) stable main" \
         | sudo tee /etc/apt/sources.list.d/1password.list > /dev/null
     sudo apt update
-    sudo apt install -y 1password-cli
+    sudo apt install -y 1password-cli || _pkgfail "apt: 1password-cli (debian)"
 fi
 
 # Install gh CLI via official apt keyring
@@ -250,7 +259,7 @@ if ! command -v gh &>/dev/null; then
     echo "Installing gh (GitHub CLI)..."
     tmp_key="$(mktemp)"
     if ! command -v wget &>/dev/null; then
-        sudo apt install -y wget
+        sudo apt install -y wget || _pkgfail "apt: wget (debian)"
     fi
     wget -nv -O "$tmp_key" https://cli.github.com/packages/githubcli-archive-keyring.gpg
     sudo mkdir -p -m 755 /etc/apt/keyrings
@@ -259,7 +268,7 @@ if ! command -v gh &>/dev/null; then
     echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" \
         | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
     sudo apt update
-    sudo apt install -y gh
+    sudo apt install -y gh || _pkgfail "apt: gh (debian)"
 fi
 
 # Install uv (provides uvx for MCP servers using Python)
@@ -279,7 +288,7 @@ echo "Installing Ubuntu Server packages via apt..."
 _aptfile="{{ .chezmoi.sourceDir }}/dot_private/Aptfile_ubuntu_server"
 if [[ -f "$_aptfile" ]]; then
     mapfile -t _pkgs < <(grep -v '^\s*#' "$_aptfile" | grep -v '^\s*$')
-    sudo apt update && sudo apt-get install -y "${_pkgs[@]}"
+    sudo apt update && sudo apt-get install -y "${_pkgs[@]}" || _pkgfail "apt: ubuntu-server base packages"
 fi
 
 # Install starship via official installer (not in Ubuntu apt)
@@ -298,7 +307,7 @@ if ! command -v op &>/dev/null; then
     echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/1password-archive-keyring.gpg] https://downloads.1password.com/linux/debian/$(dpkg --print-architecture) stable main" \
         | sudo tee /etc/apt/sources.list.d/1password.list > /dev/null
     sudo apt update
-    sudo apt install -y 1password-cli
+    sudo apt install -y 1password-cli || _pkgfail "apt: 1password-cli (ubuntu-server)"
 fi
 
 # Install gh CLI via official apt keyring
@@ -306,7 +315,7 @@ if ! command -v gh &>/dev/null; then
     echo "Installing gh (GitHub CLI)..."
     tmp_key="$(mktemp)"
     if ! command -v wget &>/dev/null; then
-        sudo apt install -y wget
+        sudo apt install -y wget || _pkgfail "apt: wget (ubuntu-server)"
     fi
     wget -nv -O "$tmp_key" https://cli.github.com/packages/githubcli-archive-keyring.gpg
     sudo mkdir -p -m 755 /etc/apt/keyrings
@@ -315,7 +324,7 @@ if ! command -v gh &>/dev/null; then
     echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" \
         | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
     sudo apt update
-    sudo apt install -y gh
+    sudo apt install -y gh || _pkgfail "apt: gh (ubuntu-server)"
 fi
 
 # Install uv (provides uvx for MCP servers using Python)
@@ -335,7 +344,7 @@ echo "Installing Ubuntu Desktop packages via apt..."
 _aptfile="{{ .chezmoi.sourceDir }}/dot_private/Aptfile_ubuntu_desktop"
 if [[ -f "$_aptfile" ]]; then
     mapfile -t _pkgs < <(grep -v '^\s*#' "$_aptfile" | grep -v '^\s*$')
-    sudo apt update && sudo apt-get install -y "${_pkgs[@]}"
+    sudo apt update && sudo apt-get install -y "${_pkgs[@]}" || _pkgfail "apt: ubuntu-desktop base packages"
 fi
 
 # Install starship via official installer (not in Ubuntu apt)
@@ -351,7 +360,7 @@ if ! command -v wezterm &>/dev/null; then
     echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/wezterm-fury.gpg] https://apt.fury.io/wez/ * *" \
         | sudo tee /etc/apt/sources.list.d/wezterm.list > /dev/null
     sudo apt update
-    sudo apt install -y wezterm
+    sudo apt install -y wezterm || _pkgfail "apt: wezterm (ubuntu-desktop)"
 fi
 
 # Install 1Password CLI via official apt repo
@@ -364,7 +373,7 @@ if ! command -v op &>/dev/null; then
     echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/1password-archive-keyring.gpg] https://downloads.1password.com/linux/debian/$(dpkg --print-architecture) stable main" \
         | sudo tee /etc/apt/sources.list.d/1password.list > /dev/null
     sudo apt update
-    sudo apt install -y 1password-cli
+    sudo apt install -y 1password-cli || _pkgfail "apt: 1password-cli (ubuntu-desktop)"
 fi
 
 # Install gh CLI via official apt keyring
@@ -378,7 +387,7 @@ if ! command -v gh &>/dev/null; then
     echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" \
         | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
     sudo apt update
-    sudo apt install -y gh
+    sudo apt install -y gh || _pkgfail "apt: gh (ubuntu-desktop)"
 fi
 
 # Install uv (provides uvx for MCP servers using Python)
@@ -402,7 +411,7 @@ if command -v snap &>/dev/null; then
         for _pkg in "${_snappkgs[@]}"; do
             if ! snap list "$_pkg" &>/dev/null 2>&1; then
                 echo "📦 Installing snap: $_pkg..."
-                sudo snap install "$_pkg" 2>/dev/null || true
+                sudo snap install "$_pkg" 2>/dev/null || _pkgfail "snap: ${_pkg}"
             fi
         done
     fi
@@ -419,7 +428,7 @@ echo "Installing Fedora Server packages via dnf..."
 _dnffile="{{ .chezmoi.sourceDir }}/dot_private/Dnffile_fedora_server"
 if [[ -f "$_dnffile" ]]; then
     mapfile -t _pkgs < <(grep -v '^\s*#' "$_dnffile" | grep -v '^\s*$')
-    sudo dnf install -y --skip-unavailable "${_pkgs[@]}"
+    sudo dnf install -y --skip-unavailable "${_pkgs[@]}" || _pkgfail "dnf: fedora-server packages"
 fi
 
 # Install eza (cargo fallback)
@@ -436,7 +445,7 @@ echo "Installing Fedora Desktop packages via dnf..."
 _dnffile="{{ .chezmoi.sourceDir }}/dot_private/Dnffile_fedora_desktop"
 if [[ -f "$_dnffile" ]]; then
     mapfile -t _pkgs < <(grep -v '^\s*#' "$_dnffile" | grep -v '^\s*$')
-    sudo dnf install -y --skip-unavailable "${_pkgs[@]}"
+    sudo dnf install -y --skip-unavailable "${_pkgs[@]}" || _pkgfail "dnf: fedora-desktop packages"
 fi
 
 # Install eza (cargo fallback)
@@ -473,7 +482,7 @@ sudo dnf install -y --skip-unavailable \
     nushell \
     util-linux-user \
     cargo \
-    rust
+    rust || _pkgfail "dnf: toolbox packages"
 
 # Install eza (cargo fallback)
 _install_eza || true
@@ -489,7 +498,7 @@ echo "Installing Arch Linux Desktop packages via pacman..."
 _pacfile="{{ .chezmoi.sourceDir }}/dot_private/Pacfile_arch_desktop"
 if [[ -f "$_pacfile" ]]; then
     mapfile -t _pkgs < <(grep -v '^\s*#' "$_pacfile" | grep -v '^\s*$')
-    sudo pacman -S --noconfirm --needed "${_pkgs[@]}"
+    sudo pacman -S --noconfirm --needed "${_pkgs[@]}" || _pkgfail "pacman: arch-desktop packages"
 fi
 
 # Install yay (AUR helper) if not present
@@ -498,14 +507,16 @@ if ! command -v yay &>/dev/null; then
     _yay_tmp="$(mktemp -d)"
     trap 'rm -rf "$_yay_tmp"' EXIT
     git clone https://aur.archlinux.org/yay.git "$_yay_tmp/yay"
-    (cd "$_yay_tmp/yay" && makepkg -si --noconfirm)
+    (cd "$_yay_tmp/yay" && makepkg -si --noconfirm) || _pkgfail "aur: yay (AUR helper build)"
 fi
 
 # Install AUR packages from Pacfile_aur_desktop
 _aurfile="{{ .chezmoi.sourceDir }}/dot_private/Pacfile_aur_desktop"
 if [[ -f "$_aurfile" ]] && command -v yay &>/dev/null; then
     mapfile -t _aurpkgs < <(grep -v '^\s*#' "$_aurfile" | grep -v '^\s*$')
-    [[ ${#_aurpkgs[@]} -gt 0 ]] && yay -S --noconfirm --needed --answerdiff=None --answerclean=None "${_aurpkgs[@]}"
+    if (( ${#_aurpkgs[@]} )); then
+        yay -S --noconfirm --needed --answerdiff=None --answerclean=None "${_aurpkgs[@]}" || _pkgfail "aur: arch-desktop AUR packages"
+    fi
 fi
 
 # Install uv
@@ -525,7 +536,7 @@ echo "Installing Arch Linux Server packages via pacman..."
 _pacfile="{{ .chezmoi.sourceDir }}/dot_private/Pacfile_arch_server"
 if [[ -f "$_pacfile" ]]; then
     mapfile -t _pkgs < <(grep -v '^\s*#' "$_pacfile" | grep -v '^\s*$')
-    sudo pacman -S --noconfirm --needed "${_pkgs[@]}"
+    sudo pacman -S --noconfirm --needed "${_pkgs[@]}" || _pkgfail "pacman: arch-server packages"
 fi
 
 # Install uv
@@ -547,8 +558,7 @@ if [[ -f "$_pacfile" ]]; then
     for _pkg in "${_pkgs[@]}"; do
         if ! rpm -q "$_pkg" &>/dev/null; then
             echo "  Installing $_pkg..."
-            sudo rpm-ostree install --apply-live "$_pkg" 2>/dev/null || \
-                echo "  Warning: could not install $_pkg (may need reboot)"
+            sudo rpm-ostree install --apply-live "$_pkg" 2>/dev/null || _pkgfail "rpm-ostree: ${_pkg} (may need reboot)"
         fi
     done
 fi
@@ -564,7 +574,9 @@ if _has_gui; then
     _guifile="{{ .chezmoi.sourceDir }}/dot_private/Aptfile_ubuntu_gui"
     if [[ -f "$_guifile" ]]; then
         mapfile -t _guipkgs < <(grep -v '^\s*#' "$_guifile" | grep -v '^\s*$')
-        [[ ${#_guipkgs[@]} -gt 0 ]] && sudo apt-get install -y "${_guipkgs[@]}"
+        if (( ${#_guipkgs[@]} )); then
+            sudo apt-get install -y "${_guipkgs[@]}" || _pkgfail "apt: ubuntu-desktop GUI packages"
+        fi
     fi
 
     # Zed Editor — no official apt repo, use native installer
@@ -578,7 +590,9 @@ if _has_gui; then
     _guifile="{{ .chezmoi.sourceDir }}/dot_private/Dnffile_fedora_gui"
     if [[ -f "$_guifile" ]]; then
         mapfile -t _guipkgs < <(grep -v '^\s*#' "$_guifile" | grep -v '^\s*$')
-        [[ ${#_guipkgs[@]} -gt 0 ]] && sudo dnf install -y --skip-unavailable "${_guipkgs[@]}"
+        if (( ${#_guipkgs[@]} )); then
+            sudo dnf install -y --skip-unavailable "${_guipkgs[@]}" || _pkgfail "dnf: fedora-desktop GUI packages"
+        fi
     fi
 
     # Zed Editor — no official dnf repo, use native installer
@@ -592,7 +606,9 @@ if _has_gui; then
     _guifile="{{ .chezmoi.sourceDir }}/dot_private/Aptfile_rpi_gui"
     if [[ -f "$_guifile" ]]; then
         mapfile -t _guipkgs < <(grep -v '^\s*#' "$_guifile" | grep -v '^\s*$')
-        [[ ${#_guipkgs[@]} -gt 0 ]] && sudo apt-get install -y "${_guipkgs[@]}"
+        if (( ${#_guipkgs[@]} )); then
+            sudo apt-get install -y "${_guipkgs[@]}" || _pkgfail "apt: rpi GUI packages"
+        fi
     fi
     # Pi-Apps GUI apps handled by run_once_install-pi-apps.sh
 {{- end }}
@@ -601,13 +617,17 @@ if _has_gui; then
     _guifile="{{ .chezmoi.sourceDir }}/dot_private/Pacfile_arch_gui"
     if [[ -f "$_guifile" ]]; then
         mapfile -t _guipkgs < <(grep -v '^\s*#' "$_guifile" | grep -v '^\s*$')
-        [[ ${#_guipkgs[@]} -gt 0 ]] && sudo pacman -S --noconfirm --needed "${_guipkgs[@]}"
+        if (( ${#_guipkgs[@]} )); then
+            sudo pacman -S --noconfirm --needed "${_guipkgs[@]}" || _pkgfail "pacman: arch-desktop GUI packages"
+        fi
     fi
 
     _aurguifile="{{ .chezmoi.sourceDir }}/dot_private/Pacfile_aur_gui"
     if [[ -f "$_aurguifile" ]] && command -v yay &>/dev/null; then
         mapfile -t _aurguipkgs < <(grep -v '^\s*#' "$_aurguifile" | grep -v '^\s*$')
-        [[ ${#_aurguipkgs[@]} -gt 0 ]] && yay -S --noconfirm --needed --answerdiff=None --answerclean=None "${_aurguipkgs[@]}"
+        if (( ${#_aurguipkgs[@]} )); then
+            yay -S --noconfirm --needed --answerdiff=None --answerclean=None "${_aurguipkgs[@]}" || _pkgfail "aur: arch-desktop AUR GUI packages"
+        fi
     fi
 {{- end }}
 
@@ -623,7 +643,7 @@ fi
 {{- if or $isArchDesktop $isOmArchy $isArchServer }}
 # Arch/OmArchy — install via AUR (native > script)
 if command -v yay &>/dev/null; then
-    yay -S --noconfirm --needed --answerdiff=None --answerclean=None claude-code github-copilot-cli-bin openai-codex-bin rtk-bin 2>/dev/null || true
+    yay -S --noconfirm --needed --answerdiff=None --answerclean=None claude-code github-copilot-cli-bin openai-codex-bin rtk-bin 2>/dev/null || _pkgfail "aur: cli AI tools (claude-code/copilot/codex/rtk)"
 fi
 {{- else }}
 # Priority: native repos > brew formula > install script (last resort)
@@ -677,6 +697,13 @@ fi
 
 # OpenCode CLI — handled by brew bundle (Brewfile_brew_only)
 {{- end }}
+
+if ((${#_PKG_FAILURES[@]})); then
+    echo ""
+    echo "⚠️  Some packages failed to install (your dotfiles config was still applied):"
+    printf '   - %s\n' "${_PKG_FAILURES[@]}"
+    echo "   Fix the cause and re-run: chezmoi apply"
+fi
 
 echo "Linux packages installation complete!"
 {{- end }}
