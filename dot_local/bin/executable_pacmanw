@@ -148,7 +148,7 @@ sync_to_git() {
     git -C "$CHEZMOI_SOURCE_PATH" pull --rebase origin main 2>/dev/null || true
     if ! git -C "$CHEZMOI_SOURCE_PATH" diff --quiet "$manifest" 2>/dev/null; then
         git -C "$CHEZMOI_SOURCE_PATH" add "$manifest"
-        git -C "$CHEZMOI_SOURCE_PATH" commit -m "feat(pacmanw): update $(basename "$manifest")"
+        git -C "$CHEZMOI_SOURCE_PATH" commit --no-gpg-sign -m "feat(pacmanw): update $(basename "$manifest")"
         git -C "$CHEZMOI_SOURCE_PATH" push
     fi
 }
@@ -168,7 +168,7 @@ sync_host_overlays_to_git() {
         changed=1
     fi
     if [[ $changed -eq 1 ]]; then
-        git -C "$CHEZMOI_SOURCE_PATH" commit -m "feat(pacmanw): update host overlays for ${HOSTNAME_SHORT}"
+        git -C "$CHEZMOI_SOURCE_PATH" commit --no-gpg-sign -m "feat(pacmanw): update host overlays for ${HOSTNAME_SHORT}"
         git -C "$CHEZMOI_SOURCE_PATH" push
     fi
 }

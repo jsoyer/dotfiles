@@ -146,15 +146,20 @@ if [[ -d "${CHEZMOI_SOURCE}/.git" ]]; then
         && ! printf '%s\n' "${_dirty_paths}" | grep -v '^[[:space:]]*$' | grep -qv '^dot_private/Brewfile'; then
         log "A0: only Brewfile manifests changed; auto-committing before update"
         git -C "${CHEZMOI_SOURCE}" add -A
-        if git -C "${CHEZMOI_SOURCE}" commit -m "style(brew): update brewfiles via chezmoi-autoupdate" >/dev/null 2>&1; then
-            log "A0: committed Brewfile changes"
-            if git -C "${CHEZMOI_SOURCE}" push >/dev/null 2>&1; then
-                log "A0: pushed Brewfile changes"
-            else
-                log "A0: push failed; will retry next run"
-            fi
-        else
+        if git -C "${CHEZMOI_SOURCE}" diff --cached --quiet; then
             log "A0: nothing to commit"
+        else
+            _a0_msg="$(git -C "${CHEZMOI_SOURCE}" commit --no-gpg-sign -m "style(brew): update brewfiles via chezmoi-autoupdate" 2>&1)"
+            if [[ $? -eq 0 ]]; then
+                log "A0: committed Brewfile changes"
+                if _a0_push="$(git -C "${CHEZMOI_SOURCE}" push 2>&1)"; then
+                    log "A0: pushed Brewfile changes"
+                else
+                    log_err "A0: push failed: ${_a0_push}"
+                fi
+            else
+                log_err "A0: commit failed (overlay left staged): ${_a0_msg}"
+            fi
         fi
     fi
 fi

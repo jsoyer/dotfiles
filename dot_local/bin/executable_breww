@@ -258,7 +258,7 @@ def sync_to_git():
     try:
         subprocess.run(["git", "add", "."], cwd=CHEZMOI_SOURCE_PATH, check=True)
         result = subprocess.run(
-            ["git", "commit", "-m", "style(brew): update brewfiles via breww"],
+            ["git", "commit", "--no-gpg-sign", "-m", "style(brew): update brewfiles via breww"],
             cwd=CHEZMOI_SOURCE_PATH,
         )
         if result.returncode not in (0, 1):

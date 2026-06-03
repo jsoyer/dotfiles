@@ -136,7 +136,7 @@ sync_to_git() {
     printf '\n%b\n' "${BLUE}Syncing with Git...${NC}"
     if ! git -C "$CHEZMOI_SOURCE_PATH" diff --quiet "$manifest" 2>/dev/null; then
         git -C "$CHEZMOI_SOURCE_PATH" add "$manifest"
-        git -C "$CHEZMOI_SOURCE_PATH" commit -m "feat(snapw): ${action} ${pkg}"
+        git -C "$CHEZMOI_SOURCE_PATH" commit --no-gpg-sign -m "feat(snapw): ${action} ${pkg}"
         git -C "$CHEZMOI_SOURCE_PATH" pull --rebase origin main 2>/dev/null || true
         git -C "$CHEZMOI_SOURCE_PATH" push
         printf '%b\n' "${GREEN}Pushed to remote.${NC}"
