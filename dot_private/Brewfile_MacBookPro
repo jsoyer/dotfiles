@@ -1,0 +1,43 @@
+# Host overlay for MacBookPro — extras beyond the shared base.
+# Managed by breww. Do not edit manually.
+tap "homebrew/aliases"
+tap "homebrew/bundle"
+tap "homebrew/cask"
+tap "homebrew/command-not-found"
+tap "homebrew/core"
+tap "homebrew/services"
+brew "mactop"
+brew "signal-cli"
+cask "bettercapture"
+cask "theboredteam/boring-notch/boring-notch"
+cask "chatgpt"
+cask "elgato-camera-hub"
+cask "elgato-stream-deck"
+cask "google-gemini"
+cask "latest"
+cask "ledger-wallet"
+cask "lm-studio"
+cask "logi-options+"
+cask "logitech-g-hub"
+cask "logitune"
+cask "macupdater"
+cask "notchnook"
+cask "plaud"
+cask "jsoyer/tap/strawberry-music-player"
+cask "zoom"
+mas "Amphetamine", id: 937984704
+mas "Developer", id: 640199958
+mas "FaceScreen", id: 6702028512
+mas "iMovie", id: 408981434
+mas "Keynote", id: 361285480
+mas "KeyScreen", id: 6753302381
+mas "MindNode", id: 6446116532
+mas "Numbers", id: 361304891
+mas "Pages", id: 361309726
+mas "Parcel", id: 375589283
+mas "Presentify", id: 1507246666
+mas "Raycast Companion", id: 6738274497
+mas "Remote Desktop", id: 409907375
+mas "Save to Raindrop.io", id: 1549370672
+mas "TestFlight", id: 899247664
+mas "Xcode", id: 497799835
