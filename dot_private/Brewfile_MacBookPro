@@ -1,5 +1,6 @@
 # Host overlay for MacBookPro — extras beyond the shared base.
 # Managed by breww. Do not edit manually.
+tap "a7t-ai/poirot", "https://github.com/a7t-ai/homebrew-poirot.git"
 tap "asmvik/formulae", "https://github.com/asmvik/homebrew-formulae.git"
 tap "harvard-cns/orla", "https://github.com/harvard-cns/homebrew-orla.git", trusted: true
 tap "homebrew/aliases"
@@ -26,8 +27,8 @@ cask "logi-options+"
 cask "logitech-g-hub"
 cask "logitune"
 cask "macupdater"
+cask "mumuplayer"
 cask "notchnook"
-cask "harvard-cns/orla/orla"
 cask "plaud"
 cask "zoom"
 mas "Amphetamine", id: 937984704
