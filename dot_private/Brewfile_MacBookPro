@@ -1,15 +1,20 @@
 # Host overlay for MacBookPro — extras beyond the shared base.
 # Managed by breww. Do not edit manually.
+tap "asmvik/formulae", "https://github.com/asmvik/homebrew-formulae.git"
+tap "harvard-cns/orla", "https://github.com/harvard-cns/homebrew-orla.git", trusted: true
 tap "homebrew/aliases"
 tap "homebrew/bundle"
 tap "homebrew/cask"
 tap "homebrew/command-not-found"
 tap "homebrew/core"
 tap "homebrew/services"
+tap "reyamira/tap", "https://github.com/reyamira/homebrew-tap.git"
+brew "sdl2-compat"
 brew "mactop"
+brew "models"
 brew "signal-cli"
 cask "bettercapture"
-cask "theboredteam/boring-notch/boring-notch"
+cask "theboredteam/boring-notch/boring-notch", trusted: true
 cask "chatgpt"
 cask "elgato-camera-hub"
 cask "elgato-stream-deck"
@@ -22,8 +27,8 @@ cask "logitech-g-hub"
 cask "logitune"
 cask "macupdater"
 cask "notchnook"
+cask "harvard-cns/orla/orla"
 cask "plaud"
-cask "jsoyer/tap/strawberry-music-player"
 cask "zoom"
 mas "Amphetamine", id: 937984704
 mas "Developer", id: 640199958
