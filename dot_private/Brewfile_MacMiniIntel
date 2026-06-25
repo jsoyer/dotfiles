@@ -1,0 +1,3 @@
+# Host overlay for MacMiniIntel — extras beyond the shared base.
+# Managed by breww. Do not edit manually.
+mas "Remote Desktop", id: 409907375
