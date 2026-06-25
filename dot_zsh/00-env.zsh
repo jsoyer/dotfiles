@@ -273,4 +273,4 @@ fi
 # Telemetry opt-out
 # ============================================================================
 export OPENSPEC_TELEMETRY=0
-export DO_NOT_TRACK=1
+# export DO_NOT_TRACK=1
