@@ -6,5 +6,6 @@ brew "sdl2-compat"
 brew "herdr"
 brew "models"
 brew "pnpm"
+cask "stablyai/orca/orca", trusted: true
 cask "harvard-cns/orla/orla"
 mas "Remote Desktop", id: 409907375
