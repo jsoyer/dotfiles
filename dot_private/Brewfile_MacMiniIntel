@@ -3,7 +3,6 @@
 tap "a7t-ai/poirot", "https://github.com/a7t-ai/homebrew-poirot.git"
 tap "asmvik/formulae", "https://github.com/asmvik/homebrew-formulae.git"
 tap "harvard-cns/orla", "https://github.com/harvard-cns/homebrew-orla.git", trusted: true
-tap "reyamira/tap", "https://github.com/reyamira/homebrew-tap.git"
 tap "stablyai/orca"
 brew "sdl2-compat"
 brew "herdr"
