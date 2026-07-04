@@ -1,7 +1,7 @@
 # Host overlay for MacMiniIntel — extras beyond the shared base.
 # Managed by breww. Do not edit manually.
 tap "harvard-cns/orla", "https://github.com/harvard-cns/homebrew-orla.git", trusted: true
-tap "stablyai/orca"
+tap "stablyai/orca", trusted: { casks: ["orca"] }
 brew "sdl2-compat"
 brew "herdr"
 brew "models"
@@ -9,5 +9,4 @@ brew "pnpm"
 cask "antigravity"
 cask "antigravity-cli"
 cask "antigravity-ide"
-cask "stablyai/orca/orca", trusted: true
 mas "Remote Desktop", id: 409907375
