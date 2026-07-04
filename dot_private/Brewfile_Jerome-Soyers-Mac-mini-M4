@@ -1,0 +1,51 @@
+# Host overlay for Jerome-Soyers-Mac-mini-M4 — extras beyond the shared base.
+# Managed by breww. Do not edit manually.
+tap "homebrew/bundle"
+tap "homebrew/command-not-found"
+tap "homebrew/services"
+brew "sdl2-compat"
+brew "mactop"
+cask "arduino-ide"
+cask "bettercapture"
+cask "theboredteam/boring-notch/boring-notch", trusted: true
+cask "chatgpt"
+cask "dotnet-sdk"
+cask "elgato-camera-hub"
+cask "elgato-stream-deck"
+cask "google-gemini"
+cask "ledger-wallet"
+cask "lm-studio"
+cask "logi-options+"
+cask "logitech-g-hub"
+cask "logitune"
+cask "macupdater"
+cask "notchnook"
+cask "ollama-app"
+cask "opencode-desktop"
+cask "pearcleaner"
+cask "plaud"
+cask "lihaoyun6/tap/quickrecorder"
+cask "shapr3d"
+cask "termix-ssh/termix/termix"
+cask "tor-browser"
+cask "yacreader"
+cask "zoom"
+mas "Amphetamine", id: 937984704
+mas "Developer", id: 640199958
+mas "djay Pro", id: 450527929
+mas "FaceScreen", id: 6702028512
+mas "iCompta", id: 1149778308
+mas "iMovie", id: 408981434
+mas "Keynote", id: 361285480
+mas "KeyScreen", id: 6753302381
+mas "MindNode Next", id: 6446116532
+mas "Numbers", id: 361304891
+mas "Pages", id: 361309726
+mas "Parcel", id: 375589283
+mas "Pixelmator Pro", id: 6746662575
+mas "Presentify", id: 1507246666
+mas "Raycast Companion", id: 6738274497
+mas "Remote Desktop", id: 409907375
+mas "Save to Raindrop.io", id: 1549370672
+mas "TestFlight", id: 899247664
+mas "Xcode", id: 497799835
