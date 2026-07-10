@@ -112,6 +112,10 @@
           {
             "type": "command",
             "command": "~/.claude/hooks/block-heavy-bash.sh"
+          },
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/block-stale-worktree.sh"
           }
         ]
       },
