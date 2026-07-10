@@ -1,0 +1,59 @@
+# .chezmoiignore — keep the ~/.claude dotfiles lean.
+# Patterns are target paths relative to $HOME. Scoped to .claude/ so other
+# dotfiles are unaffected. None of these match currently-managed files, so
+# adding this file does not un-manage anything (verified: 263 managed files).
+
+# ── ~/.claude runtime / ephemeral state (never belongs in dotfiles) ──
+.claude/cache
+.claude/paste-cache
+.claude/file-history
+.claude/shell-snapshots
+.claude/debug
+.claude/downloads
+.claude/uploads
+.claude/logs
+.claude/hooks/logs
+.claude/hooks/.approvals
+.claude/hooks/.pending
+.claude/state
+.claude/sessions
+.claude/session-data
+.claude/session-env
+.claude/projects
+.claude/todos
+.claude/todoStorage.json
+.claude/telemetry
+.claude/usage-data
+.claude/worktrees
+.claude/plans
+.claude/tasks
+.claude/plugins
+.claude/remote
+.claude/context-mode
+.claude/token-optimizer/checkpoints
+.claude/_backups
+.claude/backups
+
+# ── security/ here is a Python virtualenv (agent-sdk-venv), not dotfiles ──
+.claude/security
+
+# ── machine-local / secrets (must never be committed) ──
+.claude/settings.local.json
+.claude/.credentials.json
+.claude/*.env
+.claude/*.secret
+.claude/*.pem
+.claude/history.jsonl
+.claude/mcp-needs-auth-cache.json
+.claude/security_warnings_state_*
+.claude/.settings.lock
+.claude/.last-update-result.json
+.claude/.last-cleanup
+.claude/.caveman-active
+.claude/*.log
+
+# ── evolution: keep the tracked structure, drop machine-specific data ──
+.claude/evolution/error-registry.json
+.claude/evolution/model-performance.json
+.claude/evolution/workflow-changelog.md
+.claude/evolution/session-postmortems/*.md
