@@ -1,0 +1,22 @@
+{{- if eq .chezmoi.os "linux" -}}
+#!/usr/bin/env bash
+# Noxys tracker-audit cron — weekly tracker-vs-staging reconciliation review.
+# Managed by chezmoi — reruns automatically when this script changes.
+# Idempotent: drops any prior entry, then re-adds. Linux-only (cron; macOS uses launchd).
+
+set -euo pipefail
+
+command -v crontab >/dev/null 2>&1 || { echo "⏭  crontab not available — skipping noxys tracker-audit cron"; exit 0; }
+
+SCRIPT="{{ .chezmoi.homeDir }}/.claude/scripts/noxys-tracker-audit.sh"
+LOG="{{ .chezmoi.homeDir }}/.claude/state/noxys-tracker-audit.log"
+ENTRY="0 9 * * 1 bash ${SCRIPT} >> ${LOG} 2>&1"
+MARKER="noxys-tracker-audit.sh"
+
+# Rebuild the crontab: keep every line except our own, then append the current entry.
+current="$(crontab -l 2>/dev/null || true)"
+kept="$(printf '%s\n' "$current" | grep -vF "$MARKER" || true)"
+printf '%s\n%s\n' "$kept" "$ENTRY" | grep -v '^[[:space:]]*$' | crontab -
+
+echo "✓ noxys tracker-audit cron installed (weekly, Mon 09:00)"
+{{- end -}}
