@@ -51,6 +51,15 @@ SESSION_ID="${SESSION_ID// /_}"
 
 HOOK_CWD=$(extract_field '.cwd')
 
+# Sub-agent identity from the payload — RECORD-ONLY (used below to mark the pending
+# file so approve.sh can refuse sub-agent self-approval; sub-agents must escalate).
+# This is NOT a bypass: the counter + soft-block logic below is unchanged. (The
+# payload-based *bypass* was applied then deliberately reverted 2026-07-10.)
+AGENT_TYPE=$(extract_field '.agent_type')
+if [ -z "$AGENT_TYPE" ] && [[ "$INPUT" =~ \"agent_type\":\"([^\"]*)\" ]]; then
+  AGENT_TYPE="${BASH_REMATCH[1]}"
+fi
+
 # === SUB-AGENT BYPASS ===
 # Explicit env var markers (set by sub-agents that source shared config)
 if [ -n "${CLAUDE_SUBAGENT:-}" ] || [ -n "${CLAUDE_AGENT_TYPE:-}" ] || [ -n "${SPRINT_EXECUTOR:-}" ]; then
@@ -228,6 +237,8 @@ mkdir -p "$PENDING_DIR" 2>/dev/null || true
 printf 'Reason: enforce-delegation threshold reached (%s reads)\nTool: %s\nTarget: %s\nSession: %s\nTime: %s\n' \
   "$CURRENT" "$TOOL_NAME" "$READ_TARGET" "$SESSION_ID" "$(date -Iseconds 2>/dev/null || date)" \
   > "$PENDING_DIR/$CMD_HASH" 2>/dev/null || true
+# Mark sub-agent origin so approve.sh refuses self-approval (record-only).
+[ -n "${AGENT_TYPE:-}" ] && printf 'Subagent: %s\n' "$AGENT_TYPE" >> "$PENDING_DIR/$CMD_HASH" 2>/dev/null || true
 
 log_hook_event "enforce-delegation" "soft-blocked" "count=$CURRENT tool=$TOOL_NAME" 2>/dev/null || true
 

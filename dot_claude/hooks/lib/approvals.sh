@@ -26,12 +26,29 @@
 emit_soft_block() {
   local hook_name="$1" reason="$2" command="$3" pending_dir="$4" cmd_hash="$5"
 
+  # Detect sub-agent origin from the hook payload (best-effort). The harness puts
+  # "agent_type"/"agent_id" in the PreToolUse JSON for sub-agent tool calls and for
+  # neither on a main-agent call (shell env cannot distinguish them — verified
+  # 2026-07-10). $INPUT is in scope because this function is sourced into the hook.
+  # RECORD-ONLY: this does not change the block decision; it lets approve.sh refuse
+  # sub-agent self-approval (subagents must escalate, not self-approve).
+  local agent_ctx=""
+  if [ -n "${INPUT:-}" ]; then
+    if command -v jq >/dev/null 2>&1; then
+      agent_ctx=$(printf '%s' "$INPUT" | jq -r '.agent_type // empty' 2>/dev/null || printf '')
+    fi
+    if [ -z "$agent_ctx" ] && [[ "$INPUT" =~ \"agent_type\":\"([^\"]*)\" ]]; then
+      agent_ctx="${BASH_REMATCH[1]}"
+    fi
+  fi
+
   # Write pending approval file (best-effort)
   mkdir -p "$pending_dir" 2>/dev/null || true
   {
     printf 'Reason: %s\n' "$reason"
     printf 'Command: %s\n' "$command"
     printf 'Time: %s\n' "$(date -Iseconds 2>/dev/null || date)"
+    [ -n "$agent_ctx" ] && printf 'Subagent: %s\n' "$agent_ctx"
   } > "$pending_dir/$cmd_hash" 2>/dev/null || true
 
   # Log if hook-logger is available (sourced by calling hook)
