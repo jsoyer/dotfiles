@@ -341,7 +341,7 @@ both obvious failures AND "200 with broken content" failures early.**
    violation before marking done.
 8. **Write completion evidence marker** (required by `verify-completion.sh` Stop hook):
    ```bash
-   cat > ~/.claude/state/.claude-completion-evidence-${CLAUDE_SESSION_ID:-unknown} << 'EOF'
+   cat > ~/.claude/state/.claude-completion-evidence-${CLAUDE_CODE_SESSION_ID:-${CLAUDE_SESSION_ID:-unknown}} << 'EOF'
    plan_reread: true
    acceptance_criteria_cited: true
    dev_server_verified: true
