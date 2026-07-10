@@ -31,7 +31,7 @@ check_stop_hook_active() {
 # deletes it after allowing the hooks to proceed (one-shot per signal).
 #
 # To authorize from Claude:
-#   SESSION_ID=$(echo "$CLAUDE_SESSION_ID" | head -1)
+#   SESSION_ID=$(echo "$CLAUDE_CODE_SESSION_ID" | head -1)
 #   touch ~/.claude/state/.stop-hooks-ok-${SESSION_ID}
 #
 # Or simply run the helper:

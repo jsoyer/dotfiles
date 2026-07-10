@@ -2,67 +2,81 @@
 set -euo pipefail
 trap 'echo "HOOK CRASH: $0 line $LINENO" >&2; exit 2' ERR
 
-# Stop hook: BLOCK if task files show completion but compound hasn't run.
+# Stop hook: BLOCK if a sprint/PRD was finalized but /compound hasn't run.
 #
-# Checks:
-# 1. Are there completed task/sprint files (progress.json with all "complete")?
-# 2. Was /compound run? (approximated by checking if evolution files updated recently)
+# The learning loop is the most important part of the system — without it, the
+# workflow never improves. When progress-signal.sh (PostToolUse) notices a
+# progress.json under docs/tasks/ go fully "complete", it writes a one-shot
+# signal marker. This Stop hook is gated on that signal and blocks (exit 2)
+# until /compound writes its done marker.
 #
-# This is BLOCKING (exit 2). The learning loop is the most important part of
-# the system — without it, the workflow never improves.
+# Gating (fast → slow):
+#   1. check_stop_hook_active      — skip recursive Stop fires
+#   2. check_completion_authorized — skip unless Claude authorized this turn
+#                                    (.stop-hooks-ok marker) and it was a real
+#                                    completion (not an AskUserQuestion pause)
+#   3. .sprint-finalized-<session> — skip unless a PRD was finalized this session
+#
+# Done marker  : ~/.claude/state/.claude-compound-done-${session_id}
+#                (== $CLAUDE_CODE_SESSION_ID; written by the /compound skill)
+# Warned marker: ~/.claude/state/.claude-compound-warned-${session_id}
+#                (block once per finalization; progress-signal.sh clears it on a
+#                 fresh finalization so the next Stop gets a fresh chance)
 
-# Check for jq — required for JSON parsing. Exit silently if missing
-# (other hooks will warn about jq; avoid duplicate warnings)
+# jq is required for JSON parsing. Exit silently if missing (other hooks warn).
 if ! command -v jq &>/dev/null; then
   exit 0
 fi
 
-# Source shared stop-guard (fail-open: if missing, guard is a no-op)
+# Source shared stop-guard (fail-open: if missing, guards are no-ops).
 source ~/.claude/hooks/lib/stop-guard.sh 2>/dev/null || true
 
-# Read JSON input from stdin
+# Read JSON input from stdin.
 INPUT=$(cat)
 
-# Check stop_hook_active — prevent infinite loop
+# Guard 1: prevent infinite loop on recursive Stop fire.
 check_stop_hook_active "$INPUT"
 
-# Resolve project directory
-PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$(pwd)}"
+# Guard 2: only run when Claude authorized this turn as a genuine completion.
+check_completion_authorized "$INPUT"
 
-# Skip if no task directory exists
-TASK_DIR="$PROJECT_DIR/docs/tasks"
-if [ ! -d "$TASK_DIR" ]; then
+STATE_DIR="${HOME}/.claude/state"
+
+SESSION_ID=$(printf '%s' "$INPUT" | jq -r '.session_id // empty' 2>/dev/null || echo "")
+if [ -z "$SESSION_ID" ]; then
   exit 0
 fi
 
-# Check for any progress.json files with all sprints complete
-COMPOUND_NEEDED=false
-while IFS= read -r pjson; do
-  if [ -f "$pjson" ]; then
-    # Check if ALL sprints are complete (none with not_started or in_progress)
-    INCOMPLETE=$(jq '[.sprints[] | select(.status != "complete")] | length' "$pjson" 2>/dev/null || echo "0")
-    TOTAL=$(jq '.sprints | length' "$pjson" 2>/dev/null || echo "0")
-    if [ "$TOTAL" -gt 0 ] && [ "$INCOMPLETE" -eq 0 ]; then
-      COMPOUND_NEEDED=true
-      break
-    fi
-  fi
-done < <(find "$TASK_DIR" -name "progress.json" -type f 2>/dev/null)
-
-if [ "$COMPOUND_NEEDED" = false ]; then
+# Guard 3: only act when a sprint/PRD was finalized this session (O(1) marker,
+# written by progress-signal.sh — no filesystem walk here).
+SIGNAL_FILE="${STATE_DIR}/.sprint-finalized-${SESSION_ID}"
+if [ ! -f "$SIGNAL_FILE" ]; then
   exit 0
 fi
 
-# Check if compound was run this session.
-# Only the explicit marker file satisfies this check — no fallbacks.
-SESSION_ID=$(echo "$INPUT" | jq -r '.session_id // "unknown"' 2>/dev/null || echo "unknown")
-MARKER="${HOME}/.claude/state/.claude-compound-done-${SESSION_ID}"
-
-if [ ! -f "$MARKER" ]; then
-  echo "BLOCKED: Completed task detected but /compound hasn't run." >&2
-  echo "The learning loop captures errors, model performance, and patterns that prevent future failures." >&2
-  echo "Run /compound to capture learnings, or dismiss this to skip (learnings will be lost)." >&2
-  exit 2
+# Tolerate a stale signal that points at a deleted file — no-op, never crash.
+COMPLETED_PRD=$(cat "$SIGNAL_FILE" 2>/dev/null || echo "")
+if [ -z "$COMPLETED_PRD" ] || [ ! -f "$COMPLETED_PRD" ]; then
+  exit 0
 fi
 
-exit 0
+# /compound already ran this session → nothing to remind.
+DONE_MARKER="${STATE_DIR}/.claude-compound-done-${SESSION_ID}"
+if [ -f "$DONE_MARKER" ]; then
+  exit 0
+fi
+
+# Already reminded once this finalization cycle → stay silent.
+WARNED_MARKER="${STATE_DIR}/.claude-compound-warned-${SESSION_ID}"
+if [ -f "$WARNED_MARKER" ]; then
+  exit 0
+fi
+
+# Finalized without /compound — record that we warned, then BLOCK.
+touch "$WARNED_MARKER" 2>/dev/null || true
+{
+  echo "BLOCKED: Completed task detected but /compound hasn't run."
+  echo "The learning loop captures errors, model performance, and patterns that prevent future failures."
+  echo "Run /compound to capture learnings, or dismiss this to skip (learnings will be lost)."
+} >&2
+exit 2
