@@ -9,6 +9,7 @@ tap "stablyai/orca"
 brew "sdl2-compat"
 brew "herdr"
 brew "models"
+brew "openspec"
 brew "pnpm"
 brew "infisical/get-cli/infisical", trusted: true
 cask "android-studio"
