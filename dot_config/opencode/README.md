@@ -6,7 +6,7 @@
 
 ## Overview
 
-OpenCode is a desktop AI code tool with MCP (Model Context Protocol) server support. This config mirrors the Claude Code MCP servers defined in `dot_claude/settings.json`, enabling consistent AI assistance across tools.
+OpenCode is a desktop AI code tool with MCP (Model Context Protocol) server support. This config mirrors the Claude Code MCP servers defined in `dot_claude/private_settings.json`, enabling consistent AI assistance across tools.
 
 ## Key Files
 
@@ -47,7 +47,7 @@ Installed via: `run_once_install-claude-plugins.sh`
 
 ## Integration
 
-- **Sync with Claude:** Update `dot_claude/settings.json`, then run `sync-mcp-servers` (wrapper for `chezmoi apply ~/.config/opencode/opencode.json`)
+- **Sync with Claude:** Update `dot_claude/private_settings.json`, then run `sync-mcp-servers` (wrapper for `chezmoi apply ~/.config/opencode/opencode.json`)
 - **MCP Servers:** Uses same environment variables as Claude Code
 - **Theme:** Catppuccin (matching system-wide theming)
 - **Capabilities:** Same as Claude Code tools (file read/edit, bash, web search, etc.)

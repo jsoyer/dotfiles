@@ -96,7 +96,7 @@ update-claude-skills --dry-run  # preview only
 
 ### Add a new MCP server
 
-Edit `dot_claude/settings.json` (vendored Claude Workflow System), add the server config under `mcpServers`, then:
+Edit `dot_claude/private_settings.json` (vendored Claude Workflow System), add the server config under `mcpServers`, then:
 
 ```bash
 chezmoi apply ~/.claude/settings.json
@@ -105,15 +105,16 @@ sync-mcp-servers  # propagate to OpenCode config
 
 ### RTK hook health check
 
-`dot_claude/hooks/rtk-rewrite.sh` and the matching PreToolUse block in `dot_claude/settings.json`
-ensure every Bash command flows through RTK automatically. If a future upstream update drops
-either file, restore the vendored snapshot and re-run:
+The native `rtk hook claude` command, wired as a PreToolUse block in `dot_claude/private_settings.json`,
+ensures every Bash command flows through RTK automatically. rtk >= 0.43 provides the hook natively
+(the legacy vendored `rtk-rewrite.sh` script was retired). If the wiring is lost, re-run:
 
 ```bash
-chezmoi apply ~/.claude/hooks/rtk-rewrite.sh ~/.claude/settings.json
+rtk init --global        # re-registers `rtk hook claude` in ~/.claude/settings.json
+chezmoi re-add ~/.claude/settings.json
 ```
 
-Then restart Claude Code to pick up the hook (verify with `jq '.hooks.PreToolUse[0]' ~/.claude/settings.json`).
+Then restart Claude Code to pick up the hook (verify with `jq '.hooks.PreToolUse[] | select(.hooks[].command | contains("rtk"))' ~/.claude/settings.json`).
 
 ### Refresh Claude workflow after pulling upstream
 
