@@ -1221,7 +1221,7 @@ def cdestroy [] {
 }
 
 def sysup [] {
-    let os = (^uname | str lowercase)
+    let os = (^uname | str downcase)
 
     match $os {
         "darwin" => {
@@ -1364,7 +1364,7 @@ def tsnet [] { ^tailscale status --json | from json | get Peer | transpose k v |
 # ============================================================================
 # ports: ss on Linux, lsof on macOS
 def ports [] {
-    if (^uname | str lowercase) == "linux" {
+    if (^uname | str downcase) == "linux" {
         ^sudo ss -tlnp
     } else {
         ^lsof -iTCP -sTCP:LISTEN -n -P
