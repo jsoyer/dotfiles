@@ -26,7 +26,6 @@ cask "ledger-wallet"
 cask "lm-studio"
 cask "logi-options+"
 cask "logitune"
-cask "mumuplayer"
 cask "stablyai/orca/orca", trusted: true
 cask "plaud"
 cask "zoom"
