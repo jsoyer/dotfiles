@@ -28,7 +28,6 @@ cask "logi-options+"
 cask "logitune"
 cask "macupdater"
 cask "mumuplayer"
-cask "notchnook"
 cask "stablyai/orca/orca", trusted: true
 cask "plaud"
 cask "zoom"
