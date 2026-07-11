@@ -1305,6 +1305,11 @@ def cup [...args: string] {
     print "✅ Update complete!"
 }
 
+# Orca (stably.ai) cask upgrade
+def orca-update [] {
+    ^brew upgrade --cask stablyai/orca/orca
+}
+
 # ============================================================================
 # Jujutsu (jj)
 # ============================================================================

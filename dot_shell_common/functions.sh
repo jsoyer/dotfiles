@@ -54,3 +54,8 @@ if command -v aerospace &>/dev/null; then
     aerospace list-windows --all | fzf --bind 'enter:execute(bash -c "aerospace focus --window-id {1}")+abort'
   }
 fi
+
+# Orca (stably.ai) cask upgrade
+orca-update() {
+  brew upgrade --cask stablyai/orca/orca
+}
