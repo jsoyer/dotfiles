@@ -373,7 +373,7 @@ save output.txt             # Save pipeline output
 
 ### String Operations
 ```nushell
-"hello" | str upcase        # HELLO
+"hello" | str uppercase        # HELLO
 "  text  " | str trim       # text
 "a,b,c" | split row ","     # [a, b, c]
 ```
