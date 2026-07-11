@@ -23,7 +23,6 @@ cask "theboredteam/boring-notch/boring-notch", trusted: true
 cask "chatgpt"
 cask "elgato-camera-hub"
 cask "elgato-stream-deck"
-cask "google-gemini"
 cask "ledger-wallet"
 cask "lm-studio"
 cask "logi-options+"
