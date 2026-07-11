@@ -14,7 +14,7 @@ jobs:
     steps:
       # Use PAT so the created tag triggers the release workflow
       # (tags pushed with GITHUB_TOKEN don't trigger other workflows)
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
           token: ${{ secrets.RELEASE_PAT }}
