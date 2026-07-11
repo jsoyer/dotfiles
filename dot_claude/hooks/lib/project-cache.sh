@@ -76,7 +76,7 @@ cache_get() {
   local now
   local file_mtime
   now=$(date +%s 2>/dev/null || echo 0)
-  file_mtime=$(stat -c %Y "$cache_file" 2>/dev/null || echo 0)
+  file_mtime=$(stat -c %Y "$cache_file" 2>/dev/null || stat -f %m "$cache_file" 2>/dev/null || echo 0)
   if [ $(( now - file_mtime )) -ge "$ttl" ]; then
     # Cache expired — remove silently and return empty
     rm -f "$cache_file" 2>/dev/null || true

@@ -24,7 +24,7 @@ if uname -r 2>/dev/null | grep -q "PRoot-Distro" && [ "$(uname -m)" = "aarch64" 
   SESSION_MARKER="${HOME}/.claude/state/.claude-proot-preflight-done"
   RUN_PROOT_CHECKS=true
   if [ -f "$SESSION_MARKER" ]; then
-    MARKER_AGE=$(( $(date +%s) - $(stat -c %Y "$SESSION_MARKER" 2>/dev/null || echo 0) ))
+    MARKER_AGE=$(( $(date +%s) - $(stat -c %Y "$SESSION_MARKER" 2>/dev/null || stat -f %m "$SESSION_MARKER" 2>/dev/null || echo 0) ))
     if [ "$MARKER_AGE" -lt 7200 ]; then
       RUN_PROOT_CHECKS=false
     fi

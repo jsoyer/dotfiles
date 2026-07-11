@@ -35,7 +35,7 @@ CMD_HASH=$(printf '%s' "$COMMAND" | cksum 2>/dev/null | cut -d' ' -f1) || CMD_HA
 
 # Check for existing approval token (valid for 5 minutes)
 if [ -f "$APPROVAL_DIR/$CMD_HASH" ]; then
-  APPROVAL_TIME=$(stat -c %Y "$APPROVAL_DIR/$CMD_HASH" 2>/dev/null || echo 0)
+  APPROVAL_TIME=$(stat -c %Y "$APPROVAL_DIR/$CMD_HASH" 2>/dev/null || stat -f %m "$APPROVAL_DIR/$CMD_HASH" 2>/dev/null || echo 0)
   NOW=$(date +%s)
   if [ $((NOW - APPROVAL_TIME)) -lt 300 ]; then
     rm -f "$APPROVAL_DIR/$CMD_HASH" "$PENDING_DIR/$CMD_HASH" 2>/dev/null
@@ -129,7 +129,7 @@ if is_rm_rf "$COMMAND" && [[ "$COMMAND" =~ [[:space:]]/(etc|usr|var|bin|sbin|lib
   deny "BLOCKED: rm -rf on system directory — catastrophic deletion"
 fi
 
-if [[ "$COMMAND" =~ chmod[[:space:]]+(-R|--recursive)[[:space:]]+777[[:space:]]+/(|[[:space:]]|usr|etc|var|bin|sbin|lib|opt|root) ]]; then
+if [[ "$COMMAND" =~ chmod[[:space:]]+(-R|--recursive)[[:space:]]+777[[:space:]]+/([[:space:]]|usr|etc|var|bin|sbin|lib|opt|root|$) ]]; then
   deny "BLOCKED: chmod -R 777 on system path — security risk"
 fi
 

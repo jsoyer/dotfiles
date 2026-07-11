@@ -45,7 +45,7 @@ CMD_HASH=$(printf '%s' "$COMMAND" | cksum 2>/dev/null | cut -d' ' -f1) || CMD_HA
 
 # Approval token (valid 5 min) — mirrors block-dangerous.sh
 if [ -f "$APPROVAL_DIR/$CMD_HASH" ]; then
-  APPROVAL_TIME=$(stat -c %Y "$APPROVAL_DIR/$CMD_HASH" 2>/dev/null || echo 0)
+  APPROVAL_TIME=$(stat -c %Y "$APPROVAL_DIR/$CMD_HASH" 2>/dev/null || stat -f %m "$APPROVAL_DIR/$CMD_HASH" 2>/dev/null || echo 0)
   NOW=$(date +%s)
   if [ $((NOW - APPROVAL_TIME)) -lt 300 ]; then
     rm -f "$APPROVAL_DIR/$CMD_HASH" "$PENDING_DIR/$CMD_HASH" 2>/dev/null

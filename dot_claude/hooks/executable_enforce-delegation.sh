@@ -98,28 +98,37 @@ write_counter() {
   echo "$1" > "$COUNTER_FILE" 2>/dev/null || true
 }
 
+# Portable advisory lock. flock is Linux-only (util-linux); macOS/BSD lack it.
+# mkdir is atomic on POSIX filesystems, so it doubles as a cross-platform mutex.
+_acquire_lock() {
+  local tries=0
+  while ! mkdir "${LOCK_FILE}.d" 2>/dev/null; do
+    tries=$((tries + 1))
+    # Break a stale lock (holder crashed mid-section) after ~5s to avoid deadlock.
+    if [ "$tries" -ge 250 ]; then rm -rf "${LOCK_FILE}.d" 2>/dev/null; tries=0; fi
+    sleep 0.02
+  done
+}
+_release_lock() { rmdir "${LOCK_FILE}.d" 2>/dev/null || true; }
+
 # Atomically increment the counter and return the new value.
-# Uses flock so parallel hook invocations serialize their read/write.
+# Uses a portable lock so parallel hook invocations serialize their read/write.
 # Outputs the new counter value to stdout.
 atomic_increment_counter() {
-  local new_val
-  (
-    # Acquire exclusive lock on fd 9 (the lock file)
-    flock -x 9
-    local cur
-    cur=$(read_counter)
-    new_val=$((cur + 1))
-    write_counter "$new_val"
-    echo "$new_val"
-  ) 9>"$LOCK_FILE"
+  local new_val cur
+  _acquire_lock
+  cur=$(read_counter)
+  new_val=$((cur + 1))
+  write_counter "$new_val"
+  _release_lock
+  echo "$new_val"
 }
 
 # Atomically reset the counter to 0.
 atomic_reset_counter() {
-  (
-    flock -x 9
-    write_counter 0
-  ) 9>"$LOCK_FILE"
+  _acquire_lock
+  write_counter 0
+  _release_lock
 }
 
 # === RESET ON DELEGATION ===
@@ -218,7 +227,7 @@ fi
 CMD_HASH=$(printf '%s' "delegation-$SESSION_ID" | cksum 2>/dev/null | cut -d' ' -f1) || CMD_HASH="delegation-fallback"
 
 if [ -f "$APPROVAL_DIR/$CMD_HASH" ]; then
-  APPROVAL_TIME=$(stat -c %Y "$APPROVAL_DIR/$CMD_HASH" 2>/dev/null || echo 0)
+  APPROVAL_TIME=$(stat -c %Y "$APPROVAL_DIR/$CMD_HASH" 2>/dev/null || stat -f %m "$APPROVAL_DIR/$CMD_HASH" 2>/dev/null || echo 0)
   NOW=$(date +%s)
   if [ $((NOW - APPROVAL_TIME)) -lt 300 ]; then
     rm -f "$APPROVAL_DIR/$CMD_HASH" "$PENDING_DIR/$CMD_HASH" 2>/dev/null

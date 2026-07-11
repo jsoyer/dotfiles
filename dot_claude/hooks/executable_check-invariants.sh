@@ -100,7 +100,7 @@ fi
 # Compute project hash for cache key namespacing.
 # This ensures different projects don't share cache entries.
 _PROJ_HASH=$(project_hash "$PROJECT_DIR" 2>/dev/null || printf '%s' "$PROJECT_DIR" | cksum | cut -d' ' -f1)
-_FILE_MTIME=$(stat -c %Y "$FILE_PATH" 2>/dev/null || echo 0)
+_FILE_MTIME=$(stat -c %Y "$FILE_PATH" 2>/dev/null || stat -f %m "$FILE_PATH" 2>/dev/null || echo 0)
 
 # === SANDBOX: Command whitelist/blocklist for verify commands ===
 # INVARIANTS.md files may come from cloned repos. Restrict what verify commands can run.

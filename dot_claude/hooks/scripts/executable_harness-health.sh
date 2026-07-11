@@ -63,14 +63,24 @@ if command -v jq &>/dev/null && [ -f "$SETTINGS" ]; then
     expanded="${expanded//\$HOME/$HOME}"
     # Strip any arguments (first token only)
     script="${expanded%% *}"
-    if [ -f "$script" ]; then
-      if [ -x "$script" ]; then
-        ok "hook exists + executable: ${script##*/}"
+    if [[ "$script" == /* ]]; then
+      # Absolute path → must be an executable file on disk
+      if [ -f "$script" ]; then
+        if [ -x "$script" ]; then
+          ok "hook exists + executable: ${script##*/}"
+        else
+          fail "hook NOT executable: $script"
+        fi
       else
-        fail "hook NOT executable: $script"
+        fail "hook NOT found: $script"
       fi
     else
-      fail "hook NOT found: $script"
+      # Bare command (PATH binary, e.g. 'rtk hook claude') → resolve via PATH
+      if command -v "$script" &>/dev/null; then
+        ok "hook command on PATH: $script"
+      else
+        fail "hook command NOT on PATH: $script"
+      fi
     fi
   done
 else

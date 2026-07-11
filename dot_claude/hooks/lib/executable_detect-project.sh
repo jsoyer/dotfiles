@@ -201,7 +201,7 @@ detect_project_langs() {
   if [ -f "$_cache_file" ]; then
     local _now _mtime _age
     _now=$(date +%s)
-    _mtime=$(stat -c %Y "$_cache_file" 2>/dev/null || echo 0)
+    _mtime=$(stat -c %Y "$_cache_file" 2>/dev/null || stat -f %m "$_cache_file" 2>/dev/null || echo 0)
     _age=$(( _now - _mtime ))
     if [ "$_age" -lt "$_DETECT_CACHE_TTL" ]; then
       # Cache hit — read the stored languages

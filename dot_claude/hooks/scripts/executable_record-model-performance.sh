@@ -82,9 +82,17 @@ if [ ! -f "$PERF_FILE" ]; then
 EOF
 fi
 
-# Atomic update under exclusive flock.
-(
-  flock -x 9
+# Atomic update under a portable advisory lock.
+# flock is Linux-only (util-linux); macOS/BSD lack it. mkdir is atomic on POSIX
+# filesystems, so it doubles as a cross-platform mutex to serialize writers.
+LOCK_DIR="${LOCK_FILE}.d"
+_lock_tries=0
+while ! mkdir "$LOCK_DIR" 2>/dev/null; do
+  _lock_tries=$((_lock_tries + 1))
+  # Break a stale lock (writer crashed mid-update) after ~5s to avoid deadlock.
+  if [ "$_lock_tries" -ge 250 ]; then rm -rf "$LOCK_DIR" 2>/dev/null; _lock_tries=0; fi
+  sleep 0.02
+done
 
   TMP=$(mktemp)
   NOW=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
@@ -106,12 +114,13 @@ fi
 
   if [ -s "$TMP" ]; then
     mv "$TMP" "$PERF_FILE"
+    rmdir "$LOCK_DIR" 2>/dev/null || true
   else
     rm -f "$TMP"
+    rmdir "$LOCK_DIR" 2>/dev/null || true
     echo "ERROR: jq produced empty output; not overwriting $PERF_FILE" >&2
     exit 1
   fi
-) 9>"$LOCK_FILE"
 
 if [ -z "${RECORD_QUIET:-}" ]; then
   echo "Recorded: model=$MODEL task_type=$TASK_TYPE first_try_success=$SUCCESS"

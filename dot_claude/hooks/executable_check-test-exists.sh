@@ -165,7 +165,7 @@ if ! has_test_infra "$EFFECTIVE_ROOT" "$FILE_LANG"; then
 
       # Check for existing approval token (5-min TTL)
       if [ -f "$APPROVAL_DIR/$CMD_HASH" ]; then
-        APPROVAL_TIME=$(stat -c %Y "$APPROVAL_DIR/$CMD_HASH" 2>/dev/null || echo 0)
+        APPROVAL_TIME=$(stat -c %Y "$APPROVAL_DIR/$CMD_HASH" 2>/dev/null || stat -f %m "$APPROVAL_DIR/$CMD_HASH" 2>/dev/null || echo 0)
         NOW=$(date +%s)
         if [ $((NOW - APPROVAL_TIME)) -lt 300 ]; then
           rm -f "$APPROVAL_DIR/$CMD_HASH" "$PENDING_DIR/$CMD_HASH" 2>/dev/null || true

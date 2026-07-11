@@ -90,7 +90,7 @@ SECRET_PATTERNS=(
   # Slack token
   "Slack token:xox[baprs]-[A-Za-z0-9-]{10,}"
   # PEM private key header
-  "Private key:-----BEGIN (RSA |EC |OPENSSH |DSA |)PRIVATE KEY-----"
+  "Private key:-----BEGIN (RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----"
   # Generic api_key = "value" or api-key: 'value' (16+ char value)
   "Generic API key:api[_-]?key[[:space:]]*[:=][[:space:]]*[\"'][^\"']{16,}[\"']"
 )
