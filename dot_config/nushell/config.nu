@@ -1221,10 +1221,10 @@ def cdestroy [] {
 }
 
 def sysup [] {
-    let os = (^uname | str downcase)
+    let os = (^uname | str trim)
 
     match $os {
-        "darwin" => {
+        "Darwin" => {
             bup
             bcu
             if (which mas | is-not-empty) {
@@ -1232,7 +1232,7 @@ def sysup [] {
                 ^mas upgrade
             }
         }
-        "linux" => {
+        "Linux" => {
             let mp = ($env.MACHINE_PROFILE? | default "")
             match $mp {
                 "rpi" | "ubuntu-desktop" | "ubuntu-server" | "debian" => {
@@ -1364,7 +1364,7 @@ def tsnet [] { ^tailscale status --json | from json | get Peer | transpose k v |
 # ============================================================================
 # ports: ss on Linux, lsof on macOS
 def ports [] {
-    if (^uname | str downcase) == "linux" {
+    if (^uname | str trim) == "Linux" {
         ^sudo ss -tlnp
     } else {
         ^lsof -iTCP -sTCP:LISTEN -n -P
