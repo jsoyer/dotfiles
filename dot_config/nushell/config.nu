@@ -1501,6 +1501,7 @@ if ($gem_bin | path exists) {
 # Integrations (sourced from cache generated in env.nu)
 # ============================================================================
 source ~/.cache/starship/init.nu
+$env._ZO_DOCTOR = "0"  # silence zoxide init doctor check
 source ~/.cache/zoxide/init.nu
 source ~/.cache/carapace/init.nu
 

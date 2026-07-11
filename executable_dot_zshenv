@@ -5,6 +5,11 @@
 #   Sorin Ionescu <sorin.ionescu@gmail.com>
 #
 
+# Silence zoxide's init "doctor" check in EVERY zsh context — interactive,
+# non-interactive, and tool shell-snapshots (which don't source 99-integrations
+# where interactive shells already set this). Set here so it's always defined.
+export _ZO_DOCTOR=0
+
 # Ensure that a non-login, non-interactive shell has a defined environment.
 if [[ ( "$SHLVL" -eq 1 && ! -o LOGIN ) && -s "${ZDOTDIR:-$HOME}/.zprofile" ]]; then
   source "${ZDOTDIR:-$HOME}/.zprofile"

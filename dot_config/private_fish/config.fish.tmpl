@@ -899,6 +899,7 @@ end
 # Zoxide (smart cd) -- cached init with 24h TTL
 # Must be initialized LAST among cd-hooking tools
 # ============================================================================
+set -gx _ZO_DOCTOR 0  # silence init doctor check
 if command -q zoxide
     _fish_cache_eval zoxide 'zoxide init --cmd cd fish'
 end
