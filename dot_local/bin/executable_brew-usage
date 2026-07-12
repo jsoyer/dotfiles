@@ -1,0 +1,596 @@
+#!/usr/bin/env python3
+"""brew-usage — estimate real usage of installed Homebrew formulae & casks.
+
+Homebrew keeps no usage counter. This tool approximates "last used" from:
+  * formulae : newest atime among the package's binaries in the Cellar
+  * casks    : Spotlight's kMDItemLastUsedDate of the installed .app (fallback atime)
+
+Old timestamps are reliable (the package is idle); recent ones less so, since a
+background scan (Spotlight, antivirus, a `brew` command) can touch a file.
+
+Usage:
+  brew-usage                     summary + full table (leaves + casks), newest-idle first
+  brew-usage --stale [DAYS]      only packages idle > DAYS (default 180) or never seen
+  brew-usage --formulae          formulae only
+  brew-usage --casks             casks only
+  brew-usage --all-formulae      include auto-pulled dependencies too
+  brew-usage --sort name|used|age|type
+  brew-usage --json              machine-readable output
+  brew-usage --uninstall-script  emit a guarded `brew uninstall` script for stale leaves
+  brew-usage --html [FILE]       write an interactive HTML report (default ~/brew-usage.html)
+  brew-usage --html --open       write the report and open it in the browser (macOS)
+  brew-usage --no-color
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import subprocess
+import sys
+import time
+
+NOW = time.time()
+
+
+def brew_prefix() -> str:
+    env = os.environ.get("HOMEBREW_PREFIX")
+    if env and os.path.isdir(env):
+        return env
+    for p in ("/opt/homebrew", "/usr/local", "/home/linuxbrew/.linuxbrew"):
+        if os.path.isdir(os.path.join(p, "Cellar")):
+            return p
+    out = run(["brew", "--prefix"])
+    return out.strip() or "/opt/homebrew"
+
+
+def run(args: list[str]) -> str:
+    try:
+        r = subprocess.run(args, capture_output=True, text=True, check=False)
+        return r.stdout
+    except FileNotFoundError:
+        return ""
+
+
+def max_atime(path: str) -> float:
+    """Newest atime among regular files under path; prefer bin/sbin executables."""
+    best = best_exec = 0.0
+    for root, _dirs, files in os.walk(path):
+        exe = "/bin/" in root or "/sbin/" in root or root.endswith(("bin", "sbin"))
+        for fn in files:
+            fp = os.path.join(root, fn)
+            try:
+                st = os.stat(fp)  # follow symlinks; skip broken ones
+            except OSError:
+                continue
+            a = st.st_atime
+            if a > best:
+                best = a
+            if exe and a > best_exec:
+                best_exec = a
+    return best_exec or best
+
+
+def birthtime(path: str) -> float:
+    try:
+        st = os.stat(path)
+    except OSError:
+        return 0.0
+    return getattr(st, "st_birthtime", st.st_mtime)
+
+
+def install_time(version_dir: str) -> float:
+    """Actual install time = mtime of Homebrew's INSTALL_RECEIPT.json, written at
+    install. Falls back to birthtime (which Homebrew may set from the source)."""
+    receipt = os.path.join(version_dir, "INSTALL_RECEIPT.json")
+    try:
+        return os.stat(receipt).st_mtime
+    except OSError:
+        return birthtime(version_dir)
+
+
+def days(t: float | None) -> int | None:
+    if not t:
+        return None
+    return int((NOW - t) / 86400)
+
+
+def collect_formulae(prefix: str, include_deps: bool) -> list[dict]:
+    cellar = os.path.join(prefix, "Cellar")
+    if not os.path.isdir(cellar):
+        return []
+    leaves = set(run(["brew", "leaves"]).split())
+    names = run(["brew", "list", "--formula"]).split()
+    rows = []
+    for name in names:
+        is_leaf = name in leaves
+        if not include_deps and not is_leaf:
+            continue
+        d = os.path.join(cellar, name)
+        if not os.path.isdir(d):
+            continue
+        try:
+            versions = [os.path.join(d, v) for v in os.listdir(d)
+                        if os.path.isdir(os.path.join(d, v))]
+        except OSError:
+            versions = []
+        used = max((max_atime(v) for v in versions), default=0.0)
+        inst = max((install_time(v) for v in versions), default=0.0)
+        rows.append({"name": name, "type": "formula", "leaf": is_leaf,
+                     "last_used": used, "installed": inst})
+    return rows
+
+
+def collect_casks(prefix: str) -> list[dict]:
+    tokens = run(["brew", "list", "--cask"]).split()
+    if not tokens:
+        return []
+    apps: dict[str, list[str]] = {}
+    bins: dict[str, list[str]] = {}
+    try:
+        data = json.loads(run(["brew", "info", "--json=v2", "--cask", *tokens]))
+        for c in data.get("casks", []):
+            names, binaries = [], []
+            for art in c.get("artifacts", []):
+                if not isinstance(art, dict):
+                    continue
+                for a in art.get("app", []) or []:
+                    if isinstance(a, str):
+                        names.append(a)
+                for b in art.get("binary", []) or []:
+                    if isinstance(b, str):
+                        binaries.append(os.path.basename(b))
+                    elif isinstance(b, dict) and isinstance(b.get("target"), str):
+                        binaries.append(os.path.basename(b["target"]))
+            apps[c["token"]] = names
+            bins[c["token"]] = binaries
+    except (ValueError, KeyError):
+        pass
+
+    app_dirs = ("/Applications", os.path.expanduser("~/Applications"))
+
+    def last_used(app: str) -> float:
+        for base in app_dirs:
+            p = os.path.join(base, app)
+            if not os.path.exists(p):
+                continue
+            raw = run(["mdls", "-name", "kMDItemLastUsedDate", "-raw", p]).strip()
+            if raw and raw != "(null)":
+                try:
+                    return time.mktime(time.strptime(raw.split(" +")[0],
+                                                     "%Y-%m-%d %H:%M:%S"))
+                except ValueError:
+                    pass
+            try:
+                return os.stat(p).st_atime
+            except OSError:
+                pass
+        return 0.0
+
+    bindirs = (os.path.join(prefix, "bin"), os.path.expanduser("~/.local/bin"))
+
+    def bin_used(names: list[str], tok: str) -> float:
+        best = 0.0
+        for cand in list(names) + [tok]:  # heuristic: token often matches binary
+            for d in bindirs:
+                p = os.path.join(d, cand)
+                if os.path.exists(p):
+                    try:
+                        best = max(best, os.stat(p).st_atime)
+                    except OSError:
+                        pass
+        return best
+
+    rows = []
+    for tok in tokens:
+        used = max((last_used(a) for a in apps.get(tok, [])), default=0.0)
+        if not used:  # CLI-only cask: fall back to the installed binary's atime
+            used = bin_used(bins.get(tok, []), tok)
+        inst = birthtime(os.path.join(prefix, "Caskroom", tok))
+        rows.append({"name": tok, "type": "cask", "leaf": True,
+                     "last_used": used, "installed": inst})
+    return rows
+
+
+# ---- rendering ----
+class C:
+    def __init__(self, on: bool):
+        self.on = on
+
+    def _w(self, code: str, s: str) -> str:
+        return f"\033[{code}m{s}\033[0m" if self.on else s
+
+    dim = lambda self, s: self._w("2", s)
+    bold = lambda self, s: self._w("1", s)
+    green = lambda self, s: self._w("32", s)
+    yellow = lambda self, s: self._w("33", s)
+    red = lambda self, s: self._w("31", s)
+    grey = lambda self, s: self._w("90", s)
+    cyan = lambda self, s: self._w("36", s)
+
+
+def color_days(c: C, d: int | None) -> str:
+    if d is None:
+        return c.grey("jamais/?")
+    label = f"{d}j"
+    if d <= 30:
+        return c.green(label)
+    if d <= 180:
+        return c.yellow(label)
+    return c.red(label)
+
+
+def fmt_date(t: float | None) -> str:
+    return time.strftime("%Y-%m-%d", time.localtime(t)) if t else "—"
+
+
+def summary(c: C, rows: list[dict]) -> None:
+    buckets = [("≤7j", 0, 7), ("≤30j", 8, 30), ("≤90j", 31, 90),
+               ("≤180j", 91, 180), ("≤1an", 181, 365), (">1an", 366, 10**9)]
+    counts = []
+    for _lbl, lo, hi in buckets:
+        counts.append(sum(1 for r in rows
+                          if r["days"] is not None and lo <= r["days"] <= hi))
+    unknown = sum(1 for r in rows if r["days"] is None)
+    n_form = sum(1 for r in rows if r["type"] == "formula")
+    n_cask = sum(1 for r in rows if r["type"] == "cask")
+    stale = sum(1 for r in rows if r["days"] is None or r["days"] > 180)
+    print(c.bold(f"  {len(rows)} paquets analysés  ")
+          + c.dim(f"· {n_form} formulae · {n_cask} casks · "
+                  f"{stale} dorment >180j/inconnu"))
+    print()
+    mx = max(counts + [unknown, 1])
+    allb = list(zip([b[0] for b in buckets], counts)) + [("inconnu", unknown)]
+    tint = [c.green, c.green, c.yellow, c.yellow, c.red, c.red, c.grey]
+    for (lbl, n), paint in zip(allb, tint):
+        bar = paint("█" * int(n / mx * 34)) if n else ""
+        print(f"  {lbl:>7} {bar} {c.dim(str(n))}")
+    print()
+
+
+def print_table(c: C, rows: list[dict], show_dates: bool) -> None:
+    w = min(max((len(r["name"]) for r in rows), default=10), 34)
+    head = f"  {'PAQUET':<{w}}  {'TYPE':<4}  {'DERNIER':>10}"
+    if show_dates:
+        head += f"  {'LE':<10}  {'INSTALLÉ':>9}"
+    print(c.dim(head))
+    for r in rows:
+        name = r["name"] if len(r["name"]) <= w else r["name"][:w - 1] + "…"
+        typ = c.cyan("cask") if r["type"] == "cask" else c.dim("form")
+        # color codes have zero visible width, so pad the plain label first
+        d_plain = "jamais/?" if r["days"] is None else f"{r['days']}j"
+        used_cell = color_days(c, r["days"]) + " " * max(0, 10 - len(d_plain))
+        line = f"  {c.bold(name)}{' ' * max(0, w - len(name))}  {typ}{' ' * (4 - 4)}  {used_cell}"
+        if show_dates:
+            line += f"  {c.dim(fmt_date(r['last_used'])):<10}"
+            age = f"{r['age']}j" if r["age"] is not None else "—"
+            line += f"  {c.dim(age):>9}"
+        print(line)
+
+
+HTML_TEMPLATE = r"""<!doctype html><html lang="fr"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Audit d'usage Homebrew</title>
+<style>
+  :root{
+    --ground:#F6F5F1; --panel:#FFFFFF; --ink:#1B1A17; --ink2:#57534A;
+    --line:#E4E1D8; --line2:#EEECE5;
+    --amber:#9A6212;
+    --fresh:#3E7D5C; --fresh-bg:#E7F0E9;
+    --aging:#B07E22; --aging-bg:#F6ECD6;
+    --stale:#A6442E; --stale-bg:#F5E1DA;
+    --unk:#7C776C;  --unk-bg:#ECEAE3;
+    --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+    --sans:system-ui,-apple-system,"Segoe UI",sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--ground);color:var(--ink);font-family:var(--sans);
+    font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1060px;margin:0 auto;padding:40px 24px 80px}
+  header{margin-bottom:28px}
+  .eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--amber);margin:0 0 10px}
+  h1{font-size:32px;line-height:1.1;margin:0 0 8px;font-weight:640;letter-spacing:-.02em;text-wrap:balance}
+  .sub{color:var(--ink2);margin:0;max-width:64ch}
+  .sub code{font-family:var(--mono);font-size:.85em;background:var(--line2);padding:1px 5px;border-radius:4px}
+  .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:26px 0}
+  .stat{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px}
+  .stat .k{font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink2)}
+  .stat .v{font-size:26px;font-weight:640;font-variant-numeric:tabular-nums;margin-top:2px}
+  .stat .v small{font-size:13px;font-weight:400;color:var(--ink2)}
+  .hist{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:20px 22px;margin-bottom:26px}
+  .hist h2{font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink2);margin:0 0 16px;font-family:var(--mono)}
+  .bars{display:grid;grid-template-columns:repeat(7,1fr);gap:10px;align-items:end;height:150px}
+  .bar-col{display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;gap:8px}
+  .bar{width:100%;border-radius:5px 5px 2px 2px;min-height:3px;transition:height .6s cubic-bezier(.2,.7,.2,1)}
+  .bar-n{font-family:var(--mono);font-size:14px;font-weight:600;font-variant-numeric:tabular-nums}
+  .bar-l{font-family:var(--mono);font-size:10.5px;color:var(--ink2);text-align:center;letter-spacing:.02em}
+  .toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:14px;position:sticky;top:0;
+    background:var(--ground);padding:10px 0;z-index:5}
+  .segs{display:inline-flex;background:var(--panel);border:1px solid var(--line);border-radius:9px;padding:3px;gap:2px}
+  .seg{font-family:var(--mono);font-size:12.5px;border:0;background:transparent;color:var(--ink2);
+    padding:6px 12px;border-radius:6px;cursor:pointer;letter-spacing:.01em}
+  .seg:hover{color:var(--ink)}
+  .seg.on{background:var(--ink);color:#fff}
+  .search{flex:1;min-width:160px}
+  .search input{width:100%;font-family:var(--mono);font-size:13px;padding:9px 12px;border:1px solid var(--line);
+    border-radius:8px;background:var(--panel);color:var(--ink)}
+  .search input:focus{outline:2px solid var(--amber);outline-offset:1px;border-color:transparent}
+  .count{font-family:var(--mono);font-size:12px;color:var(--ink2);white-space:nowrap}
+  .tablewrap{background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+  .scroll{overflow-x:auto}
+  table{border-collapse:collapse;width:100%;font-size:13.5px}
+  thead th{position:sticky;top:0;background:var(--panel);text-align:left;font-family:var(--mono);
+    font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink2);font-weight:600;
+    padding:12px 14px;border-bottom:1px solid var(--line);cursor:pointer;white-space:nowrap;user-select:none}
+  thead th:hover{color:var(--ink)}
+  thead th .ar{opacity:.4;font-size:9px}
+  th.num,td.num{text-align:right;font-variant-numeric:tabular-nums}
+  tbody td{padding:10px 14px;border-bottom:1px solid var(--line2);vertical-align:middle}
+  tbody tr:last-child td{border-bottom:0}
+  tbody tr:hover{background:#FBFAF6}
+  .name{font-family:var(--mono);font-weight:600;font-size:13.5px}
+  .stripe{width:3px;padding:0!important;border-bottom:0!important}
+  .badge{display:inline-block;font-family:var(--mono);font-size:10.5px;padding:2px 7px;border-radius:20px;letter-spacing:.03em}
+  .badge.form{background:var(--line2);color:var(--ink2)}
+  .badge.cask{background:#EAE4F0;color:#5B4980}
+  .pill{display:inline-block;font-family:var(--mono);font-size:12px;padding:2px 9px;border-radius:6px;
+    font-variant-numeric:tabular-nums;font-weight:600}
+  .pill.fresh{background:var(--fresh-bg);color:var(--fresh)}
+  .pill.aging{background:var(--aging-bg);color:var(--aging)}
+  .pill.stale{background:var(--stale-bg);color:var(--stale)}
+  .pill.unk{background:var(--unk-bg);color:var(--unk)}
+  .dt{font-family:var(--mono);font-size:12.5px;color:var(--ink2)}
+  .foot{margin-top:22px;color:var(--ink2);font-size:12.5px;line-height:1.6}
+  .foot b{color:var(--ink);font-weight:600}
+  .foot code{font-family:var(--mono);background:var(--line2);padding:1px 5px;border-radius:4px;font-size:.9em}
+  @media(max-width:640px){.stats{grid-template-columns:repeat(2,1fr)}.bars{gap:5px}h1{font-size:26px}.col-hide{display:none}}
+  @media(prefers-reduced-motion:reduce){.bar{transition:none}}
+</style></head><body>
+<div class="wrap">
+  <header>
+    <p class="eyebrow">Homebrew · audit d'usage · __DATE__</p>
+    <h1>Qui sert vraiment, et qui dort ?</h1>
+    <p class="sub">Homebrew ne compte pas les usages. Cette estimation s'appuie sur le
+      dernier <em>accès fichier</em> (<code>atime</code>) des binaires pour les formulae, et sur la date de
+      dernier lancement <em>Spotlight</em> pour les casks. Un usage <b>ancien est fiable</b> (le paquet dort) ;
+      un usage récent l'est moins (un scan d'arrière-plan peut toucher un fichier).</p>
+  </header>
+  <div class="stats">
+    <div class="stat"><div class="k">Formulae directes</div><div class="v">__NFORM__ <small>leaves</small></div></div>
+    <div class="stat"><div class="k">Casks (apps)</div><div class="v">__NCASK__</div></div>
+    <div class="stat"><div class="k">Dépendances tirées</div><div class="v">__NDEPS__ <small>auto</small></div></div>
+    <div class="stat"><div class="k">Dorment &gt; 180j / inconnu</div><div class="v" style="color:var(--stale)">__NSTALE__</div></div>
+  </div>
+  <div class="hist"><h2>Répartition par dernier usage</h2><div class="bars" id="bars"></div></div>
+  <div class="toolbar">
+    <div class="segs" id="segs">
+      <button class="seg on" data-f="all">Tout</button>
+      <button class="seg" data-f="form">Formulae</button>
+      <button class="seg" data-f="cask">Casks</button>
+      <button class="seg" data-f="stale">À nettoyer</button>
+    </div>
+    <div class="search"><input id="q" type="search" placeholder="filtrer par nom…" aria-label="filtrer"></div>
+    <div class="count" id="count"></div>
+  </div>
+  <div class="tablewrap"><div class="scroll">
+    <table>
+      <thead><tr>
+        <th class="stripe"></th>
+        <th data-s="n">Paquet <span class="ar">▲▼</span></th>
+        <th data-s="t">Type <span class="ar">▲▼</span></th>
+        <th class="num" data-s="d">Dernier usage <span class="ar">▲▼</span></th>
+        <th class="num col-hide" data-s="lu">Date <span class="ar">▲▼</span></th>
+        <th class="num col-hide" data-s="a">Installé depuis <span class="ar">▲▼</span></th>
+      </tr></thead>
+      <tbody id="tb"></tbody>
+    </table>
+  </div></div>
+  <p class="foot">
+    <b>Lecture.</b> La colonne « dernier usage » compte les jours depuis le dernier accès détecté.
+    <span class="pill fresh">&le;30j</span> actif · <span class="pill aging">&le;180j</span> occasionnel ·
+    <span class="pill stale">&gt;180j</span> candidat · <span class="pill unk">?</span> jamais vu / non résolu.<br>
+    <b>Limites.</b> L'<code>atime</code> APFS est mis à jour paresseusement ; Spotlight, l'antivirus ou une
+    commande <code>brew</code> peuvent rafraîchir un fichier sans que tu aies lancé l'outil. Les
+    <b>__NDEPS__ dépendances</b> ne sont pas listées : elles suivent l'usage de ce qui en dépend.
+    Avant toute purge : <code>brew uses --installed &lt;paquet&gt;</code>.
+  </p>
+</div>
+<script>
+const DATA = __DATA__;
+const bucketDefs = [
+  {k:"≤7j",  test:d=>d!=null&&d<=7,   c:"var(--fresh)"},
+  {k:"≤30j", test:d=>d!=null&&d>7&&d<=30,  c:"#5A8E5A"},
+  {k:"≤90j", test:d=>d!=null&&d>30&&d<=90, c:"#8C8F3C"},
+  {k:"≤180j",test:d=>d!=null&&d>90&&d<=180,c:"var(--aging)"},
+  {k:"≤1an", test:d=>d!=null&&d>180&&d<=365,c:"#B5622A"},
+  {k:">1an",  test:d=>d!=null&&d>365, c:"var(--stale)"},
+  {k:"inconnu",test:d=>d==null,       c:"var(--unk)"},
+];
+const counts = bucketDefs.map(b=>DATA.filter(r=>b.test(r.d)).length);
+const maxc = Math.max(...counts, 1);
+const barsEl = document.getElementById("bars");
+bucketDefs.forEach((b,i)=>{
+  const col=document.createElement("div");col.className="bar-col";
+  col.innerHTML='<div class="bar-n">'+counts[i]+'</div><div class="bar" style="background:'+b.c+';height:0"></div><div class="bar-l">'+b.k+'</div>';
+  barsEl.appendChild(col);
+  requestAnimationFrame(()=>{col.querySelector(".bar").style.height=(counts[i]/maxc*100)+"%";});
+});
+function cls(d){ if(d==null)return"unk"; if(d<=30)return"fresh"; if(d<=180)return"aging"; return"stale"; }
+function label(d){ if(d==null)return"jamais / ?"; return d+" j"; }
+function stripeColor(d){ if(d==null)return"var(--unk)"; if(d<=30)return"var(--fresh)"; if(d<=180)return"var(--aging)"; return"var(--stale)"; }
+let filter="all", q="", sortKey="d", sortDir=-1;
+const tb=document.getElementById("tb"), countEl=document.getElementById("count");
+function pass(r){
+  if(filter==="form"&&r.t!=="form")return false;
+  if(filter==="cask"&&r.t!=="cask")return false;
+  if(filter==="stale"&&!(r.d==null||r.d>180))return false;
+  if(q&&!r.n.toLowerCase().includes(q))return false;
+  return true;
+}
+function sortVal(r){
+  let v=r[sortKey];
+  if(sortKey==="d"||sortKey==="a"){ return v==null?(sortDir===1?Infinity:-1):v; }
+  return (v||"").toString().toLowerCase();
+}
+function render(){
+  let rows=DATA.filter(pass).sort((a,b)=>{
+    const x=sortVal(a),y=sortVal(b);
+    if(x<y)return -sortDir; if(x>y)return sortDir; return a.n<b.n?-1:1;
+  });
+  tb.innerHTML=rows.map(r=>'<tr><td class="stripe" style="background:'+stripeColor(r.d)+'"></td>'
+    +'<td class="name">'+r.n+'</td>'
+    +'<td><span class="badge '+r.t+'">'+(r.t==="cask"?"cask":"formula")+'</span></td>'
+    +'<td class="num"><span class="pill '+cls(r.d)+'">'+label(r.d)+'</span></td>'
+    +'<td class="num col-hide dt">'+(r.lu||"—")+'</td>'
+    +'<td class="num col-hide dt">'+(r.a!=null?r.a+" j":"—")+'</td></tr>').join("");
+  countEl.textContent=rows.length+" / "+DATA.length+" affichés";
+}
+document.getElementById("segs").addEventListener("click",e=>{
+  const b=e.target.closest(".seg"); if(!b)return;
+  document.querySelectorAll(".seg").forEach(s=>s.classList.remove("on"));
+  b.classList.add("on"); filter=b.dataset.f; render();
+});
+document.getElementById("q").addEventListener("input",e=>{q=e.target.value.toLowerCase().trim();render();});
+document.querySelectorAll("th[data-s]").forEach(th=>th.addEventListener("click",()=>{
+  const k=th.dataset.s;
+  if(sortKey===k)sortDir*=-1; else{sortKey=k;sortDir=(k==="n"||k==="t")?1:-1;}
+  render();
+}));
+render();
+</script>
+</body></html>"""
+
+
+def render_html(rows: list[dict], n_form: int, n_cask: int, n_deps: int) -> str:
+    payload = [{
+        "n": r["name"],
+        "t": "cask" if r["type"] == "cask" else "form",
+        "d": r["days"],
+        "a": r["age"],
+        "lu": fmt_date(r["last_used"]) if r["last_used"] else None,
+        "in": fmt_date(r["installed"]) if r["installed"] else None,
+    } for r in rows]
+    n_stale = sum(1 for r in rows if r["days"] is None or r["days"] > 180)
+    return (HTML_TEMPLATE
+            .replace("__DATA__", json.dumps(payload, ensure_ascii=False))
+            .replace("__DATE__", time.strftime("%Y-%m-%d"))
+            .replace("__NFORM__", str(n_form))
+            .replace("__NCASK__", str(n_cask))
+            .replace("__NDEPS__", str(n_deps))
+            .replace("__NSTALE__", str(n_stale)))
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(add_help=False)
+    ap.add_argument("--stale", nargs="?", const=180, type=int, metavar="DAYS")
+    ap.add_argument("--formulae", action="store_true")
+    ap.add_argument("--casks", action="store_true")
+    ap.add_argument("--all-formulae", action="store_true")
+    ap.add_argument("--sort", choices=["name", "used", "age", "type"], default="used")
+    ap.add_argument("--json", action="store_true")
+    ap.add_argument("--uninstall-script", action="store_true")
+    ap.add_argument("--html", nargs="?", const="~/brew-usage.html", metavar="FILE")
+    ap.add_argument("--open", action="store_true")
+    ap.add_argument("--no-color", action="store_true")
+    ap.add_argument("-h", "--help", action="store_true")
+    args = ap.parse_args()
+    if args.help:
+        print(__doc__)
+        return 0
+
+    if not run(["brew", "--version"]).strip():
+        sys.stderr.write("brew introuvable dans le PATH.\n")
+        return 1
+
+    prefix = brew_prefix()
+    rows: list[dict] = []
+    want_form = args.formulae or not args.casks
+    want_cask = args.casks or not args.formulae
+    if want_form:
+        rows += collect_formulae(prefix, args.all_formulae)
+    if want_cask:
+        rows += collect_casks(prefix)
+
+    for r in rows:
+        r["days"] = days(r["last_used"])
+        r["age"] = days(r["installed"])
+
+    full = rows  # keep the complete set for the summary histogram
+    if args.stale is not None:
+        rows = [r for r in rows if r["days"] is None or r["days"] > args.stale]
+
+    keymap = {
+        "name": lambda r: (r["name"].lower(),),
+        "type": lambda r: (r["type"], r["name"].lower()),
+        "age": lambda r: (r["age"] is None, r["age"] or 0),
+        "used": lambda r: (r["days"] is not None, -(r["days"] or 0)),
+    }
+    # newest-idle first for "used": unknown then largest days
+    if args.sort == "used":
+        rows.sort(key=lambda r: (r["days"] is not None, -(r["days"] or 0)))
+    else:
+        rows.sort(key=keymap[args.sort])
+
+    if args.html is not None:
+        n_form = sum(1 for r in full if r["type"] == "formula")
+        n_cask = sum(1 for r in full if r["type"] == "cask")
+        n_deps = max(0, len(run(["brew", "list", "--formula"]).split())
+                     - len(run(["brew", "leaves"]).split()))
+        html = render_html(full, n_form, n_cask, n_deps)
+        path = os.path.abspath(os.path.expanduser(args.html))
+        try:
+            with open(path, "w", encoding="utf-8") as f:
+                f.write(html)
+        except OSError as e:
+            sys.stderr.write(f"Écriture impossible ({path}): {e}\n")
+            return 1
+        print(f"Rapport écrit : {path}")
+        if args.open:
+            opener = "open" if sys.platform == "darwin" else "xdg-open"
+            subprocess.run([opener, path], check=False)
+        return 0
+
+    if args.json:
+        out = [{k: r[k] for k in ("name", "type", "leaf", "days", "age")}
+               | {"last_used": fmt_date(r["last_used"]),
+                  "installed": fmt_date(r["installed"])} for r in rows]
+        print(json.dumps(out, ensure_ascii=False, indent=2))
+        return 0
+
+    if args.uninstall_script:
+        leaves = [r for r in rows if r["leaf"]
+                  and (r["days"] is None or r["days"] > (args.stale or 180))]
+        print("#!/usr/bin/env bash")
+        print("# Generated by brew-usage — REVIEW before running.")
+        print("# Each package is checked with `brew uses` so nothing depended-on is removed.")
+        print("set -euo pipefail\n")
+        for r in leaves:
+            d = "jamais/inconnu" if r["days"] is None else f"{r['days']}j idle"
+            kind = "--cask " if r["type"] == "cask" else ""
+            print(f'# {r["name"]} ({d})')
+            if r["type"] == "formula":
+                print(f'if [ -z "$(brew uses --installed {r["name"]})" ]; then '
+                      f'brew uninstall {r["name"]}; '
+                      f'else echo "SKIP {r["name"]}: required by $(brew uses --installed {r["name"]} | tr "\\n" " ")"; fi')
+            else:
+                print(f'brew uninstall --cask {r["name"]}')
+            print()
+        sys.stderr.write(f"# {len(leaves)} paquets candidats.\n")
+        return 0
+
+    color = C(on=sys.stdout.isatty() and not args.no_color)
+    summary(color, full)
+    print_table(color, rows, show_dates=True)
+    if args.stale is not None:
+        print()
+        print(color.dim(f"  → {len(rows)} candidats (idle > {args.stale}j). "
+                        f"Génère un script : brew-usage --uninstall-script --stale {args.stale}"))
+    return 0
+
+
+if __name__ == "__main__":
+    try:
+        sys.exit(main())
+    except KeyboardInterrupt:
+        sys.exit(130)

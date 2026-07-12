@@ -1119,6 +1119,7 @@ alias bci = breww cleanup
 alias binfo = breww info
 alias bdo = breww doctor
 alias bdep = brew-deprecated
+alias buse = brew-usage # Taux d'utilisation Formulae/Casks
 
 # ============================================================================
 # Chezmoi
