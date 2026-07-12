@@ -2,6 +2,7 @@
 # Managed by breww. Do not edit manually.
 tap "a7t-ai/poirot", "https://github.com/a7t-ai/homebrew-poirot.git", trusted: true
 tap "asmvik/formulae", "https://github.com/asmvik/homebrew-formulae.git", trusted: true
+tap "harvard-cns/orla", "https://github.com/harvard-cns/homebrew-orla.git", trusted: true
 tap "homebrew/aliases"
 tap "homebrew/bundle"
 tap "homebrew/cask"
@@ -14,6 +15,7 @@ brew "sdl2-compat"
 brew "herdr"
 brew "mactop"
 brew "models"
+brew "openspec", link: false
 brew "signal-cli"
 cask "antigravity"
 cask "antigravity-cli"
