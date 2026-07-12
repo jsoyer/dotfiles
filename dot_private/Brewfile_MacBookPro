@@ -26,7 +26,6 @@ cask "chatgpt"
 cask "elgato-camera-hub"
 cask "elgato-stream-deck"
 cask "ledger-wallet"
-cask "lm-studio"
 cask "logi-options+"
 cask "logitune"
 cask "stablyai/orca/orca", trusted: true
