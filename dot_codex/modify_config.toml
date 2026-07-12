@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+# chezmoi modify_ script → ~/.codex/config.toml
+#
+# Codex's config.toml is co-owned: the ChatGPT.app desktop app rewrites the
+# plugins / mcp_servers / marketplaces / [tui] sections live, AND the Codex CLI
+# reads the same file. We version ONLY our durable prefs here and deliberately
+# keep two things OUT of the repo:
+#   - `model = "..."`      → account/version-specific, changes often
+#   - `[projects.*] trust_level` → security-sensitive (auto-runs commands)
+#
+# chezmoi feeds the current target on stdin and replaces it with our stdout.
+# On every `chezmoi apply` we: re-assert our prefs, strip the model pin and every
+# trust block, and pass all other (app-managed) sections through untouched.
+set -euo pipefail
+
+# durable, portable prefs — the only Codex settings we track
+printf 'model_reasoning_effort = "medium"\n'
+printf 'personality = "pragmatic"\n'
+
+awk '
+  # drop keys we own (re-emitted above) or forbid from the repo
+  /^[[:space:]]*model[[:space:]]*=/                  { next }
+  /^[[:space:]]*model_reasoning_effort[[:space:]]*=/ { next }
+  /^[[:space:]]*personality[[:space:]]*=/            { next }
+  # drop every [projects."..."] table (trust levels) in full
+  /^[[:space:]]*\[projects\./ { skip = 1; next }
+  skip && /^[[:space:]]*\[/   { skip = 0 }
+  skip                        { next }
+  { print }
+'
