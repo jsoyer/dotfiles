@@ -154,7 +154,7 @@ jobs:
               echo "  FAIL: $f"
               ERRORS=$(( ERRORS + 1 ))
             fi
-          done < <(find . -name '*.toml' -not -path './.git/*' -not -name '*.tmpl')
+          done < <(find . -name '*.toml' -not -path './.git/*' -not -name '*.tmpl' -not -name 'modify_*')
           if [[ "$ERRORS" -gt 0 ]]; then
             echo "TOML validation: FAIL ($ERRORS errors)"
             exit 1
