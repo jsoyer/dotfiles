@@ -218,6 +218,7 @@ All package managers are wrapped to track installations in manifest files (`Brew
 | `bci` | `breww cleanup` | Clean up |
 | `binfo` | `breww info` | Show package info |
 | `bdo` | `breww doctor` | Diagnose issues |
+| `bdep` | `brew-deprecated` | List installed deprecated/disabled formulae & casks |
 | `buse` | `brew-usage` | Usage report of installed formulae/casks (last-used estimate) |
 
 ### APT (Ubuntu, Debian, Raspberry Pi)

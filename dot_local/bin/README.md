@@ -38,6 +38,17 @@ other machines run:       # chezmoi apply detects change
   brew bundle install     # Install ripgrep on other machines
 ```
 
+### brew-deprecated
+
+Lists installed Homebrew formulae and casks that upstream has flagged
+**deprecated** or **disabled**, with the reason for each — so you can migrate or
+remove them before a future `brew upgrade` breaks. Reads `brew info --json`,
+takes no arguments. Aliased as `bdep`.
+
+```bash
+brew-deprecated            # scan installed packages; prints ⚠️ per flagged item
+```
+
 ### brew-usage
 
 Estimates real usage of installed Homebrew formulae and casks — Homebrew keeps no
