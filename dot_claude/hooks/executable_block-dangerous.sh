@@ -143,23 +143,30 @@ fi
 
 # === SOFT BLOCKS: Destructive git ===
 
-if [[ "$COMMAND" =~ git[[:space:]]+push[[:space:]].*(-f[[:space:]]|-f$|--force[[:space:]]|--force$|--force-with-lease) ]]; then
+# Match "git push" even when global options sit between `git` and `push`
+# (git -C <dir> push, git -c k=v push, git --git-dir=<dir> push, git -p push …).
+# Without this, `git -C /path push origin main` slips past every check below.
+GIT_PUSH_RE='git[[:space:]]+(-[^[:space:]]+[[:space:]]+([^-[:space:]][^[:space:]]*[[:space:]]+)?)*push[[:space:]]'
+# Protected branch as a standalone token, also after a ':' refspec (e.g. HEAD:main)
+GIT_PROT_BRANCH_RE='[[:space:]:](main|master)([[:space:]]|$)'
+
+if [[ "$COMMAND" =~ ${GIT_PUSH_RE}.*(-f[[:space:]]|-f$|--force[[:space:]]|--force$|--force-with-lease) ]]; then
   ask "SOFT BLOCK: git force push detected — may overwrite remote history. Re-approve if intentional."
 fi
 
 # Force push via + refspec prefix (e.g., git push origin +main)
-if [[ "$COMMAND" =~ git[[:space:]]+push[[:space:]] ]] && [[ "$COMMAND" =~ [[:space:]]\+[a-zA-Z] ]]; then
+if [[ "$COMMAND" =~ $GIT_PUSH_RE ]] && [[ "$COMMAND" =~ [[:space:]]\+[a-zA-Z] ]]; then
   ask "SOFT BLOCK: git push with + refspec (force push) detected. Re-approve if intentional."
 fi
 
 # Obsidian vault is main-only (Noxys agent governance) — allow direct push to main/master
-if [[ "$COMMAND" =~ git[[:space:]]+push[[:space:]] ]] && [[ "$COMMAND" =~ obsidian-vault ]] && [[ "$COMMAND" =~ [[:space:]](main|master)([[:space:]]|$) ]]; then
+if [[ "$COMMAND" =~ $GIT_PUSH_RE ]] && [[ "$COMMAND" =~ obsidian-vault ]] && [[ "$COMMAND" =~ $GIT_PROT_BRANCH_RE ]]; then
   exit 0
 fi
 
 # Match "git push ... main/master" with any number of flags/options before the branch name
-# Catches: git push origin main, git push -u origin main, git push --set-upstream origin main
-if [[ "$COMMAND" =~ git[[:space:]]+push[[:space:]] ]] && [[ "$COMMAND" =~ [[:space:]](main|master)([[:space:]]|$) ]]; then
+# Catches: git push origin main, git push -u origin main, git -C <dir> push origin main
+if [[ "$COMMAND" =~ $GIT_PUSH_RE ]] && [[ "$COMMAND" =~ $GIT_PROT_BRANCH_RE ]]; then
   ask "SOFT BLOCK: git push to main/master — use a PR instead. Re-approve if intentional."
 fi
 

@@ -196,6 +196,37 @@ assert_json_field "permissionDecision" "deny" "soft block uses permissionDecisio
 assert_stdout_contains "SOFT_BLOCK_APPROVAL_NEEDED" "soft block includes SOFT_BLOCK_APPROVAL_NEEDED prefix"
 assert_stderr_clean "soft block has no error output on stderr"
 
+section "Regression — git push with global options between git and push"
+
+# Bypass forms that previously slipped past the guard (git -C <dir> push …)
+cleanup
+run_hook "git -C /home/user/repo push origin main"
+assert_json_field "permissionDecision" "deny" "git -C <dir> push main is soft-blocked"
+assert_stdout_contains "SOFT_BLOCK_APPROVAL_NEEDED" "git -C push includes approval prefix"
+
+cleanup
+run_hook "git -c user.name=x push origin master"
+assert_json_field "permissionDecision" "deny" "git -c k=v push master is soft-blocked"
+
+cleanup
+run_hook "git --git-dir=/r/.git --work-tree=/r push origin main"
+assert_json_field "permissionDecision" "deny" "git --git-dir push main is soft-blocked"
+
+cleanup
+run_hook "git -C /r push origin HEAD:main"
+assert_json_field "permissionDecision" "deny" "git -C push HEAD:main is soft-blocked"
+
+# Negative cases — must NOT block
+cleanup
+run_hook "git -C /r push origin feature/foo"
+assert_exit 0 "git -C push to a feature branch exits 0"
+assert_stdout_empty "feature-branch push via -C produces no soft block"
+
+cleanup
+run_hook "git -C /r log --oneline main"
+assert_exit 0 "git -C log (not push) exits 0"
+assert_stdout_empty "git log with a 'main' arg produces no block"
+
 section "Output Format — Valid JSON"
 
 cleanup
