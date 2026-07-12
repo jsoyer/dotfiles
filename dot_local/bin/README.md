@@ -38,6 +38,23 @@ other machines run:       # chezmoi apply detects change
   brew bundle install     # Install ripgrep on other machines
 ```
 
+### brew-usage
+
+Estimates real usage of installed Homebrew formulae and casks — Homebrew keeps no
+usage counter. Formulae are dated by the newest `atime` of their Cellar binaries;
+casks by Spotlight's last-used date (falling back to the installed binary's
+`atime`). Old timestamps are reliable ("this package is idle"); recent ones less
+so (a background scan can touch a file). Aliased as `buse`.
+
+```bash
+brew-usage                 # summary + full table, newest-idle first
+brew-usage --stale         # only packages idle > 180 days (or never seen)
+brew-usage --formulae      # formulae only  (--casks for casks only)
+brew-usage --json          # machine-readable output
+brew-usage --html --open   # write & open a self-contained interactive report
+brew-usage --uninstall-script --stale 365 > purge.sh   # guarded by `brew uses`
+```
+
 ## AI Agent & Skill Tools
 
 ### update-claude-agents
