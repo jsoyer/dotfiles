@@ -16,5 +16,6 @@ cask "android-studio"
 cask "antigravity"
 cask "antigravity-cli"
 cask "antigravity-ide"
+cask "chatgpt"
 cask "stablyai/orca/orca", trusted: true
 mas "Remote Desktop", id: 409907375
