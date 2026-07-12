@@ -213,7 +213,11 @@ jobs:
           done < <(
             find . \( -name '*.sh' -o -name '*.bash' \) \
               -not -path './.git/*' -not -path './dot_claude/*' -not -path './dot_aictx/skills/*' -not -path './dot_aictx/agents/*' 2>/dev/null
-            grep -rl '#!/.*bash' dot_local/bin/ 2>/dev/null || true
+            # Only the first-line shebang counts — not a bash snippet embedded
+            # in e.g. a Python script that emits a bash file (avoids SC1071).
+            for f in $(find dot_local/bin -type f 2>/dev/null); do
+              head -n1 "$f" | grep -q '#!/.*bash' && printf '%s\n' "$f"
+            done
           )
           if [[ "$ERRORS" -gt 0 ]]; then
             echo "ShellCheck: FAIL ($ERRORS files with issues)"
