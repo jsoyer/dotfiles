@@ -16,7 +16,8 @@ Bridge Obsidian vault master roadmap with GitHub Projects v2 under `noxys-eu` or
 
 ## Inputs (env + constants)
 
-- ROADMAP_FILE = `/home/jeromesoyer/Documents/Github/jsoyer/obsidian-vault/Noxys/00 - Inbox/MASTER-ROADMAP-2026.md`
+- ROADMAP_FILE = auto-detected — `$NOXYS_ROADMAP_FILE` if set, else `~/Documents/Github/noxys-eu/noxys-obsidian-vault/00 - Inbox/MASTER-ROADMAP-2026.md`, else a `find` fallback (see prereq).
+- VAULT_DIR = derived from `ROADMAP_FILE` (its vault root — the dir containing `00 - Inbox`); used as the write-back git dir. The vault also auto-syncs via obsidian-livesync.
 - GH_ORG = `noxys-eu`
 - PROJECT_NUM = `3`
 - PROJECT_ID = `PVT_kwDOEB4cq84BVLYy`
@@ -26,7 +27,7 @@ Bridge Obsidian vault master roadmap with GitHub Projects v2 under `noxys-eu` or
 
 1. **Parse roadmap** — extract every `### <ID> — <title>` heading, plus nested metadata (Priority, Effort, Sprint, Area). Keep the order. Ignore commented-out sections. Also extract any existing `[#N]` markers from title/row text.
 
-2. **Fetch current project state** — `gh project item-list 3 --owner noxys-eu --format json --limit 500` → map of issue_number → item.
+2. **Fetch current project state** — `gh project item-list 3 --owner noxys-eu --format json --limit 2000` → map of issue_number → item.
 
 3. **Match roadmap → project items** using 4-tier priority:
    1. **Deterministic `[#N]` marker** — if roadmap item text contains `[#123]`, match project item with issue_number=123. Log as `[id]`.
@@ -93,8 +94,8 @@ Bridge Obsidian vault master roadmap with GitHub Projects v2 under `noxys-eu` or
     - Injection point: for table rows — append before trailing `|`; for `### headings` — append at end of line.
     - Save the file, then:
       ```bash
-      cd /home/jeromesoyer/Documents/Github/jsoyer/obsidian-vault
-      git add "Noxys/00 - Inbox/MASTER-ROADMAP-2026.md"
+      cd "$VAULT_DIR"   # derived from ROADMAP_FILE in the prereq step
+      git add "00 - Inbox/MASTER-ROADMAP-2026.md"
       git commit -m "chore(roadmap): sync-roadmap write-back issue IDs"
       git push origin main
       ```
@@ -108,8 +109,15 @@ When invoked:
    ```bash
    command -v gh || { echo "ERROR: gh CLI required"; exit 1; }
    gh auth status 2>&1 | grep -q "Logged in" || { echo "ERROR: gh auth required"; exit 1; }
-   ROADMAP_FILE="/home/jeromesoyer/Documents/Github/jsoyer/obsidian-vault/Noxys/00 - Inbox/MASTER-ROADMAP-2026.md"
-   test -f "$ROADMAP_FILE" || { echo "ERROR: Roadmap file not found at $ROADMAP_FILE"; exit 1; }
+   # Requires the `project` token scope for Projects v2 read/write.
+   gh auth status 2>&1 | grep -q "'project'" || { echo "ERROR: gh token missing 'project' scope — run: gh auth refresh -s project"; exit 1; }
+   # Roadmap location: env override -> default noxys-eu vault -> search fallback.
+   ROADMAP_FILE="${NOXYS_ROADMAP_FILE:-$HOME/Documents/Github/noxys-eu/noxys-obsidian-vault/00 - Inbox/MASTER-ROADMAP-2026.md}"
+   [ -f "$ROADMAP_FILE" ] || ROADMAP_FILE="$(find "$HOME/Documents" "$HOME" -maxdepth 7 -name 'MASTER-ROADMAP-2026.md' -path '*noxys*' 2>/dev/null | head -1)"
+   test -f "$ROADMAP_FILE" || { echo "ERROR: MASTER-ROADMAP-2026.md not found — set NOXYS_ROADMAP_FILE"; exit 1; }
+   # Vault root = the dir that contains "00 - Inbox" (strip the trailing "/00 - Inbox/<file>").
+   VAULT_DIR="$(cd "$(dirname "$ROADMAP_FILE")/.." && pwd)"
+   export ROADMAP_FILE VAULT_DIR
    ```
 
 2. Load or refresh field cache (24h TTL):
@@ -132,10 +140,11 @@ When invoked:
    S7-S8→W23-24, S9-S10→W25-26, S11-S12→W27-28, else Backlog.
    Outputs JSON array. CLI: python3 parser.py [roadmap_file]
    """
-   import re, json, sys, pathlib
+   import re, json, sys, pathlib, os
 
-   ROADMAP_FILE = sys.argv[1] if len(sys.argv) > 1 else (
-       "/home/jeromesoyer/Documents/Github/jsoyer/obsidian-vault/Noxys/00 - Inbox/MASTER-ROADMAP-2026.md"
+   ROADMAP_FILE = sys.argv[1] if len(sys.argv) > 1 else os.environ.get(
+       "NOXYS_ROADMAP_FILE",
+       os.path.expanduser("~/Documents/Github/noxys-eu/noxys-obsidian-vault/00 - Inbox/MASTER-ROADMAP-2026.md"),
    )
    src = pathlib.Path(ROADMAP_FILE).read_text(encoding="utf-8")
 
@@ -213,18 +222,33 @@ When invoked:
            return f"W{m2.group(1)}-{m2.group(2)}"
        return "Backlog"
 
+   # Task-ID shape (allows lowercase suffix like EXT-VER-3b). Used to prefix
+   # the description with its ID so titles match the project's "ID: desc" convention.
+   _TASK_ID_RE = re.compile(r'^[A-Z][A-Za-z0-9]*(?:-[A-Za-z0-9]+)*$')
+
    def is_done(status_val):
+       # FIX: strip markdown/brackets first so "**[DONE 2026-05-02]**" is detected,
+       # then word-boundary search (avoids matching "done" inside another word).
        if not status_val:
            return False
-       s = status_val.strip()
-       if s.startswith("✅") or s.upper() in ("DONE", "✓", "LIVRE"):
+       s = re.sub(r'[*\[\]]', '', status_val).strip()
+       if s.startswith("✅") or s.upper().startswith(("DONE", "✓", "LIVRE")):
            return True
-       return bool(re.match(r'(?i)✅|done|livr[eé]', s))
+       return bool(re.search(r'(?i)\bdone\b|\blivr[eé]\b|✅|✓', s))
 
    def extract_issue_id(text):
        """Extract [#123] from text, return int or None."""
        m = re.search(r'\[#(\d+)\]', text or "")
        return int(m.group(1)) if m else None
+
+   def extract_issue_id_from_cells(cells):
+       # FIX: [#N] tracking markers live in the Sprint (last) column, not Title.
+       # Scan right-to-left so the sprint-column marker wins over a PR link in Status.
+       for cell in reversed(cells):
+           iid = extract_issue_id(cell)
+           if iid:
+               return iid
+       return None
 
    def infer_repo(title, area=""):
        t = (title or "").lower()
@@ -243,7 +267,7 @@ When invoked:
 
    def is_task_table_header(header_row):
        cols = [c.strip().lower() for c in header_row.strip().strip("|").split("|")]
-       has_task = any(re.search(r'\bitem\b|\btask\b|^#$', c) for c in cols)
+       has_task = any(re.search(r'\bitem\b|\btask\b|\btitle\b|^#$', c) for c in cols)
        has_status = any(re.search(r'\bstatut\b|\bstatus\b', c) for c in cols)
        return has_task or has_status
 
@@ -251,8 +275,14 @@ When invoked:
        cols = [c.strip().lower() for c in header_row.strip().strip("|").split("|")]
        col_map = {}
        for i, c in enumerate(cols):
-           if re.search(r'\bitem\b|\btask\b', c) and "title" not in col_map:
+           # FIX: recognise a literal "Title" column (was only item/task) and capture
+           # the separate "ID" column so it is not mistaken for the title.
+           if re.search(r'\bitem\b|\btask\b|\btitle\b', c) and "title" not in col_map:
                col_map["title"] = i
+           elif re.fullmatch(r'id', c) and "idcol" not in col_map:
+               col_map["idcol"] = i
+           elif re.search(r'\bsprint\b', c):
+               col_map.setdefault("sprint", i)
            elif re.search(r'\brepo\b', c):
                col_map.setdefault("repo", i)
            elif re.search(r'\bprio\b|\bpriorit[eé]?\b|\bpriority\b', c):
@@ -321,25 +351,36 @@ When invoked:
            if skip_table or not any(cells):
                continue
 
-           title_idx = col_map.get("title", 0)
-           if title_idx >= len(cells):
-               continue
-           raw_title_cell = cells[title_idx]
-           # Extract [#N] before stripping
-           inline_issue_id = extract_issue_id(raw_title_cell)
-           raw_title = re.sub(r'\[#\d+\]', '', re.sub(r'\*+', '', raw_title_cell)).strip()
-           # Bug #3: status emoji embedded in title cell
-           raw_title, title_done = strip_done_suffix(raw_title)
-           if raw_title.startswith("~~") or not is_valid_title(raw_title):
-               continue
-
            def get(key):
                idx = col_map.get(key)
                return cells[idx].strip() if idx is not None and idx < len(cells) else ""
 
+           title_idx = col_map.get("title", 0)
+           if title_idx >= len(cells):
+               continue
+           raw_title_cell = cells[title_idx]
+           # FIX: scan EVERY cell for the [#N] tracking marker (Sprint column wins),
+           # not just the title cell — markers are written back to the Sprint column.
+           inline_issue_id = extract_issue_id_from_cells(cells)
+           desc = re.sub(r'\[#\d+\]', '', re.sub(r'\*+', '', raw_title_cell)).strip()
+           # status emoji embedded in title cell
+           desc, title_done = strip_done_suffix(desc)
+           if desc.startswith("~~") or not is_valid_title(desc):
+               continue
+
+           # FIX: when a task-ID column exists, prefix the description with it so the
+           # title matches the project's "ID: description" convention (avoids creating
+           # bare-ID duplicates). Falls back to plain description when there is no ID col.
+           id_cell = get("idcol")
+           item_id = id_cell if id_cell and _TASK_ID_RE.match(id_cell) else None
+           title = f"{item_id}: {desc}" if item_id else desc
+
            area_val = get("area")
            repo_cell = get("repo")
-           repo = repo_cell if repo_cell else infer_repo(raw_title, area_val)
+           repo = repo_cell if repo_cell else infer_repo(title, area_val)
+           # FIX: prefer the row's own Sprint column over the section heading's sprint.
+           sm = re.search(r'W(\d+)-?(\d+)', get("sprint"))
+           item_sprint = f"W{sm.group(1)}-{sm.group(2)}" if sm else sprint_val
            p_match = re.search(r'P[0-3]', get("priority"))
            priority = p_match.group(0) if p_match else "P2"
            e_match = re.search(r'(\d+(?:\.\d+)?)\s*[jd]', get("effort"))
@@ -347,12 +388,12 @@ When invoked:
            completed = is_done(get("status")) or title_done
 
            items.append({
-               "id": None,
-               "title": raw_title,
+               "id": item_id,
+               "title": title,
                "inline_issue_id": inline_issue_id,
                "priority": priority,
                "effort": effort,
-               "sprint": sprint_val,
+               "sprint": item_sprint,
                "area": area_val or "api",
                "repo": repo,
                "completed": completed,
@@ -490,7 +531,7 @@ When invoked:
 
 4. Fetch project items:
    ```bash
-   gh project item-list 3 --owner noxys-eu --format json --limit 500
+   gh project item-list 3 --owner noxys-eu --format json --limit 2000
    ```
    Build two maps:
    - `normalized_title → { item_id, issue_number, title, repo, fields }`
@@ -641,9 +682,12 @@ When invoked:
 
 9. **Write-back** (skip if `--no-writeback` or `--dry-run`):
    ```python
-   import pathlib, re
+   import pathlib, re, os
 
-   ROADMAP_FILE = "/home/jeromesoyer/Documents/Github/jsoyer/obsidian-vault/Noxys/00 - Inbox/MASTER-ROADMAP-2026.md"
+   ROADMAP_FILE = os.environ.get(
+       "NOXYS_ROADMAP_FILE",
+       os.path.expanduser("~/Documents/Github/noxys-eu/noxys-obsidian-vault/00 - Inbox/MASTER-ROADMAP-2026.md"),
+   )
 
    def inject_issue_id(line, issue_num):
        """
@@ -688,12 +732,14 @@ When invoked:
    print(f"Write-back: injected [#N] markers for {len(writeback_map)} items")
    ```
 
-   Then commit+push:
+   Then commit+push. NOTE: the vault auto-syncs via **obsidian-livesync**, so the
+   git commit/push is optional (and may not be the vault's sync mechanism). Only do
+   it if the vault is a plain git-synced repo; otherwise let livesync propagate.
    ```bash
-   cd /home/jeromesoyer/Documents/Github/jsoyer/obsidian-vault
-   git add "Noxys/00 - Inbox/MASTER-ROADMAP-2026.md"
+   cd "$VAULT_DIR"   # derived from ROADMAP_FILE in the prereq step
+   git add "00 - Inbox/MASTER-ROADMAP-2026.md"
    git commit -m "chore(roadmap): sync-roadmap write-back issue IDs"
-   git push origin main
+   git push origin main 2>/dev/null || echo "git push skipped (vault uses livesync or no remote)"
    ```
    If push is blocked by hook: run `~/.claude/hooks/approve.sh` and retry once.
 
@@ -719,3 +765,15 @@ When invoked:
 - Roadmap IDs must match pattern `[A-Z0-9-]+` (e.g., `S1-01`, `W2-AUTH`, `MVP-001`).
 - After first run with write-back, subsequent runs will match deterministically via `[#N]` markers and fuzzy_match_count will drop to 0.
 - The fuzzy threshold of 0.75 was chosen to balance precision (avoid false matches) vs recall (close title divergences). Lower to 0.65 if too many items remain NEW; raise to 0.85 if false matches appear.
+
+## Fixes (2026-07-13)
+
+Corrected parser bugs that would have mass-created duplicate/mis-titled issues on this roadmap's `| ID | Title | … | Status | Sprint |` tables:
+- **Title column**: `parse_table_header` now recognises a literal `Title` header (previously only `item`/`task`), and captures the separate `ID` column — was defaulting the title to column 0 (the ID), producing bare-ID titles like `EXT-VER-3`.
+- **ID-prefixed titles**: rows with an ID column are titled `"<ID>: <description>"` to match the project's issue-title convention (so exact/fuzzy matching lands instead of creating duplicates).
+- **`[#N]` extraction**: markers are read from *every* cell (right-to-left, Sprint column wins) instead of only the title cell — the tracking marker lives in the Sprint column where write-back injects it.
+- **Row-level Sprint**: the row's own Sprint column is preferred over the section-heading sprint.
+- **`is_done`**: strips markdown/brackets before matching, so `**[DONE 2026-05-02]**` is detected.
+- **Pagination**: project fetch `--limit` raised 500 → 2000 (project has >500 items; truncation caused false NEW).
+- **Paths**: `ROADMAP_FILE` / vault dir corrected to this machine (`…/noxys-eu/noxys-obsidian-vault/…`); write-back git push made optional (vault uses obsidian-livesync).
+- **Prereq**: added a check for the `project` gh token scope.
