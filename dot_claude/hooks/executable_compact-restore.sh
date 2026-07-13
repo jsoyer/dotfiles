@@ -5,12 +5,40 @@ trap 'echo "HOOK CRASH: $0 line $LINENO" >&2; exit 0' ERR
 # PostCompact hook: Auto-restore session state after context compaction.
 # Outputs the last compact checkpoint so the agent knows where to resume.
 # Non-blocking (exit 0) — advisory only.
+#
+# Reads the checkpoint from the per-session state file written by
+# compact-save.sh (~/.claude/state/compact-checkpoint-<session>.md) instead of
+# grepping docs/session-learnings.md. Durable resume state still comes from
+# progress.json, recomputed live below.
 
 source "${HOME}/.claude/hooks/lib/hook-logger.sh" 2>/dev/null || true
 
 PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$(pwd)}"
+STATE_DIR="${HOME}/.claude/state"
 
-# Find session-learnings file
+# Derive session id from the hook JSON payload (canonical channel), with env
+# fallback. Must match compact-save.sh so the same file is found.
+INPUT=$(cat 2>/dev/null || true)
+SESSION_ID=""
+if command -v jq >/dev/null 2>&1; then
+  SESSION_ID=$(printf '%s' "$INPUT" | jq -r '.session_id // empty' 2>/dev/null || true)
+fi
+[ -z "$SESSION_ID" ] && SESSION_ID="${CLAUDE_CODE_SESSION_ID:-${CLAUDE_SESSION_ID:-default}}"
+SESSION_ID="${SESSION_ID//\//_}"
+SESSION_ID="${SESSION_ID// /_}"
+
+CHECKPOINT_FILE="${STATE_DIR}/compact-checkpoint-${SESSION_ID}.md"
+
+if [ ! -f "$CHECKPOINT_FILE" ]; then
+  exit 0
+fi
+
+LAST_CHECKPOINT=$(cat "$CHECKPOINT_FILE" 2>/dev/null)
+if [ -z "$LAST_CHECKPOINT" ]; then
+  exit 0
+fi
+
+# Resolve the learnings file to point the agent at for re-reading.
 SESSION_LEARNINGS=""
 for candidate in \
   "$PROJECT_DIR/docs/session-learnings.md" \
@@ -20,17 +48,6 @@ for candidate in \
     break
   fi
 done
-
-if [ -z "$SESSION_LEARNINGS" ] || [ ! -f "$SESSION_LEARNINGS" ]; then
-  exit 0
-fi
-
-# Extract last compact checkpoint
-LAST_CHECKPOINT=$(awk '/^## Compact Checkpoint/{found=1; buf=""} found{buf=buf"\n"$0} END{if(found) print buf}' "$SESSION_LEARNINGS" 2>/dev/null)
-
-if [ -z "$LAST_CHECKPOINT" ]; then
-  exit 0
-fi
 
 # Check for pending progress.json files
 PENDING_WORK=""
@@ -58,11 +75,13 @@ fi
     echo "Pending work:"
     echo -e "$PENDING_WORK"
   fi
-  echo ""
-  echo "→ Re-read: ${SESSION_LEARNINGS}"
+  if [ -n "$SESSION_LEARNINGS" ]; then
+    echo ""
+    echo "→ Re-read: ${SESSION_LEARNINGS}"
+  fi
   echo ""
 } >&2
 
-log_hook_event "compact-restore" "restored" "checkpoint loaded" 2>/dev/null || true
+log_hook_event "compact-restore" "restored" "checkpoint loaded from ${CHECKPOINT_FILE}" 2>/dev/null || true
 
 exit 0
