@@ -24,8 +24,10 @@ description: >
    - **Standard:** Audience + Verification (2 questions)
    - **PRD+Sprint:** All 6 questions (full framework in `~/.claude/skills/plan/correctness-discovery.md`)
      c. If project has a **Context Routing Table** in its CLAUDE.md → follow it. Otherwise → search for relevant docs manually
-     d. Create PRD directory at `docs/tasks/<area>/<category>/YYYY-MM-DD_HHmm-name/` (create if needed)
-     e. Write PRD as `spec.md` inside that directory (not as a standalone `.md` file)
+     d. Create the PRD directory at `<task-file-location>/<area>/<category>/YYYY-MM-DD_HHmm-name/` (create if needed) — `task-file-location` comes from the project CLAUDE.md `## Execution Config`; default `docs/tasks/`. This directory holds the **execution bundle** (`sprints/`, `progress.json`, `INVARIANTS.md`) and MUST stay inside the code repo — hooks (`check-invariants.sh`), the Build Candidate git tag, and sprint-executor worktrees all resolve paths relative to it.
+     e. **Resolve where the PRD prose (`spec.md`) is written:**
+        - **If the project CLAUDE.md `## Execution Config` defines `prd-location`** → write the PRD prose there as `prd-location/YYYY-MM-DD_HHmm-name.md` (a single note; that location may be a separate repo such as an Obsidian vault — commit + push it per that repo's branch policy). Keep the execution bundle from step (d) in the code repo. In `progress.json`, set the `"prd"` field to the **absolute path** of this note so `/plan-build-test` can still locate the prose. Sprint specs remain self-contained (no `spec.md` lookup during execution), so this split never breaks execution.
+        - **Otherwise (default)** → write the PRD as `spec.md` inside the task directory from step (d) (co-located, not a standalone `.md` file).
      f. Fill "Context Loaded" section with what you learned from docs
      g. Write PRD using appropriate template (read from `~/.claude/skills/plan/prd-template-minimal.md` for Standard, `~/.claude/skills/plan/prd-template-full.md` for PRD+Sprint)
      h. Run **Spec Self-Evaluator** — spawn a **separate haiku agent** (different context = different perspective) to evaluate the spec:
@@ -49,6 +51,6 @@ description: >
    contracts for cross-cutting concepts) → run `bash ~/.claude/hooks/scripts/validate-sprint-boundaries.sh <prd-dir>`
    → tag Build Candidate (`git tag "build-candidate/<prd-name>"`). Maximum 5 sprints per PRD.
 
-5. Tell the user: "PRD saved at [directory-path]/. Sprint specs extracted to `sprints/`. INVARIANTS.md created. Build Candidate tagged. **Stop this session.** Open a fresh session and run `/plan-build-test` to execute — do NOT continue in this window. Keeping planning and execution in separate context windows prevents `/compact` churn during the build."
+5. Tell the user: "PRD prose saved at [spec.md or prd-location note path]. Execution bundle (sprint specs, `progress.json`, `INVARIANTS.md`) at [task-directory]/ in the code repo. Build Candidate tagged. **Stop this session.** Open a fresh session and run `/plan-build-test` to execute — do NOT continue in this window. Keeping planning and execution in separate context windows prevents `/compact` churn during the build."
 
 6. **Do NOT execute. Do NOT invoke `/plan-build-test` from this session**, even if the user's next message asks for it — tell them to start a new session instead (context hygiene). This skill produces the plan only.
