@@ -30,7 +30,9 @@
       "AskUserQuestion",
       "EnterPlanMode",
       "ExitPlanMode",
-      "mcp__*"
+      "mcp__claude-design__*",
+      "mcp__plugin_context7_context7__*",
+      "mcp__plugin_playwright_playwright__*"
     ],
     "deny": []
   },
