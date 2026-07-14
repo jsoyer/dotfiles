@@ -23,7 +23,6 @@ cask "logitech-g-hub"
 cask "ollama-app"
 cask "stablyai/orca/orca", trusted: true
 cask "plaud"
-cask "lihaoyun6/tap/quickrecorder"
 cask "termix-ssh/termix/termix"
 cask "zoom"
 mas "Amphetamine", id: 937984704
