@@ -8,10 +8,12 @@ tap "homebrew/command-not-found"
 tap "homebrew/services"
 tap "reyamira/tap", "https://github.com/reyamira/homebrew-tap.git", trusted: true
 tap "stablyai/orca"
+tap "wouterdebie/tap"
 brew "crit"
 brew "sdl2-compat"
 brew "herdr"
 brew "infisical"
+brew "kimi-code", link: false
 brew "mactop"
 brew "vcs"
 brew "siderolabs/tap/omnictl", trusted: true
@@ -20,12 +22,12 @@ cask "antigravity-cli"
 cask "antigravity-ide"
 cask "bettercapture"
 cask "chatgpt"
-cask "google-gemini"
+cask "wouterdebie/tap/davit", trusted: true
 cask "logitech-g-hub"
 cask "stablyai/orca/orca", trusted: true
 cask "plaud"
 cask "superwhisper"
-cask "termix-ssh/termix/termix"
+cask "termix"
 cask "zoom"
 mas "Amphetamine", id: 937984704
 mas "Developer", id: 640199958
