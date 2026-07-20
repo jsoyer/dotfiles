@@ -1,6 +1,5 @@
 # Host overlay for fedora-pve — extras beyond the shared base.
 # Managed by breww. Do not edit manually.
-brew "herdr"
 brew "libtiff"
 brew "hermes-agent"
 brew "mistral-vibe"
