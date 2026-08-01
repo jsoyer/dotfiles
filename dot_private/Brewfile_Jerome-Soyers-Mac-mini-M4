@@ -22,10 +22,10 @@ cask "antigravity-ide"
 cask "bettercapture"
 cask "chatgpt"
 cask "wouterdebie/tap/davit", trusted: true
+cask "fluidvoice"
 cask "logitech-g-hub"
 cask "orca"
 cask "plaud"
-cask "superwhisper"
 cask "termix"
 cask "zoom"
 mas "Amphetamine", id: 937984704
