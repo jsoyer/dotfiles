@@ -1,6 +1,7 @@
 # Host overlay for Jerome-Soyers-Mac-mini-M4 — extras beyond the shared base.
 # Managed by breww. Do not edit manually.
 tap "asmvik/formulae", "https://github.com/asmvik/homebrew-formulae.git", trusted: true
+tap "docker/tap", trusted: true
 tap "harvard-cns/orla", "https://github.com/harvard-cns/homebrew-orla.git", trusted: true
 tap "homebrew/bundle"
 tap "homebrew/command-not-found"
@@ -14,6 +15,7 @@ brew "herdr"
 brew "infisical"
 brew "kimi-code", link: false
 brew "mactop"
+brew "tuicr"
 brew "vcs"
 brew "siderolabs/tap/omnictl", trusted: true
 cask "antigravity"
