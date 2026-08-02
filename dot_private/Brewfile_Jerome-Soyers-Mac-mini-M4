@@ -15,6 +15,7 @@ brew "herdr"
 brew "infisical"
 brew "kimi-code", link: false
 brew "mactop"
+brew "podcast-dl"
 brew "tuicr"
 brew "vcs"
 brew "siderolabs/tap/omnictl", trusted: true
