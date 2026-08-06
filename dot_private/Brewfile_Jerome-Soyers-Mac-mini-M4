@@ -7,7 +7,7 @@ tap "homebrew/bundle"
 tap "homebrew/command-not-found"
 tap "homebrew/services"
 tap "reyamira/tap", "https://github.com/reyamira/homebrew-tap.git", trusted: true
-tap "stablyai/orca", trusted: { casks: ["orca"] }
+tap "stablyai/orca"
 tap "wouterdebie/tap"
 brew "crit"
 brew "sdl2-compat"
@@ -27,19 +27,18 @@ cask "chatgpt"
 cask "wouterdebie/tap/davit", trusted: true
 cask "fluidvoice"
 cask "logitech-g-hub"
-cask "orca"
+cask "stablyai/orca/orca", trusted: true
+cask "paseo"
 cask "plaud"
 cask "termix"
 cask "zoom"
 mas "Amphetamine", id: 937984704
-mas "Developer", id: 640199958
 mas "djay Pro", id: 450527929
 mas "FaceScreen", id: 6702028512
 mas "iCompta", id: 1149778308
 mas "iMovie", id: 408981434
 mas "Keynote", id: 361285480
 mas "KeyScreen", id: 6753302381
-mas "MindNode Next", id: 6446116532
 mas "Numbers", id: 361304891
 mas "Pages", id: 361309726
 mas "Parcel", id: 375589283
@@ -47,5 +46,4 @@ mas "Presentify", id: 1507246666
 mas "Raycast Companion", id: 6738274497
 mas "Remote Desktop", id: 409907375
 mas "Save to Raindrop.io", id: 1549370672
-mas "TestFlight", id: 899247664
 mas "Xcode", id: 497799835
