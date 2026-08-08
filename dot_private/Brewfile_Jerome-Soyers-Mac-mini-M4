@@ -29,6 +29,7 @@ cask "bettercapture"
 cask "chatgpt"
 cask "wouterdebie/tap/davit", trusted: true
 cask "fluidvoice"
+cask "grok-build"
 cask "logitech-g-hub"
 cask "stablyai/orca/orca", trusted: true
 cask "paseo"
