@@ -1,6 +1,8 @@
 # Host overlay for Jerome-Soyers-Mac-mini-M4 — extras beyond the shared base.
 # Managed by breww. Do not edit manually.
+tap "a7t-ai/poirot", "https://github.com/a7t-ai/homebrew-poirot.git"
 tap "asmvik/formulae", "https://github.com/asmvik/homebrew-formulae.git", trusted: true
+tap "can1357/tap"
 tap "docker/tap", trusted: true
 tap "harvard-cns/orla", "https://github.com/harvard-cns/homebrew-orla.git", trusted: true
 tap "homebrew/bundle"
@@ -18,6 +20,7 @@ brew "mactop"
 brew "podcast-dl"
 brew "tuicr"
 brew "vcs"
+brew "can1357/tap/omp", trusted: true
 brew "siderolabs/tap/omnictl", trusted: true
 cask "antigravity"
 cask "antigravity-cli"
@@ -30,7 +33,7 @@ cask "logitech-g-hub"
 cask "stablyai/orca/orca", trusted: true
 cask "paseo"
 cask "plaud"
-cask "termix"
+cask "termix-ssh/termix/termix"
 cask "zoom"
 mas "Amphetamine", id: 937984704
 mas "djay Pro", id: 450527929
