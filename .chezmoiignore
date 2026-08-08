@@ -57,3 +57,12 @@
 .claude/evolution/model-performance.json
 .claude/evolution/workflow-changelog.md
 .claude/evolution/session-postmortems/*.md
+
+# ── media_automation : NAS uniquement (omv-nice / omv-dijon) ──
+# Ces scripts et leur config chiffree n'ont de sens que sur les deux NAS.
+{{ if not (or (eq .chezmoi.hostname "omv-nice") (eq .chezmoi.hostname "omv-dijon")) }}
+bin/media_automation.py
+bin/audit_seasonless.sh
+bin/test_media_automation.py
+bin/media_automation
+{{ end }}
