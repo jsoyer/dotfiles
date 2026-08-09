@@ -1643,6 +1643,108 @@ def run_post_import_reconciliation(config, dry_run=False):
     return total_moved
 
 
+ABSOLUTE_REGISTRY_PATH = Path(__file__).resolve().parent / 'media_automation' / 'shows_registry.toml'
+
+
+def load_absolute_shows(registry_path=None):
+    """Load the opt-in registry of absolute-numbered shows; [] when unavailable.
+
+    A missing or broken registry must never stop the regular import, so any
+    failure is logged and degrades to "no show declared".
+    """
+    try:
+        import media_absolute_shows
+    except Exception as exc:  # noqa: BLE001 - optional feature, never fatal
+        LOGGER.warning("Absolute-show support unavailable: %s", exc)
+        return []
+    try:
+        return media_absolute_shows.load_registry(registry_path or ABSOLUTE_REGISTRY_PATH)
+    except Exception as exc:  # noqa: BLE001
+        log_message(f"[WARN] Registre des series absolues illisible: {exc}", 'warning')
+        return []
+
+
+def match_absolute_show(filename, shows):
+    """Return the declared show this file belongs to, or None."""
+    if not shows:
+        return None
+    import media_absolute_shows
+    return media_absolute_shows.match_show(filename, shows)
+
+
+def import_absolute_item(item, show, config, dry_run, summary):
+    """Send one episode of a declared absolute-numbered show to its remote library."""
+    import media_absolute_shows as abs_shows
+
+    name = item.video_path.name
+    try:
+        mapping = abs_shows.load_mapping(show.mapping_file)
+    except Exception as exc:  # noqa: BLE001
+        summary.skipped_items += 1
+        detail = f"[SKIP] {name} (table de conversion illisible: {exc})"
+        summary.skipped_details.append(detail)
+        log_message(detail, 'warning')
+        return
+
+    try:
+        relative, season_number, episode_number = abs_shows.plan_episode(name, show, mapping)
+    except ValueError as exc:
+        summary.skipped_items += 1
+        detail = f"[SKIP] {name} ({exc})"
+        summary.skipped_details.append(detail)
+        log_message(detail, 'warning')
+        send_telegram_message(config.telegram, f"⚠️ {show.name}: {name}\n{exc}")
+        return
+
+    destination = f"{show.destination}/{relative}"
+    log_message(f"[IMPORT:REMOTE] {name} -> {show.name} S{season_number:02d}E{episode_number:02d}")
+
+    # Never overwrite an episode already present upstream.
+    try:
+        if abs_shows.remote_exists(destination):
+            summary.skipped_items += 1
+            detail = f"[SKIP] {name} (deja present: {relative})"
+            summary.skipped_details.append(detail)
+            log_message(detail, 'warning')
+            return
+    except Exception as exc:  # noqa: BLE001
+        summary.errors += 1
+        detail = f"[ERROR] {name} (verification distante impossible: {exc})"
+        summary.skipped_details.append(detail)
+        log_message(detail, 'warning')
+        return
+
+    if dry_run:
+        print(f"    {name} -> {destination}")
+        summary.imported_items += 1
+        summary.imported_details.append(f"{name} -> {destination}")
+        return
+
+    try:
+        abs_shows.push_episode(item.video_path, destination)
+    except Exception as exc:  # noqa: BLE001
+        summary.errors += 1
+        detail = f"[ERROR] {name} (transfert distant echoue: {exc})"
+        summary.skipped_details.append(detail)
+        log_message(detail, 'warning')
+        send_telegram_message(config.telegram, f"❌ {show.name}: transfert echoue\n{name}")
+        return
+
+    print(f"    OK: {name} -> {relative}")
+    summary.imported_items += 1
+    summary.imported_series += 1
+    summary.imported_details.append(f"{name} -> {destination}")
+    send_telegram_message(
+        config.telegram,
+        f"☁️ {show.name} S{season_number:02d}E{episode_number:02d} envoye sur Drive\n{relative}")
+
+    # Keep the table in step so the next episode lands on the following slot.
+    try:
+        abs_shows.refresh_mapping(show)
+    except Exception as exc:  # noqa: BLE001
+        log_message(f"[WARN] Table {show.name} non rafraichie: {exc}", 'warning')
+
+
 def process_automation_inbox(config, dry_run=False):
     """Process the configured inbox in a cron-friendly, lock-protected way."""
     lock_path = config.inbox.lock_file or (config.inbox.path / '.reorganize_movies.lock')
@@ -1666,8 +1768,17 @@ def process_automation_inbox(config, dry_run=False):
         if not config.tmdb_api_key:
             raise ValueError('TMDb API key required for inbox automation. Set it in config or TMDB_API_KEY.')
 
+        absolute_shows = load_absolute_shows()
+
         for item in items:
             try:
+                # Declared absolute-numbered shows go to their remote library.
+                # Everything else keeps the default local routing untouched.
+                show = match_absolute_show(item.video_path.name, absolute_shows)
+                if show is not None:
+                    import_absolute_item(item, show, config, dry_run, summary)
+                    continue
+
                 title, season_number, episodes = parse_episode_filename(
                     item.video_path.name, item.video_path.parent.name
                 )

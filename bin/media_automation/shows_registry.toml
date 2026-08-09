@@ -1,0 +1,23 @@
+# Registre des series a numerotation absolue envoyees sur un remote distant.
+#
+# IMPORTANT : ce fichier est une liste d'EXCEPTIONS.
+# Toute serie absente d'ici garde le comportement par defaut du script :
+# routage local vers animes/ ou tvshows/ selon TMDb. Rien ne part sur Drive
+# sans etre declare explicitement ci-dessous.
+#
+# Apres toute modification, regenerer la table de conversion :
+#   ~/bin/media_absolute_refresh.py
+
+[[show]]
+# Nom utilise dans les fichiers produits : "One Piece - S23E18.mkv"
+name = "One Piece"
+# Variantes rencontrees dans les noms de release, comparees en debut de nom.
+aliases = ["One Piece", "One.Piece"]
+numbering = "absolute"
+destination = "gdrive:Infuse/One Piece"
+mapping = "onepiece-mapping.json"
+# Tolerance au-dela du dernier episode connu. A 1, le script accepte l'episode
+# suivant immediatement la bibliotheque et refuse au-dela : un saut plus grand
+# signale une nouvelle saison chez TheTVDB, que la table deduite ne peut pas
+# connaitre. Le refus est volontaire, il vaut mieux qu'un mauvais classement.
+lookahead = 1

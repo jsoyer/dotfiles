@@ -201,5 +201,77 @@ class AbsoluteNumbering(unittest.TestCase):
         self.assertEqual(quoted, "'L'\\''ile.mkv'")
 
 
+class AbsoluteShowRegistry(unittest.TestCase):
+    """Only registered shows may reach a remote library."""
+
+    @classmethod
+    def setUpClass(cls):
+        import media_absolute_shows
+        cls.mod = media_absolute_shows
+        cls.show = media_absolute_shows.AbsoluteShow(
+            name='One Piece', destination='gdrive:Infuse/One Piece',
+            mapping_file=Path('/nonexistent.json'), aliases=('One Piece', 'One.Piece'),
+            lookahead=1)
+        # Same shape as the real library: 23 seasons, last absolute 1172.
+        cls.mapping = media_absolute_shows.build_mapping_from_listing(
+            [f'Season {s:02d}/One Piece - {s}x{e:02d} - Titre.mkv'
+             for s, count in [(1, 8), (2, 22), (3, 17)] for e in range(1, count + 1)])
+
+    NOT_REGISTERED = [
+        'Naruto.Shippuden.E120.VOSTFR.1080p.mkv',
+        '[SubsPlease] Frieren - 28 (1080p).mkv',
+        'Blade.Runner.2049.2017.MULTi.2160p.BluRay.x265-GRP.mkv',
+        'Dune.Part.Two.2024.MULTi.2160p.mkv',
+        'Breaking.Bad.S03E07.1080p.mkv',
+    ]
+
+    def test_unregistered_shows_never_match(self):
+        for name in self.NOT_REGISTERED:
+            with self.subTest(name=name):
+                self.assertIsNone(self.mod.match_show(name, [self.show]))
+
+    def test_registered_show_matches_its_aliases(self):
+        for name in ['[SubsPlease] One Piece - 1173 (1080p) [A1B2C3D4].mkv',
+                     'One.Piece.1173.MULTi.1080p.WEB.x264-GRP.mkv',
+                     'One Piece - 1173 VOSTFR.mkv']:
+            with self.subTest(name=name):
+                self.assertIs(self.mod.match_show(name, [self.show]), self.show)
+
+    def test_a_title_mentioned_mid_name_does_not_match(self):
+        self.assertIsNone(
+            self.mod.match_show('Documentaire sur One Piece - 03.mkv', [self.show]))
+
+    def test_empty_registry_matches_nothing(self):
+        self.assertIsNone(self.mod.match_show('One Piece - 1173.mkv', []))
+
+    def test_mapping_is_contiguous_across_seasons(self):
+        self.assertEqual(self.mapping.seasons, [(1, 1, 8), (2, 9, 30), (3, 31, 47)])
+        self.assertEqual(self.mapping.last_absolute, 47)
+
+    def test_known_absolute_resolves(self):
+        self.assertEqual(self.mapping.resolve(9), (2, 1))
+        self.assertEqual(self.mapping.resolve(47), (3, 17))
+
+    def test_next_episode_extends_the_last_season(self):
+        target, season, episode = self.mod.plan_episode(
+            'One Piece - 0048.mkv', self.show, self.mapping)
+        self.assertEqual((season, episode), (3, 18))
+        self.assertEqual(target, 'Season 03/One Piece - S03E18.mkv')
+
+    def test_jumping_past_the_library_is_refused_not_guessed(self):
+        with self.assertRaises(ValueError) as caught:
+            self.mod.plan_episode('One Piece - 0060.mkv', self.show, self.mapping)
+        self.assertIn('nouvelle saison probable', str(caught.exception))
+
+    def test_season_organised_names_are_refused(self):
+        with self.assertRaises(ValueError):
+            self.mod.plan_episode('One Piece - 3x05 - Titre.mkv', self.show, self.mapping)
+
+    def test_push_is_a_server_side_move_with_rate_limit(self):
+        command = self.mod.push_episode('/inbox/ep.mkv', 'gdrive:X/ep.mkv', dry_run=True)
+        self.assertEqual(command[:2], ['rclone', 'moveto'])
+        self.assertIn('--tpslimit', command)
+
+
 if __name__ == '__main__':
     unittest.main(verbosity=2)
