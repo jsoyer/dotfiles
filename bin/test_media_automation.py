@@ -122,5 +122,69 @@ class EpisodeCode(unittest.TestCase):
         self.assertEqual(ma.build_episode_code(2, [5, 6]), 'S02E05-E06')
 
 
+class AbsoluteNumbering(unittest.TestCase):
+    """anime_absolute_plan maps long-running anime absolute numbers onto seasons."""
+
+    @classmethod
+    def setUpClass(cls):
+        import importlib.util
+        path = Path(__file__).resolve().parent / 'anime_absolute_plan.py'
+        spec = importlib.util.spec_from_file_location('anime_absolute_plan', path)
+        cls.plan = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(cls.plan)
+        # One Piece-like shape: 61 + 16 + 14 episodes over three seasons.
+        cls.table = cls.plan.build_absolute_table([
+            {'season_number': 0, 'episode_count': 5},    # specials, must be skipped
+            {'season_number': 1, 'episode_count': 61},
+            {'season_number': 2, 'episode_count': 16},
+            {'season_number': 3, 'episode_count': 14},
+        ])
+
+    EXTRACTION = [
+        ('[SubsPlease] One Piece - 1100 (1080p) [A1B2C3D4].mkv', 1100),
+        ('[Erai-raws] One Piece - 1050 [1080p][Multiple Subtitle].mkv', 1050),
+        ('One Piece - 0587 VOSTFR 1080p.mkv', 587),
+        ('One.Piece.E1050.MULTi.1080p.WEB.x264-GRP.mkv', 1050),
+        ('One Piece 1080 VOSTFR 1080p x265 10bits.mkv', 1080),
+        ('[HorribleSubs] One Piece - 900 [720p].mkv', 900),
+        ('One Piece - Episode 1015 [1080p][AAC].mkv', 1015),
+        ('One.Piece.-.061.VF.2160p.HEVC.mkv', 61),
+        ('[Group] One Piece - 1000v2 [1080p][DEADBEEF].mkv', 1000),
+        ('One Piece - 1050.srt', 1050),
+        ('One Piece - 500 (2011) [1080p] 5.1.mkv', 500),
+    ]
+
+    def test_absolute_number_extraction(self):
+        for name, expected in self.EXTRACTION:
+            with self.subTest(name=name):
+                self.assertEqual(self.plan.extract_absolute(name), expected)
+
+    def test_specials_are_excluded_from_the_table(self):
+        self.assertEqual([row[0] for row in self.table], [1, 2, 3])
+
+    def test_absolute_maps_to_the_right_season(self):
+        cases = {1: (1, 1), 61: (1, 61), 62: (2, 1), 77: (2, 16), 78: (3, 1), 91: (3, 14)}
+        for absolute, expected in cases.items():
+            with self.subTest(absolute=absolute):
+                self.assertEqual(self.plan.absolute_to_season_episode(absolute, self.table), expected)
+
+    def test_out_of_range_is_reported_not_guessed(self):
+        self.assertIsNone(self.plan.absolute_to_season_episode(92, self.table))
+
+    def test_unparsable_names_are_reported_not_renamed(self):
+        plan, unresolved = self.plan.plan_renames(
+            ['One Piece - 0001.mkv', 'bande-annonce.mkv', 'lisez-moi.txt'], self.table, 'One Piece')
+        self.assertEqual(len(plan), 1)
+        self.assertEqual(len(unresolved), 2)
+
+    def test_destination_follows_the_plex_convention(self):
+        plan, _ = self.plan.plan_renames(['One Piece - 0062.mkv'], self.table, 'One Piece')
+        self.assertEqual(plan[0][1], 'Season 02/One Piece - S02E01.mkv')
+
+    def test_shell_quoting_survives_apostrophes(self):
+        quoted = self.plan.shell_quote("L'ile.mkv")
+        self.assertEqual(quoted, "'L'\\''ile.mkv'")
+
+
 if __name__ == '__main__':
     unittest.main(verbosity=2)

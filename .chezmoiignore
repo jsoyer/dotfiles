@@ -64,5 +64,6 @@
 bin/media_automation.py
 bin/audit_seasonless.sh
 bin/test_media_automation.py
+bin/anime_absolute_plan.py
 bin/media_automation
 {{ end }}
