@@ -16,6 +16,11 @@ aliases = ["One Piece", "One.Piece"]
 numbering = "absolute"
 destination = "gdrive:Infuse/One Piece"
 mapping = "onepiece-mapping.json"
+# Frontieres de saisons issues de l'ordre TheTVDB, publie gratuitement par TMDb
+# sous forme de groupe d'episodes. Sans lui, une table deduite de la
+# bibliotheque ne peut pas savoir qu'une saison 24 vient de s'ouvrir.
+tmdb_id = 37854
+order_group = "TVDB Order"
 # Tolerance au-dela du dernier episode connu. A 1, le script accepte l'episode
 # suivant immediatement la bibliotheque et refuse au-dela : un saut plus grand
 # signale une nouvelle saison chez TheTVDB, que la table deduite ne peut pas
