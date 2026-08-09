@@ -18,6 +18,7 @@ brew "infisical"
 brew "kimi-code", link: false
 brew "mactop"
 brew "podcast-dl"
+brew "rclone"
 brew "tuicr"
 brew "vcs"
 brew "can1357/tap/omp", trusted: true
