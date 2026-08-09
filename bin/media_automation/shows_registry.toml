@@ -21,6 +21,11 @@ mapping = "onepiece-mapping.json"
 # bibliotheque ne peut pas savoir qu'une saison 24 vient de s'ouvrir.
 tmdb_id = 37854
 order_group = "TVDB Order"
+# Ecart entre la numerotation de la release et celle de la reference. La release
+# compte le crossover Dream 9 (Toriko x One Piece x DBZ, avril 2013, entre les
+# episodes 589 et 590), que TheTVDB exclut de la saison 16 et qui est desormais
+# range hors de la bibliotheque. Rien ne permet donc de le deduire : on le declare.
+absolute_offset = 1
 # Tolerance au-dela du dernier episode connu. A 1, le script accepte l'episode
 # suivant immediatement la bibliotheque et refuse au-dela : un saut plus grand
 # signale une nouvelle saison chez TheTVDB, que la table deduite ne peut pas

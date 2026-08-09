@@ -30,6 +30,11 @@ except ModuleNotFoundError:  # pragma: no cover - Python < 3.11
 # newest episode is refused rather than resolved with the recent calibration.
 RECENT_WINDOW = 60
 
+# Only these count as episodes. Libraries also hold artwork, subtitles and NFO
+# files; counting them would inflate the absolute numbering and misplace every
+# incoming episode -- observed after 46 season posters were added.
+VIDEO_SUFFIXES = {'.mkv', '.mp4', '.avi', '.m4v', '.mov', '.wmv', '.ts', '.m2ts'}
+
 SEASON_DIR_RE = re.compile(r'^Season[\s._-]*(\d{1,3})$', re.I)
 SEASON_EPISODE_TOKEN_RE = re.compile(
     r'(?:^|[\s._-])(?:\d{1,2}x\d{1,3}|S\d{1,2}E\d{1,3})(?=[\s._-]|$)', re.I)
@@ -58,6 +63,10 @@ class AbsoluteShow:
     lookahead: int = 1  # how far past the last known episode we dare go
     tmdb_id: int = 0            # set to use the reference ordering below
     order_group: str = 'TVDB Order'
+    # Drift between the release numbering and the reference. Declared rather
+    # than derived: it depends on what the release counted, and items excluded
+    # from the library (a crossover filed elsewhere) leave no trace to infer it.
+    absolute_offset: int | None = None
 
 
 @dataclass
@@ -116,6 +125,8 @@ def load_registry(path):
             lookahead=int(entry.get('lookahead', 1)),
             tmdb_id=int(entry.get('tmdb_id', 0)),
             order_group=str(entry.get('order_group', 'TVDB Order')),
+            absolute_offset=(int(entry['absolute_offset'])
+                             if entry.get('absolute_offset') is not None else None),
         ))
     return shows
 
@@ -167,7 +178,10 @@ def build_mapping_from_listing(lines, source=''):
     """
     counts = Counter()
     for line in lines:
-        parts = Path(line.strip()).parts
+        path = Path(line.strip())
+        if path.suffix.lower() not in VIDEO_SUFFIXES:
+            continue
+        parts = path.parts
         if len(parts) != 2:
             continue
         match = SEASON_DIR_RE.match(parts[0])
@@ -271,14 +285,15 @@ def refresh_mapping(show, rclone='rclone', timeout=300, api_key=None, language='
         [rclone, 'lsf', show.destination, '-R', '--files-only'],
         capture_output=True, text=True, timeout=timeout, check=True)
     lines = [line.strip() for line in result.stdout.splitlines() if line.strip()]
+    episodes = [line for line in lines if Path(line).suffix.lower() in VIDEO_SUFFIXES]
 
     if not (show.tmdb_id and api_key):
-        mapping = build_mapping_from_listing(lines, source=show.destination)
+        mapping = build_mapping_from_listing(episodes, source=show.destination)
         save_mapping(mapping, show.mapping_file)
         return mapping
 
     season_counts = Counter()
-    for line in lines:
+    for line in episodes:
         parts = Path(line).parts
         if len(parts) == 2:
             match = SEASON_DIR_RE.match(parts[0])
@@ -287,10 +302,14 @@ def refresh_mapping(show, rclone='rclone', timeout=300, api_key=None, language='
 
     reference = build_mapping_from_tvdb_order(
         show.tmdb_id, api_key, language, group_name=show.order_group)
-    offset = calibrate_offset(reference.seasons, season_counts, len(lines))
+    if show.absolute_offset is not None:
+        offset = show.absolute_offset
+    else:
+        offset = calibrate_offset(reference.seasons, season_counts, len(episodes))
     mapping = build_mapping_from_tvdb_order(
         show.tmdb_id, api_key, language, group_name=show.order_group, offset=offset)
-    mapping.last_absolute = len(lines)
+    # The newest episode's own release number, which the drift shifts.
+    mapping.last_absolute = len(episodes) + offset
     save_mapping(mapping, show.mapping_file)
     return mapping
 
