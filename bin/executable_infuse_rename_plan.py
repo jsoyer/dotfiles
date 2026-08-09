@@ -32,6 +32,9 @@ MEDIA_SUFFIXES = {'.mkv', '.mp4', '.avi', '.m4v', '.mov', '.wmv',
                   '.srt', '.ass', '.ssa', '.sub', '.idx'}
 
 SEASON_DIR_RE = re.compile(r'^Season[\s._-]*(\d{1,3})$', re.I)
+# "Show - S13E03 - Title" : already in the target form. Recognising it makes a
+# partial run resumable -- regenerate the plan and only the remainder is listed.
+ALREADY_RE = re.compile(r'^.*?[\s._-]+S(?P<season>\d{1,2})E(?P<episode>\d{1,3})(?:[\s._-]|$)', re.I)
 # "Show - 13x03 - Title" : the season/episode token already present.
 SXE_RE = re.compile(r'^(?P<prefix>.*?)[\s._-]+(?P<season>\d{1,2})x(?P<episode>\d{1,3})'
                     r'(?P<rest>[\s._-]+.*)?$')
@@ -73,6 +76,9 @@ def build_plan(entries, show_name, derive_orders):
         tagged, running = [], []
         for entry, filename in items:
             stem, suffix = Path(filename).stem, Path(filename).suffix
+            done = ALREADY_RE.match(stem)
+            if done and int(done.group('season')) == season:
+                continue  # already conformant: nothing to do, and safe to re-run
             match = SXE_RE.match(stem)
             if match:
                 tagged.append((entry, stem, suffix, match))
@@ -162,7 +168,11 @@ def main():
     parser.add_argument('--out', required=True, type=Path, help='output prefix (.txt and .sh)')
     parser.add_argument('--derive-order', type=int, action='append', default=[], metavar='SEASON',
                         help='number this season from the order of its bare numbers (repeatable)')
-    parser.add_argument('--tpslimit', type=int, default=4, help='rclone API calls per second')
+    parser.add_argument('--tpslimit', type=int, default=2,
+                        help='rclone API calls per second, per worker (default 2)')
+    parser.add_argument('--parallel', type=int, default=6,
+                        help='concurrent renames (default 6). Wall time is dominated by rclone '
+                             'process startup, not by the API, so concurrency helps a lot')
     args = parser.parse_args()
 
     entries = [line.strip() for line in args.list.read_text().splitlines() if line.strip()]
@@ -194,19 +204,46 @@ def main():
         lines += [f'  [{reason}] {name}' for name, reason in unresolved]
     report.write_text('\n'.join(lines) + '\n')
 
+    # No `set -e`: one failed rename must not abandon the other thousand. Each
+    # result is counted and the run ends with a verdict. To resume, regenerate
+    # the plan from a fresh listing -- files already renamed are recognised as
+    # conformant and dropped, so only the remainder is replayed.
+    # Source/destination pairs, NUL-separated so quotes, brackets and accents in
+    # episode titles survive untouched.
+    pairs = args.out.with_suffix('.pairs')
+    payload = bytearray()
+    for src, dst, _ in plan:
+        payload += f'{args.remote}/{src}'.encode() + b'\0'
+        payload += f'{dest}/{dst}'.encode() + b'\0'
+    pairs.write_bytes(bytes(payload))
+
     commands = [
         '#!/usr/bin/env bash',
         '# Renommages cote serveur : aucun octet ne transite.',
         '# Genere par infuse_rename_plan.py — relire le .txt avant de lancer.',
-        'set -euo pipefail',
-        f'echo "{len(plan)} renommages a effectuer"',
+        '# Reprise apres interruption : regenerer le plan, puis relancer.',
+        'set -uo pipefail',
+        f'PAIRS={shell_quote(str(pairs))}',
+        f'TOTAL={len(plan)}',
+        'FAILLOG=$(mktemp)',
+        'export FAILLOG',
+        f'echo "$TOTAL renommages, {args.parallel} en parallele"',
         '',
+        f"xargs -0 -n2 -P {args.parallel} -a \"$PAIRS\" bash -c '",
+        f'  if rclone moveto --tpslimit {args.tpslimit} "$0" "$1"; then',
+        '    echo "OK $(basename "$1")"',
+        '  else',
+        '    echo "$0" >> "$FAILLOG"; echo "ECHEC $(basename "$0")" >&2',
+        "  fi'",
+        '',
+        'nfail=$(wc -l < "$FAILLOG")',
+        'echo "termine : $((TOTAL - nfail)) renommes, $nfail echecs sur $TOTAL"',
+        'if [ "$nfail" -gt 0 ]; then',
+        '  echo "Fichiers en echec :" >&2; cat "$FAILLOG" >&2',
+        '  echo "Regenerer le plan puis relancer pour reprendre." >&2',
+        '  exit 1',
+        'fi',
     ]
-    for index, (src, dst, _) in enumerate(plan, 1):
-        commands.append(f'echo "[{index}/{len(plan)}] {Path(src).name}"')
-        commands.append(
-            f'rclone moveto --tpslimit {args.tpslimit} '
-            f'{shell_quote(args.remote + "/" + src)} {shell_quote(dest + "/" + dst)}')
     script.write_text('\n'.join(commands) + '\n')
     script.chmod(0o755)
 
