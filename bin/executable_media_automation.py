@@ -83,6 +83,16 @@ PAREN_YEAR_RE = re.compile(r'^(.+?)\s*\((\d{4})\)')
 DOT_YEAR_RE = re.compile(r'^(.+?)[.\s_](\d{4})[.\s_]')
 DOT_YEAR_END_RE = re.compile(r'^(.+?)[.\s_](\d{4})$')
 DASH_RE = re.compile(r'^(.+?)\s*-\s*(1080p|720p|2160p|mHD)', re.I)
+# "S018E30 Pokémon - Pikachu en vedette !" : le jeton ouvre le nom et le titre
+# suit. Le separateur consomme espaces et points mais PAS le tiret, pour que
+# "S01E01 - Titre" laisse un tiret en tete : signe qu'aucun nom de serie ne
+# precede et qu'il faut se rabattre sur le dossier parent.
+LEADING_EPISODE_RE = re.compile(
+    r'^S(?P<season>\d{1,3})[.\s_-]?E(?P<episode>\d{1,3})'
+    r'(?:[-.\s_]?E(?P<episode2>\d{1,3}))?(?=[.\s_-]|$)[.\s_]*(?P<title>.*)$',
+    re.I,
+)
+
 EPISODE_PATTERNS = [
     re.compile(r'^(?P<title>.+?)[.\s_-]+S(?P<season>\d{1,2})E(?P<episode>\d{1,3})(?:E(?P<episode2>\d{1,3}))?', re.I),
     re.compile(r'^(?P<title>.+?)[.\s_-]+(?P<season>\d{1,2})x(?P<episode>\d{1,3})(?:-(?P<episode2>\d{1,3}))?', re.I),
@@ -640,6 +650,23 @@ def parse_episode_filename(filename, parent_name=None):
     """Extract series title, season and episode numbers from common TV patterns."""
     name = re.sub(r'\.(mkv|mp4|avi|wmv|m4v|mov|srt|sub|idx|ass|ssa)$', '', filename, flags=re.I)
     name = name.replace('_', ' ').strip()
+
+    # Jeton en tete de nom : la serie, si elle est la, precede le titre d'episode.
+    leading = LEADING_EPISODE_RE.match(name)
+    if leading:
+        reste = (leading.group('title') or '').strip()
+        # Un tiret en tete signale que le titre d'episode suit directement,
+        # sans nom de serie : on prend alors celui du dossier parent.
+        serie = '' if reste.startswith('-') else reste.split(' - ')[0]
+        title = clean_series_title(serie) if serie else ''
+        if not title and parent_name:
+            title = clean_series_title(parent_name)
+        if title:
+            episodes = [int(leading.group('episode'))]
+            if leading.group('episode2'):
+                episodes.append(int(leading.group('episode2')))
+            return title, int(leading.group('season')), episodes
+
     for pattern in EPISODE_PATTERNS:
         match = pattern.match(name)
         if not match:

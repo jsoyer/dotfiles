@@ -72,6 +72,36 @@ class EpisodesMustParse(unittest.TestCase):
             with self.subTest(name=name):
                 self.assertEqual(ma.parse_episode_filename(name, name), (title, season, episodes))
 
+    # Jeton SxxExx en tete de nom, rencontre en conditions reelles sur un
+    # episode depose a la main : le parseur le rejetait faute de titre devant.
+    LEADING_TOKEN = [
+        ('S018E30 Pokémon - Pikachu en vedette !.mp4', 'Pokémon', 18, [30]),
+        ('S01E05 Breaking Bad - Un titre.mkv', 'Breaking Bad', 1, [5]),
+        ('S1E5 Show - Titre.mkv', 'Show', 1, [5]),
+        ('S05E01E02 Show - Double.mkv', 'Show', 5, [1, 2]),
+    ]
+
+    def test_leading_token_is_parsed(self):
+        for name, title, season, episodes in self.LEADING_TOKEN:
+            with self.subTest(name=name):
+                self.assertEqual(ma.parse_episode_filename(name, 'peu importe'),
+                                 (title, season, episodes))
+
+    def test_leading_token_without_show_falls_back_to_parent(self):
+        # "S18E30 - Titre" ne nomme pas la serie : le tiret en tete l'indique.
+        parsed = ma.parse_episode_filename('S18E30 - Pikachu en vedette !.mp4', 'Pokemon')
+        self.assertEqual(parsed, ('Pokemon', 18, [30]))
+
+    def test_leading_token_does_not_swallow_the_episode_title(self):
+        # Sans le garde-fou, "Pikachu en vedette" serait pris pour la serie.
+        title, _, _ = ma.parse_episode_filename('S18E30 - Pikachu en vedette !.mp4', 'Pokemon')
+        self.assertNotIn('Pikachu', title)
+
+    def test_classic_naming_still_wins(self):
+        # Le motif en tete ne doit pas perturber les noms de release habituels.
+        self.assertEqual(ma.parse_episode_filename('Breaking.Bad.S03E07.1080p.mkv', 'x'),
+                         ('Breaking Bad', 3, [7]))
+
     def test_season_hint_comes_from_parent_directory(self):
         parsed = ma.parse_episode_filename('Show.E05.mkv', 'Show.Season.3.1080p')
         self.assertEqual(parsed, ('Show', 3, [5]))
