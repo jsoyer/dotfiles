@@ -159,6 +159,21 @@ class AbsoluteNumbering(unittest.TestCase):
             with self.subTest(name=name):
                 self.assertEqual(self.plan.extract_absolute(name), expected)
 
+    # Real names from a season-organised One Piece library. Numbers live in the
+    # episode titles; reading them as absolute filed episodes into wrong seasons.
+    SEASON_ORGANISED = [
+        'Season 17/One Piece - 17x53 - Rançon de 500 millions - La cible est Usoland !.mkv',
+        'Season 19/One Piece - 19x05 - Zéro et Quatre. Une confrontation avec le Germa 66 !.mkv',
+        'Season 19/One Piece - 19x60 - L\'armée maléfique. La transformation des Germa 66 !.mkv',
+        'Season 13/One Piece - 13x03 - La dure lutte de Brook.mkv',
+        'One Piece - S13E03 - Deja au format Infuse.mkv',
+    ]
+
+    def test_season_organised_names_are_not_read_as_absolute(self):
+        for name in self.SEASON_ORGANISED:
+            with self.subTest(name=name):
+                self.assertIsNone(self.plan.extract_absolute(name))
+
     def test_specials_are_excluded_from_the_table(self):
         self.assertEqual([row[0] for row in self.table], [1, 2, 3])
 

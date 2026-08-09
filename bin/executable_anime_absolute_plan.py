@@ -49,6 +49,9 @@ NOISE_RE = re.compile(
     re.I,
 )
 
+# A season/episode token ("13x03", "S13E03") disqualifies absolute parsing.
+SEASON_EPISODE_TOKEN_RE = re.compile(r'(?:^|[\s._-])(?:\d{1,2}x\d{1,3}|S\d{1,2}E\d{1,3})(?=[\s._-]|$)', re.I)
+
 # Absolute episode number, tried in order of decreasing confidence.
 # `(?:v\d)?` absorbs the release revision glued to the number ("1000v2").
 ABSOLUTE_PATTERNS = [
@@ -80,7 +83,16 @@ def absolute_to_season_episode(absolute, table):
 
 
 def extract_absolute(filename):
-    """Extract the absolute episode number from a release filename."""
+    """Extract the absolute episode number from a release filename.
+
+    Returns None when the name already carries a season/episode token: such a
+    file belongs to a season-organised library, and the numbers left in its
+    title are part of the title. Without this guard "One Piece - 17x53 -
+    Rancon de 500 millions" reads as absolute episode 500 and gets filed into
+    another season entirely -- observed on a real library.
+    """
+    if SEASON_EPISODE_TOKEN_RE.search(Path(filename).stem):
+        return None
     stem = Path(filename).stem
     # Drop bracketed group prefix: "[SubsPlease] One Piece - 1100" -> "One Piece - 1100"
     stem = re.sub(r'^\s*\[[^\]]+\]\s*', ' ', stem)
