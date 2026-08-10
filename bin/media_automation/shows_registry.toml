@@ -14,7 +14,7 @@ name = "One Piece"
 # Variantes rencontrees dans les noms de release, comparees en debut de nom.
 aliases = ["One Piece", "One.Piece"]
 numbering = "absolute"
-destination = "gdrive:Infuse/One Piece"
+destination = "gdrive:Infuse/One Piece (1999)"
 mapping = "onepiece-mapping.json"
 # Frontieres de saisons issues de l'ordre TheTVDB, publie gratuitement par TMDb
 # sous forme de groupe d'episodes. Sans lui, une table deduite de la
