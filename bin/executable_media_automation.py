@@ -1166,11 +1166,25 @@ def search_tmdb_tv(title, year, api_key, language):
     if not results:
         return None
     if year:
-        for result in results:
-            first_air_date = result.get('first_air_date') or ''
-            if first_air_date.startswith(str(year)):
-                return result
-    return results[0]
+        millesime = [r for r in results
+                     if (r.get('first_air_date') or '').startswith(str(year))]
+        if millesime:
+            return _meilleur_candidat_tv(title, millesime)
+    return _meilleur_candidat_tv(title, results)
+
+
+def _meilleur_candidat_tv(query, results):
+    """Pick the best match instead of whatever TMDb happened to list first.
+
+    TMDb's ordering is not by relevance: searching "Attack on Titan" returns an
+    obscure chibi spin-off ahead of the actual series, which is far more popular.
+    An exact title match wins outright; otherwise popularity decides.
+    """
+    cible = normalize(query)
+    exacts = [r for r in results
+              if cible in {normalize(r.get('name') or ''), normalize(r.get('original_name') or '')}]
+    lot = exacts or results
+    return max(lot, key=lambda r: r.get('popularity') or 0)
 
 
 def get_tmdb_tv_details(tv_id, api_key, language):

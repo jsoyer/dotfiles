@@ -110,6 +110,43 @@ class EpisodesMustParse(unittest.TestCase):
         self.assertEqual(ma.parse_episode_filename('Show.E05.mkv', 'Show')[1], 1)
 
 
+class TmdbCandidateChoice(unittest.TestCase):
+    """TMDb ne classe pas ses resultats par pertinence : il faut choisir."""
+
+    # Reproduit le cas reel : chercher "Attack on Titan" renvoie un spin-off
+    # chibi avant la vraie serie, bien plus populaire.
+    RESULTATS = [
+        {'id': 224499, 'name': 'ちみキャラ劇場', 'original_name': 'ちみキャラ劇場', 'popularity': 5},
+        {'id': 63510, 'name': "L'Attaque des Titans - Junior High School",
+         'original_name': 'Attack on Titan: Junior High', 'popularity': 9},
+        {'id': 1429, 'name': "L'Attaque des Titans",
+         'original_name': 'Attack on Titan', 'popularity': 29},
+    ]
+
+    def test_popularity_beats_tmdb_ordering(self):
+        choisi = ma._meilleur_candidat_tv('Attack on Titan', self.RESULTATS)
+        self.assertEqual(choisi['id'], 1429)
+
+    def test_exact_title_wins_over_a_more_popular_one(self):
+        resultats = [
+            {'id': 1, 'name': 'Dragon Ball Z', 'original_name': 'Dragon Ball Z', 'popularity': 68},
+            {'id': 2, 'name': 'Dragon Ball', 'original_name': 'Dragon Ball', 'popularity': 20},
+        ]
+        self.assertEqual(ma._meilleur_candidat_tv('Dragon Ball', resultats)['id'], 2)
+
+    def test_original_title_also_counts_as_exact(self):
+        resultats = [
+            {'id': 1, 'name': 'Autre chose', 'original_name': 'Autre', 'popularity': 90},
+            {'id': 2, 'name': "L'Attaque des Titans",
+             'original_name': 'Attack on Titan', 'popularity': 29},
+        ]
+        self.assertEqual(ma._meilleur_candidat_tv('Attack on Titan', resultats)['id'], 2)
+
+    def test_missing_popularity_does_not_crash(self):
+        resultats = [{'id': 1, 'name': 'Sans note'}, {'id': 2, 'name': 'Autre', 'popularity': 3}]
+        self.assertEqual(ma._meilleur_candidat_tv('Inconnu', resultats)['id'], 2)
+
+
 class TitleCleaning(unittest.TestCase):
     """Release noise must be stripped before querying TMDb."""
 

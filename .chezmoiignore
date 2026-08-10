@@ -65,6 +65,7 @@ bin/media_automation.py
 bin/audit_seasonless.sh
 bin/test_media_automation.py
 bin/anime_absolute_plan.py
+bin/anime_folder_plan.py
 bin/infuse_rename_plan.py
 bin/media_absolute_shows.py
 bin/media_absolute_refresh.py
