@@ -422,5 +422,49 @@ class SanitizeLeavesNoGapBehind(unittest.TestCase):
         self.assertEqual(ma.sanitize('Pokemon (1997)'), 'Pokemon (1997)')
 
 
+class TheBulkRenamerSpeaksTheImportersLanguage(unittest.TestCase):
+    """The library-wide renamer must build the exact name the importer would.
+
+    Origin: its first version reconstructed the name by hand instead of calling
+    the importer, and silently dropped the second number of a double episode --
+    'S02E01-E02' became 'S02E01', which makes an episode vanish from the
+    library without anything looking wrong. A rule copied is a rule that drifts;
+    these tests pin the two to a single source.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        import serie_renommer
+        cls.outil = serie_renommer
+
+    def test_base_name_matches_the_importer(self):
+        attendu = ma.get_episode_target_name(Path('x.mkv'), 'Serie', 1, [1], 'Un titre')
+        self.assertEqual(self.outil.base_cible('Serie', 1, [1], 'Un titre') + '.mkv',
+                         attendu)
+
+    def test_double_episode_keeps_both_numbers(self):
+        self.assertEqual(self.outil.base_cible('Serie', 2, [5, 6], 'Double'),
+                         'Serie - S02E05-E06 - Double')
+
+    def test_series_name_is_sanitised_by_the_shared_rule(self):
+        self.assertEqual(self.outil.base_cible('Ma : Serie', 1, [1], 'Titre'),
+                         'Ma Serie - S01E01 - Titre')
+
+    def test_the_range_is_captured_not_truncated(self):
+        found = self.outil.CODE.search('Serie - S02E05-E06 - Double.mkv')
+        self.assertEqual((found.group('s'), found.group('e'), found.group('e2')),
+                         ('02', '05', '06'))
+
+    def test_long_running_numbering_survives(self):
+        found = self.outil.CODE.search('Detective Conan S01E1109.mkv')
+        self.assertEqual(found.group('e'), '1109')
+
+    def test_episode_thumbnail_suffix_is_preserved(self):
+        self.assertEqual(self.outil.suffixe_de('X - S01E01-thumb.jpg'), '-thumb.jpg')
+
+    def test_a_plain_extension_is_returned_otherwise(self):
+        self.assertEqual(self.outil.suffixe_de('X - S01E01.mkv'), '.mkv')
+
+
 if __name__ == '__main__':
     unittest.main(verbosity=2)

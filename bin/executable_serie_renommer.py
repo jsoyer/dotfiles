@@ -1,14 +1,21 @@
 #!/usr/bin/env python3
-"""Applique a une serie entiere la convention « Serie - SxxExx - Titre.ext ».
+"""Applique a une serie deja rangee la convention de nommage de l'importeur.
 
-Un code nu ne dit rien au spectateur, et il rend un episode mal range
-indetectable a l'oeil : le numero est alors le seul indice, et c'est justement
-ce a quoi on ne peut pas se fier quand un import a derape. Le titre vient de
-TMDb, source unique deja utilisee pour ranger la bibliotheque.
+L'importeur nomme desormais chaque arrivee d'apres son titre ; la bibliotheque
+dont il a herite, elle, porte des codes nus. Cet outil applique la meme regle
+apres coup, serie par serie.
 
-L'outil est idempotent : un fichier deja conforme est laisse tel quel. Il ne
-renomme jamais vers une cible existante, et signale chaque titre introuvable
-plutot que d'inventer un nom.
+La regle n'est pas reecrite ici : elle est empruntee a media_automation, seule
+source de verite, deja fixee par sa batterie de tests. Une regle recopiee est
+une regle qui divergera — la premiere version de cet outil reconstruisait le nom
+a la main et perdait le second numero des episodes doubles, transformant
+« S02E01-E02 » en « S02E01 » et faisant disparaitre un episode de la
+bibliotheque.
+
+L'outil est idempotent : un fichier deja conforme est laisse tel quel, un
+passage peut donc etre repris ou relance sans plan intermediaire. Il ne renomme
+jamais vers une cible existante, et un titre que TMDb ne fournit pas laisse le
+code nu en place plutot que d'etre invente.
 
 Sans --appliquer, rien n'est touche.
 """
@@ -20,15 +27,36 @@ import urllib.request
 from collections import defaultdict
 from pathlib import Path
 
-CODE = re.compile(r'S(?P<s>\d{2})E(?P<e>\d{2,4})(?!\d)')
-ILLEGAL = re.compile(r'[\\/:*?"<>|]')
-# Les vignettes et jaquettes portent un suffixe qui fait partie de leur identite
-# pour Emby : il doit survivre au renommage.
-SUFFIXES_ART = ('-thumb.jpg', '-poster.jpg', '-fanart.jpg', '-banner.jpg')
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import media_automation as ma  # noqa: E402
+
+# Le code complet, plage d'episodes doubles comprise. La garde finale evite de
+# lire « S01E1109 » comme « S01E110 » sur les series longues.
+CODE = re.compile(r'S(?P<s>\d{2})E(?P<e>\d{2,4})(?:-E(?P<e2>\d{2,4}))?(?!\d)')
+VIDEO = ('.mkv', '.mp4', '.avi', '.wmv', '.m4v', '.mov')
+# Suffixes d'illustration propres a un episode : ils font partie de ce sur quoi
+# Emby apparie, et doivent suivre leur episode plutot qu'etre pris pour une
+# extension.
+SUFFIXES_ART = ('-thumb.jpg', '-thumb.png', '-poster.jpg', '-landscape.jpg')
 
 
-def sanitize(nom):
-    return re.sub(r'\s+', ' ', ILLEGAL.sub('', nom)).strip()
+def suffixe_de(nom):
+    """Renvoie le suffixe complet d'un fichier, illustration d'episode comprise."""
+    for suffixe in SUFFIXES_ART:
+        if nom.lower().endswith(suffixe):
+            return nom[-len(suffixe):]
+    return Path(nom).suffix
+
+
+def base_cible(serie, saison, episodes, titre):
+    """Nom de base d'un episode, tel que l'importeur le construirait.
+
+    On passe par get_episode_target_name pour que l'outil et l'importeur ne
+    puissent pas diverger, puis on retire l'extension : les annexes s'y
+    raccrochent ensuite avec leur propre suffixe.
+    """
+    nom = ma.get_episode_target_name(Path('x.mkv'), serie, saison, episodes, titre)
+    return nom[:-len('.mkv')]
 
 
 def titres_de_saison(tv_id, saison, cle, cache):
@@ -38,22 +66,13 @@ def titres_de_saison(tv_id, saison, cle, cache):
            f'?api_key={cle}&language=fr-FR')
     try:
         with urllib.request.urlopen(url, timeout=90) as r:
-            charge = json.loads(r.read().decode())
-        cache[saison] = {e['episode_number']: e['name'] for e in charge['episodes']}
+            cache[saison] = {e['episode_number']: e['name']
+                             for e in json.loads(r.read().decode())['episodes']}
     except Exception:
-        # Une saison inconnue de TMDb n'est pas une erreur fatale : les episodes
-        # concernes garderont leur code nu, et seront comptes comme tels.
+        # Une saison inconnue de TMDb n'est pas fatale : ces episodes garderont
+        # leur code nu, et seront comptes comme tels.
         cache[saison] = {}
     return cache[saison]
-
-
-def decouper(nom):
-    """Separe le corps du nom de son suffixe (extension ou suffixe d'illustration)."""
-    for suffixe in SUFFIXES_ART:
-        if nom.endswith(suffixe):
-            return nom[:-len(suffixe)], suffixe
-    chemin = Path(nom)
-    return chemin.stem, chemin.suffix
 
 
 def main():
@@ -83,47 +102,54 @@ def main():
                 dossier.rename(cible)
                 dossier = cible
 
-    cache, operations, deja, sans_titre, conflits = {}, [], 0, [], []
+    cache = {}
+    groupes = defaultdict(list)
     for chemin in sorted(dossier.rglob('*')):
         if not chemin.is_file():
             continue
         m = CODE.search(chemin.name)
-        if not m:
-            continue
-        saison, numero = int(m.group('s')), int(m.group('e'))
-        titre = sanitize(titres_de_saison(args.tmdb_id, saison, args.cle, cache).get(numero, ''))
-        corps, suffixe = decouper(chemin.name)
-        base = f'S{saison:02d}E{numero:02d}'
-        attendu = f'{args.serie} - {base} - {titre}' if titre else f'{args.serie} - {base}'
+        if m:
+            groupes[m.group(0)].append((chemin, m))
+
+    renommes, deja, sans_titre, conflits = 0, 0, [], []
+    for code in sorted(groupes):
+        chemins = groupes[code]
+        _, m = chemins[0]
+        saison = int(m.group('s'))
+        episodes = [int(m.group('e'))]
+        if m.group('e2'):
+            episodes.append(int(m.group('e2')))
+        titre = titres_de_saison(args.tmdb_id, saison, args.cle, cache).get(episodes[0], '')
         if not titre:
-            sans_titre.append(f'S{saison:02d}E{numero:02d}')
-        if corps == attendu:
-            deja += 1
-            continue
-        cible = chemin.with_name(f'{attendu}{suffixe}')
-        if cible.exists():
-            conflits.append((chemin.name, cible.name))
-            continue
-        operations.append((chemin, cible))
+            sans_titre.append(code)
+        base = base_cible(args.serie, saison, episodes, titre)
 
-    par_episode = defaultdict(list)
-    for chemin, cible in operations:
-        par_episode[CODE.search(chemin.name).group(0)].append((chemin, cible))
-
-    for code in sorted(par_episode):
-        chemin, cible = par_episode[code][0]
-        autres = len(par_episode[code]) - 1
-        extra = f'  (+{autres} annexe(s))' if autres else ''
-        print(f'  {chemin.name[:46]:<46} -> {cible.name[:58]}{extra}')
+        mouvements = []
+        for chemin, _ in chemins:
+            cible = chemin.with_name(f'{base}{suffixe_de(chemin.name)}')
+            if cible == chemin:
+                deja += 1
+            elif cible.exists():
+                conflits.append((chemin.name, cible.name))
+            else:
+                mouvements.append((chemin, cible))
+        if not mouvements:
+            continue
+        principal = next((c for c, _ in mouvements if c.suffix.lower() in VIDEO),
+                         mouvements[0][0])
+        annexes = len(mouvements) - 1
+        print(f'  {principal.name[:46]:<46} -> {base[:56]}'
+              + (f'  (+{annexes} annexe(s))' if annexes else ''))
         if args.appliquer:
-            for source, destination in par_episode[code]:
+            for source, destination in mouvements:
                 source.rename(destination)
+        renommes += 1
 
-    print(f'\n  {len(par_episode)} episode(s) renomme(s), {len(operations)} fichier(s)')
+    print(f'\n  {renommes} episode(s) renomme(s)')
     print(f'  {deja} fichier(s) deja conforme(s)')
     if sans_titre:
-        uniques = sorted(set(sans_titre))
-        print(f'  {len(uniques)} episode(s) sans titre chez TMDb : {", ".join(uniques[:12])}')
+        print(f'  {len(sans_titre)} episode(s) sans titre chez TMDb : '
+              f'{", ".join(sorted(sans_titre)[:12])}')
     for source, cible in conflits:
         print(f'  CONFLIT : {source} -> {cible} existe deja')
     return 1 if conflits else 0
