@@ -340,5 +340,87 @@ class AbsoluteShowRegistry(unittest.TestCase):
         self.assertIn('--tpslimit', command)
 
 
+class EpisodeFilenamesCarryTheirTitle(unittest.TestCase):
+    """Imported episodes must be named like the rest of the library.
+
+    Origin: a freshly imported episode landed as "Pokemon - S01E18.mkv" while
+    every file around it carried its title. A bare code tells the viewer
+    nothing, and it makes a misfiled episode impossible to spot by eye — the
+    only clue that something is wrong would be the number itself, which is
+    precisely what one cannot trust when the import went astray.
+    """
+
+    def target(self, suffix='.mkv', **extra):
+        return ma.get_episode_target_name(
+            Path(f'source{suffix}'), 'Pokemon', 8, [9], **extra)
+
+    def test_title_is_embedded(self):
+        self.assertEqual(self.target(episode_title='Le vieux loup de mer'),
+                         'Pokemon - S08E09 - Le vieux loup de mer.mkv')
+
+    def test_absent_title_falls_back_to_the_bare_code(self):
+        self.assertEqual(self.target(), 'Pokemon - S08E09.mkv')
+
+    def test_blank_title_counts_as_absent(self):
+        self.assertEqual(self.target(episode_title='   '), 'Pokemon - S08E09.mkv')
+
+    def test_illegal_characters_in_the_title_are_stripped(self):
+        # TMDb titles routinely carry ':' and '?', which no filesystem accepts.
+        self.assertEqual(self.target(episode_title='Qui vole un <oeuf> : la suite ?'),
+                         'Pokemon - S08E09 - Qui vole un oeuf la suite.mkv')
+
+    def test_double_episode_keeps_the_range(self):
+        self.assertEqual(
+            ma.get_episode_target_name(Path('x.mkv'), 'Pokemon', 2, [5, 6],
+                                       episode_title='Deux en un'),
+            'Pokemon - S02E05-E06 - Deux en un.mkv')
+
+    def test_nfo_follows_the_same_convention(self):
+        self.assertEqual(self.target(suffix='.nfo', episode_title='Le vieux loup de mer'),
+                         'Pokemon - S08E09 - Le vieux loup de mer.nfo')
+
+    def test_series_name_is_sanitised_like_its_directory(self):
+        # import_tv_item sanitises the directory name but passed the raw one to
+        # the file, so the same series carried two spellings on disk — and a
+        # colon, legal on Linux but not on the SMB shares that serve it.
+        self.assertEqual(
+            ma.get_episode_target_name(Path('x.mkv'), 'Pokemon : Les horizons', 1, [18],
+                                       episode_title='Vole Pikachu'),
+            'Pokemon Les horizons - S01E18 - Vole Pikachu.mkv')
+
+    def test_artwork_is_left_alone(self):
+        # Cover art is named by its own rules; a title there would break Emby.
+        self.assertEqual(
+            ma.get_episode_target_name(Path('poster.jpg'), 'Pokemon', 8, [9],
+                                       episode_title='Un titre'),
+            ma.get_episode_target_name(Path('poster.jpg'), 'Pokemon', 8, [9]))
+
+
+class SanitizeLeavesNoGapBehind(unittest.TestCase):
+    """Removing an illegal character must not leave a hole in its place.
+
+    Origin: TMDb calls the series "Pokemon : Les horizons". Dropping the colon
+    left behind the two spaces that surrounded it, and the library grew a
+    directory named "Pokemon  Les horizons (2023)" — indistinguishable from the
+    correct name to the eye, yet a different string for every tool that
+    compares paths.
+    """
+
+    def test_a_spaced_colon_does_not_leave_a_double_space(self):
+        self.assertEqual(ma.sanitize('Pokemon : Les horizons'), 'Pokemon Les horizons')
+
+    def test_an_unspaced_colon_keeps_the_single_space(self):
+        self.assertEqual(ma.sanitize('Pokemon: les Origines'), 'Pokemon les Origines')
+
+    def test_illegal_characters_are_still_removed(self):
+        self.assertEqual(ma.sanitize('A/B\\C*D?E"F<G>H|I'), 'ABCDEFGHI')
+
+    def test_surrounding_whitespace_is_still_trimmed(self):
+        self.assertEqual(ma.sanitize('  Titre  '), 'Titre')
+
+    def test_ordinary_names_are_left_untouched(self):
+        self.assertEqual(ma.sanitize('Pokemon (1997)'), 'Pokemon (1997)')
+
+
 if __name__ == '__main__':
     unittest.main(verbosity=2)

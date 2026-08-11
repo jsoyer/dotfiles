@@ -209,8 +209,14 @@ class ImportSummary:
 
 
 def sanitize(name):
-    """Remove illegal filesystem characters."""
-    return ILLEGAL_CHARS.sub('', name).strip()
+    """Remove illegal filesystem characters, leaving no hole where they stood.
+
+    TMDb writes "Pokemon : Les horizons". Dropping the colon alone would leave
+    the two spaces that framed it, and the library grows a directory whose name
+    is indistinguishable to the eye from the correct one — yet a different
+    string for every tool that compares paths. Whitespace runs are collapsed.
+    """
+    return re.sub(r'\s+', ' ', ILLEGAL_CHARS.sub('', name)).strip()
 
 
 def normalize(text):
@@ -1459,9 +1465,19 @@ def build_episode_code(season_number, episodes):
     return f"{base}-E{episodes[-1]:02d}"
 
 
-def get_episode_target_name(path, series_name, season_number, episodes):
-    """Build the destination filename for an imported TV/anime episode asset."""
+def get_episode_target_name(path, series_name, season_number, episodes, episode_title=None):
+    """Build the destination filename for an imported TV/anime episode asset.
+
+    The title belongs in the name. A bare code says nothing to the viewer, and
+    it makes a misfiled episode impossible to spot by eye — the only clue left
+    would be the number, which is precisely what cannot be trusted when an
+    import went astray. When TMDb has no title to offer, the bare code stands.
+    """
     episode_code = build_episode_code(season_number, episodes)
+    title = sanitize(episode_title or '')
+    if title:
+        episode_code = f"{episode_code} - {title}"
+    series_name = sanitize(series_name)
     ext = path.suffix.lower()
     if ext in ('.srt', '.sub', '.idx', '.ass', '.ssa', '.mkv', '.mp4', '.avi', '.wmv', '.m4v', '.mov'):
         return f"{series_name} - {episode_code}{path.suffix}"
@@ -1577,10 +1593,35 @@ def import_tv_item(item, config, dry_run, summary):
     if not dry_run:
         season_dir.mkdir(parents=True, exist_ok=True)
 
+    # The title must be known before anything moves: it goes into every
+    # destination filename, and a file already renamed would need a second pass
+    # to gain it. TMDb answers 404 whenever the release numbers its seasons
+    # differently than TMDb does — that must cost the episode its title and
+    # nothing more, the file itself being perfectly valid.
+    episode_details = None
+    if config.fetch_metadata:
+        try:
+            episode_details = get_tmdb_episode_details(
+                details['id'],
+                season_number,
+                episodes[0],
+                config.tmdb_api_key,
+                config.tmdb_language,
+            )
+        except Exception as exc:  # noqa: BLE001 - a missing title never blocks an import
+            log_message(
+                f"    [WARN] TMDb has no {build_episode_code(season_number, episodes)} "
+                f"for {series_name}: {exc}",
+                'warning',
+            )
+    episode_title = (episode_details or {}).get('name')
+
     moved_now = 0
     for related in item.related_files:
         destination_parent = show_dir if related.suffix.lower() in ('.jpg', '.png', '.svg') else season_dir
-        new_name = get_episode_target_name(related, series_name, season_number, episodes)
+        new_name = get_episode_target_name(
+            related, series_name, season_number, episodes, episode_title
+        )
         moved_path = safe_move(related, destination_parent / new_name, dry_run)
         if moved_path is not None:
             moved_now += 1
@@ -1593,19 +1634,19 @@ def import_tv_item(item, config, dry_run, summary):
             write_tmdb_tvshow_nfo(show_nfo_path, details)
         fetch_tmdb_assets(details, show_dir, dry_run=dry_run, language=config.tmdb_language)
 
-        episode_details = get_tmdb_episode_details(
-            details['id'],
-            season_number,
-            episodes[0],
-            config.tmdb_api_key,
-            config.tmdb_language,
-        )
-        episode_nfo_name = get_episode_target_name(Path(f"episode{item.video_path.suffix}"), series_name, season_number, episodes)
-        episode_nfo_path = season_dir / Path(episode_nfo_name).with_suffix('.nfo')
-        if dry_run:
-            log_message(f"    FETCH {episode_nfo_path.name}")
-        else:
-            write_tmdb_episode_nfo(episode_nfo_path, details, episode_details, season_number, episodes[0])
+        # episode_details was fetched before the move, above. Without it there is
+        # nothing to describe, so the episode NFO is skipped rather than written
+        # empty — the warning has already been logged.
+        if episode_details is not None:
+            episode_nfo_name = get_episode_target_name(
+                Path(f"episode{item.video_path.suffix}"), series_name,
+                season_number, episodes, episode_title,
+            )
+            episode_nfo_path = season_dir / Path(episode_nfo_name).with_suffix('.nfo')
+            if dry_run:
+                log_message(f"    FETCH {episode_nfo_path.name}")
+            else:
+                write_tmdb_episode_nfo(episode_nfo_path, details, episode_details, season_number, episodes[0])
 
     summary.imported_items += 1
     summary.moved_files += moved_now
