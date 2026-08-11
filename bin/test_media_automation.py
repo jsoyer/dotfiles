@@ -466,5 +466,60 @@ class TheBulkRenamerSpeaksTheImportersLanguage(unittest.TestCase):
         self.assertEqual(self.outil.suffixe_de('X - S01E01.mkv'), '.mkv')
 
 
+class AYearFromASeasonFolderMustNotHideTheSeries(unittest.TestCase):
+    """A release folder names the season's year, not the series' first year.
+
+    Origin: 'Saison 21 (2016) - VOSTFR - YakuboEncodes' handed the importer 2016
+    as a first-air-date hint for Detective Conan, which began in 1996. TMDb
+    answered with an empty list, search_tmdb_tv gave up before trying anything
+    else, and 119 episodes were rejected as 'no TMDb TV match' -- a total
+    rejection that reported zero errors, so nothing looked broken.
+
+    A year is a hint, never a requirement: when it yields nothing, the search
+    must be retried without it.
+    """
+
+    def rejouer(self, annee, reponses):
+        """Substitue une couche reseau deterministe le temps d'un appel."""
+        appels = []
+
+        def faux_request(path, api_key, params):
+            appels.append(dict(params))
+            return reponses('first_air_date_year' in params)
+
+        original = ma.tmdb_request
+        ma.tmdb_request = faux_request
+        try:
+            return ma.search_tmdb_tv('Detective Conan', annee, 'cle', 'fr-FR'), appels
+        finally:
+            ma.tmdb_request = original
+
+    CONAN = {'id': 30983, 'name': 'Détective Conan', 'popularity': 50.0,
+             'first_air_date': '1996-01-08'}
+
+    def test_a_year_that_finds_nothing_is_retried_without_it(self):
+        trouve, appels = self.rejouer(
+            '2016', lambda avec_annee: {'results': [] if avec_annee else [self.CONAN]})
+        self.assertIsNotNone(trouve, "la serie doit etre retrouvee sans l'annee")
+        self.assertEqual(trouve['id'], 30983)
+        self.assertEqual(len(appels), 2, 'une seconde recherche, sans annee, est attendue')
+        self.assertNotIn('first_air_date_year', appels[1])
+
+    def test_a_year_that_works_is_not_retried(self):
+        trouve, appels = self.rejouer('1996', lambda _: {'results': [self.CONAN]})
+        self.assertEqual(trouve['id'], 30983)
+        self.assertEqual(len(appels), 1, 'aucune recherche superflue quand la premiere aboutit')
+
+    def test_a_genuinely_unknown_title_still_returns_nothing(self):
+        trouve, appels = self.rejouer('2016', lambda _: {'results': []})
+        self.assertIsNone(trouve)
+        self.assertEqual(len(appels), 2)
+
+    def test_without_a_year_a_single_search_is_made(self):
+        trouve, appels = self.rejouer(None, lambda _: {'results': [self.CONAN]})
+        self.assertEqual(trouve['id'], 30983)
+        self.assertEqual(len(appels), 1)
+
+
 if __name__ == '__main__':
     unittest.main(verbosity=2)

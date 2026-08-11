@@ -1163,12 +1163,24 @@ def get_tmdb_movie_details(movie_id, api_key, language):
 
 
 def search_tmdb_tv(title, year, api_key, language):
-    """Search TMDb for a TV show candidate."""
+    """Search TMDb for a TV show candidate.
+
+    The year is a hint, never a requirement. Release folders name the year of
+    the season they contain, not the year the series began: 'Saison 21 (2016)'
+    of Detective Conan handed 2016 to a series that started in 1996, TMDb
+    answered with an empty list, and every episode of the pack was rejected as
+    unknown. So a year that finds nothing is dropped and the search retried.
+    """
     params = {'query': title, 'language': language}
     if year:
         params['first_air_date_year'] = year
     payload = tmdb_request('/search/tv', api_key, params)
     results = payload.get('results', [])
+    if not results and year:
+        year = None
+        results = tmdb_request(
+            '/search/tv', api_key, {'query': title, 'language': language}
+        ).get('results', [])
     if not results:
         return None
     if year:
