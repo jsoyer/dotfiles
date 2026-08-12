@@ -1137,7 +1137,14 @@ def tmdb_request(path, api_key, params):
 
 
 def search_tmdb_movie(title, year, api_key, language):
-    """Search TMDb for a movie candidate."""
+    """Search TMDb for a movie candidate, choosing rather than taking the first.
+
+    TMDb does not order by relevance: 'X-Men' with year 2000 returns
+    'X-Men: The Mutant Watch', a making-of, ahead of the film. Series have long
+    been protected from this — an obscure chibi spin-off once outranked Attack
+    on Titan — but movies were not, so an import could file a feature under its
+    own documentary.
+    """
     params = {'query': title, 'language': language}
     if year:
         params['year'] = year
@@ -1146,11 +1153,20 @@ def search_tmdb_movie(title, year, api_key, language):
     if not results:
         return None
     if year:
-        for result in results:
-            release_date = result.get('release_date') or ''
-            if release_date.startswith(str(year)):
-                return result
-    return results[0]
+        millesime = [r for r in results
+                     if (r.get('release_date') or '').startswith(str(year))]
+        if millesime:
+            return _meilleur_candidat_film(title, millesime)
+    return _meilleur_candidat_film(title, results)
+
+
+def _meilleur_candidat_film(query, results):
+    """An exact title wins outright; otherwise popularity decides."""
+    cible = normalize(query)
+    exacts = [r for r in results
+              if cible in {normalize(r.get('title') or ''),
+                           normalize(r.get('original_title') or '')}]
+    return max(exacts or results, key=lambda r: r.get('popularity') or 0)
 
 
 def get_tmdb_movie_details(movie_id, api_key, language):

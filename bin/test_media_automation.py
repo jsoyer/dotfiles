@@ -565,5 +565,49 @@ class LongRunningSeriesMustNotBeTruncated(unittest.TestCase):
                          ('Détective Conan', 1, [1157]))
 
 
+class MoviesDeserveTheSameCareAsSeries(unittest.TestCase):
+    """A movie search must pick the film, not whatever TMDb lists first.
+
+    Origin: searching 'X-Men' with year 2000 returns 'X-Men: The Mutant Watch',
+    a making-of, ahead of the film itself. Series already had this protection --
+    an obscure chibi spin-off once outranked Attack on Titan -- but movies never
+    got it, so an import could file a feature under its own documentary.
+    """
+
+    FILM = {'id': 36657, 'title': 'X-Men', 'popularity': 40.0,
+            'release_date': '2000-07-13'}
+    MAKING_OF = {'id': 447399, 'title': 'X-Men : The Mutant Watch',
+                 'popularity': 1.2, 'release_date': '2000-11-21'}
+
+    def chercher(self, resultats, annee=None):
+        original = ma.tmdb_request
+        ma.tmdb_request = lambda path, api_key, params: {'results': resultats}
+        try:
+            return ma.search_tmdb_movie('X-Men', annee, 'cle', 'fr-FR')
+        finally:
+            ma.tmdb_request = original
+
+    def test_the_film_wins_over_a_documentary_listed_first(self):
+        trouve = self.chercher([self.MAKING_OF, self.FILM], annee=2000)
+        self.assertEqual(trouve['id'], 36657)
+
+    def test_exact_title_beats_a_more_popular_neighbour(self):
+        bruyant = {'id': 99, 'title': 'X-Men Origins', 'popularity': 900.0,
+                   'release_date': '2000-01-01'}
+        self.assertEqual(self.chercher([bruyant, self.FILM], annee=2000)['id'], 36657)
+
+    def test_without_an_exact_match_popularity_decides(self):
+        a = {'id': 1, 'title': 'Autre chose', 'popularity': 3.0}
+        b = {'id': 2, 'title': 'Encore autre chose', 'popularity': 50.0}
+        self.assertEqual(self.chercher([a, b])['id'], 2)
+
+    def test_an_empty_result_stays_empty(self):
+        self.assertIsNone(self.chercher([]))
+
+    def test_missing_popularity_does_not_crash(self):
+        muet = {'id': 7, 'title': 'Sans popularite'}
+        self.assertEqual(self.chercher([muet])['id'], 7)
+
+
 if __name__ == '__main__':
     unittest.main(verbosity=2)
