@@ -88,21 +88,21 @@ DASH_RE = re.compile(r'^(.+?)\s*-\s*(1080p|720p|2160p|mHD)', re.I)
 # "S01E01 - Titre" laisse un tiret en tete : signe qu'aucun nom de serie ne
 # precede et qu'il faut se rabattre sur le dossier parent.
 LEADING_EPISODE_RE = re.compile(
-    r'^S(?P<season>\d{1,3})[.\s_-]?E(?P<episode>\d{1,3})'
-    r'(?:[-.\s_]?E(?P<episode2>\d{1,3}))?(?=[.\s_-]|$)[.\s_]*(?P<title>.*)$',
+    r'^S(?P<season>\d{1,3})[.\s_-]?E(?P<episode>\d{1,4})(?!\d)'
+    r'(?:[-.\s_]?E(?P<episode2>\d{1,4}))?(?=[.\s_-]|$)[.\s_]*(?P<title>.*)$',
     re.I,
 )
 
 EPISODE_PATTERNS = [
-    re.compile(r'^(?P<title>.+?)[.\s_-]+S(?P<season>\d{1,2})E(?P<episode>\d{1,3})(?:E(?P<episode2>\d{1,3}))?', re.I),
+    re.compile(r'^(?P<title>.+?)[.\s_-]+S(?P<season>\d{1,2})E(?P<episode>\d{1,4})(?!\d)(?:[-.\s_]?E(?P<episode2>\d{1,4})(?!\d))?', re.I),
     re.compile(r'^(?P<title>.+?)[.\s_-]+(?P<season>\d{1,2})x(?P<episode>\d{1,3})(?:-(?P<episode2>\d{1,3}))?', re.I),
     # Season-less releases: "Show.1982.TV.Series.E01.MULTi.1080p", "Show - Ep05".
     # The episode token must stand alone (delimiter or end of name) to avoid
     # matching release-group suffixes. Season defaults to 1, or is taken from
     # the parent directory when it advertises one.
     re.compile(
-        r'^(?P<title>.+?)[.\s_-]+(?:E|EP|EPISODE)[.\s_-]?(?P<episode>\d{1,3})'
-        r'(?:[-.\s_]?E(?P<episode2>\d{1,3}))?(?=[.\s_-]|$)',
+        r'^(?P<title>.+?)[.\s_-]+(?:E|EP|EPISODE)[.\s_-]?(?P<episode>\d{1,4})(?!\d)'
+        r'(?:[-.\s_]?E(?P<episode2>\d{1,4})(?!\d))?(?=[.\s_-]|$)',
         re.I,
     ),
 ]

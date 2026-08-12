@@ -521,5 +521,49 @@ class AYearFromASeasonFolderMustNotHideTheSeries(unittest.TestCase):
         self.assertEqual(len(appels), 1)
 
 
+class LongRunningSeriesMustNotBeTruncated(unittest.TestCase):
+    """A four-digit episode number must be read whole, or episodes collide.
+
+    Origin: Detective Conan was converted to absolute numbering, and the
+    importer read 'S01E1157' as episode 115, dropping the trailing digit. Ten
+    episodes of the 1190s all became 'E119'; eight files landed on numbers that
+    already existed and were filed as '(2)', '(3)'... under someone else's
+    title. Nothing failed, nothing was logged: the library simply lost episodes
+    while its file count stayed right.
+
+    The same guard already protects the audit tools. It was missing where it
+    mattered most.
+    """
+
+    def parse(self, nom, parent=None):
+        return ma.parse_episode_filename(nom, parent)
+
+    def test_four_digit_episode_is_read_whole(self):
+        self.assertEqual(self.parse('Détective Conan - S01E1157 - Enquête à Ishikawa.mkv'),
+                         ('Détective Conan', 1, [1157]))
+
+    def test_the_highest_numbers_do_not_collapse(self):
+        for numero in (1190, 1199, 1200, 1209):
+            with self.subTest(numero=numero):
+                self.assertEqual(
+                    self.parse(f'Détective Conan - S01E{numero} - Titre.mkv')[2], [numero])
+
+    def test_three_digit_numbers_are_unaffected(self):
+        self.assertEqual(self.parse('Détective Conan - S01E115 - Titre.mkv')[2], [115])
+
+    def test_two_digit_numbers_are_unaffected(self):
+        self.assertEqual(self.parse('Pokemon - S08E09 - Titre.mkv')[2], [9])
+
+    def test_one_piece_absolute_numbering_survives(self):
+        self.assertEqual(self.parse('One Piece - S01E1109 - Titre.mkv')[2], [1109])
+
+    def test_double_episode_still_parses(self):
+        self.assertEqual(self.parse('Mr. Robot - S02E01-E02 - Titre.mkv')[2], [1, 2])
+
+    def test_a_leading_token_also_reads_four_digits(self):
+        self.assertEqual(self.parse('S01E1157 - Enquête à Ishikawa.mkv', 'Détective Conan'),
+                         ('Détective Conan', 1, [1157]))
+
+
 if __name__ == '__main__':
     unittest.main(verbosity=2)
