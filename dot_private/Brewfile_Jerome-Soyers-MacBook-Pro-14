@@ -1,0 +1,47 @@
+# Host overlay for Jerome-Soyers-MacBook-Pro-14 — extras beyond the shared base.
+# Managed by breww. Do not edit manually.
+tap "a7t-ai/poirot", "https://github.com/a7t-ai/homebrew-poirot.git", trusted: true
+tap "asmvik/formulae", "https://github.com/asmvik/homebrew-formulae.git", trusted: true
+tap "harvard-cns/orla", "https://github.com/harvard-cns/homebrew-orla.git", trusted: true
+tap "homebrew/aliases"
+tap "homebrew/bundle"
+tap "homebrew/cask"
+tap "homebrew/command-not-found"
+tap "homebrew/core"
+tap "homebrew/services"
+tap "reyamira/tap", "https://github.com/reyamira/homebrew-tap.git", trusted: true
+tap "stablyai/orca"
+brew "sdl2-compat"
+brew "herdr"
+brew "kimi-code", link: false
+brew "mactop"
+brew "models"
+brew "openspec", link: false
+brew "signal-cli"
+cask "antigravity"
+cask "antigravity-cli"
+cask "antigravity-ide"
+cask "bettercapture"
+cask "theboredteam/boring-notch/boring-notch", trusted: true
+cask "elgato-camera-hub"
+cask "elgato-stream-deck"
+cask "ledger-wallet"
+cask "logi-options+"
+cask "logitune"
+cask "stablyai/orca/orca", trusted: true
+cask "plaud"
+cask "zoom"
+mas "Amphetamine", id: 937984704
+mas "Developer", id: 640199958
+mas "FaceScreen", id: 6702028512
+mas "iMovie", id: 408981434
+mas "Keynote", id: 361285480
+mas "KeyScreen", id: 6753302381
+mas "Numbers", id: 361304891
+mas "Pages", id: 361309726
+mas "Parcel", id: 375589283
+mas "Presentify", id: 1507246666
+mas "Raycast Companion", id: 6738274497
+mas "Remote Desktop", id: 409907375
+mas "Save to Raindrop.io", id: 1549370672
+mas "Xcode", id: 497799835
