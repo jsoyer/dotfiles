@@ -41,6 +41,7 @@ import urllib.request
 import xml.etree.ElementTree as ET
 from collections import defaultdict
 from contextlib import contextmanager
+from datetime import date
 from dataclasses import dataclass, field
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
@@ -596,6 +597,17 @@ def parse_nfo_metadata(nfo_path):
         }
 
 
+def annee_plausible(valeur):
+    """Un film ne sort pas dans vingt ans.
+
+    « Ghost.In.The.Shell.SAC.2045.Sustainable.War.2021 » porte deux nombres a
+    quatre chiffres : 2045 appartient au titre, 2021 est l'annee. Accepter tout
+    jusqu'a 2099 faisait retenir le premier venu, tronquait le titre, et TMDb ne
+    connaissait evidemment aucun film sorti en 2045.
+    """
+    return 1900 <= int(valeur) <= date.today().year + 1
+
+
 def parse_filename(filename):
     """Extract title and year from a scene-style filename."""
     name = filename
@@ -603,30 +615,41 @@ def parse_filename(filename):
                    '-thumb', '-landscape', '-disc', '-backdrop']:
         name = name.split(suffix)[0]
     name = re.sub(r'\.(mkv|mp4|avi|jpg|png|svg|nfo|srt|sub|idx|ass)$', '', name, flags=re.I)
+    # Les etiquettes entre crochets encadrent le titre sans en faire partie :
+    # groupe de release en tete, mentions de qualite en queue. Les laisser
+    # empechait toute extraction — le fichier etait ecarte sans titre du tout.
+    name = re.sub(r'\[[^\]]*\]', ' ', name)
+    name = re.sub(r'\s+', ' ', name).strip(' .-_')
 
     m = PAREN_YEAR_RE.match(name)
-    if m:
+    if m and annee_plausible(m.group(2)):
         title = m.group(1).replace('.', ' ').replace('_', ' ').strip()
         return title, m.group(2)
 
-    m = DOT_YEAR_RE.match(name)
-    if m:
-        title = m.group(1).replace('.', ' ').replace('_', ' ').strip()
-        year = m.group(2)
-        if 1900 <= int(year) <= 2099:
-            return title, year
-
-    m = DOT_YEAR_END_RE.match(name)
-    if m:
-        title = m.group(1).replace('.', ' ').replace('_', ' ').strip()
-        year = m.group(2)
-        if 1900 <= int(year) <= 2099:
-            return title, year
+    # On parcourt tous les nombres a quatre chiffres et on retient le premier qui
+    # puisse etre une annee : ce qui precede est le titre, ceux qu'on a franchis
+    # lui appartiennent.
+    for trouve in re.finditer(r'[.\s_](\d{4})(?=[.\s_]|$)', name):
+        if not annee_plausible(trouve.group(1)):
+            continue
+        title = name[:trouve.start()].replace('.', ' ').replace('_', ' ').strip()
+        if title:
+            return title, trouve.group(1)
 
     m = DASH_RE.match(name)
     if m:
         title = m.group(1).replace('.', ' ').replace('_', ' ').strip()
         return title, None
+
+    # Dernier recours : ce qui subsiste une fois le bruit de release retire.
+    # Un fichier sans annee ni marqueur de qualite reconnu n'est pas pour autant
+    # sans titre — « Détective Conan - Le Cauchemar Noir de Jais » etait ecarte
+    # sans qu'aucune recherche n'ait seulement ete tentee. Mieux vaut une
+    # recherche qui echoue, elle se lit dans le journal.
+    reste = SERIES_TITLE_NOISE_RE.sub(' ', name.replace('.', ' ').replace('_', ' '))
+    reste = re.sub(r'\s+', ' ', reste).strip(' -.')
+    if len(reste) >= 3 and re.search(r'[^\W\d_]', reste):
+        return reste, None
 
     return None, None
 

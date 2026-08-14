@@ -609,5 +609,61 @@ class MoviesDeserveTheSameCareAsSeries(unittest.TestCase):
         self.assertEqual(self.chercher([muet])['id'], 7)
 
 
+class AYearInTheTitleIsNotAReleaseYear(unittest.TestCase):
+    """A four-digit number is only a year if it could plausibly be one.
+
+    Origin: 'Ghost.In.The.Shell.SAC.2045.Sustainable.War.2021...' was read as
+    the film 'Ghost In The Shell SAC' released in 2045. The title was truncated
+    at the first four digits it met, and TMDb naturally knew nothing of a film
+    released twenty years hence -- so the import was skipped.
+    """
+
+    def test_a_future_year_is_kept_in_the_title(self):
+        titre, annee = ma.parse_filename(
+            'Ghost.In.The.Shell.SAC.2045.Sustainable.War.2021.MULTi.1080p.H264-LiHDL.mkv')
+        self.assertEqual(annee, '2021')
+        self.assertIn('2045', titre)
+        self.assertIn('Sustainable War', titre)
+
+    def test_an_ordinary_release_still_parses(self):
+        self.assertEqual(ma.parse_filename('Matrix.1999.MULTi.1080p.BluRay.mkv'),
+                         ('Matrix', '1999'))
+
+    def test_the_parenthesised_form_is_untouched(self):
+        self.assertEqual(ma.parse_filename('Un Film (2002).mkv'), ('Un Film', '2002'))
+
+    def test_a_lone_implausible_year_is_not_taken_as_one(self):
+        titre, annee = ma.parse_filename('Blade.Runner.2049.2017.MULTi.1080p.mkv')
+        self.assertEqual(annee, '2017')
+        self.assertIn('2049', titre)
+
+
+class ABracketedReleaseGroupMustNotDefeatTheParser(unittest.TestCase):
+    """Tags in square brackets are noise around the title, not the title.
+
+    Origin: '[Delivroozzi] Détective Conan - Le Cauchemar Noir de Jais [Film 20]
+    [VOSTFR BD x264 1080p]' produced no title at all, and the film was skipped --
+    a film that happened to fill a gap the collection audit had reported.
+    """
+
+    NOM = ('[Delivroozzi] Détective Conan - Le Cauchemar Noir de Jais '
+           '[Film 20] [VOSTFR BD x264 10bits 1080p TrueHD].mkv')
+
+    def test_a_title_is_recovered(self):
+        titre, _ = ma.parse_filename(self.NOM)
+        self.assertIsNotNone(titre, 'un titre doit être extrait malgré les crochets')
+        self.assertIn('Détective Conan', titre)
+
+    def test_the_bracketed_noise_is_gone(self):
+        titre, _ = ma.parse_filename(self.NOM)
+        for bruit in ('Delivroozzi', 'VOSTFR', '1080p', 'TrueHD'):
+            self.assertNotIn(bruit, titre)
+
+    def test_a_bracketed_name_with_a_year_keeps_it(self):
+        titre, annee = ma.parse_filename('[Groupe] Un Film (1998) [1080p].mkv')
+        self.assertEqual(annee, '1998')
+        self.assertIn('Un Film', titre)
+
+
 if __name__ == '__main__':
     unittest.main(verbosity=2)
