@@ -1159,6 +1159,60 @@ def tmdb_request(path, api_key, params):
         return json.loads(response.read().decode('utf-8'))
 
 
+# Un rang dans la saga — « FiLM x 09 », « Film 3 » — sert au rangement, pas a
+# l'identification : TMDb ne connait aucun film sous ce nom.
+RANG_SAGA_RE = re.compile(r'\b(?:le\s+)?films?\s*(?:x\s*)?\d{0,2}\b', re.I)
+# Elision perdue : un nom de fichier ne peut pas porter d'apostrophe, elle y
+# devient un souligne, puis une espace. « Les Mercenaires de L espace » ne
+# ressemble alors plus a rien de cherchable.
+ELISION_RE = re.compile(r"\b([ldjnmtcsLDJNMTCS])\s+(?=[aeiouyhàâéèêëîïôöûüAEIOUYH])")
+
+
+def _variantes_titre(titre):
+    """Formes successives d'un titre, de la plus fidele a la plus depouillee.
+
+    Une release ecrit rarement le titre seul : elle le prefixe du nom de la saga,
+    y glisse un rang, le suffixe de son groupe, et remplace les apostrophes par
+    ce qu'un systeme de fichiers accepte. Chacune de ces marques suffit a faire
+    echouer la recherche, et le fichier est alors ecarte sans qu'on sache
+    pourquoi.
+
+    On produit donc plusieurs lectures du meme nom, de la plus proche du fichier
+    a la plus reduite. La premiere qui ramene un resultat gagne : commencer par
+    la forme integrale evite qu'un titre trop court attrape un homonyme.
+    """
+    vues, variantes = set(), []
+
+    def ajouter(candidat):
+        candidat = re.sub(r'\s+', ' ', candidat or '').strip(' -.')
+        if len(candidat) >= 3 and candidat.lower() not in vues:
+            vues.add(candidat.lower())
+            variantes.append(candidat)
+
+    formes = [titre]
+    # Le groupe de release ferme souvent le nom, apres un tiret.
+    formes.append(re.sub(r'\s+-\s+[A-Za-z0-9]{2,10}$', '', titre))
+    formes.append(RANG_SAGA_RE.sub(' ', formes[-1]))
+    # En dernier ressort, ce qui suit le dernier tiret : le titre propre, quand
+    # ce qui precede n'est que le nom de la saga.
+    if ' - ' in formes[-1]:
+        formes.append(formes[-1].rsplit(' - ', 1)[1])
+    # Un chiffre isole au milieu du titre est un rang de suite ajoute par la
+    # release : « Fullmetal Alchemist 2 The Revenge of Scar ». Le retirer en
+    # dernier seulement, car « Toy Story 2 » se trouve des la forme integrale et
+    # n'atteint jamais cette variante.
+    sans_rang_isole = re.sub(r'(?<=\S)\s+\d{1,2}\s+(?=\S)', ' ', formes[-1])
+    if sans_rang_isole != formes[-1]:
+        formes.append(sans_rang_isole)
+
+    for forme in formes:
+        ajouter(forme)
+        avec_elision = ELISION_RE.sub(r"\1'", forme)
+        if avec_elision != forme:
+            ajouter(avec_elision)
+    return variantes
+
+
 def search_tmdb_movie(title, year, api_key, language):
     """Search TMDb for a movie candidate, choosing rather than taking the first.
 
@@ -1168,13 +1222,18 @@ def search_tmdb_movie(title, year, api_key, language):
     on Titan — but movies were not, so an import could file a feature under its
     own documentary.
     """
-    params = {'query': title, 'language': language}
-    if year:
-        params['year'] = year
-    payload = tmdb_request('/search/movie', api_key, params)
-    results = payload.get('results', [])
+    results, retenu = [], title
+    for variante in _variantes_titre(title):
+        params = {'query': variante, 'language': language}
+        if year:
+            params['year'] = year
+        results = (tmdb_request('/search/movie', api_key, params) or {}).get('results', [])
+        if results:
+            retenu = variante
+            break
     if not results:
         return None
+    title = retenu
     if year:
         millesime = [r for r in results
                      if (r.get('release_date') or '').startswith(str(year))]

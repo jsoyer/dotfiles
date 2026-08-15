@@ -665,5 +665,47 @@ class ABracketedReleaseGroupMustNotDefeatTheParser(unittest.TestCase):
         self.assertIn('Un Film', titre)
 
 
+
+class UneReleaseNeDonneJamaisLeTitreSeul(unittest.TestCase):
+    """Le nom de fichier porte le titre, mais entoure de marques de release.
+
+    Trois films ont ete ecartes le meme jour avec « no TMDb movie match » : deux
+    Dragon Ball Z et un Fullmetal Alchemist, tous trois pourtant absents de la
+    collection et donc attendus. Aucun n'etait introuvable — c'est le titre
+    soumis a TMDb qui ne ressemblait a rien.
+    """
+
+    def test_le_groupe_de_release_ferme_le_nom(self):
+        variantes = ma._variantes_titre('Les Mercenaires de L espace - KHAYA')
+        self.assertIn('Les Mercenaires de L espace', variantes)
+
+    def test_l_elision_perdue_est_retablie(self):
+        # Un systeme de fichiers refuse l'apostrophe ; elle devient un souligne,
+        # puis une espace. « L espace » ne se cherche plus.
+        self.assertIn("Les Mercenaires de L'espace",
+                      ma._variantes_titre('Les Mercenaires de L espace'))
+
+    def test_le_nom_de_saga_et_son_rang_finissent_par_tomber(self):
+        variantes = ma._variantes_titre(
+            'Dragon Ball Z - FiLM x - Les Mercenaires de L espace - KHAYA')
+        self.assertIn("Les Mercenaires de L'espace", variantes)
+
+    def test_un_rang_isole_au_milieu_du_titre_est_retire(self):
+        self.assertIn('Fullmetal Alchemist The Revenge of Scar',
+                      ma._variantes_titre('Fullmetal Alchemist 2 The Revenge of Scar'))
+
+    def test_la_forme_integrale_est_toujours_essayee_la_premiere(self):
+        # Sans quoi un titre raccourci attraperait un homonyme plus populaire.
+        for titre in ('Toy Story 2', 'Karate Kid II', 'Dragon Ball Z - Broly'):
+            self.assertEqual(ma._variantes_titre(titre)[0], titre)
+
+    def test_une_suite_legitime_ne_perd_pas_son_numero(self):
+        # « Toy Story 2 » se trouve des la premiere forme : les variantes qui
+        # suivent ne sont jamais atteintes, et le titre reste intact.
+        self.assertEqual(ma._variantes_titre('Toy Story 2'), ['Toy Story 2'])
+
+    def test_un_titre_deja_propre_ne_produit_qu_une_forme(self):
+        self.assertEqual(ma._variantes_titre('Independence Day'), ['Independence Day'])
+
 if __name__ == '__main__':
     unittest.main(verbosity=2)
