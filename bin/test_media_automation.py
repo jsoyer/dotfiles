@@ -707,5 +707,41 @@ class UneReleaseNeDonneJamaisLeTitreSeul(unittest.TestCase):
     def test_un_titre_deja_propre_ne_produit_qu_une_forme(self):
         self.assertEqual(ma._variantes_titre('Independence Day'), ['Independence Day'])
 
+
+class UneSagaNEstPasUnFilm(unittest.TestCase):
+    """Deux films d'une meme saga, sortis la meme annee, ne sont pas doublons.
+
+    La phase de fusion des dossiers reunissait « Baddack contre Freezer », « Le
+    Combat fratricide » et « Le Robot des glaces » — trois longs metrages
+    distincts de 1990 — dans un seul dossier, ou le serveur de medias n'en
+    montrait plus qu'un. La cause tenait a un alias tronque : « Dragon Ball Z »,
+    la portion qui precede le tiret, nomme la saga et non le film.
+    """
+
+    def test_l_alias_tronque_ne_sert_pas_de_cle(self):
+        alias = ma._alias_discriminants('Dragon Ball Z - Baddack contre Freezer')
+        self.assertNotIn('dragon ball z', alias)
+        self.assertIn('dragon ball z baddack contre freezer', alias)
+
+    def test_deux_films_d_une_saga_ne_partagent_aucune_cle(self):
+        for gauche, droite in (
+            ('Dragon Ball Z - Baddack contre Freezer',
+             'Dragon Ball Z - Le Combat fratricide'),
+            ('Psycho-Pass - Case 1 - Crime et Châtiment',
+             'Psycho-Pass - Case 3 - Par-delà l’amour et la haine'),
+        ):
+            self.assertFalse(
+                ma._alias_discriminants(gauche) & ma._alias_discriminants(droite),
+                f'{gauche} et {droite} passeraient pour un seul film')
+
+    def test_un_titre_sans_tiret_garde_son_alias(self):
+        self.assertEqual(ma._alias_discriminants('Independence Day'),
+                         {'independence day'})
+
+    def test_le_meme_titre_reste_un_doublon(self):
+        # La fusion doit continuer de reunir deux dossiers du meme film.
+        self.assertTrue(ma._alias_discriminants('Dragon Ball Z - Fusions')
+                        & ma._alias_discriminants('Dragon Ball Z - Fusions'))
+
 if __name__ == '__main__':
     unittest.main(verbosity=2)

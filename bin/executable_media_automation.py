@@ -1080,6 +1080,26 @@ def parse_dir_name(d):
     return match.group(1).strip(), match.group(2)
 
 
+def _alias_discriminants(titre):
+    """Alias d'un titre, prive de ceux qui ne designent qu'une saga.
+
+    title_aliases produit aussi la portion qui precede le tiret : « Dragon Ball
+    Z » pour « Dragon Ball Z - Baddack contre Freezer ». Cet alias tronque
+    nomme la saga, non le film. Associe a la seule annee, il declare doublons
+    deux longs metrages differents sortis la meme annee — et la phase de fusion
+    les reunit alors dans un seul dossier, ou le serveur de medias n'en montre
+    plus qu'un.
+
+    C'est ainsi que quatre films de Dragon Ball Z ont disparu dans le dossier
+    de leurs voisins. On ecarte donc tout alias qui n'est que le prefixe d'un
+    autre : seul le titre complet identifie un film. Les identifiants TMDb et
+    IMDb, eux, restent des cles fiables et suffisent aux vrais doublons.
+    """
+    alias = set(title_aliases(titre))
+    return {a for a in alias
+            if not any(autre != a and autre.startswith(a) for autre in alias)}
+
+
 def get_duplicate_group_keys(d):
     """Return all duplicate-matching keys for a movie directory."""
     metadata = get_dir_metadata(d)
@@ -1093,7 +1113,7 @@ def get_duplicate_group_keys(d):
         keys.add(('imdb', metadata['imdbid']))
 
     if dir_year:
-        for alias in title_aliases(dir_title):
+        for alias in _alias_discriminants(dir_title):
             keys.add(('title-year', alias, dir_year))
 
     for title in (
@@ -1103,7 +1123,7 @@ def get_duplicate_group_keys(d):
         metadata['english_title'],
     ):
         if title and year:
-            for alias in title_aliases(title):
+            for alias in _alias_discriminants(title):
                 keys.add(('title-year', alias, year))
 
     return keys
