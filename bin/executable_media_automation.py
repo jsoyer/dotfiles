@@ -1095,9 +1095,14 @@ def _alias_discriminants(titre):
     autre : seul le titre complet identifie un film. Les identifiants TMDb et
     IMDb, eux, restent des cles fiables et suffisent aux vrais doublons.
     """
-    alias = set(title_aliases(titre))
+    alias = {a for a in title_aliases(titre) if len(a) >= 3}
+    # Contenu, et non plus seulement prefixe : « Dragon Ball Z - Fusions » et
+    # « Dragon Ball Z - L'Attaque du dragon » partageaient l'alias « z », qui ne
+    # prefixe ni l'un ni l'autre mais figure dans les deux. Une lettre isolee
+    # suffisait ainsi a declarer doublons deux films de 1995. Un alias contenu
+    # dans un autre n'ajoute aucune information : il ne peut qu'egarer.
     return {a for a in alias
-            if not any(autre != a and autre.startswith(a) for autre in alias)}
+            if not any(autre != a and a in autre for autre in alias)}
 
 
 def get_duplicate_group_keys(d):

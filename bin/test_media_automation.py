@@ -734,6 +734,24 @@ class UneSagaNEstPasUnFilm(unittest.TestCase):
                 ma._alias_discriminants(gauche) & ma._alias_discriminants(droite),
                 f'{gauche} et {droite} passeraient pour un seul film')
 
+    def test_un_alias_contenu_dans_un_autre_est_ecarte(self):
+        # « Dragon Ball Z - Fusions » produisait l'alias « z », qui ne prefixe
+        # aucun autre alias mais figure dans tous : deux films de 1995 se
+        # retrouvaient ainsi declares doublons, et fusionnes cinq minutes plus
+        # tard par le cron.
+        alias = ma._alias_discriminants('Dragon Ball Z - Fusions')
+        self.assertNotIn('z', alias)
+        self.assertEqual(alias, {'dragon ball z fusions'})
+
+    def test_deux_films_d_une_saga_meme_annee_restent_distincts(self):
+        gauche = ma._alias_discriminants('Dragon Ball Z - Fusions')
+        droite = ma._alias_discriminants('Dragon Ball Z - L’Attaque du dragon')
+        self.assertFalse(gauche & droite)
+
+    def test_une_suite_ne_se_confond_pas_avec_son_premier_volet(self):
+        self.assertFalse(ma._alias_discriminants('Dune')
+                         & ma._alias_discriminants('Dune - Deuxième partie'))
+
     def test_un_titre_sans_tiret_garde_son_alias(self):
         self.assertEqual(ma._alias_discriminants('Independence Day'),
                          {'independence day'})
