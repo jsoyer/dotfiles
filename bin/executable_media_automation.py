@@ -1924,6 +1924,16 @@ def match_absolute_show(filename, shows):
     return media_absolute_shows.match_show(filename, shows)
 
 
+def _ecarter_episode(name, raison, summary, show=None, telegram=None):
+    """Enregistre un episode ecarte, avec sa raison, et previent comme avant."""
+    summary.skipped_items += 1
+    detail = f"[SKIP] {name} ({raison})"
+    summary.skipped_details.append(detail)
+    log_message(detail, 'warning')
+    if show is not None and telegram is not None:
+        send_telegram_message(telegram, f"⚠️ {show.name}: {name}\n{raison}")
+
+
 def import_absolute_item(item, show, config, dry_run, summary):
     """Send one episode of a declared absolute-numbered show to its remote library."""
     import media_absolute_shows as abs_shows
@@ -1941,13 +1951,25 @@ def import_absolute_item(item, show, config, dry_run, summary):
     try:
         relative, season_number, episode_number = abs_shows.plan_episode(name, show, mapping)
     except ValueError as exc:
-        summary.skipped_items += 1
-        detail = f"[SKIP] {name} ({exc})"
-        summary.skipped_details.append(detail)
-        log_message(detail, 'warning')
-        send_telegram_message(config.telegram, f"⚠️ {show.name}: {name}\n{exc}")
-        return
-
+        # La table ne se rafraichit qu'apres un import reussi : un episode
+        # ecarte parce qu'il « depasse la bibliotheque » ne la met donc jamais
+        # a jour, et le rejet se reproduit a chaque passage. On la reconstruit
+        # une fois, puis on retente — si l'episode etait simplement plus recent
+        # que la table, il passe ; s'il est vraiment aberrant, il est ecarte
+        # comme avant, mais sur des donnees fraiches.
+        if 'depasse la bibliotheque' in str(exc):
+            try:
+                mapping = abs_shows.refresh_mapping(
+                    show, api_key=config.tmdb_api_key, language=config.language)
+                relative, season_number, episode_number = abs_shows.plan_episode(
+                    name, show, mapping)
+                log_message(f"[INFO] Table {show.name} rafraichie, {name} accepte")
+            except Exception:  # noqa: BLE001
+                _ecarter_episode(name, exc, summary, show, config.telegram)
+                return
+        else:
+            _ecarter_episode(name, exc, summary, show, config.telegram)
+            return
     destination = f"{show.destination}/{relative}"
     log_message(f"[IMPORT:REMOTE] {name} -> {show.name} S{season_number:02d}E{episode_number:02d}")
 
