@@ -5,7 +5,7 @@ tap "asmvik/formulae", "https://github.com/asmvik/homebrew-formulae.git", truste
 tap "harvard-cns/orla", "https://github.com/harvard-cns/homebrew-orla.git", trusted: true
 tap "infisical/get-cli"
 tap "reyamira/tap", "https://github.com/reyamira/homebrew-tap.git", trusted: true
-tap "stablyai/orca"
+tap "stablyai/orca", trusted: { casks: ["orca"] }
 brew "sdl2-compat"
 brew "herdr"
 brew "models"
@@ -18,5 +18,5 @@ cask "antigravity-cli"
 cask "antigravity-ide"
 cask "chatgpt"
 cask "fluidvoice"
-cask "stablyai/orca/orca", trusted: true
+cask "orca"
 mas "Remote Desktop", id: 409907375
