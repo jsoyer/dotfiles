@@ -761,5 +761,42 @@ class UneSagaNEstPasUnFilm(unittest.TestCase):
         self.assertTrue(ma._alias_discriminants('Dragon Ball Z - Fusions')
                         & ma._alias_discriminants('Dragon Ball Z - Fusions'))
 
+
+class UnTitrePeutSuivreLAnnee(unittest.TestCase):
+    """Certaines releases placent le titre apres l'annee, derriere un rang.
+
+    « Lupin.III.Special.01.1989.Goodbye.Lady.Liberty.1080p… » ne donnait que
+    « Lupin III Special 01 », que TMDb ne connait sous aucun nom : deux films de
+    la saga Lupin III — la plus incomplete de la bibliotheque — etaient ecartes
+    a chaque passage.
+    """
+
+    def test_le_titre_place_apres_l_annee_est_recupere(self):
+        titre, annee = ma.parse_filename(
+            'Lupin.III.Special.01.1989.Goodbye.Lady.Liberty.1080p.Bluray.x264-Notag.mkv')
+        self.assertEqual(titre, 'Lupin III Goodbye Lady Liberty')
+        self.assertEqual(annee, '1989')
+
+    def test_le_prefixe_de_saga_est_conserve(self):
+        # « From Russia with love » seul ramene le James Bond de 1963 ; le
+        # prefixe est ce qui distingue le Lupin III de 1992.
+        titre, _ = ma.parse_filename(
+            'Lupin.III.Special.04.1992.From.Russia.with.love.1080p.Bluray.x264-Notag.mkv')
+        self.assertTrue(titre.startswith('Lupin III'))
+        self.assertIn('From Russia with love', titre)
+
+    def test_sans_rang_le_titre_reste_celui_qui_precede(self):
+        # Ce qui suit l'annee n'est alors que du bruit de release.
+        for nom, attendu in (
+            ('Toy Story 2 (1999) MULTi 1080p BluRay x264.mkv', 'Toy Story 2'),
+            ('Independence Day (1996) MULTi 1080p.mkv', 'Independence Day'),
+            ('Le Parrain 1972 MULTi 1080p BluRay.mkv', 'Le Parrain'),
+        ):
+            self.assertEqual(ma.parse_filename(nom)[0], attendu)
+
+    def test_un_rang_sans_titre_derriere_ne_change_rien(self):
+        titre, _ = ma.parse_filename('Serie Special 02 1990 1080p BluRay x264.mkv')
+        self.assertEqual(titre, 'Serie Special 02')
+
 if __name__ == '__main__':
     unittest.main(verbosity=2)

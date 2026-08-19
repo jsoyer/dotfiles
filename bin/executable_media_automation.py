@@ -608,6 +608,31 @@ def annee_plausible(valeur):
     return 1900 <= int(valeur) <= date.today().year + 1
 
 
+def _titre_autour_de_l_annee(avant, apres):
+    """Recompose le titre quand la release le place apres l'annee.
+
+    « Lupin.III.Special.01.1989.Goodbye.Lady.Liberty.1080p… » ne donne, avant
+    l'annee, que « Lupin III Special 01 » — un rang, que TMDb ne connait sous
+    aucun nom. Le titre veritable suit l'annee.
+
+    On ne recompose que lorsque ce qui precede se termine par un rang : ailleurs,
+    ce qui suit l'annee n'est que du bruit de release. Et l'on conserve le
+    prefixe de la saga, sans quoi « From Russia with love » ramene le James Bond
+    de 1963 plutot que le Lupin III de 1992.
+    """
+    if not RANG_FINAL_RE.search(avant):
+        return avant
+    suite = apres.replace('.', ' ').replace('_', ' ').strip(' -')
+    coupe = QUALITE_RE.search(suite)
+    if coupe:
+        suite = suite[:coupe.start()]
+    suite = re.sub(r'\s+', ' ', suite).strip(' -')
+    if len(suite) < 3:
+        return avant
+    prefixe = RANG_FINAL_RE.sub('', avant).strip(' -')
+    return f'{prefixe} {suite}'.strip() if prefixe else suite
+
+
 def parse_filename(filename):
     """Extract title and year from a scene-style filename."""
     name = filename
@@ -634,7 +659,7 @@ def parse_filename(filename):
             continue
         title = name[:trouve.start()].replace('.', ' ').replace('_', ' ').strip()
         if title:
-            return title, trouve.group(1)
+            return _titre_autour_de_l_annee(title, name[trouve.end():]), trouve.group(1)
 
     m = DASH_RE.match(name)
     if m:
@@ -1190,6 +1215,16 @@ RANG_SAGA_RE = re.compile(r'\b(?:le\s+)?films?\s*(?:x\s*)?\d{0,2}\b', re.I)
 # Elision perdue : un nom de fichier ne peut pas porter d'apostrophe, elle y
 # devient un souligne, puis une espace. « Les Mercenaires de L espace » ne
 # ressemble alors plus a rien de cherchable.
+# Un rang de serie ferme parfois le titre : « Lupin III Special 01 ».
+RANG_FINAL_RE = re.compile(
+    r'\s*\b(?:specials?|films?|vol\.?|volumes?|oav|ova|ep|episodes?|partie|part)\s*\d{1,3}$',
+    re.I)
+# Premier marqueur de qualite : ce qui suit n'appartient plus au titre.
+QUALITE_RE = re.compile(
+    r'\b(?:\d{3,4}[pi]|bluray|blu-ray|bdrip|brrip|webrip|web-dl|web|hdlight|hdtv|dvdrip|'
+    r'x26[45]|h\.?26[45]|hevc|avc|aac|ac3|eac3|dts|flac|multi|vff|vfq|vostfr|vo|truefrench|'
+    r'french|remux|repack|proper|fansub|notag)\b', re.I)
+
 ELISION_RE = re.compile(r"\b([ldjnmtcsLDJNMTCS])\s+(?=[aeiouyhàâéèêëîïôöûüAEIOUYH])")
 
 
