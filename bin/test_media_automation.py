@@ -798,5 +798,42 @@ class UnTitrePeutSuivreLAnnee(unittest.TestCase):
         titre, _ = ma.parse_filename('Serie Special 02 1990 1080p BluRay x264.mkv')
         self.assertEqual(titre, 'Serie Special 02')
 
+
+class UnTrouNeDoitPasFausserLeDernierNumero(unittest.TestCase):
+    """Le dernier episode connu se lit sur ce qui est present, pas sur le compte.
+
+    Le garde-fou de numerotation absolue deduisait le dernier numero du nombre
+    de fichiers. Chaque episode manquant abaissait donc l'estimation d'autant, et
+    l'episode suivant se voyait refuse comme « depassant la bibliotheque » : One
+    Piece, a qui il manquait un episode, a vu son 1174e ecarte alors qu'il etait
+    parfaitement legitime.
+    """
+
+    def setUp(self):
+        import media_absolute_shows
+        self.module = media_absolute_shows
+
+    def test_le_compte_sous_estime_quand_la_serie_a_un_trou(self):
+        table = self.module.Mapping(seasons=[(1, 1, 10), (2, 11, 20)], offset=0)
+        presents = ({(1, e) for e in range(1, 11) if e != 5}
+                    | {(2, e) for e in range(1, 9)})
+        self.assertEqual(len(presents), 17)          # ce que comptait l'ancien calcul
+        self.assertEqual(table.dernier_present(presents), 18)   # le vrai dernier
+
+    def test_sans_trou_les_deux_lectures_coincident(self):
+        table = self.module.Mapping(seasons=[(1, 1, 12)], offset=0)
+        presents = {(1, e) for e in range(1, 13)}
+        self.assertEqual(table.dernier_present(presents), len(presents))
+
+    def test_le_decalage_de_numerotation_est_respecte(self):
+        # One Piece derive d'une unite : le crossover Toriko compte pour la
+        # release mais pas pour le referentiel.
+        table = self.module.Mapping(seasons=[(1, 1, 10)], offset=1)
+        self.assertEqual(table.dernier_present({(1, 10)}), 11)
+
+    def test_une_bibliotheque_vide_ne_promet_rien(self):
+        table = self.module.Mapping(seasons=[(1, 1, 10)], offset=0)
+        self.assertEqual(table.dernier_present(set()), 0)
+
 if __name__ == '__main__':
     unittest.main(verbosity=2)

@@ -36,6 +36,8 @@ RECENT_WINDOW = 60
 VIDEO_SUFFIXES = {'.mkv', '.mp4', '.avi', '.m4v', '.mov', '.wmv', '.ts', '.m2ts'}
 
 SEASON_DIR_RE = re.compile(r'^Season[\s._-]*(\d{1,3})$', re.I)
+# Code de saison et de rang tel que la bibliotheque les ecrit.
+EPISODE_CODE_RE = re.compile(r'[Ss](\d{1,3})[Ee](\d{1,4})(?!\d)')
 SEASON_EPISODE_TOKEN_RE = re.compile(
     r'(?:^|[\s._-])(?:\d{1,2}x\d{1,3}|S\d{1,2}E\d{1,3})(?=[\s._-]|$)', re.I)
 
@@ -90,6 +92,26 @@ class Mapping:
             if low <= position <= high:
                 return season, position - low + 1
         return None
+
+    def dernier_present(self, presents):
+        """Plus grand numero absolu dont l'episode figure vraiment sur place.
+
+        Compter les fichiers pour deviner le dernier numero suppose une serie
+        sans trou : chaque episode manquant abaisse l'estimation d'autant, et le
+        garde-fou finit par ecarter des episodes parfaitement legitimes. One
+        Piece, a qui il manquait un episode, voyait ainsi son 1174e refuse.
+
+        On parcourt donc la table a l'envers et l'on retient le premier numero
+        dont la saison et le rang sont presents.
+        """
+        if not self.seasons:
+            return 0
+        dernier_abs = max(high for _, _, high in self.seasons) + self.offset
+        for absolu in range(dernier_abs, self.offset, -1):
+            resolu = self.resolve(absolu)
+            if resolu is not None and resolu in presents:
+                return absolu
+        return 0
 
     def next_slot(self):
         """Where the episode following the last known one would land."""
@@ -308,8 +330,16 @@ def refresh_mapping(show, rclone='rclone', timeout=300, api_key=None, language='
         offset = calibrate_offset(reference.seasons, season_counts, len(episodes))
     mapping = build_mapping_from_tvdb_order(
         show.tmdb_id, api_key, language, group_name=show.order_group, offset=offset)
-    # The newest episode's own release number, which the drift shifts.
-    mapping.last_absolute = len(episodes) + offset
+    # Le dernier numero est celui du dernier episode reellement present, non le
+    # nombre de fichiers : un trou dans la serie fausserait le compte, et le
+    # garde-fou refuserait ensuite des episodes legitimes.
+    presents = set()
+    for ligne in episodes:
+        parts = Path(ligne).parts
+        trouve = EPISODE_CODE_RE.search(Path(ligne).stem)
+        if len(parts) == 2 and trouve:
+            presents.add((int(trouve.group(1)), int(trouve.group(2))))
+    mapping.last_absolute = mapping.dernier_present(presents) or len(episodes) + offset
     save_mapping(mapping, show.mapping_file)
     return mapping
 
