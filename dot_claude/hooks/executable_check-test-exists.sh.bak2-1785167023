@@ -37,20 +37,9 @@ fi
 # Resolve project directory
 PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$(pwd)}"
 
-# Make absolute.
-# Prefer the CURRENT working directory over PROJECT_DIR: an agent working inside
-# .claude/worktrees/agent-*/ receives a relative path, and prefixing it with
-# CLAUDE_PROJECT_DIR (the ORIGINAL checkout) lands it in the wrong tree. The
-# manifest walk then finds nothing, has_test_infra sees the outer root, and the
-# hook falsely reports "no test infrastructure" -- which soft-blocked every
-# web/** edit for a whole frontend sprint even though web/package.json declares
-# a test script. Fall back to PROJECT_DIR when the cwd-relative path is absent.
+# Make absolute
 if [[ "$FILE_PATH" != /* ]]; then
-  if [ -e "${PWD}/${FILE_PATH}" ]; then
-    FILE_PATH="${PWD}/${FILE_PATH}"
-  else
-    FILE_PATH="$PROJECT_DIR/$FILE_PATH"
-  fi
+  FILE_PATH="$PROJECT_DIR/$FILE_PATH"
 fi
 
 # Source shared detection library

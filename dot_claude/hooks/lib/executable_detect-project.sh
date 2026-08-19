@@ -630,10 +630,18 @@ has_test_infra() {
   # If no language specified, check all
   case "$lang" in
     typescript|javascript|"")
-      # Skip TDD enforcement if deps not installed — can't run tests anyway
-      if [ -n "$lang" ] && ! has_node_deps_installed "$dir"; then
-        return 1
-      fi
+      # Do NOT gate on has_node_deps_installed() here. This function answers
+      # "is test infra DECLARED for this project?" (a fact about the repo) —
+      # its only caller, check-test-exists.sh, soft-blocks precisely when it
+      # returns false. A "skip enforcement, can't run tests anyway" check
+      # answers a different question ("CAN tests run on this machine right
+      # now?") and inverts into stricter enforcement here: a fresh git
+      # worktree never has node_modules (gitignored, never checked out) even
+      # though package.json still declares "test": "vitest run", so this
+      # guard made the hook block edits in every worktree with a false "no
+      # test infrastructure detected" message. If a caller ever needs the
+      # "can tests actually run" question, call has_node_deps_installed()
+      # directly at that call site — don't fold it back in here.
       # Node.js test frameworks
       for marker in "$dir/jest.config"* "$dir/vitest.config"* "$dir/cypress.config"*; do
         [ -f "$marker" ] 2>/dev/null && return 0
