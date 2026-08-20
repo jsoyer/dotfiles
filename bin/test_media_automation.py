@@ -8,10 +8,13 @@ Origin: a season-less release (Space.Adventure.Cobra.1982.TV.Series.E01) was
 parsed as a movie and 31 episodes were filed into the movie library. These
 tests pin the parsing contract so that regression cannot come back silently.
 """
+import contextlib
 import re
 import sys
+import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import media_automation as ma  # noqa: E402
@@ -883,6 +886,201 @@ class UnNumeroNuApresUnTiret(unittest.TestCase):
         self.assertEqual(
             ma.parse_episode_filename('[SubsPlease] Serie - S02E03.mkv'),
             ('Serie', 2, [3]))
+
+
+class UnEnvoiNtfyViseLeBonSujet(unittest.TestCase):
+    """L'emetteur ntfy doit viser le bon serveur et porter le corps intact.
+
+    Ces tests interceptent urlopen : rien ne part sur le reseau. On verifie la
+    requete construite, pas la reponse du serveur.
+    """
+
+    def _capturer(self, settings, message, titre=None):
+        """Retourne la liste des requetes qu'un envoi aurait emises."""
+        envoyees = []
+
+        def faux_urlopen(request, timeout=None):
+            envoyees.append(request)
+            return contextlib.nullcontext()
+
+        with mock.patch.object(ma.urllib.request, 'urlopen', faux_urlopen):
+            ma.send_ntfy_message(settings, message, titre)
+        return envoyees
+
+    def test_desactive_n_emet_rien(self):
+        settings = ma.NtfyConfig(enabled=False, server='https://n.test',
+                                 topic='infra-nice')
+        self.assertEqual(self._capturer(settings, 'coucou'), [])
+
+    def test_sans_sujet_n_emet_rien(self):
+        # Un sujet vide produirait une URL visant la racine du serveur.
+        settings = ma.NtfyConfig(enabled=True, server='https://n.test', topic=None)
+        self.assertEqual(self._capturer(settings, 'coucou'), [])
+
+    def test_vise_le_serveur_et_le_sujet(self):
+        settings = ma.NtfyConfig(enabled=True, server='https://n.test/',
+                                 topic='infra-nice')
+        requete, = self._capturer(settings, 'coucou')
+        # La barre finale du serveur ne doit pas produire un double slash.
+        self.assertEqual(requete.full_url, 'https://n.test/infra-nice')
+
+    def test_le_corps_est_le_message(self):
+        settings = ma.NtfyConfig(enabled=True, server='https://n.test',
+                                 topic='infra-nice')
+        requete, = self._capturer(settings, 'trois episodes ecartes')
+        self.assertEqual(requete.data.decode('utf-8'), 'trois episodes ecartes')
+
+    def test_le_corps_accepte_les_accents_et_les_emoji(self):
+        # Le corps part en UTF-8 : contrairement aux en-tetes, il n'a pas de
+        # contrainte latin-1.
+        settings = ma.NtfyConfig(enabled=True, server='https://n.test',
+                                 topic='infra-nice')
+        requete, = self._capturer(settings, '⚠️ episode ecarte : deja present')
+        self.assertEqual(requete.data.decode('utf-8'),
+                         '⚠️ episode ecarte : deja present')
+
+    def test_le_jeton_devient_un_entete_bearer(self):
+        settings = ma.NtfyConfig(enabled=True, server='https://n.test',
+                                 topic='infra-nice', token='tk_essai')
+        requete, = self._capturer(settings, 'coucou')
+        self.assertEqual(requete.get_header('Authorization'), 'Bearer tk_essai')
+
+    def test_sans_jeton_aucun_entete_authorization(self):
+        settings = ma.NtfyConfig(enabled=True, server='https://n.test',
+                                 topic='infra-nice')
+        requete, = self._capturer(settings, 'coucou')
+        self.assertIsNone(requete.get_header('Authorization'))
+
+    def test_la_priorite_est_transmise(self):
+        settings = ma.NtfyConfig(enabled=True, server='https://n.test',
+                                 topic='infra-nice', priority=4)
+        requete, = self._capturer(settings, 'coucou')
+        self.assertEqual(requete.get_header('Priority'), '4')
+
+    def test_un_titre_non_latin1_est_ecarte(self):
+        # http.client encode les en-tetes en latin-1 : un titre accentue ou
+        # emoji ferait echouer l'envoi au moment du socket, loin d'ici. On
+        # prefere perdre le titre que la notification.
+        settings = ma.NtfyConfig(enabled=True, server='https://n.test',
+                                 topic='infra-nice')
+        requete, = self._capturer(settings, 'corps', '⚠️ import media')
+        self.assertIsNone(requete.get_header('Title'))
+
+    def test_un_titre_simple_est_conserve(self):
+        settings = ma.NtfyConfig(enabled=True, server='https://n.test',
+                                 topic='infra-nice')
+        requete, = self._capturer(settings, 'corps', 'media')
+        self.assertEqual(requete.get_header('Title'), 'media')
+
+    def test_un_message_multiligne_est_decoupe(self):
+        settings = ma.NtfyConfig(enabled=True, server='https://n.test',
+                                 topic='infra-nice')
+        message = '\n'.join(f'ligne {i}' for i in range(1000))
+        requetes = self._capturer(settings, message)
+        self.assertGreater(len(requetes), 1)
+        recompose = '\n'.join(r.data.decode('utf-8') for r in requetes)
+        self.assertEqual(recompose, message)
+
+    def test_une_ligne_unique_trop_longue_est_coupee(self):
+        # Le decoupeur herite de Telegram coupe aux sauts de ligne : une ligne
+        # unique tres longue en ressort intacte. ntfy refuse les corps au-dela
+        # de sa limite, il faut donc une coupe franche en dernier recours.
+        settings = ma.NtfyConfig(enabled=True, server='https://n.test',
+                                 topic='infra-nice')
+        requetes = self._capturer(settings, 'x' * 9000)
+        self.assertGreater(len(requetes), 1)
+        for requete in requetes:
+            self.assertLessEqual(len(requete.data), ma.NTFY_TAILLE_MAX)
+        self.assertEqual(''.join(r.data.decode('utf-8') for r in requetes),
+                         'x' * 9000)
+
+    def test_une_panne_reseau_ne_remonte_pas(self):
+        # Une notification qui echoue ne doit jamais interrompre un import.
+        settings = ma.NtfyConfig(enabled=True, server='https://n.test',
+                                 topic='infra-nice')
+
+        def urlopen_qui_echoue(request, timeout=None):
+            raise OSError('serveur injoignable')
+
+        with mock.patch.object(ma.urllib.request, 'urlopen', urlopen_qui_echoue):
+            ma.send_ntfy_message(settings, 'coucou')  # ne doit rien lever
+
+
+class UneNotificationSertLesCanauxActives(unittest.TestCase):
+    """Le point de dispatch unique decide seul des canaux a servir."""
+
+    def _config(self, telegram_actif, ntfy_actif):
+        config = mock.Mock()
+        config.telegram = ma.TelegramConfig(
+            enabled=telegram_actif, bot_token='b', chat_id='c')
+        config.ntfy = ma.NtfyConfig(
+            enabled=ntfy_actif, server='https://n.test', topic='infra-nice')
+        return config
+
+    def _servis(self, config):
+        servis = []
+        with mock.patch.object(ma, 'send_telegram_message',
+                               lambda s, m: servis.append('telegram')), \
+             mock.patch.object(ma, 'send_ntfy_message',
+                               lambda s, m, t=None: servis.append('ntfy')):
+            ma.notifier(config, 'coucou')
+        return servis
+
+    def test_les_deux_canaux_actifs_sont_servis(self):
+        self.assertEqual(sorted(self._servis(self._config(True, True))),
+                         ['ntfy', 'telegram'])
+
+    def test_ntfy_seul(self):
+        self.assertEqual(self._servis(self._config(False, True)), ['ntfy'])
+
+    def test_telegram_seul(self):
+        self.assertEqual(self._servis(self._config(True, False)), ['telegram'])
+
+    def test_aucun_canal_actif_ne_leve_pas(self):
+        self.assertEqual(self._servis(self._config(False, False)), [])
+
+
+class LaConfigurationLitLaSectionNtfy(unittest.TestCase):
+    """La bascule doit se jouer dans le TOML, pas dans le code."""
+
+    GABARIT = """
+[inbox]
+path = "{racine}/inbox"
+
+[routes]
+movies = "{racine}/films"
+series = "{racine}/series"
+anime = "{racine}/animes"
+
+[ntfy]
+enabled = true
+server = "https://n.test"
+topic = "infra-nice"
+token = "tk_essai"
+priority = 4
+"""
+
+    def _charger(self, corps):
+        with tempfile.TemporaryDirectory() as racine:
+            chemin = Path(racine) / 'config.toml'
+            chemin.write_text(corps.format(racine=racine), encoding='utf-8')
+            return ma.load_automation_config(chemin)
+
+    def test_la_section_est_lue(self):
+        config = self._charger(self.GABARIT)
+        self.assertTrue(config.ntfy.enabled)
+        self.assertEqual(config.ntfy.server, 'https://n.test')
+        self.assertEqual(config.ntfy.topic, 'infra-nice')
+        self.assertEqual(config.ntfy.token, 'tk_essai')
+        self.assertEqual(config.ntfy.priority, 4)
+
+    def test_une_configuration_sans_section_ntfy_reste_valide(self):
+        # Les deux NAS tourneront un moment avec l'ancien TOML : l'absence de
+        # section ne doit pas empecher le demarrage, seulement laisser ntfy muet.
+        sans_ntfy = self.GABARIT.split('[ntfy]')[0]
+        config = self._charger(sans_ntfy)
+        self.assertFalse(config.ntfy.enabled)
+
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)

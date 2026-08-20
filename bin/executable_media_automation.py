@@ -158,6 +158,18 @@ class TelegramConfig:
 
 
 @dataclass(slots=True)
+class NtfyConfig:
+    """ntfy notification settings."""
+
+    enabled: bool = False
+    server: str = 'https://ntfy.sh'
+    topic: str | None = None
+    token: str | None = None
+    priority: int = 3
+    timeout: int = 15
+
+
+@dataclass(slots=True)
 class InboxConfig:
     """Incoming scan settings."""
 
@@ -195,6 +207,7 @@ class AutomationConfig:
     fetch_metadata: bool = True
     logging: LoggingConfig = field(default_factory=LoggingConfig)
     telegram: TelegramConfig = field(default_factory=TelegramConfig)
+    ntfy: NtfyConfig = field(default_factory=NtfyConfig)
 
 
 @dataclass(slots=True)
@@ -307,6 +320,7 @@ def load_automation_config(config_path):
     tmdb_raw = raw.get('tmdb', {})
     logging_raw = raw.get('logging', {})
     telegram_raw = raw.get('telegram', {})
+    ntfy_raw = raw.get('ntfy', {})
 
     inbox_path = resolve_config_path(inbox_raw.get('path'))
     if not inbox_path:
@@ -354,6 +368,15 @@ def load_automation_config(config_path):
             bot_token=telegram_raw.get('bot_token') or os.environ.get('TELEGRAM_BOT_TOKEN'),
             chat_id=str(telegram_raw.get('chat_id') or os.environ.get('TELEGRAM_CHAT_ID') or '') or None,
             timeout=int(telegram_raw.get('timeout', 15)),
+        ),
+        ntfy=NtfyConfig(
+            enabled=bool_from_config(ntfy_raw.get('enabled'), False),
+            server=str(ntfy_raw.get('server')
+                       or os.environ.get('NTFY_SERVER') or 'https://ntfy.sh'),
+            topic=ntfy_raw.get('topic') or os.environ.get('NTFY_TOPIC'),
+            token=ntfy_raw.get('token') or os.environ.get('NTFY_TOKEN'),
+            priority=int(ntfy_raw.get('priority', 3)),
+            timeout=int(ntfy_raw.get('timeout', 15)),
         ),
     )
 
@@ -472,6 +495,75 @@ def send_telegram_message(settings, message):
                 pass
         except Exception as exc:
             LOGGER.warning("Telegram notification failed: %s", exc)
+
+
+NTFY_TAILLE_MAX = 3900
+
+
+def _entete_transmissible(valeur):
+    """Un en-tete HTTP ne survit pas hors du latin-1.
+
+    http.client encode les en-tetes dans cet alphabet : un titre accentue ou
+    porteur d'emoji ferait echouer l'envoi au moment du socket, loin du point
+    d'appel. On prefere perdre le titre que la notification.
+    """
+    try:
+        valeur.encode('latin-1')
+    except UnicodeEncodeError:
+        return False
+    return True
+
+
+def decouper_pour_ntfy(message, taille=NTFY_TAILLE_MAX):
+    """Decoupe un message en corps acceptables par ntfy.
+
+    On reutilise le decoupeur de Telegram, qui coupe proprement aux sauts de
+    ligne, puis on tranche sans ceremonie ce qui depasse encore : une ligne
+    unique tres longue en ressort intacte et ntfy la rejetterait.
+    """
+    morceaux = []
+    for chunk in split_telegram_message(message, taille):
+        if len(chunk.encode('utf-8')) <= taille:
+            morceaux.append(chunk)
+            continue
+        for debut in range(0, len(chunk), taille):
+            morceaux.append(chunk[debut:debut + taille])
+    return morceaux
+
+
+def send_ntfy_message(settings, message, titre=None):
+    """Publish a notification to an ntfy topic when configured."""
+    if not settings.enabled or not settings.topic:
+        return
+
+    url = f"{settings.server.rstrip('/')}/{settings.topic}"
+    entetes = {'Priority': str(settings.priority)}
+    if settings.token:
+        entetes['Authorization'] = f"Bearer {settings.token}"
+    if titre and _entete_transmissible(titre):
+        entetes['Title'] = titre
+
+    for chunk in decouper_pour_ntfy(message):
+        request = urllib.request.Request(
+            url, data=chunk.encode('utf-8'), headers=dict(entetes), method='POST')
+        try:
+            with urllib.request.urlopen(request, timeout=settings.timeout):
+                pass
+        except Exception as exc:
+            LOGGER.warning("ntfy notification failed: %s", exc)
+
+
+def notifier(config, message, titre=None):
+    """Diffuse un message sur tous les canaux de notification actives.
+
+    Point de dispatch unique : la bascule d'un canal a l'autre se joue dans le
+    TOML, jamais dans les appelants. Chaque emetteur garde par ailleurs son
+    propre garde-fou, pour qu'un appel direct reste sans effet s'il est eteint.
+    """
+    if config.telegram.enabled:
+        send_telegram_message(config.telegram, message)
+    if config.ntfy.enabled:
+        send_ntfy_message(config.ntfy, message, titre)
 
 
 @contextmanager
