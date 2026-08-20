@@ -857,6 +857,18 @@ class UnNumeroNuApresUnTiret(unittest.TestCase):
             '[Kaerizaki-Fansub] One Piece - 1174 (VOSTFR).mp4')
         self.assertEqual(titre, 'One Piece')
 
+    def test_une_marque_de_reedition_ne_fait_pas_echouer_la_lecture(self):
+        # « …H264 AAC)v2.mp4 » : deux caracteres apres la parenthese suffisaient
+        # a renvoyer trois episodes dans le tas des films.
+        for nom, numero in (
+            ('[Pokémon Fansub] Pokémon Horizons - 139 (VOSTFR-FR 1920x1080 H264 AAC)v2.mp4', 139),
+            ('Serie - 12 (VOSTFR) FINAL.mkv', 12),
+            ('Serie - 8 (VOSTFR) repack.mkv', 8),
+        ):
+            titre, _, episodes = ma.parse_episode_filename(nom)
+            self.assertIsNotNone(titre, nom)
+            self.assertEqual(episodes, [numero])
+
     def test_un_millesime_ne_devient_pas_un_numero_d_episode(self):
         # « Blade Runner - 2049 » n'est pas le 2049e episode de Blade Runner :
         # le nombre pourrait etre une annee, et ce qui suit en est une.

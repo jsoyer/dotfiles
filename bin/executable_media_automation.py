@@ -113,7 +113,11 @@ EPISODE_PATTERNS = [
     # plausible, et ce qui suit ne doit pas en etre une non plus.
     re.compile(
         r'^(?P<title>.+?)\s+-\s+(?P<episode>\d{1,4})(?!\d)'
-        r'\s*(?P<apres>[\(\[][^)\]]*[\)\]])?\s*$'),
+        r'\s*(?P<apres>[\(\[][^)\]]*[\)\]])?'
+        # Une reedition ajoute sa marque apres la parenthese : « …AAC)v2 ».
+        # Exiger que le nom s'arrete la faisait echouer la lecture pour deux
+        # caracteres, et trois episodes repartaient dans le tas des films.
+        r'\s*(?:v\d{1,2}|final|repack|corrected?)?\s*$', re.I),
 ]
 
 # Standalone season markers used when the episode token carries no season.
