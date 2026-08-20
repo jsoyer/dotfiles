@@ -1,0 +1,74 @@
+{{- if eq .chezmoi.os "linux" -}}
+#!/usr/bin/env bash
+# Installe /etc/sudoers.d/sysup pour que `sysup` tourne sans mot de passe.
+#
+# Pourquoi un script et pas un fichier gere directement : chezmoi gere $HOME,
+# pas /etc. Le contenu est donc rendu ici puis pose avec sudo.
+#
+# Linux uniquement : sur macOS `sysup` passe par brew, qui ne demande pas sudo.
+#
+# run_always_ et pas run_onchange_ : si sudo demande un mot de passe, le script
+# sort proprement sans installer. Un run_onchange_ enregistrerait alors son hash
+# comme "execute" et ne retenterait JAMAIS. Ici il retente a chaque apply, et le
+# cmp ci-dessous le rend no-op des que la regle est en place.
+
+set -euo pipefail
+
+TARGET="/etc/sudoers.d/sysup"
+RULE_USER="{{ .chezmoi.username }}"
+
+TMP="$(mktemp)"
+cleanup() { [ -n "${TMP:-}" ] && [ -f "$TMP" ] && command rm -f -- "$TMP"; }
+trap cleanup EXIT
+
+cat > "$TMP" <<EOF
+# Genere par chezmoi
+# (.chezmoiscripts/03-configure/run_onchange_install-sudoers-sysup.sh.tmpl)
+# NE PAS EDITER A LA MAIN : toute modification sera ecrasee au prochain apply.
+#
+# Permet a \`sysup\` de tourner sans surveillance. Portee volontairement etroite :
+# uniquement les commandes de mise a jour lancees par sysup, arguments compris.
+# \`dnf install <n_importe_quoi>\` continue de demander le mot de passe.
+#
+# Reste proche d'un acces root : les scriptlets des paquets s'executent en root,
+# donc un depot ou un paquet compromis passe root sans mot de passe.
+# L'enumeration exacte bloque l'installation arbitraire, pas une mise a jour
+# malveillante.
+Defaults:${RULE_USER} !requiretty
+
+# Fedora
+${RULE_USER} ALL=(root) NOPASSWD: /usr/bin/dnf upgrade --refresh -y
+
+# Debian / Ubuntu / Raspberry Pi
+${RULE_USER} ALL=(root) NOPASSWD: /usr/bin/apt-get update
+${RULE_USER} ALL=(root) NOPASSWD: /usr/bin/apt-get dist-upgrade -y
+${RULE_USER} ALL=(root) NOPASSWD: /usr/bin/apt-get autoremove -y
+
+# Arch
+${RULE_USER} ALL=(root) NOPASSWD: /usr/bin/pacman -Syu --noconfirm
+EOF
+
+# Un sudoers invalide peut casser sudo entierement : on valide AVANT de poser.
+if ! visudo -c -f "$TMP" >/dev/null 2>&1; then
+    echo "sudoers-sysup: regle invalide, installation annulee" >&2
+    visudo -c -f "$TMP" >&2 || true
+    exit 1
+fi
+
+# Deja identique ? on ne touche a rien (evite un sudo inutile a chaque apply).
+if sudo -n cmp -s "$TMP" "$TARGET" 2>/dev/null; then
+    echo "sudoers-sysup: deja a jour"
+    exit 0
+fi
+
+# -n : jamais de prompt. chezmoi-autoupdate tourne sans surveillance, un sudo
+# interactif bloquerait la synchro horaire. On sort proprement en expliquant.
+if ! sudo -n true 2>/dev/null; then
+    echo "sudoers-sysup: sudo demande un mot de passe, installation reportee."
+    echo "  Lancer une fois a la main :  sudo -v && chezmoi apply"
+    exit 0
+fi
+
+sudo install -m 0440 -o root -g root "$TMP" "$TARGET"
+echo "sudoers-sysup: installe dans ${TARGET} pour ${RULE_USER}"
+{{- end }}
