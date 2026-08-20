@@ -565,10 +565,29 @@ end
 function sysup
     set os (uname -s | tr '[:upper:]' '[:lower:]')
 
+    # sysup doit tourner sans surveillance (appelee par `cup`). Chaque
+    # gestionnaire se tait a sa facon : NONINTERACTIVE pour Homebrew,
+    # HOMEBREW_NO_ENV_HINTS pour les hints, DEBIAN_FRONTEND pour dpkg.
+    # -f limite la portee a la fonction, le shell n'est pas pollue.
+    set -f -x NONINTERACTIVE 1
+    set -f -x HOMEBREW_NO_ENV_HINTS 1
+    set -f -x DEBIAN_FRONTEND noninteractive
+
+    # oh-my-zsh : upgrade.sh appele directement (la fonction `omz` n'existe
+    # que dans zsh). Non interactif par defaut, -v minimal limite le bruit.
+    set -l omz_dir (test -n "$ZSH"; and echo $ZSH; or echo "$HOME/.oh-my-zsh")
+    if test -x "$omz_dir/tools/upgrade.sh"
+        echo "💤 Updating oh-my-zsh..."
+        "$omz_dir/tools/upgrade.sh" -v minimal; or true
+    end
+
     switch $os
         case darwin
             bup
-            bcu
+            # brew-cask-upgrade demande une confirmation par cask sans -y ;
+            # on appelle la commande complete pour ne pas rendre `bcu` muet
+            # quand tu l'utilises a la main.
+            breww cu -a -y
             if command -q mas
                 echo "📱 Updating App Store apps..."
                 mas upgrade
@@ -596,7 +615,9 @@ function sysup
 
             if command -q flatpak
                 echo "📦 Updating Flatpak apps..."
-                flatpak update -y
+                # -y ne couvre pas les questions de choix (remote/version) :
+                # --noninteractive est le mode prevu pour l'automatisation.
+                flatpak update --noninteractive -y
             end
 
             if command -q brew

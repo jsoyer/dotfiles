@@ -416,10 +416,33 @@ sysup() {
     *) return ;;
   esac
 
+  # sysup doit tourner sans surveillance (elle est appelee par `cup`). Chaque
+  # gestionnaire se tait a sa facon :
+  #   NONINTERACTIVE        -> Homebrew n'ouvre aucun prompt (casks, sudo)
+  #   HOMEBREW_NO_ENV_HINTS -> supprime les hints de fin d'operation
+  #   DEBIAN_FRONTEND       -> dpkg ne demande rien sur les fichiers de conf
+  # Portee limitee a la fonction : `local -x` exporte sans polluer le shell.
+  local -x NONINTERACTIVE=1
+  local -x HOMEBREW_NO_ENV_HINTS=1
+  local -x DEBIAN_FRONTEND=noninteractive
+
+  # oh-my-zsh : on appelle l'updater officiel directement plutot que la fonction
+  # `omz`, qui n'existe que dans une session zsh interactive. upgrade.sh est non
+  # interactif par defaut (le mode interactif demande -i) ; -v minimal limite le
+  # bruit. Independant de l'OS, donc hors du case ci-dessous.
+  local omz_dir="${ZSH:-$HOME/.oh-my-zsh}"
+  if [ -x "$omz_dir/tools/upgrade.sh" ]; then
+    echo "💤 Updating oh-my-zsh..."
+    "$omz_dir/tools/upgrade.sh" -v minimal || true
+  fi
+
   case "$os" in
     darwin)
       bup
-      bcu
+      # `bcu` = `breww cu -a` : brew-cask-upgrade demande une confirmation par
+      # cask sans -y. On appelle donc la commande complete ici plutot que
+      # l'alias, pour ne pas rendre `bcu` muet quand tu l'utilises a la main.
+      breww cu -a -y
       if command -v mas &>/dev/null; then
         echo "📱 Updating App Store apps..."
         mas upgrade
@@ -451,7 +474,9 @@ sysup() {
 
       if command -v flatpak &>/dev/null; then
         echo "📦 Updating Flatpak apps..."
-        flatpak update -y
+        # -y seul ne couvre pas les questions de choix (remote/version) :
+        # --noninteractive est le mode explicitement prevu pour l'automatisation.
+        flatpak update --noninteractive -y
       fi
 
       if command -v brew &>/dev/null; then

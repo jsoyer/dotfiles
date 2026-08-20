@@ -1224,10 +1224,25 @@ def cdestroy [] {
 def sysup [] {
     let os = (^uname | str trim)
 
+    # oh-my-zsh : upgrade.sh appele directement (la fonction `omz` n'existe que
+    # dans zsh). Non interactif par defaut, -v minimal limite le bruit.
+    let omz_dir = ($env.ZSH? | default $"($env.HOME)/.oh-my-zsh")
+    if ($"($omz_dir)/tools/upgrade.sh" | path exists) {
+        print "💤 Updating oh-my-zsh..."
+        try { ^$"($omz_dir)/tools/upgrade.sh" -v minimal }
+    }
+
+    # sysup doit tourner sans surveillance (appelee par `cup`). NONINTERACTIVE
+    # fait taire Homebrew, HOMEBREW_NO_ENV_HINTS ses hints, DEBIAN_FRONTEND
+    # dpkg. with-env limite la portee au bloc, le shell n'est pas pollue.
+    with-env {NONINTERACTIVE: "1", HOMEBREW_NO_ENV_HINTS: "1", DEBIAN_FRONTEND: "noninteractive"} {
     match $os {
         "Darwin" => {
             bup
-            bcu
+            # brew-cask-upgrade demande une confirmation par cask sans -y ; on
+            # appelle la commande complete pour ne pas rendre `bcu` muet quand
+            # tu l'utilises a la main.
+            ^breww cu -a -y
             if (which mas | is-not-empty) {
                 print "📱 Updating App Store apps..."
                 ^mas upgrade
@@ -1263,7 +1278,9 @@ def sysup [] {
 
             if (which flatpak | is-not-empty) {
                 print "📦 Updating Flatpak apps..."
-                ^flatpak update -y
+                # -y ne couvre pas les questions de choix (remote/version) :
+                # --noninteractive est le mode prevu pour l'automatisation.
+                ^flatpak update --noninteractive -y
             }
 
             if (which brew | is-not-empty) {
@@ -1277,6 +1294,7 @@ def sysup [] {
         }
         _ => { }
     }
+    }  # fin du with-env non interactif
 }
 
 # Update CLI AI tools (claude-code, copilot-cli, codex)
