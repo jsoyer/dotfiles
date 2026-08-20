@@ -115,12 +115,17 @@
   diffFilter = delta --color-only
 {{- end }}
 
-{{- if lookPath "gh" }}
 
+# `gh` non qualifié, et pas de garde `lookPath` : le helper s'exécute au moment
+# du `git push`, pas au moment du `chezmoi apply`. Figer un chemin absolu rendu
+# à l'apply liait la config au PATH de ce moment-là — sur une machine où gh
+# n'était pas encore installé (ou absent du PATH du service d'autoupdate), le
+# bloc n'était pas écrit du tout et git tombait sur « Password authentication
+# is not supported », sans indice. Le dépôt étant public, seul le push casse :
+# fetch et rebase passent en anonyme, ce qui masque la panne jusqu'au bout.
 [credential "https://github.com"]
 	helper =
-	helper = !{{ lookPath "gh" }} auth git-credential
+	helper = !gh auth git-credential
 [credential "https://gist.github.com"]
 	helper =
-	helper = !{{ lookPath "gh" }} auth git-credential
-{{- end }}
+	helper = !gh auth git-credential
