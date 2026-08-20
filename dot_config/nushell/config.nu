@@ -1247,6 +1247,12 @@ def sysup [] {
                 print "📱 Updating App Store apps..."
                 ^mas upgrade
             }
+            # Condition positive sur mac-personal : nushell n'exporte pas
+            # MACHINE_PROFILE, une valeur vide doit exclure la machine de
+            # travail plutot que de l'inclure.
+            if ($env.MACHINE_PROFILE? | default "") == "mac-personal" {
+                update-ai
+            }
         }
         "Linux" => {
             let mp = ($env.MACHINE_PROFILE? | default "")

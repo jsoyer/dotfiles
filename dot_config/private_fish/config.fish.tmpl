@@ -592,6 +592,11 @@ function sysup
                 echo "📱 Updating App Store apps..."
                 mas upgrade
             end
+            # Condition positive sur mac-personal : une variable vide doit
+            # exclure la machine de travail, pas l'inclure.
+            if test "$MACHINE_PROFILE" = "mac-personal"
+                update-ai
+            end
         case linux
             set -l _mp "$MACHINE_PROFILE"
             switch $_mp

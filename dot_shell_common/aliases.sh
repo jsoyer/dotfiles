@@ -447,6 +447,14 @@ sysup() {
         echo "📱 Updating App Store apps..."
         mas upgrade
       fi
+      # Les CLI IA n'etaient mises a jour que sur Linux — oubli, pas un choix.
+      # Condition POSITIVE sur mac-personal, et non `!= mac-pro` comme ailleurs
+      # dans ce fichier : MACHINE_PROFILE n'est pas exporte par tous les shells
+      # (nushell ne fait que le lire). Une variable vide doit exclure la machine
+      # de travail, pas l'inclure — on ne met pas a jour d'outils IA dessus.
+      if [ "${MACHINE_PROFILE:-}" = "mac-personal" ]; then
+        update-ai
+      fi
       ;;
     linux)
       case "${MACHINE_PROFILE:-}" in
