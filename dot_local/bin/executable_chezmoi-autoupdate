@@ -7,7 +7,7 @@
 #                 deprecated brew formulas, tmux plugins)
 #   B  chezmoi update --no-tty --keep-going
 #   C  Write status to ~/.cache/chezmoi-autoupdate/status.json
-#   D  Notifications on error only (desktop, ntfy.sh, Discord)
+#   D  Notifications on error only (desktop, ntfy.sh)
 #   E  Heartbeat on success (silent POST to ntfy with hostname + timestamp)
 #   F  Save changelog marker (last-seen-commit)
 #
@@ -17,7 +17,6 @@
 #   CHEZMOI_NTFY_TOPIC    — ntfy topic name
 #   CHEZMOI_NTFY_URL      — ntfy server URL (default: https://ntfy.sh)
 #   CHEZMOI_NTFY_TOKEN    — ntfy auth token (for self-hosted with auth)
-#   DISCORD_WEBHOOK_URL   — Discord incoming webhook URL
 # =============================================================================
 
 set -uo pipefail
@@ -366,7 +365,14 @@ if [[ "${STATUS}" == "error" ]]; then
         osascript -e "display notification \"${_error_summary}\" with title \"chezmoi-autoupdate\"" \
             2>>"${LOG_FILE}" || true
     elif command -v notify-send >/dev/null 2>&1; then
-        notify-send --urgency=critical "chezmoi-autoupdate" "${_error_summary}" \
+        # urgency=critical rend la notification PERSISTANTE sous GNOME : elle
+        # ne se ferme jamais toute seule et s'empile a chaque run horaire.
+        # normal la laisse expirer, et le hint x-canonical-private-synchronous
+        # fait REMPLACER la precedente au lieu d'en ajouter une (GNOME/mako).
+        notify-send --urgency=normal \
+            --app-name="chezmoi-autoupdate" \
+            -h "string:x-canonical-private-synchronous:chezmoi-autoupdate" \
+            "chezmoi-autoupdate" "${_error_summary}" \
             2>>"${LOG_FILE}" || true
     fi
 
@@ -389,14 +395,8 @@ if [[ "${STATUS}" == "error" ]]; then
     # restent definies : d'autres outils s'en servent (hivepilot-telegram,
     # cminventory), ne pas les supprimer de l'environnement.
 
-    # D4. Discord
-    if [[ -n "${DISCORD_WEBHOOK_URL:-}" ]]; then
-        _discord_payload="{\"content\":\"**chezmoi-autoupdate error** on \`${HOSTNAME_SHORT}\`\\n${_error_summary}\"}"
-        curl -s --max-time 10 \
-            -H "Content-Type: application/json" \
-            -d "${_discord_payload}" \
-            "${DISCORD_WEBHOOK_URL}" >>"${LOG_FILE}" 2>&1 || true
-    fi
+    # D4. Discord — RETIRE (2026-08-20). Alertes sur ntfy + notification
+    # desktop uniquement.
 fi
 
 # ---------------------------------------------------------------------------
