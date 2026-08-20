@@ -166,11 +166,17 @@ The main agent is an **orchestrator**, not a worker. It MUST keep its context cl
 
 ### Context Budget & Autocompact (HARD RULE — per-window targets)
 
-| Window size | Compact target  | `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE` |
-| ----------- | --------------- | --------------------------------- |
-| 128K        | **80K tokens**  | `62`                              |
-| 200K        | **80K tokens**  | `40`                              |
-| 1M          | **80K tokens**  | `8`                               |
+| Window size | Compact target   | `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE` |
+| ----------- | ---------------- | --------------------------------- |
+| 128K        | **100K tokens**  | `78`                              |
+| 200K        | **125K tokens**  | `62`                              |
+| 1M          | **150K tokens**  | `15`                              |
+
+Les fenetres plus larges recoivent un budget absolu plus grand, tout en restant
+dans la zone de qualite. Valeurs faisant foi : `hooks/session-start.sh` (qui les
+calcule et corrige automatiquement) et `set-compact.sh` (qui les documente et
+permet de forcer). Ce tableau annoncait auparavant une cible unique de 80K
+(62/40/8) qui ne correspondait plus a aucun des deux depuis juillet 2026.
 
 `SessionStart` hook auto-detects window size and verifies/corrects the env var. Manual override: `~/.claude/set-compact.sh <128k|200k|1m|status>`.
 
