@@ -722,6 +722,57 @@ has_test_infra() {
 
 # ─── FORMATTER / LINTER DETECTION ─────────────────────────────────────
 
+# ─── Python virtualenv resolution ──────────────────────────────────────
+# A global mypy/ruff resolves imports against system site-packages, never the
+# project's actual dependency versions: it emits false positives AND false
+# negatives. A hook that checks the wrong dependency set is worse than no hook,
+# because it reads as verification. So Python tooling comes from the venv first.
+# Precedence: $VIRTUAL_ENV > <project>/.venv > <project>/venv > PATH.
+# Contract + regression cases: hooks/tests/test-python-venv-tools.sh
+
+# Echoes an eval-safe absolute path to <tool> inside an available venv, or
+# returns 1. %q quoting matters: these commands are run through `eval`, so an
+# unquoted space in the project path would split the word and fail silently.
+_venv_python_tool() {
+  local project_dir="$1" tool="$2" base candidate
+  for base in "${VIRTUAL_ENV:-}" "$project_dir/.venv" "$project_dir/venv"; do
+    [ -n "$base" ] || continue
+    candidate="$base/bin/$tool"
+    if [ -x "$candidate" ]; then
+      printf '%q' "$candidate"
+      return 0
+    fi
+  done
+  return 1
+}
+
+# Resolves the first available tool from the given list, venv-first ACROSS the
+# whole list: a venv mypy beats a global pyright, because the venv is the
+# authority on this project's dependencies. Sets PY_TOOL_NAME and PY_TOOL_CMD
+# (globals, like the rest of this file — a joined string would need splitting
+# on a separator, and "${x%%\t*}" matches a literal backslash-t, not a tab).
+resolve_python_tool() {
+  local project_dir="$1"; shift
+  local tool resolved
+  PY_TOOL_NAME=""
+  PY_TOOL_CMD=""
+  for tool in "$@"; do
+    if resolved=$(_venv_python_tool "$project_dir" "$tool"); then
+      PY_TOOL_NAME="$tool"
+      PY_TOOL_CMD="$resolved"
+      return 0
+    fi
+  done
+  for tool in "$@"; do
+    if command -v "$tool" &>/dev/null; then
+      PY_TOOL_NAME="$tool"
+      PY_TOOL_CMD="$tool"
+      return 0
+    fi
+  done
+  return 1
+}
+
 # Detects the formatter command for a given file.
 # Sets: FORMATTER_CMD (string, empty if no formatter found)
 # Usage: detect_formatter "/project/src/foo.py" "/project"
@@ -766,19 +817,25 @@ detect_formatter() {
       fi
       ;;
     python)
-      # Ruff (fastest, modern) > Black > autopep8 > yapf
-      if command -v ruff &>/dev/null; then
-        FORMATTER_CMD="ruff format"
-        # Also run ruff check --fix for import sorting + lint fixes
-        FORMATTER_CMD="ruff check --fix \"\$FILE\" && ruff format"
-      elif command -v black &>/dev/null; then
-        FORMATTER_CMD="black"
-        # Add isort if available
-        if command -v isort &>/dev/null; then
-          FORMATTER_CMD="isort \"\$FILE\" && black"
-        fi
-      elif command -v autopep8 &>/dev/null; then
-        FORMATTER_CMD="autopep8 --in-place"
+      # Ruff (fastest, modern) > Black > autopep8, resolved from the project
+      # venv first — same reasoning as the type checker.
+      if resolve_python_tool "$project_dir" ruff black autopep8; then
+        local fmt_cmd="$PY_TOOL_CMD"
+        case "$PY_TOOL_NAME" in
+          ruff)
+            # check --fix handles import sorting + lint fixes, then format
+            FORMATTER_CMD="$fmt_cmd check --fix \"\$FILE\" && $fmt_cmd format"
+            ;;
+          black)
+            FORMATTER_CMD="$fmt_cmd"
+            if resolve_python_tool "$project_dir" isort; then
+              FORMATTER_CMD="$PY_TOOL_CMD \"\$FILE\" && $fmt_cmd"
+            fi
+            ;;
+          autopep8)
+            FORMATTER_CMD="$fmt_cmd --in-place"
+            ;;
+        esac
       fi
       # Check pyproject.toml for tool configs
       if [ -z "$FORMATTER_CMD" ] && [ -f "$project_dir/pyproject.toml" ]; then
@@ -909,13 +966,14 @@ detect_typechecker() {
       fi
       ;;
     python)
-      # mypy or pyright
-      if command -v pyright &>/dev/null; then
-        TYPECHECKER_NAME="pyright"
-        TYPECHECKER_CMD="pyright"
-      elif command -v mypy &>/dev/null; then
-        TYPECHECKER_NAME="mypy"
-        TYPECHECKER_CMD="mypy ."
+      # pyright or mypy, resolved from the project venv first (see
+      # resolve_python_tool above — a global checker lies about imports).
+      if resolve_python_tool "$project_dir" pyright mypy; then
+        TYPECHECKER_NAME="$PY_TOOL_NAME"
+        case "$PY_TOOL_NAME" in
+          pyright) TYPECHECKER_CMD="$PY_TOOL_CMD" ;;
+          mypy)    TYPECHECKER_CMD="$PY_TOOL_CMD ." ;;
+        esac
       fi
       # Check pyproject.toml for config
       if [ -z "$TYPECHECKER_CMD" ] && [ -f "$project_dir/pyproject.toml" ]; then
