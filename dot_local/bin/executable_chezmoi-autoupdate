@@ -7,7 +7,7 @@
 #                 deprecated brew formulas, tmux plugins)
 #   B  chezmoi update --no-tty --keep-going
 #   C  Write status to ~/.cache/chezmoi-autoupdate/status.json
-#   D  Notifications on error only (desktop, ntfy.sh, Telegram, Discord)
+#   D  Notifications on error only (desktop, ntfy.sh, Discord)
 #   E  Heartbeat on success (silent POST to ntfy with hostname + timestamp)
 #   F  Save changelog marker (last-seen-commit)
 #
@@ -17,8 +17,6 @@
 #   CHEZMOI_NTFY_TOPIC    — ntfy topic name
 #   CHEZMOI_NTFY_URL      — ntfy server URL (default: https://ntfy.sh)
 #   CHEZMOI_NTFY_TOKEN    — ntfy auth token (for self-hosted with auth)
-#   TELEGRAM_BOT_TOKEN    — Telegram bot token
-#   TELEGRAM_CHAT_ID      — Telegram chat/channel ID
 #   DISCORD_WEBHOOK_URL   — Discord incoming webhook URL
 # =============================================================================
 
@@ -386,15 +384,10 @@ if [[ "${STATUS}" == "error" ]]; then
             "${_ntfy_url}/${CHEZMOI_NTFY_TOPIC}" >>"${LOG_FILE}" 2>&1 || true
     fi
 
-    # D3. Telegram
-    if [[ -n "${TELEGRAM_BOT_TOKEN:-}" ]] && [[ -n "${TELEGRAM_CHAT_ID:-}" ]]; then
-        _tg_msg="*chezmoi-autoupdate error* on \`${HOSTNAME_SHORT}\`%0A${_error_summary}"
-        curl -s --max-time 10 \
-            "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
-            -d "chat_id=${TELEGRAM_CHAT_ID}" \
-            -d "parse_mode=Markdown" \
-            -d "text=${_tg_msg}" >>"${LOG_FILE}" 2>&1 || true
-    fi
+    # D3. Telegram — RETIRE volontairement (2026-08-20). Les alertes de cet
+    # updater vont uniquement sur ntfy. TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID
+    # restent definies : d'autres outils s'en servent (hivepilot-telegram,
+    # cminventory), ne pas les supprimer de l'environnement.
 
     # D4. Discord
     if [[ -n "${DISCORD_WEBHOOK_URL:-}" ]]; then
