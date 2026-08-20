@@ -106,6 +106,14 @@ EPISODE_PATTERNS = [
         r'(?:[-.\s_]?E(?P<episode2>\d{1,4})(?!\d))?(?=[.\s_-]|$)',
         re.I,
     ),
+    # Convention de fansub : « Serie - 124 (VOSTFR-FR 1920x1080 H264 AAC) ».
+    # Le numero suit un tiret, sans lettre pour l'annoncer. Cette forme est
+    # ambigue — « Blade Runner - 2049 (2017) » lui ressemble — d'ou les deux
+    # garde-fous appliques plus bas : le numero ne doit pas etre une annee
+    # plausible, et ce qui suit ne doit pas en etre une non plus.
+    re.compile(
+        r'^(?P<title>.+?)\s+-\s+(?P<episode>\d{1,4})(?!\d)'
+        r'\s*(?P<apres>[\(\[][^)\]]*[\)\]])?\s*$'),
 ]
 
 # Standalone season markers used when the episode token carries no season.
@@ -704,6 +712,10 @@ def parse_episode_filename(filename, parent_name=None):
     """Extract series title, season and episode numbers from common TV patterns."""
     name = re.sub(r'\.(mkv|mp4|avi|wmv|m4v|mov|srt|sub|idx|ass|ssa)$', '', filename, flags=re.I)
     name = name.replace('_', ' ').strip()
+    # Une etiquette de groupe ouvre souvent le nom : « [Pokemon Fansub] Serie ».
+    # Elle encadre le titre sans en faire partie, et TMDb ne connait personne
+    # sous ce nom. parse_filename la retire deja pour les films.
+    name = re.sub(r'^\s*\[[^\]]*\]\s*', '', name).strip()
 
     # Jeton en tete de nom : la serie, si elle est la, precede le titre d'episode.
     leading = LEADING_EPISODE_RE.match(name)
@@ -732,8 +744,21 @@ def parse_episode_filename(filename, parent_name=None):
         else:
             # Season-less release: prefer a marker on the release/parent folder.
             season = parse_season_hint(raw_title) or parse_season_hint(parent_name) or 1
+        numero = int(match.group('episode'))
+        # Un numero nu apres un tiret peut aussi bien etre un rang d'episode
+        # qu'une part de titre : « Blade Runner - 2049 (2017) » n'est pas le
+        # 2049e episode de Blade Runner. On refuse donc quand le numero peut
+        # etre une annee, ou quand ce qui le suit en est une — un film porte son
+        # millesime entre parentheses, un fansub y met ses mentions techniques.
+        if 'apres' in match.groupdict():
+            apres = (match.group('apres') or '').strip('()[] ')
+            # annee_plausible attend un nombre : « VOSTFR-FR 1920x1080 » n'en
+            # est pas un, et n'a donc pas a lui etre soumis.
+            suite_est_une_annee = apres.isdigit() and annee_plausible(apres)
+            if annee_plausible(numero) or suite_est_une_annee:
+                continue
         title = clean_series_title(raw_title) or raw_title.replace('.', ' ').strip(' -.')
-        episodes = [int(match.group('episode'))]
+        episodes = [numero]
         if groups.get('episode2'):
             episodes.append(int(groups['episode2']))
         return title, season, episodes

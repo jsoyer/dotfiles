@@ -835,5 +835,42 @@ class UnTrouNeDoitPasFausserLeDernierNumero(unittest.TestCase):
         table = self.module.Mapping(seasons=[(1, 1, 10)], offset=0)
         self.assertEqual(table.dernier_present(set()), 0)
 
+
+class UnNumeroNuApresUnTiret(unittest.TestCase):
+    """Les fansubs numerotent « Serie - 124 », sans lettre pour l'annoncer.
+
+    Treize episodes de Pokemon Horizons ont ete ecartes le meme jour avec « no
+    TMDb movie match » : faute de code reconnu, l'importeur les prenait pour des
+    films. La forme est ambigue — « Blade Runner - 2049 (2017) » lui ressemble —
+    d'ou les deux garde-fous.
+    """
+
+    def test_la_forme_fansub_est_reconnue(self):
+        titre, saison, episodes = ma.parse_episode_filename(
+            '[Pokémon Fansub] Pokémon Horizons - 124 (VOSTFR-FR 1920x1080 H264 AAC).mp4')
+        self.assertEqual(titre, 'Pokémon Horizons')
+        self.assertEqual(saison, 1)
+        self.assertEqual(episodes, [124])
+
+    def test_l_etiquette_du_groupe_ne_fait_pas_partie_du_titre(self):
+        titre, _, _ = ma.parse_episode_filename(
+            '[Kaerizaki-Fansub] One Piece - 1174 (VOSTFR).mp4')
+        self.assertEqual(titre, 'One Piece')
+
+    def test_un_millesime_ne_devient_pas_un_numero_d_episode(self):
+        # « Blade Runner - 2049 » n'est pas le 2049e episode de Blade Runner :
+        # le nombre pourrait etre une annee, et ce qui suit en est une.
+        for nom in ('Blade Runner - 2049 (2017).mkv',
+                    'Le Parrain - 2 (1974).mkv'):
+            self.assertEqual(ma.parse_episode_filename(nom), (None, None, []))
+
+    def test_les_formes_habituelles_restent_prioritaires(self):
+        self.assertEqual(
+            ma.parse_episode_filename('Detective Conan - S01E1085 - Rencontre.mkv'),
+            ('Detective Conan', 1, [1085]))
+        self.assertEqual(
+            ma.parse_episode_filename('[SubsPlease] Serie - S02E03.mkv'),
+            ('Serie', 2, [3]))
+
 if __name__ == '__main__':
     unittest.main(verbosity=2)
