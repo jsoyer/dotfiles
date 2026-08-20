@@ -1507,22 +1507,6 @@ def --wrapped ssh [...args: string] {
 def sshpw [...args: string] { ^ssh -o PreferredAuthentications=password ...$args }
 
 # ============================================================================
-# Ruby Configuration
-# ============================================================================
-let ruby_ver = "3.4.0"
-let gem_home = ($nu.home-dir | path join ".gem" "ruby" $ruby_ver)
-let gem_bin = ($gem_home | path join "bin")
-
-# Set GEM paths
-$env.GEM_HOME = $gem_home
-$env.GEM_PATH = $gem_home
-
-# Add gem bin to PATH if it exists
-if ($gem_bin | path exists) {
-  $env.PATH = ($env.PATH | prepend $gem_bin)
-}
-
-# ============================================================================
 # Integrations (sourced from cache generated in env.nu)
 # ============================================================================
 source ~/.cache/starship/init.nu
