@@ -1,0 +1,79 @@
+#!/usr/bin/env bash
+# chezmoi modify_ script → ~/.claude/settings.json
+#
+# settings.json est co-possédé par trois écrivains :
+#   - ce dépôt      → les réglages durables et portables (permissions, plugins,
+#                     statusLine, env, et nos propres hooks ~/.claude/hooks/*)
+#   - nos hooks     → session-start.sh et set-compact.sh réécrivent
+#                     env.CLAUDE_AUTOCOMPACT_PCT_OVERRIDE pour coller à la
+#                     fenêtre de contexte du modèle (128K→62, 200K→40, 1M→8).
+#                     Machine- ET modèle-dépendant : jamais versionné, sinon
+#                     chezmoi le remet à sa valeur figée toutes les heures et
+#                     dérègle le budget de contexte sans rien signaler.
+#   - les agents    → moshi-hook / orca / herdr installent leurs propres hooks
+#                     et les RÉINSTALLENT à chaque mise à jour. On ne les
+#                     porte pas ici : on les laisse simplement passer, ce qui
+#                     les rend immunisés aux MAJ de ces outils.
+#
+# chezmoi fournit le contenu actuel sur stdin et remplace le fichier par notre
+# stdout. À chaque apply : on réaffirme la baseline, on conserve la valeur
+# d'autocompact vivante, et on repasse tel quel tout hook qui ne nous
+# appartient pas ainsi que toute clé de premier niveau inconnue.
+#
+# Même motif que dot_codex/modify_config.toml.
+set -euo pipefail
+
+CURRENT="$(cat)"   # stdin fourni par chezmoi (vide au tout premier apply)
+BASELINE=$(cat <<'CHEZMOI_BASELINE_JSON'
+{{ include ".chezmoitemplates/claude-settings.json" }}
+CHEZMOI_BASELINE_JSON
+)
+export CURRENT BASELINE
+
+python3 <<'PY'
+import json, os, sys
+
+baseline = json.loads(os.environ["BASELINE"])
+raw = os.environ.get("CURRENT", "").strip()
+try:
+    live = json.loads(raw) if raw else {}
+except json.JSONDecodeError:
+    live = {}          # fichier absent ou corrompu : la baseline seule fait foi
+
+# Un hook nous appartient s'il pointe vers nos scripts ou nos outils connus.
+# Tout le reste est considéré comme injecté par un tiers et repassé tel quel.
+OURS = (".claude/hooks/", "rtk ", "notify-send")
+def ours(cmd):
+    return any(p in cmd if p.endswith("/") else cmd.startswith(p) for p in OURS)
+
+result = json.loads(json.dumps(baseline))   # copie profonde
+
+# ── env : la valeur d'autocompact vivante gagne (écrite par nos hooks) ──
+live_pct = (live.get("env") or {}).get("CLAUDE_AUTOCOMPACT_PCT_OVERRIDE")
+if live_pct is not None:
+    result.setdefault("env", {})["CLAUDE_AUTOCOMPACT_PCT_OVERRIDE"] = live_pct
+
+# ── hooks : réinjecter ceux des tiers, en respectant leur matcher ──
+for event, groups in (live.get("hooks") or {}).items():
+    for group in groups:
+        foreign = [h for h in group.get("hooks", []) if not ours(h.get("command", ""))]
+        if not foreign:
+            continue
+        matcher = group.get("matcher")
+        target = result.setdefault("hooks", {}).setdefault(event, [])
+        slot = next((g for g in target if g.get("matcher") == matcher), None)
+        if slot is None:
+            slot = {k: v for k, v in group.items() if k != "hooks"}
+            slot["hooks"] = []
+            target.append(slot)
+        have = {h.get("command") for h in slot.setdefault("hooks", [])}
+        slot["hooks"].extend(h for h in foreign if h.get("command") not in have)
+
+# ── clés de premier niveau inconnues : Claude Code en ajoute au fil des
+#    versions, on ne les perd pas au passage ──
+for key, value in live.items():
+    result.setdefault(key, value)
+
+json.dump(result, sys.stdout, indent=2, ensure_ascii=False)
+sys.stdout.write("\n")
+PY
