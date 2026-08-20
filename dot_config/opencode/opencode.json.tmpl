@@ -65,27 +65,11 @@
         "BRAVE_API_KEY": "${BRAVE_API_KEY}"
       }
     },
-    "linear": {
-      "type": "local",
-      "command": ["npx", "-y", "linear-mcp"],
-      "environment": {
-        "LINEAR_ACCESS_TOKEN": "${LINEAR_ACCESS_TOKEN}"
-      }
-    },
     "discord": {
       "type": "local",
       "command": ["npx", "-y", "mcp-server-discord"],
       "environment": {
         "DISCORD_TOKEN": "${DISCORD_TOKEN}"
-      }
-    },
-    "obsidian": {
-      "type": "local",
-      "command": ["npx", "-y", "mcp-obsidian"],
-      "environment": {
-        "OBSIDIAN_API_KEY": "${OBSIDIAN_API_KEY}",
-        "OBSIDIAN_HOST": "127.0.0.1",
-        "OBSIDIAN_PORT": "27124"
       }
     },
     "notion": {
