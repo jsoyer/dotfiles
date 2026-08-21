@@ -55,17 +55,20 @@ if ! visudo -c -f "$TMP" >/dev/null 2>&1; then
     exit 1
 fi
 
-# Deja identique ? on ne touche a rien (evite un sudo inutile a chaque apply).
-if sudo -n cmp -s "$TMP" "$TARGET" 2>/dev/null; then
-    echo "sudoers-sysup: deja a jour"
-    exit 0
-fi
-
-# -n : jamais de prompt. chezmoi-autoupdate tourne sans surveillance, un sudo
-# interactif bloquerait la synchro horaire. On sort proprement en expliquant.
+# Ordre important : on teste d'ABORD si sudo est utilisable sans prompt.
+# Toute commande sudo -n qui echoue laisse une entree "a password is required"
+# dans le journal ; comme ce script tourne a chaque apply (donc toutes les
+# heures via chezmoi-autoupdate), commencer par le `cmp` polluait le journal
+# systeme d'un echec d'authentification par heure.
 if ! sudo -n true 2>/dev/null; then
     echo "sudoers-sysup: sudo demande un mot de passe, installation reportee."
     echo "  Lancer une fois a la main :  sudo -v && chezmoi apply"
+    exit 0
+fi
+
+# Deja identique ? on ne touche a rien.
+if sudo -n cmp -s "$TMP" "$TARGET" 2>/dev/null; then
+    echo "sudoers-sysup: deja a jour"
     exit 0
 fi
 
