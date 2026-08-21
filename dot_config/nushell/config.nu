@@ -1335,11 +1335,24 @@ const _AI_EXTENSIONS = [
     "gemini|gemini extensions update --all"
 ]
 
+# Outils connus SANS route verifiee. On ne les met PAS a jour — on signale
+# seulement leur presence, pour qu'un outil installe demain ne reste pas fige
+# en silence. ⚠ "q" et "amp" sont des noms generiques : faux positif possible.
+const _AI_UNROUTED = [
+    "antigravity|Antigravity"
+    "q|Amazon Q CLI"
+    "aider|Aider"
+    "goose|Goose"
+    "roo|Roo Code"
+    "amp|Amp"
+]
+
 # update-ai [--dry-run]
 def update-ai [--dry-run] {
     mut updated = 0
     mut absent = 0
     mut failed = 0
+    mut unrouted = 0
 
     print "🤖 Updating CLI AI tools..."
 
@@ -1384,7 +1397,10 @@ def update-ai [--dry-run] {
         let parts = ($entry | split row "|")
         let cmd = $parts.0
         let action = ($parts | skip 1 | str join "|")
-        if (which $cmd | is-empty) { continue }
+        if (which $cmd | is-empty) {
+            if $dry_run { print $"  ($cmd) ext — absent" }
+            continue
+        }
 
         if $dry_run {
             print $"  ($cmd) ext — ($action)"
@@ -1402,8 +1418,20 @@ def update-ai [--dry-run] {
         }
     }
 
+    # Passe de decouverte : ni installation ni mise a jour, juste un signalement.
+    for entry in $_AI_UNROUTED {
+        let parts = ($entry | split row "|")
+        if (which $parts.0 | is-empty) { continue }
+        $unrouted = $unrouted + 1
+        print -e $"  ⚠ ($parts.1) \(($parts.0)\) installe, mais aucune route dans update-ai"
+    }
+
     if $dry_run { return }
-    print $"  → ($updated) mis a jour, ($absent) absents, ($failed) en echec"
+    if $unrouted > 0 {
+        print $"  → ($updated) mis a jour, ($absent) absents, ($failed) en echec, ($unrouted) sans route"
+    } else {
+        print $"  → ($updated) mis a jour, ($absent) absents, ($failed) en echec"
+    }
 }
 
 # Chezmoi update + package updates

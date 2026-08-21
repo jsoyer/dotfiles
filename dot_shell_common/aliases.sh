@@ -558,13 +558,30 @@ _AI_EXTENSIONS=(
 # Non couverts, faute de commande groupee cote editeur :
 #   les plugins npm d'opencode et de kilo
 #
+# Outils connus SANS route verifiee. On ne les met PAS a jour — on signale
+# seulement leur presence, pour qu'un outil installe demain ne reste pas fige
+# en silence. Leur route sera ajoutee a _AI_TOOLS une fois verifiee a
+# l'execution (et pas deduite de leur --help : trois commandes annoncees comme
+# des updaters se contentaient en realite de conseiller).
+# ⚠ "q" et "amp" sont des noms generiques : un faux positif reste possible si
+# une autre commande porte ce nom sur la machine.
+_AI_UNROUTED=(
+  "antigravity|Antigravity"
+  "q|Amazon Q CLI"
+  "aider|Aider"
+  "goose|Goose"
+  "roo|Roo Code"
+  "amp|Amp"
+)
+
 # update-ai [--dry-run]   : --dry-run affiche la route retenue sans rien lancer
 update-ai() {
   local dry=0
   [ "${1:-}" = "--dry-run" ] && dry=1
 
   local entry cmd self fallback action
-  local updated=0 absent=0 failed=0
+  local label
+  local updated=0 absent=0 failed=0 unrouted=0
 
   echo "🤖 Updating CLI AI tools..."
 
@@ -606,7 +623,10 @@ update-ai() {
   for entry in "${_AI_EXTENSIONS[@]}"; do
     cmd="${entry%%|*}"
     action="${entry#*|}"
-    command -v "$cmd" &>/dev/null || continue
+    if ! command -v "$cmd" &>/dev/null; then
+      [ "$dry" -eq 1 ] && printf "  %-13s %s\n" "${cmd} ext" "absent"
+      continue
+    fi
 
     if [ "$dry" -eq 1 ]; then
       printf "  %-13s %s\n" "${cmd} ext" "$action"
@@ -622,8 +642,21 @@ update-ai() {
     fi
   done
 
+  # Passe de decouverte : ni installation ni mise a jour, juste un signalement.
+  for entry in "${_AI_UNROUTED[@]}"; do
+    cmd="${entry%%|*}"
+    label="${entry#*|}"
+    command -v "$cmd" &>/dev/null || continue
+    unrouted=$((unrouted + 1))
+    echo "  ⚠ ${label} (${cmd}) installe, mais aucune route dans update-ai" >&2
+  done
+
   [ "$dry" -eq 1 ] && return 0
-  echo "  → ${updated} mis a jour, ${absent} absents, ${failed} en echec"
+  if [ "$unrouted" -gt 0 ]; then
+    echo "  → ${updated} mis a jour, ${absent} absents, ${failed} en echec, ${unrouted} sans route"
+  else
+    echo "  → ${updated} mis a jour, ${absent} absents, ${failed} en echec"
+  fi
 }
 
 # Chezmoi update + package updates
