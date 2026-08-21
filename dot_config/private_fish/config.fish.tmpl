@@ -569,7 +569,10 @@ function sysup
     # gestionnaire se tait a sa facon : NONINTERACTIVE pour Homebrew,
     # HOMEBREW_NO_ENV_HINTS pour les hints, DEBIAN_FRONTEND pour dpkg.
     # -f limite la portee a la fonction, le shell n'est pas pollue.
+    # HOMEBREW_NO_ASK : le mode "ask" de brew est actif par defaut et demande
+    # "Do you want to proceed? [y/n]" ; NONINTERACTIVE ne le couvre pas.
     set -f -x NONINTERACTIVE 1
+    set -f -x HOMEBREW_NO_ASK 1
     set -f -x HOMEBREW_NO_ENV_HINTS 1
     set -f -x DEBIAN_FRONTEND noninteractive
 

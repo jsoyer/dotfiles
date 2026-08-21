@@ -1235,7 +1235,9 @@ def sysup [] {
     # sysup doit tourner sans surveillance (appelee par `cup`). NONINTERACTIVE
     # fait taire Homebrew, HOMEBREW_NO_ENV_HINTS ses hints, DEBIAN_FRONTEND
     # dpkg. with-env limite la portee au bloc, le shell n'est pas pollue.
-    with-env {NONINTERACTIVE: "1", HOMEBREW_NO_ENV_HINTS: "1", DEBIAN_FRONTEND: "noninteractive"} {
+    # HOMEBREW_NO_ASK : le mode "ask" de brew est actif par defaut et demande
+    # "Do you want to proceed? [y/n]" ; NONINTERACTIVE ne le couvre pas.
+    with-env {NONINTERACTIVE: "1", HOMEBREW_NO_ASK: "1", HOMEBREW_NO_ENV_HINTS: "1", DEBIAN_FRONTEND: "noninteractive"} {
     match $os {
         "Darwin" => {
             bup

@@ -419,10 +419,18 @@ sysup() {
   # sysup doit tourner sans surveillance (elle est appelee par `cup`). Chaque
   # gestionnaire se tait a sa facon :
   #   NONINTERACTIVE        -> Homebrew n'ouvre aucun prompt (casks, sudo)
+  #   HOMEBREW_NO_ASK       -> desactive le mode "ask" de brew, actif PAR DEFAUT
+  #                            depuis peu : il affiche le plan puis demande
+  #                            "Do you want to proceed? [y/n]". NONINTERACTIVE
+  #                            ne le couvre pas. Le prompt est saute sans TTY,
+  #                            donc invisible depuis un timer mais bloquant
+  #                            quand sysup est lance depuis un terminal.
   #   HOMEBREW_NO_ENV_HINTS -> supprime les hints de fin d'operation
   #   DEBIAN_FRONTEND       -> dpkg ne demande rien sur les fichiers de conf
-  # Portee limitee a la fonction : `local -x` exporte sans polluer le shell.
+  # Portee limitee a la fonction : `local -x` exporte sans polluer le shell,
+  # donc un `bup` lance a la main garde sa confirmation.
   local -x NONINTERACTIVE=1
+  local -x HOMEBREW_NO_ASK=1
   local -x HOMEBREW_NO_ENV_HINTS=1
   local -x DEBIAN_FRONTEND=noninteractive
 
