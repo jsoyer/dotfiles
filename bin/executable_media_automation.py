@@ -1368,26 +1368,37 @@ MOTS_OUTILS = frozenset({
     'le', 'la', 'les', 'de', 'du', 'des', 'un', 'une', 'et', 'a', 'au', 'aux',
     'en', 'l', 'd', 'the', 'of', 'and', 'in', 'on', 'no', 'to',
 })
-JETON_TECHNIQUE_RE = re.compile(r's\d{1,3}|e\d{1,4}|\d{1,3}')
+# Un jeton de saison ou d'episode ne dit rien de l'oeuvre. Le rang d'une saga,
+# lui, est ce qui la distingue : il est conserve, et meme decisif plus bas.
+JETON_TECHNIQUE_RE = re.compile(r's\d{1,3}|e\d{1,4}')
+# L'annee accompagne tout nom de dossier par convention : deux films sortis la
+# meme annee ne se ressemblent pas pour autant.
+ANNEE_RE = re.compile(r'(?:19|20)\d{2}')
 BLOC_CROCHETS_RE = re.compile(r'\[[^\]]*\]')
+RANGS_ROMAINS = frozenset({'ii', 'iii', 'iv', 'v', 'vi', 'vii', 'viii'})
 
 
 def mots_signifiants(nom):
     """Mots qui identifient une oeuvre, debarrasses du bruit de release.
 
     Les blocs entre crochets designent le groupe de release et disparaissent
-    en entier ; les jetons de saison ou d'episode et les petits nombres isoles
-    ne distinguent rien non plus.
+    en entier ; les jetons de saison et les annees ne distinguent rien.
     """
     sans_groupe = BLOC_CROCHETS_RE.sub(' ', nom)
     plat = unicodedata.normalize('NFKD', sans_groupe.lower())
     plat = ''.join(c for c in plat if not unicodedata.combining(c))
     return {mot for mot in re.split(r'[^a-z0-9]+', plat)
             if mot and mot not in MOTS_OUTILS and mot not in BRUIT_RELEASE
-            and not JETON_TECHNIQUE_RE.fullmatch(mot)}
+            and not JETON_TECHNIQUE_RE.fullmatch(mot)
+            and not ANNEE_RE.fullmatch(mot)}
 
 
-def doublons_inter_racines(entrees, ecart_minutes=1.0, recouvrement=0.5):
+def rangs_de_saga(mots):
+    """Numeros de volet contenus dans un jeu de mots, chiffres ou romains."""
+    return {m for m in mots if m.isdigit() or m in RANGS_ROMAINS}
+
+
+def doublons_inter_racines(entrees, ecart_minutes=1.0, recouvrement=0.85):
     """Videos de dossiers differents partageant duree et vocabulaire.
 
     `entrees` fournit des couples (chemin, duree en minutes). Une duree
@@ -1414,7 +1425,16 @@ def doublons_inter_racines(entrees, ecart_minutes=1.0, recouvrement=0.5):
                 continue
             if abs(duree_a - duree_b) > ecart_minutes:
                 continue
-            if len(mots_a & mots_b) / min(len(mots_a), len(mots_b)) >= recouvrement:
+            # Deux rangs differents, ou un rang face a son absence, designent
+            # deux volets d'une saga et non deux copies.
+            if rangs_de_saga(mots_a) != rangs_de_saga(mots_b):
+                continue
+            communs = mots_a & mots_b
+            # Un seul mot partage ne prouve rien : « Tintin au Tibet » et
+            # « Tintin et les Picaros » n'ont que leur heros en commun.
+            if len(communs) < 2:
+                continue
+            if len(communs) / min(len(mots_a), len(mots_b)) >= recouvrement:
                 groupe.append(chemin_b)
         if len(groupe) > 1:
             vus.update(groupe)

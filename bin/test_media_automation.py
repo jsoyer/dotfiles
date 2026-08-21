@@ -1522,5 +1522,53 @@ class UnMemeFilmPeutVivreDansDeuxRacines(unittest.TestCase):
         self.assertEqual(len(groupes), 1)
         self.assertEqual(len(groupes[0]), 3)
 
+class UneSuiteNEstPasUnDoublonDeSonPremierVolet(unittest.TestCase):
+    """Faux positifs releves par le premier audit reel, figes en tests.
+
+    Le rang d'une saga — « 3 », « II » — est exactement ce qui distingue deux
+    films. L'ecarter comme du bruit technique fait passer « Toy Story 5 » pour
+    une copie de « Toy Story 3 ». L'annee, elle, ne distingue rien : deux films
+    sortis la meme annee ne se ressemblent pas pour autant.
+    """
+
+    def _couple(self, a, b, duree=100.0):
+        return ma.doublons_inter_racines([(Path(a), duree), (Path(b), duree)])
+
+    def test_un_rang_chiffre_distingue_deux_films(self):
+        self.assertEqual(self._couple(
+            '/m/Toy Story 3 (2010)/Toy Story 3 (2010) - 1080p.mkv',
+            '/m/Toy Story 5 (2026)/Toy Story 5 (2026) - 1080p.mkv'), [])
+
+    def test_un_rang_romain_distingue_deux_films(self):
+        self.assertEqual(self._couple(
+            '/m/Rocky (1976)/Rocky (1976) - 1080p.mkv',
+            '/m/Rocky II  La Revanche (1979)/Rocky II  La Revanche (1979) - 1080p.mkv'), [])
+
+    def test_un_volet_sans_rang_ne_vaut_pas_le_volet_numerote(self):
+        self.assertEqual(self._couple(
+            '/m/Very Bad Trip (2009)/Very Bad Trip (2009) - 1080p.mkv',
+            '/m/Very Bad Trip 3 (2013)/Very Bad Trip 3 (2013) - 1080p.mkv'), [])
+
+    def test_l_annee_commune_ne_rapproche_pas_deux_films(self):
+        self.assertEqual(self._couple(
+            '/m/Ralph 2.0 (2018)/Ralph 2.0 (2018) - 1080p.mkv',
+            '/m/Venom (2018)/Venom (2018) - 1080p.mkv'), [])
+
+    def test_un_sous_titre_commun_ne_suffit_pas(self):
+        # « A Star Wars Story » est partage par deux films distincts.
+        self.assertEqual(self._couple(
+            '/m/Rogue One  A Star Wars Story (2016)/Rogue One  A Star Wars Story (2016) - 1080p.mkv',
+            '/m/Solo A Star Wars Story (2018)/Solo A Star Wars Story (2018) - 1080p.mkv'), [])
+
+    def test_un_seul_mot_commun_ne_suffit_pas(self):
+        self.assertEqual(self._couple(
+            '/m/Tintin au Tibet (1992)/Tintin au Tibet (1992) - 1080p.mkv',
+            "/m/Tintin et les Picaros (1992)/Tintin et les Picaros (1992) - 1080p.mkv"), [])
+
+    def test_deux_volets_d_une_trilogie_restent_distincts(self):
+        self.assertEqual(self._couple(
+            '/m/Psycho-Pass Sinners of the System - Case 1 (2019)/a - 1080p.mkv',
+            '/m/Psycho-Pass Sinners of the System - Case 2 (2019)/b - 1080p.mkv'), [])
+
 if __name__ == '__main__':
     unittest.main(verbosity=2)
