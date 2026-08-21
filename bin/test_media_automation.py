@@ -1612,5 +1612,43 @@ class UnTitreInclusDansUnAutreNEstPasUneCopie(unittest.TestCase):
             '/data/animes/Demon Slayer (2019)/'
             "[KURISU_]Demon Slayer - Le train de l'infini S02 - FILM 1080P X265.mkv")), 1)
 
+class UnSeulMotPeutSeparerDeuxFilms(unittest.TestCase):
+    """Troisieme faux positif reel, et le plus retors, fige en test.
+
+    « Qu'est-ce qu'on a encore fait au Bon Dieu ? » et « Qu'est-ce qu'on a tous
+    fait au Bon Dieu ? » ne different que par un mot dans un titre tres long :
+    le recouvrement reste eleve alors que les films sont distincts.
+
+    D'ou la regle : au plus un mot d'ecart entre les deux vocabulaires. Elle se
+    lit sans calcul et resiste aux titres longs comme aux titres courts.
+    """
+
+    def _couple(self, a, b, duree=100.0):
+        return ma.doublons_inter_racines([(Path(a), duree), (Path(b), duree)])
+
+    def test_deux_mots_d_ecart_separent_deux_films(self):
+        self.assertEqual(self._couple(
+            "/m/Qu est-ce qu on a encore fait au Bon Dieu (2019)/"
+            "Qu est-ce qu on a encore fait au Bon Dieu (2019) - 1080p.mkv",
+            "/m/Qu est-ce qu on a tous fait au Bon Dieu (2021)/"
+            "Qu est-ce qu on a tous fait au Bon Dieu (2021) - 1080p.mkv"), [])
+
+    def test_un_seul_mot_d_ecart_reste_une_copie_possible(self):
+        # Une copie egaree porte souvent un mot de plus que la copie rangee ;
+        # le critere doit rester assez tolerant pour la reconnaitre. Il faut un
+        # titre assez fourni : sur deux mots, un mot d'ecart change tout.
+        self.assertEqual(len(self._couple(
+            '/data/movies/Le Seigneur des Anneaux La Communaute de l Anneau (2001)/'
+            'Le Seigneur des Anneaux La Communaute de l Anneau (2001) - 1080p.mkv',
+            '/data/animes/Le Seigneur des Anneaux La Communaute de l Anneau (2001)/'
+            'Le Seigneur des Anneaux La Communaute de l Anneau remastered - 1080p.mkv')), 1)
+
+    def test_une_copie_au_vocabulaire_identique_reste_reconnue(self):
+        self.assertEqual(len(self._couple(
+            '/data/movies/Demon Slayer - Le train de l Infini (2020)/'
+            'Demon Slayer - Le train de l Infini (2020) - 1080p.mkv',
+            '/data/animes/Demon Slayer (2019)/'
+            "[KURISU_]Demon Slayer - Le train de l'infini S02 - FILM 1080P X265.mkv")), 1)
+
 if __name__ == '__main__':
     unittest.main(verbosity=2)

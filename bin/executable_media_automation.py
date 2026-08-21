@@ -1398,7 +1398,8 @@ def rangs_de_saga(mots):
     return {m for m in mots if m.isdigit() or m in RANGS_ROMAINS}
 
 
-def doublons_inter_racines(entrees, ecart_minutes=1.0, recouvrement=0.7):
+def doublons_inter_racines(entrees, ecart_minutes=1.0, recouvrement=0.7,
+                           ecart_mots=1):
     """Videos de dossiers differents partageant duree et vocabulaire.
 
     `entrees` fournit des couples (chemin, duree en minutes). Une duree
@@ -1433,6 +1434,11 @@ def doublons_inter_racines(entrees, ecart_minutes=1.0, recouvrement=0.7):
             # Un seul mot partage ne prouve rien : « Tintin au Tibet » et
             # « Tintin et les Picaros » n'ont que leur heros en commun.
             if len(communs) < 2:
+                continue
+            # Au plus un mot d'ecart : « Qu'est-ce qu'on a encore fait au
+            # Bon Dieu » et « ... a tous fait ... » ne different que par un mot
+            # chacun, et sont pourtant deux films.
+            if len(mots_a ^ mots_b) > ecart_mots:
                 continue
             # On mesure sur la reunion, jamais sur le plus petit des deux :
             # sinon une simple inclusion obtient un score parfait, et « Austin
