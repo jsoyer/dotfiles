@@ -537,7 +537,11 @@ def send_ntfy_message(settings, message, titre=None):
         return
 
     url = f"{settings.server.rstrip('/')}/{settings.topic}"
-    entetes = {'Priority': str(settings.priority)}
+    # Cloudflare protege le serveur ntfy et refuse la signature par defaut
+    # d'urllib (« Python-urllib/3.x ») par une erreur 1010, qui se presente
+    # comme un 403 et ressemble a tort a un jeton invalide.
+    entetes = {'Priority': str(settings.priority),
+               'User-Agent': 'media_automation/1.0'}
     if settings.token:
         entetes['Authorization'] = f"Bearer {settings.token}"
     if titre and _entete_transmissible(titre):
@@ -2045,14 +2049,14 @@ def match_absolute_show(filename, shows):
     return media_absolute_shows.match_show(filename, shows)
 
 
-def _ecarter_episode(name, raison, summary, show=None, telegram=None):
+def _ecarter_episode(name, raison, summary, show=None, config=None):
     """Enregistre un episode ecarte, avec sa raison, et previent comme avant."""
     summary.skipped_items += 1
     detail = f"[SKIP] {name} ({raison})"
     summary.skipped_details.append(detail)
     log_message(detail, 'warning')
-    if show is not None and telegram is not None:
-        send_telegram_message(telegram, f"⚠️ {show.name}: {name}\n{raison}")
+    if show is not None and config is not None:
+        notifier(config, f"⚠️ {show.name}: {name}\n{raison}", 'media')
 
 
 def import_absolute_item(item, show, config, dry_run, summary):
@@ -2086,10 +2090,10 @@ def import_absolute_item(item, show, config, dry_run, summary):
                     name, show, mapping)
                 log_message(f"[INFO] Table {show.name} rafraichie, {name} accepte")
             except Exception:  # noqa: BLE001
-                _ecarter_episode(name, exc, summary, show, config.telegram)
+                _ecarter_episode(name, exc, summary, show, config)
                 return
         else:
-            _ecarter_episode(name, exc, summary, show, config.telegram)
+            _ecarter_episode(name, exc, summary, show, config)
             return
     destination = f"{show.destination}/{relative}"
     log_message(f"[IMPORT:REMOTE] {name} -> {show.name} S{season_number:02d}E{episode_number:02d}")
@@ -2122,15 +2126,15 @@ def import_absolute_item(item, show, config, dry_run, summary):
         detail = f"[ERROR] {name} (transfert distant echoue: {exc})"
         summary.skipped_details.append(detail)
         log_message(detail, 'warning')
-        send_telegram_message(config.telegram, f"❌ {show.name}: transfert echoue\n{name}")
+        notifier(config, f"❌ {show.name}: transfert echoue\n{name}", 'media')
         return
 
     print(f"    OK: {name} -> {relative}")
     summary.imported_items += 1
     summary.imported_series += 1
     summary.imported_details.append(f"{name} -> {destination}")
-    send_telegram_message(
-        config.telegram,
+    notifier(
+        config,
         f"☁️ {show.name} S{season_number:02d}E{episode_number:02d} envoye sur Drive\n{relative}")
 
     # Keep the table in step so the next episode lands on the following slot.
@@ -2158,7 +2162,7 @@ def process_automation_inbox(config, dry_run=False):
 
         detection_message = summarize_incoming_items(items, config.inbox.path)
         log_message(detection_message)
-        send_telegram_message(config.telegram, detection_message)
+        notifier(config, detection_message, 'media')
 
         if not config.tmdb_api_key:
             raise ValueError('TMDb API key required for inbox automation. Set it in config or TMDB_API_KEY.')
@@ -2192,7 +2196,7 @@ def process_automation_inbox(config, dry_run=False):
         prune_empty_directories(config.inbox.path, dry_run=dry_run)
         summary_message = format_import_summary(summary, config.inbox.path, dry_run=dry_run)
         log_message(summary_message)
-        send_telegram_message(config.telegram, summary_message)
+        notifier(config, summary_message, 'media')
         return summary
 
 
@@ -2715,7 +2719,8 @@ def main():
         except Exception as exc:
             LOGGER.exception("Automated inbox scan failed")
             if 'config' in locals():
-                send_telegram_message(config.telegram, f"[ERROR] Automated inbox scan failed: {exc}")
+                notifier(config, f"[ERROR] Automated inbox scan failed: {exc}",
+                         'media')
             print(f"Error: {exc}", file=sys.stderr)
             sys.exit(1)
         return

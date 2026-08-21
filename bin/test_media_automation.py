@@ -994,6 +994,17 @@ class UnEnvoiNtfyViseLeBonSujet(unittest.TestCase):
         self.assertEqual(''.join(r.data.decode('utf-8') for r in requetes),
                          'x' * 9000)
 
+    def test_un_agent_explicite_est_annonce(self):
+        # Le serveur est derriere Cloudflare, qui refuse la signature par
+        # defaut d'urllib par une erreur 1010 — un 403 qu'on prendrait pour un
+        # probleme d'autorisation. Le jeton, lui, etait valide.
+        settings = ma.NtfyConfig(enabled=True, server='https://n.test',
+                                 topic='infra-nice')
+        requete, = self._capturer(settings, 'coucou')
+        agent = requete.get_header('User-agent') or ''
+        self.assertTrue(agent)
+        self.assertNotIn('Python-urllib', agent)
+
     def test_une_panne_reseau_ne_remonte_pas(self):
         # Une notification qui echoue ne doit jamais interrompre un import.
         settings = ma.NtfyConfig(enabled=True, server='https://n.test',
@@ -1081,6 +1092,25 @@ priority = 4
         config = self._charger(sans_ntfy)
         self.assertFalse(config.ntfy.enabled)
 
+
+class AucunAppelDirectNeContourneLeDispatch(unittest.TestCase):
+    """Un appel direct a un emetteur contournerait la bascule par le TOML.
+
+    C'est l'oubli qui a failli passer : le dispatcher existait, mais les sept
+    appelants s'adressaient toujours a Telegram en direct, et activer [ntfy]
+    n'aurait rien produit.
+    """
+
+    def test_seul_le_dispatch_appelle_les_emetteurs(self):
+        source = Path(ma.__file__).read_text(encoding='utf-8')
+        # On isole le corps de notifier(), seul autorise a appeler un emetteur.
+        avant, _, reste = source.partition('def notifier(')
+        corps_notifier, _, apres = reste.partition('\n\n\n')
+        dehors = avant + apres
+        for emetteur in ('send_telegram_message(', 'send_ntfy_message('):
+            appels = [l for l in dehors.splitlines()
+                      if emetteur in l and not l.lstrip().startswith('def ')]
+            self.assertEqual(appels, [], f'{emetteur} appele hors de notifier()')
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)
