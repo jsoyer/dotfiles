@@ -8,6 +8,10 @@ Type=oneshot
 ExecStart=%h/.local/bin/chezmoi-autoupdate
 TimeoutStartSec=300
 Environment="PATH=%h/.local/bin:%h/bin:/home/linuxbrew/.linuxbrew/bin:/home/linuxbrew/.linuxbrew/sbin:/usr/local/bin:/usr/bin:/bin:/snap/bin"
+# Destination des notifications d'echec. Le fichier porte un jeton, il vit donc
+# hors de chezmoi et n'entre jamais dans le depot. Le tiret le rend facultatif :
+# une machine sans ce fichier demarre l'unite sans notifier, comme auparavant.
+EnvironmentFile=-%h/.config/chezmoi-autoupdate.env
 StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=chezmoi-autoupdate
