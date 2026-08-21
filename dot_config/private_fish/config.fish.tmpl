@@ -652,10 +652,17 @@ set -g _AI_TOOLS \
     "grok|grok update|" \
     "copilot|copilot update|" \
     "kilo|kilo upgrade|" \
-    "qwen|qwen update|" \
-    "opencode|opencode upgrade|" \
-    "kimi|kimi upgrade|" \
     "pi|pi update --all --no-approve|"
+
+# VERIFIE EMPIRIQUEMENT le 2026-08-21 : les updaters integres REFUSENT d'agir
+# quand l'outil vient de brew. Ils detectent la source d'installation et
+# s'effacent — `qwen update` affiche seulement la commande npm a lancer,
+# `opencode upgrade` dit "Using method: brew -> skipped", et `kimi upgrade`
+# affiche "Detected install source: homebrew" en ajoutant lui-meme que les
+# sources tierces sont en retard. Les laisser dans la table les ferait compter
+# comme "mis a jour" alors que rien ne se passe. Ils restent a l'etape brew.
+# A reactiver tels quels s'ils sortent un jour des Brewfiles :
+#   "qwen|qwen update|"  "opencode|opencode upgrade|"  "kimi|kimi upgrade|"
 
 # gemini : binaire sans updater (reste sur brew), mais extensions couvertes.
 set -g _AI_EXTENSIONS \
