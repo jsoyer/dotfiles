@@ -1311,6 +1311,49 @@ def identite_du_dossier_diverge(dossier, tmdb_id):
                       for f in iter_movie_files(dossier))
     return 'occupe' if a_une_video else 'perime'
 
+# Un suffixe de copie « (2) » nait d'une collision de noms. Trois chiffres au
+# plus, pour ne pas confondre avec l'annee que porte la fin du nom de dossier :
+# « Le Parrain (1972) » ne doit pas perdre son millesime.
+SUFFIXE_COPIE_RE = re.compile(r'\s\(\d{1,3}\)$')
+
+
+def etiquette_de_version(fichier, nom_dossier):
+    """Etiquette de version d'un fichier, au sens multi-version d'Emby.
+
+    Chaque version commence par le nom du dossier suivi de « - » ; ce qui suit
+    est l'etiquette affichee dans l'application. Un suffixe de copie ne fait
+    pas une version : deux fichiers ainsi nommes sont deux copies de la meme.
+    """
+    radical = SUFFIXE_COPIE_RE.sub('', Path(fichier).stem)
+    if not radical.startswith(nom_dossier):
+        return None
+    reste = radical[len(nom_dossier):]
+    if not reste.startswith(' - '):
+        return None
+    return reste[3:].strip() or None
+
+
+def _videos_du_dossier(dossier):
+    return sorted(f for f in dossier.iterdir()
+                  if f.is_file() and f.suffix.lower() in VIDEO_EXTENSIONS)
+
+
+def videos_hors_convention(dossier):
+    """Videos qu'Emby ne peut rattacher au film, faute d'en porter le nom."""
+    return [f for f in _videos_du_dossier(dossier)
+            if not SUFFIXE_COPIE_RE.sub('', f.stem).startswith(dossier.name)]
+
+
+def doublons_internes(dossier):
+    """Groupes de videos d'un meme dossier qui pretendent a la meme version."""
+    par_etiquette = defaultdict(list)
+    for f in _videos_du_dossier(dossier):
+        if SUFFIXE_COPIE_RE.sub('', f.stem).startswith(dossier.name):
+            par_etiquette[etiquette_de_version(f, dossier.name)].append(f)
+    return [groupe for _, groupe in
+            sorted(par_etiquette.items(), key=lambda kv: str(kv[0]))
+            if len(groupe) > 1]
+
 def get_duplicate_groups(movies_dir):
     """Return duplicate groups using NFO identifiers and title aliases.
 

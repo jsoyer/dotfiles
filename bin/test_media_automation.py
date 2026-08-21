@@ -1334,5 +1334,108 @@ class AucunePhaseNeCreuseDeSousDossierDeQualite(unittest.TestCase):
             self.assertEqual(fautives, [],
                              f'« {motif} » compose encore un sous-dossier')
 
+class UneEtiquetteDeVersionSeLitDansLeNom(unittest.TestCase):
+    """La partie qui suit « - » designe la version, au sens d'Emby."""
+
+    DOSSIER = 'Le Parrain (1972)'
+
+    def test_la_qualite_est_l_etiquette(self):
+        self.assertEqual(
+            ma.etiquette_de_version(Path(f'{self.DOSSIER} - 1080p.mkv'),
+                                    self.DOSSIER), '1080p')
+
+    def test_un_nom_nu_n_a_pas_d_etiquette(self):
+        self.assertIsNone(
+            ma.etiquette_de_version(Path(f'{self.DOSSIER}.mkv'), self.DOSSIER))
+
+    def test_le_suffixe_de_copie_ne_fait_pas_une_version(self):
+        # « (2) » vient d'une collision de noms, pas d'une edition differente :
+        # deux fichiers ainsi nommes sont bien deux copies de la meme version.
+        self.assertIsNone(
+            ma.etiquette_de_version(Path(f'{self.DOSSIER} (2).mkv'), self.DOSSIER))
+        self.assertEqual(
+            ma.etiquette_de_version(Path(f'{self.DOSSIER} - 1080p (2).mkv'),
+                                    self.DOSSIER), '1080p')
+
+    def test_une_edition_est_une_etiquette_comme_une_autre(self):
+        self.assertEqual(
+            ma.etiquette_de_version(Path(f'{self.DOSSIER} - directors cut.mkv'),
+                                    self.DOSSIER), 'directors cut')
+
+    def test_un_nom_etranger_au_dossier_n_a_pas_d_etiquette(self):
+        self.assertIsNone(
+            ma.etiquette_de_version(Path('Autre chose.mkv'), self.DOSSIER))
+
+
+class UnDossierPeutCacherSesPropresDoublons(unittest.TestCase):
+    """Deux videos de meme version dans un dossier sont un doublon.
+
+    Origine : trois cas trouves le meme jour — Pokemon, Ghost in the Shell 2.0
+    et L'Attaque des Titans Chronicles — tous invisibles pour la detection par
+    dossier, qui ne compare que des dossiers entre eux.
+    """
+
+    def _dossier(self, racine, nom, fichiers):
+        d = racine / nom
+        d.mkdir(parents=True)
+        for f in fichiers:
+            (d / f).write_bytes(b'x')
+        return d
+
+    def test_deux_versions_distinctes_ne_sont_pas_un_doublon(self):
+        with tempfile.TemporaryDirectory() as brut:
+            d = self._dossier(Path(brut), 'Avatar (2009)',
+                              ['Avatar (2009) - 1080p.mkv',
+                               'Avatar (2009) - 2160p.mkv'])
+            self.assertEqual(ma.doublons_internes(d), [])
+
+    def test_deux_fichiers_de_meme_etiquette_sont_un_doublon(self):
+        with tempfile.TemporaryDirectory() as brut:
+            d = self._dossier(Path(brut), 'Avatar (2009)',
+                              ['Avatar (2009) - 1080p.mkv',
+                               'Avatar (2009) - 1080p (2).mkv'])
+            groupes = ma.doublons_internes(d)
+            self.assertEqual(len(groupes), 1)
+            self.assertEqual(len(groupes[0]), 2)
+
+    def test_deux_fichiers_nus_sont_un_doublon(self):
+        # Le cas Chronicles : « Titre (2020).mkv » et « Titre (2020).mp4 »,
+        # meme radical, extensions differentes.
+        with tempfile.TemporaryDirectory() as brut:
+            d = self._dossier(Path(brut), 'Chronicles (2020)',
+                              ['Chronicles (2020).mkv', 'Chronicles (2020).mp4'])
+            self.assertEqual(len(ma.doublons_internes(d)), 1)
+
+    def test_une_seule_video_ne_signale_rien(self):
+        with tempfile.TemporaryDirectory() as brut:
+            d = self._dossier(Path(brut), 'Seul (2000)',
+                              ['Seul (2000) - 1080p.mkv', 'poster.jpg',
+                               'Seul (2000) - 1080p.nfo'])
+            self.assertEqual(ma.doublons_internes(d), [])
+
+    def test_les_annexes_ne_comptent_pas_comme_des_videos(self):
+        with tempfile.TemporaryDirectory() as brut:
+            d = self._dossier(Path(brut), 'Seul (2000)',
+                              ['Seul (2000) - 1080p.mkv', 'fanart.jpg',
+                               'poster.jpg', 'logo.png'])
+            self.assertEqual(ma.doublons_internes(d), [])
+
+    def test_un_fichier_hors_convention_est_signale_a_part(self):
+        # Emby ne peut pas le rattacher comme version : son nom ne commence pas
+        # par celui du dossier.
+        with tempfile.TemporaryDirectory() as brut:
+            d = self._dossier(Path(brut), 'Avatar (2009)',
+                              ['Avatar (2009) - 1080p.mkv', 'video quelconque.mkv'])
+            self.assertEqual(ma.doublons_internes(d), [])
+            hors = ma.videos_hors_convention(d)
+            self.assertEqual([f.name for f in hors], ['video quelconque.mkv'])
+
+    def test_un_dossier_conforme_n_a_rien_hors_convention(self):
+        with tempfile.TemporaryDirectory() as brut:
+            d = self._dossier(Path(brut), 'Avatar (2009)',
+                              ['Avatar (2009) - 1080p.mkv',
+                               'Avatar (2009) - 2160p.mkv'])
+            self.assertEqual(ma.videos_hors_convention(d), [])
+
 if __name__ == '__main__':
     unittest.main(verbosity=2)
