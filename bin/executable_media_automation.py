@@ -1072,6 +1072,46 @@ def get_consolidated_filename(f, clean_name):
     return get_new_filename(f, clean_name)
 
 
+def nom_de_version(clean_name, quality):
+    """Nom de base d'une version, au format multi-version d'Emby.
+
+    « Chaque version doit commencer par le nom du dossier, suivi de " - " » ;
+    ce qui suit le tiret devient le libelle affiche dans l'application.
+    """
+    return f"{clean_name} - {quality}"
+
+
+def aplatir_dossier_qualite(dossier, dry_run=False):
+    """Remonte les fichiers des sous-dossiers de qualite dans le dossier du film.
+
+    Les visuels gardent leur nom generique : deux affiches homonymes venues de
+    deux qualites sont le meme visuel, la premiere suffit. Pour tout autre
+    type de fichier, une collision n'entraine aucune suppression — on laisse le
+    fichier ou il est et on conserve le sous-dossier, quitte a ne rien faire.
+    """
+    remontes = 0
+    for sous in sorted(get_quality_subdirs(dossier), key=lambda p: p.name):
+        radical = nom_de_version(dossier.name, sous.name)
+        conflits = []
+        for f in sorted(p for p in sous.rglob('*') if p.is_file()):
+            cible = dossier / get_consolidated_filename(f, radical)
+            if cible.exists():
+                if f.suffix.lower() in ('.jpg', '.png', '.svg'):
+                    if not dry_run:
+                        f.unlink()
+                else:
+                    conflits.append(f)
+                continue
+            if not dry_run:
+                f.rename(cible)
+            remontes += 1
+        if conflits:
+            log_message(f"[FLAT] {dossier.name}/{sous.name}: {len(conflits)} "
+                        f"fichier(s) en conflit, sous-dossier conserve", 'warning')
+        elif not dry_run:
+            shutil.rmtree(sous)
+    return remontes
+
 def count_dir_files(d):
     """Count files recursively in a directory."""
     return sum(1 for f in d.rglob('*') if f.is_file())
@@ -1890,7 +1930,10 @@ def import_movie_item(item, config, dry_run, summary):
             if not dry_run:
                 nfo.unlink()
 
-    target_dir = route_root / clean_name / quality
+    target_dir = route_root / clean_name
+    # La qualite passe du dossier au nom : Emby reconnait ainsi plusieurs
+    # versions d'un meme film cohabitant dans un seul dossier.
+    radical = nom_de_version(clean_name, quality)
 
     log_message(f"[IMPORT:{route_kind.upper()}] {item.video_path.name} -> {display_relative(target_dir, route_root)}/")
     if not dry_run:
@@ -1898,13 +1941,13 @@ def import_movie_item(item, config, dry_run, summary):
 
     moved_now = 0
     for related in item.related_files:
-        new_name = get_consolidated_filename(related, clean_name)
+        new_name = get_consolidated_filename(related, radical)
         moved_path = safe_move(related, target_dir / new_name, dry_run)
         if moved_path is not None:
             moved_now += 1
 
     if config.fetch_metadata:
-        nfo_path = target_dir / f"{clean_name}.nfo"
+        nfo_path = target_dir / f"{radical}.nfo"
         if dry_run:
             log_message(f"    FETCH {nfo_path.name}")
         else:
@@ -2095,7 +2138,9 @@ def run_post_import_reconciliation(config, dry_run=False):
     total_moved = 0
     for root in get_post_import_roots(config):
         log_message(f"[POST] Reconcile destination library: {root}")
-        total_moved += phase_quality_dirs(root, dry_run)
+        # phase_quality_dirs rapatriait les fichiers dans les sous-dossiers de
+        # qualite ; depuis que la qualite vit dans le nom, elle defairait le
+        # rangement a chaque passage.
         total_moved += phase_duplicate_dirs(root, dry_run)
         phase_cleanup(root, dry_run)
     return total_moved

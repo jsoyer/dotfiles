@@ -1231,5 +1231,89 @@ class UnDossierOccupeNAccueillePasUnAutreFilm(unittest.TestCase):
             d = self._preparer(Path(brut), 'Un autre film (1972)', '999', True)
             self.assertEqual(ma.identite_du_dossier_diverge(d, 238), 'occupe')
 
+class UnNomDeVersionSuitLaConventionEmby(unittest.TestCase):
+    """Emby reconnait plusieurs versions d'un film au ' - ' dans le nom.
+
+    « Chaque version doit commencer par le nom du dossier, suivi de ' - ' » ;
+    ce qui suit le tiret devient le libelle affiche dans l'application.
+    """
+
+    def test_la_qualite_suit_un_tiret_entoure_d_espaces(self):
+        self.assertEqual(ma.nom_de_version('300 (2006)', '1080p'),
+                         '300 (2006) - 1080p')
+
+    def test_le_nom_du_dossier_ouvre_toujours_le_nom_de_fichier(self):
+        dossier = "L'Attaque des Titans (2020)"
+        self.assertTrue(
+            ma.nom_de_version(dossier, '2160p').startswith(dossier + ' - '))
+
+
+class UnDossierDeQualiteSAplatit(unittest.TestCase):
+    """Les fichiers remontent d'un cran, la qualite passe dans leur nom."""
+
+    def _film(self, racine, nom, qualites):
+        d = racine / nom
+        for q, fichiers in qualites.items():
+            (d / q).mkdir(parents=True)
+            for f in fichiers:
+                (d / q / f).write_bytes(b'x')
+        return d
+
+    def test_un_seul_sous_dossier_remonte(self):
+        with tempfile.TemporaryDirectory() as brut:
+            d = self._film(Path(brut), 'Le Parrain (1972)',
+                           {'1080p': ['Le Parrain (1972).mkv',
+                                      'Le Parrain (1972).nfo',
+                                      'poster.jpg']})
+            ma.aplatir_dossier_qualite(d)
+            restants = sorted(f.name for f in d.iterdir())
+            self.assertEqual(restants, ['Le Parrain (1972) - 1080p.mkv',
+                                        'Le Parrain (1972) - 1080p.nfo',
+                                        'poster.jpg'])
+            self.assertFalse((d / '1080p').exists())
+
+    def test_deux_qualites_cohabitent_sans_se_marcher_dessus(self):
+        with tempfile.TemporaryDirectory() as brut:
+            d = self._film(Path(brut), 'Avatar (2009)', {
+                '1080p': ['Avatar (2009).mkv', 'poster.jpg'],
+                '2160p': ['Avatar (2009).mkv', 'poster.jpg'],
+            })
+            ma.aplatir_dossier_qualite(d)
+            videos = sorted(f.name for f in d.iterdir()
+                            if f.suffix.lower() == '.mkv')
+            self.assertEqual(videos, ['Avatar (2009) - 1080p.mkv',
+                                      'Avatar (2009) - 2160p.mkv'])
+            # Un seul visuel : les deux etaient homonymes, le second n'ecrase
+            # pas le premier et ne se transforme pas en doublon numerote.
+            self.assertEqual([f.name for f in d.iterdir()
+                              if f.suffix.lower() == '.jpg'], ['poster.jpg'])
+            self.assertFalse((d / '1080p').exists())
+            self.assertFalse((d / '2160p').exists())
+
+    def test_un_dossier_deja_plat_reste_intact(self):
+        with tempfile.TemporaryDirectory() as brut:
+            d = Path(brut) / 'Deja plat (2000)'
+            d.mkdir()
+            (d / 'Deja plat (2000) - 1080p.mkv').write_bytes(b'x')
+            avant = sorted(f.name for f in d.iterdir())
+            ma.aplatir_dossier_qualite(d)
+            self.assertEqual(sorted(f.name for f in d.iterdir()), avant)
+
+    def test_l_operation_est_idempotente(self):
+        with tempfile.TemporaryDirectory() as brut:
+            d = self._film(Path(brut), 'Le Parrain (1972)',
+                           {'1080p': ['Le Parrain (1972).mkv']})
+            ma.aplatir_dossier_qualite(d)
+            premier = sorted(f.name for f in d.iterdir())
+            ma.aplatir_dossier_qualite(d)
+            self.assertEqual(sorted(f.name for f in d.iterdir()), premier)
+
+    def test_un_essai_a_blanc_ne_touche_a_rien(self):
+        with tempfile.TemporaryDirectory() as brut:
+            d = self._film(Path(brut), 'Le Parrain (1972)',
+                           {'1080p': ['Le Parrain (1972).mkv']})
+            ma.aplatir_dossier_qualite(d, dry_run=True)
+            self.assertTrue((d / '1080p' / 'Le Parrain (1972).mkv').exists())
+
 if __name__ == '__main__':
     unittest.main(verbosity=2)
