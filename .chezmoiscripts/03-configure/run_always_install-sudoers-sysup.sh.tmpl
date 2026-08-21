@@ -48,10 +48,30 @@ ${RULE_USER} ALL=(root) NOPASSWD: /usr/bin/apt-get autoremove -y
 ${RULE_USER} ALL=(root) NOPASSWD: /usr/bin/pacman -Syu --noconfirm
 EOF
 
+# visudo vit dans /usr/sbin, absent du PATH de beaucoup d'environnements non
+# interactifs (dont celui dans lequel chezmoi execute ce script). On le resout
+# explicitement plutot que de dependre du PATH.
+VISUDO=""
+for _candidate in "$(command -v visudo 2>/dev/null || true)" /usr/sbin/visudo /usr/bin/visudo; do
+    if [ -n "$_candidate" ] && [ -x "$_candidate" ]; then
+        VISUDO="$_candidate"
+        break
+    fi
+done
+
+# Outil de validation absent : on ne pose RIEN (un sudoers invalide casse sudo
+# entierement), mais on ne fait pas echouer l'apply pour autant — sinon
+# chezmoi-autoupdate remonterait une erreur toutes les heures.
+if [ -z "$VISUDO" ]; then
+    echo "sudoers-sysup: visudo introuvable, impossible de valider la regle — installation ignoree." >&2
+    exit 0
+fi
+
 # Un sudoers invalide peut casser sudo entierement : on valide AVANT de poser.
-if ! visudo -c -f "$TMP" >/dev/null 2>&1; then
+# Ici l'echec est un VRAI probleme (regle malformee), on le remonte bruyamment.
+if ! "$VISUDO" -c -f "$TMP" >/dev/null 2>&1; then
     echo "sudoers-sysup: regle invalide, installation annulee" >&2
-    visudo -c -f "$TMP" >&2 || true
+    "$VISUDO" -c -f "$TMP" >&2 || true
     exit 1
 fi
 
