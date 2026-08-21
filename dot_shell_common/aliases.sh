@@ -510,23 +510,110 @@ sysup() {
   esac
 }
 
-# Update CLI AI tools (claude-code, copilot-cli, codex)
+# Update CLI AI tools — table pilotee, voir _AI_TOOLS ci-dessous
+# Format : "commande|update integre|repli"   (champ vide = non applicable)
+#
+# Deux couches distinctes, relevees sur fedora-pve le 2026-08-21 :
+#   BINAIRE    -> l'outil lui-meme
+#   EXTENSIONS -> ses plugins, que l'updater du binaire NE touche pas
+#
+# Un updater integre passe devant Homebrew, MEME quand l'outil vient de brew :
+# brew livrait cline 3.0.3 quand l'editeur en etait a 3.0.56, et gemini-cli
+# 0.46.0 contre 0.56.0. L'etape brew de sysup tournant AVANT update-ai, si brew
+# reinstalle une version plus ancienne l'updater la redepasse dans la foulee —
+# chaque run converge vers la derniere version.
+_AI_TOOLS=(
+  "claude|claude update|"
+  "codex|codex update|npm update -g @openai/codex"
+  "cursor-agent|cursor-agent update|"
+  "grok|grok update|"
+  "copilot|copilot update|"
+  "kilo|kilo upgrade|"
+  "qwen|qwen update|"
+  "opencode|opencode upgrade|"
+  "kimi|kimi upgrade|"
+  "pi|pi update --all --no-approve|"
+)
+
+# Outils dont les EXTENSIONS se mettent a jour separement du binaire.
+# gemini : binaire sans updater (il reste sur brew), extensions couvertes.
+# pi n'y figure pas : son --all ci-dessus les traite deja.
+_AI_EXTENSIONS=(
+  "gemini|gemini extensions update --all"
+)
+
+# Volontairement absents, laisses a l'etape brew de sysup :
+#   gemini, cline -> aucune commande de mise a jour
+#   vibe          -> --check-upgrade installe mais DEMANDE CONFIRMATION
+# Non couverts, faute de commande groupee cote editeur :
+#   les plugins npm d'opencode et de kilo
+#
+# update-ai [--dry-run]   : --dry-run affiche la route retenue sans rien lancer
 update-ai() {
+  local dry=0
+  [ "${1:-}" = "--dry-run" ] && dry=1
+
+  local entry cmd self fallback action
+  local updated=0 absent=0 failed=0
+
   echo "🤖 Updating CLI AI tools..."
-  if command -v claude &>/dev/null; then
-    echo "  🤖 Updating Claude Code..."
-    claude update 2>/dev/null || true
-  fi
-  if command -v copilot-cli &>/dev/null; then
-    echo "  🤖 Updating Copilot CLI..."
-    curl -fsSL https://gh.io/copilot-install | bash 2>/dev/null || true
-  fi
-  if command -v codex &>/dev/null; then
-    echo "  🤖 Updating Codex CLI..."
-    if command -v npm &>/dev/null; then
-      npm update -g @openai/codex 2>/dev/null || true
+
+  for entry in "${_AI_TOOLS[@]}"; do
+    cmd="${entry%%|*}"
+    self="${entry#*|}"; self="${self%%|*}"
+    fallback="${entry##*|}"
+
+    if ! command -v "$cmd" &>/dev/null; then
+      absent=$((absent + 1))
+      [ "$dry" -eq 1 ] && printf "  %-13s %s\n" "$cmd" "absent"
+      continue
     fi
-  fi
+
+    if [ -n "$self" ]; then
+      action="$self"
+    elif [ -n "$fallback" ]; then
+      action="$fallback"
+    else
+      absent=$((absent + 1))
+      continue
+    fi
+
+    if [ "$dry" -eq 1 ]; then
+      printf "  %-13s %s\n" "$cmd" "$action"
+      continue
+    fi
+
+    echo "  🤖 ${cmd}"
+    # Un updater casse ne doit jamais interrompre les suivants.
+    if eval "$action"; then
+      updated=$((updated + 1))
+    else
+      failed=$((failed + 1))
+      echo "     ⚠ ${cmd} : echec de la mise a jour, on continue" >&2
+    fi
+  done
+
+  for entry in "${_AI_EXTENSIONS[@]}"; do
+    cmd="${entry%%|*}"
+    action="${entry#*|}"
+    command -v "$cmd" &>/dev/null || continue
+
+    if [ "$dry" -eq 1 ]; then
+      printf "  %-13s %s\n" "${cmd} ext" "$action"
+      continue
+    fi
+
+    echo "  🧩 ${cmd} (extensions)"
+    if eval "$action"; then
+      updated=$((updated + 1))
+    else
+      failed=$((failed + 1))
+      echo "     ⚠ ${cmd} extensions : echec, on continue" >&2
+    fi
+  done
+
+  [ "$dry" -eq 1 ] && return 0
+  echo "  → ${updated} mis a jour, ${absent} absents, ${failed} en echec"
 }
 
 # Chezmoi update + package updates

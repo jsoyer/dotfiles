@@ -1306,22 +1306,97 @@ def sysup [] {
 }
 
 # Update CLI AI tools (claude-code, copilot-cli, codex)
-def update-ai [] {
+# Format : "commande|update integre|repli"   (champ vide = non applicable)
+# Deux couches : BINAIRE, puis EXTENSIONS que l'updater du binaire ne touche pas.
+# Un updater integre passe devant Homebrew, meme quand l'outil vient de brew :
+# brew livrait cline 3.0.3 quand l'editeur en etait a 3.0.56.
+const _AI_TOOLS = [
+    "claude|claude update|"
+    "codex|codex update|npm update -g @openai/codex"
+    "cursor-agent|cursor-agent update|"
+    "grok|grok update|"
+    "copilot|copilot update|"
+    "kilo|kilo upgrade|"
+    "qwen|qwen update|"
+    "opencode|opencode upgrade|"
+    "kimi|kimi upgrade|"
+    "pi|pi update --all --no-approve|"
+]
+
+# gemini : binaire sans updater (reste sur brew), mais extensions couvertes.
+const _AI_EXTENSIONS = [
+    "gemini|gemini extensions update --all"
+]
+
+# update-ai [--dry-run]
+def update-ai [--dry-run] {
+    mut updated = 0
+    mut absent = 0
+    mut failed = 0
+
     print "🤖 Updating CLI AI tools..."
-    if (which claude | is-not-empty) {
-        print "  🤖 Updating Claude Code..."
-        try { ^claude update } catch { }
-    }
-    if (which copilot-cli | is-not-empty) {
-        print "  🤖 Updating Copilot CLI..."
-        try { curl -fsSL https://gh.io/copilot-install | bash } catch { }
-    }
-    if (which codex | is-not-empty) {
-        print "  🤖 Updating Codex CLI..."
-        if (which npm | is-not-empty) {
-            try { ^npm update -g @openai/codex } catch { }
+
+    for entry in $_AI_TOOLS {
+        let parts = ($entry | split row "|")
+        let cmd = $parts.0
+        let self = $parts.1
+        let fallback = $parts.2
+
+        if (which $cmd | is-empty) {
+            $absent = $absent + 1
+            if $dry_run { print $"  ($cmd) — absent" }
+            continue
+        }
+
+        let action = (if ($self | is-not-empty) { $self } else { $fallback })
+        if ($action | is-empty) {
+            $absent = $absent + 1
+            continue
+        }
+
+        if $dry_run {
+            print $"  ($cmd) — ($action)"
+            continue
+        }
+
+        print $"  🤖 ($cmd)"
+        # Les actions sont de simples commandes espacees : pas besoin d'un shell.
+        let argv = ($action | split row " " | where {|it| $it != "" })
+        # do -i plutot que try/catch : nushell interdit de muter une variable
+        # capturee dans une closure, et do -i garde la sortie en direct.
+        do -i { ^($argv | first) ...($argv | skip 1) }
+        if $env.LAST_EXIT_CODE == 0 {
+            $updated = $updated + 1
+        } else {
+            $failed = $failed + 1
+            print -e $"     ⚠ ($cmd) : echec de la mise a jour, on continue"
         }
     }
+
+    for entry in $_AI_EXTENSIONS {
+        let parts = ($entry | split row "|")
+        let cmd = $parts.0
+        let action = ($parts | skip 1 | str join "|")
+        if (which $cmd | is-empty) { continue }
+
+        if $dry_run {
+            print $"  ($cmd) ext — ($action)"
+            continue
+        }
+
+        print $"  🧩 ($cmd) (extensions)"
+        let argv = ($action | split row " " | where {|it| $it != "" })
+        do -i { ^($argv | first) ...($argv | skip 1) }
+        if $env.LAST_EXIT_CODE == 0 {
+            $updated = $updated + 1
+        } else {
+            $failed = $failed + 1
+            print -e $"     ⚠ ($cmd) extensions : echec, on continue"
+        }
+    }
+
+    if $dry_run { return }
+    print $"  → ($updated) mis a jour, ($absent) absents, ($failed) en echec"
 }
 
 # Chezmoi update + package updates
