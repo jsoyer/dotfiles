@@ -71,3 +71,13 @@ bin/media_absolute_shows.py
 bin/media_absolute_refresh.py
 bin/media_automation
 {{ end }}
+
+# ── ~/.agents : plus gere par chezmoi, mais toujours utilise ──
+# dot_agents/ a ete supprime de la source par d9794e50 (consolidation aictx).
+# chezmoi se souvenait de l'avoir ecrit et voulait donc supprimer ~/.agents a
+# chaque apply. Le dossier a depuis ete recree par l'outillage agent (il
+# contient skills/terminal-browser), donc chezmoi demandait confirmation avant
+# de l'effacer — et sans TTY, il ABANDONNAIT tout l'apply : plus aucun script
+# ni fichier applique, y compris via chezmoi-autoupdate.
+# On le sort explicitement du perimetre.
+.agents
