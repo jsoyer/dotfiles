@@ -1354,6 +1354,73 @@ def doublons_internes(dossier):
             sorted(par_etiquette.items(), key=lambda kv: str(kv[0]))
             if len(groupe) > 1]
 
+# Vocabulaire d'une release : present dans presque tous les noms, il n'aide en
+# rien a distinguer deux oeuvres.
+BRUIT_RELEASE = frozenset({
+    '1080p', '2160p', '720p', '480p', 'x264', 'x265', 'h264', 'h265', 'hevc',
+    'multi', 'vostfr', 'vost', 'vosten', 'vf', 'vff', 'vfi', 'vo', 'french',
+    'truefrench', 'bluray', 'brrip', 'webrip', 'web', 'dl', 'hdlight', 'hdtv',
+    'dvdrip', 'remux', 'aac', 'ac3', 'dts', 'hd', 'ma', 'film', 'films',
+    'movie', 'final', 'repack', 'bit', '10bit', '10bits', 'hdr', 'uhd', 'sdr',
+})
+# Mots outils : trop frequents pour porter du sens.
+MOTS_OUTILS = frozenset({
+    'le', 'la', 'les', 'de', 'du', 'des', 'un', 'une', 'et', 'a', 'au', 'aux',
+    'en', 'l', 'd', 'the', 'of', 'and', 'in', 'on', 'no', 'to',
+})
+JETON_TECHNIQUE_RE = re.compile(r's\d{1,3}|e\d{1,4}|\d{1,3}')
+BLOC_CROCHETS_RE = re.compile(r'\[[^\]]*\]')
+
+
+def mots_signifiants(nom):
+    """Mots qui identifient une oeuvre, debarrasses du bruit de release.
+
+    Les blocs entre crochets designent le groupe de release et disparaissent
+    en entier ; les jetons de saison ou d'episode et les petits nombres isoles
+    ne distinguent rien non plus.
+    """
+    sans_groupe = BLOC_CROCHETS_RE.sub(' ', nom)
+    plat = unicodedata.normalize('NFKD', sans_groupe.lower())
+    plat = ''.join(c for c in plat if not unicodedata.combining(c))
+    return {mot for mot in re.split(r'[^a-z0-9]+', plat)
+            if mot and mot not in MOTS_OUTILS and mot not in BRUIT_RELEASE
+            and not JETON_TECHNIQUE_RE.fullmatch(mot)}
+
+
+def doublons_inter_racines(entrees, ecart_minutes=1.0, recouvrement=0.5):
+    """Videos de dossiers differents partageant duree et vocabulaire.
+
+    `entrees` fournit des couples (chemin, duree en minutes). Une duree
+    inconnue exclut le fichier : mieux vaut ne rien signaler qu'affirmer a
+    tort. Deux fichiers d'un meme dossier ne relevent pas d'ici — c'est le
+    travail de doublons_internes.
+    """
+    utiles = []
+    for chemin, duree in entrees:
+        if not duree:
+            continue
+        chemin = Path(chemin)
+        mots = mots_signifiants(f'{chemin.parent.name} {chemin.stem}')
+        if mots:
+            utiles.append((chemin, duree, mots))
+
+    groupes, vus = [], set()
+    for i, (chemin_a, duree_a, mots_a) in enumerate(utiles):
+        if chemin_a in vus:
+            continue
+        groupe = [chemin_a]
+        for chemin_b, duree_b, mots_b in utiles[i + 1:]:
+            if chemin_b in vus or chemin_b.parent == chemin_a.parent:
+                continue
+            if abs(duree_a - duree_b) > ecart_minutes:
+                continue
+            if len(mots_a & mots_b) / min(len(mots_a), len(mots_b)) >= recouvrement:
+                groupe.append(chemin_b)
+        if len(groupe) > 1:
+            vus.update(groupe)
+            groupes.append(groupe)
+    return groupes
+
 def get_duplicate_groups(movies_dir):
     """Return duplicate groups using NFO identifiers and title aliases.
 

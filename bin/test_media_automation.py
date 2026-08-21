@@ -1437,5 +1437,90 @@ class UnDossierPeutCacherSesPropresDoublons(unittest.TestCase):
                                'Avatar (2009) - 2160p.mkv'])
             self.assertEqual(ma.videos_hors_convention(d), [])
 
+class UnVocabulaireDeTitreSeDegageDuBruit(unittest.TestCase):
+    """Le nom d'une release doit se reduire aux mots qui identifient l'oeuvre."""
+
+    def test_le_bruit_de_release_disparait(self):
+        mots = ma.mots_signifiants(
+            "[KURISU_]Demon Slayer Kimetsu No Yaiba - Le train de l'infini "
+            "S02 - FILM - MULTI 1080P WebRIP X265")
+        self.assertIn('demon', mots)
+        self.assertIn('slayer', mots)
+        self.assertIn('infini', mots)
+        for bruit in ('1080p', 'x265', 'webrip', 'multi', 'kurisu'):
+            self.assertNotIn(bruit, mots)
+
+    def test_les_accents_et_la_casse_ne_comptent_pas(self):
+        self.assertEqual(ma.mots_signifiants("L'Infini"),
+                         ma.mots_signifiants('l infini'))
+
+    def test_les_mots_outils_sont_ecartes(self):
+        self.assertNotIn('le', ma.mots_signifiants('Le train de la mort'))
+        self.assertIn('train', ma.mots_signifiants('Le train de la mort'))
+
+
+class UnMemeFilmPeutVivreDansDeuxRacines(unittest.TestCase):
+    """Deux copies d'un film peuvent se cacher dans des racines differentes.
+
+    Origine : le film Demon Slayer existait dans « movies », correctement
+    identifie, et une seconde fois a la racine du dossier de la serie dans
+    « animes », deguise en episode. Ni la detection par dossier ni celle par
+    fichier ne pouvaient le voir.
+
+    La duree tranche : deux films distincts partagent rarement leur minutage a
+    la minute pres tout en partageant leur vocabulaire.
+    """
+
+    FILM = ('/data/movies/Demon Slayer - Le train de l Infini (2020)/'
+            'Demon Slayer - Le train de l Infini (2020) - 1080p.mkv')
+    EGARE = ('/data/animes/Demon Slayer (2019)/'
+             "[KURISU_]Demon Slayer - Le train de l'infini S02 - FILM 1080P X265.mkv")
+
+    def test_meme_duree_et_meme_vocabulaire_forment_un_groupe(self):
+        groupes = ma.doublons_inter_racines(
+            [(Path(self.FILM), 116.8), (Path(self.EGARE), 116.8)])
+        self.assertEqual(len(groupes), 1)
+        self.assertEqual(len(groupes[0]), 2)
+
+    def test_une_minute_d_ecart_reste_le_meme_film(self):
+        groupes = ma.doublons_inter_racines(
+            [(Path(self.FILM), 116.8), (Path(self.EGARE), 117.6)])
+        self.assertEqual(len(groupes), 1)
+
+    def test_des_durees_eloignees_ne_forment_pas_de_groupe(self):
+        groupes = ma.doublons_inter_racines(
+            [(Path(self.FILM), 116.8), (Path(self.EGARE), 95.0)])
+        self.assertEqual(groupes, [])
+
+    def test_des_titres_etrangers_ne_forment_pas_de_groupe(self):
+        autre = '/data/movies/Le Parrain (1972)/Le Parrain (1972) - 1080p.mkv'
+        groupes = ma.doublons_inter_racines(
+            [(Path(self.FILM), 116.8), (Path(autre), 116.8)])
+        self.assertEqual(groupes, [])
+
+    def test_deux_fichiers_du_meme_dossier_ne_sont_pas_du_ressort(self):
+        # C'est le travail de doublons_internes ; ici on cherche ce qui se
+        # cache dans deux dossiers differents.
+        a = '/data/movies/Avatar (2009)/Avatar (2009) - 1080p.mkv'
+        b = '/data/movies/Avatar (2009)/Avatar (2009) - 2160p.mkv'
+        self.assertEqual(
+            ma.doublons_inter_racines([(Path(a), 162.0), (Path(b), 162.0)]), [])
+
+    def test_une_duree_inconnue_est_ignoree(self):
+        groupes = ma.doublons_inter_racines(
+            [(Path(self.FILM), 116.8), (Path(self.EGARE), None)])
+        self.assertEqual(groupes, [])
+
+    def test_trois_copies_forment_un_seul_groupe(self):
+        troisieme = ('/data/animes/Demon Slayer Films (2020)/'
+                     'Demon Slayer Le train de l Infini - 1080p.mkv')
+        groupes = ma.doublons_inter_racines([
+            (Path(self.FILM), 116.8),
+            (Path(self.EGARE), 116.8),
+            (Path(troisieme), 116.8),
+        ])
+        self.assertEqual(len(groupes), 1)
+        self.assertEqual(len(groupes[0]), 3)
+
 if __name__ == '__main__':
     unittest.main(verbosity=2)
