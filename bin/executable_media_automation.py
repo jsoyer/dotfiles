@@ -1284,10 +1284,48 @@ def get_duplicate_group_keys(d):
     return keys
 
 
+def identite_du_dossier_diverge(dossier, tmdb_id):
+    """Dit si un dossier existant revendique un autre film que celui resolu.
+
+    Retourne None si le dossier est absent, muet, ou d'accord ; « perime » s'il
+    revendique un autre film sans plus contenir la moindre video — le NFO est
+    alors un residu du film parti ; « occupe » s'il revendique un autre film et
+    l'heberge encore.
+    """
+    if not dossier.is_dir():
+        return None
+    declare = get_dir_metadata(dossier)['tmdbid']
+    # TMDb renvoie un entier la ou le NFO porte du texte : cette seule
+    # difference ne doit pas faire conclure a une divergence.
+    if not declare or str(declare) == str(tmdb_id):
+        return None
+    a_une_video = any(f.suffix.lower() in VIDEO_EXTENSIONS
+                      for f in iter_movie_files(dossier))
+    return 'occupe' if a_une_video else 'perime'
+
 def get_duplicate_groups(movies_dir):
-    """Return duplicate groups using NFO identifiers and title aliases."""
-    proper_dirs = [d for d in movies_dir.iterdir() if d.is_dir() and is_proper_dir(d)]
+    """Return duplicate groups using NFO identifiers and title aliases.
+
+    Deux natures de cle cohabitent : l'identite (tmdbid, imdbid), qui fait foi,
+    et la ressemblance de titre, qui n'est qu'une hypothese. Les traiter a
+    egalite a deja reuni deux films distincts partageant un alias — « Dragon
+    Ball Z - Fusions » et « Dragon Ball Z - L'Attaque du dragon ». Une
+    ressemblance n'unit donc plus deux groupes dont les identites se
+    contredisent.
+    """
+    proper_dirs = sorted((d for d in movies_dir.iterdir()
+                          if d.is_dir() and is_proper_dir(d)),
+                         key=lambda p: p.name)
     parent = {d: d for d in proper_dirs}
+
+    # Identifiants revendiques par chaque groupe, refondus a chaque union.
+    identites = {}
+    for d in proper_dirs:
+        metadata = get_dir_metadata(d)
+        identites[d] = (
+            {str(metadata['tmdbid'])} if metadata['tmdbid'] else set(),
+            {str(metadata['imdbid'])} if metadata['imdbid'] else set(),
+        )
 
     def find(d):
         while parent[d] != d:
@@ -1298,20 +1336,41 @@ def get_duplicate_groups(movies_dir):
     def union(left, right):
         root_left = find(left)
         root_right = find(right)
-        if root_left != root_right:
-            parent[root_right] = root_left
+        if root_left == root_right:
+            return
+        parent[root_right] = root_left
+        tmdb_gauche, imdb_gauche = identites[root_left]
+        tmdb_droite, imdb_droite = identites[root_right]
+        identites[root_left] = (tmdb_gauche | tmdb_droite,
+                                imdb_gauche | imdb_droite)
+
+    def se_contredisent(left, right):
+        """Vrai si unir ces deux groupes reunirait deux identites distinctes."""
+        tmdb_gauche, imdb_gauche = identites[find(left)]
+        tmdb_droite, imdb_droite = identites[find(right)]
+        return (len(tmdb_gauche | tmdb_droite) > 1
+                or len(imdb_gauche | imdb_droite) > 1)
 
     key_to_dirs = defaultdict(list)
     for d in proper_dirs:
         for key in get_duplicate_group_keys(d):
             key_to_dirs[key].append(d)
 
-    for dirs in key_to_dirs.values():
-        if len(dirs) < 2:
+    # L'identite passe en premier : elle fixe les groupes que la ressemblance
+    # devra ensuite respecter.
+    for key, dirs in key_to_dirs.items():
+        if key[0] not in ('tmdb', 'imdb') or len(dirs) < 2:
             continue
-        first = dirs[0]
         for other in dirs[1:]:
-            union(first, other)
+            union(dirs[0], other)
+
+    for key, dirs in key_to_dirs.items():
+        if key[0] in ('tmdb', 'imdb') or len(dirs) < 2:
+            continue
+        for other in dirs[1:]:
+            if se_contredisent(dirs[0], other):
+                continue
+            union(dirs[0], other)
 
     grouped = defaultdict(list)
     for d in proper_dirs:
@@ -1809,6 +1868,28 @@ def import_movie_item(item, config, dry_run, summary):
     localized_title = details.get('title') or title
     clean_name = sanitize(f"{localized_title} ({release_year})") if release_year else sanitize(localized_title)
     quality = detect_quality(item.video_path.name) or '1080p'
+
+    # Un dossier au bon nom n'est pas forcement le bon dossier : on confronte
+    # l'identifiant resolu a celui que le NFO declare avant d'y deverser quoi
+    # que ce soit.
+    dossier_film = route_root / clean_name
+    divergence = identite_du_dossier_diverge(dossier_film, candidate['id'])
+    if divergence == 'occupe':
+        summary.skipped_items += 1
+        detail = (f"[SKIP] {item.video_path.name} "
+                  f"({clean_name} heberge deja un autre film)")
+        summary.skipped_details.append(detail)
+        log_message(detail, 'warning')
+        notifier(config, f"⚠️ {detail}", 'media')
+        return
+    if divergence == 'perime':
+        # Le film a quitte ce dossier en y laissant son NFO. Le garder ferait
+        # croire au prochain passage que la place est prise.
+        for nfo in list(get_dir_nfo_candidates(dossier_film)):
+            log_message(f"[NFO] residu ecarte: {display_relative(nfo, route_root)}")
+            if not dry_run:
+                nfo.unlink()
+
     target_dir = route_root / clean_name / quality
 
     log_message(f"[IMPORT:{route_kind.upper()}] {item.video_path.name} -> {display_relative(target_dir, route_root)}/")

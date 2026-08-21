@@ -1112,5 +1112,124 @@ class AucunAppelDirectNeContourneLeDispatch(unittest.TestCase):
                       if emetteur in l and not l.lstrip().startswith('def ')]
             self.assertEqual(appels, [], f'{emetteur} appele hors de notifier()')
 
+class UneRessemblanceNeContreditPasUneIdentite(unittest.TestCase):
+    """Deux dossiers d'identifiants TMDb differents ne fusionnent jamais.
+
+    Origine : « Dragon Ball Z - Fusions » et « Dragon Ball Z - L'Attaque du
+    dragon » ont ete reunis parce qu'ils partageaient un alias de titre, alors
+    que leurs NFO declaraient deux films distincts. L'union-find traitait la
+    ressemblance et l'identite a egalite.
+
+    Les fixtures font porter la ressemblance par le titre du NFO plutot que par
+    le nom du dossier : la cle en depend directement, sans passer par les
+    subtilites de l'alias.
+    """
+
+    def _dossier(self, racine, nom, titre, annee='2000', tmdbid=None):
+        # is_proper_dir exige un nom finissant par (YYYY).
+        d = racine / f'{nom} ({annee})' / '1080p'
+        d.mkdir(parents=True)
+        ident = f'<tmdbid>{tmdbid}</tmdbid>' if tmdbid else ''
+        (d / f'{nom}.nfo').write_text(
+            f'<movie><title>{titre}</title><year>{annee}</year>{ident}</movie>',
+            encoding='utf-8')
+        (d / f'{nom}.mkv').write_bytes(b'x')
+        return racine / f'{nom} ({annee})'
+
+    def test_des_identifiants_differents_empechent_la_fusion(self):
+        with tempfile.TemporaryDirectory() as brut:
+            racine = Path(brut)
+            self._dossier(racine, 'Fusions', 'Dragon Ball Z', tmdbid='39103')
+            self._dossier(racine, 'Attaque du dragon', 'Dragon Ball Z',
+                          tmdbid='39104')
+            self.assertEqual(ma.get_duplicate_groups(racine), [])
+
+    def test_un_identifiant_commun_fusionne_toujours(self):
+        with tempfile.TemporaryDirectory() as brut:
+            racine = Path(brut)
+            self._dossier(racine, 'Le Parrain', 'Le Parrain', tmdbid='238')
+            self._dossier(racine, 'The Godfather', 'The Godfather', tmdbid='238')
+            groupes = ma.get_duplicate_groups(racine)
+            self.assertEqual(len(groupes), 1)
+            self.assertEqual(len(groupes[0]), 2)
+
+    def test_sans_identifiant_la_ressemblance_decide_encore(self):
+        # Le garde-fou ne doit pas rendre l'outil aveugle : sans identifiant
+        # declare, rien ne contredit la ressemblance.
+        with tempfile.TemporaryDirectory() as brut:
+            racine = Path(brut)
+            self._dossier(racine, 'Copie A', 'Le Parrain')
+            self._dossier(racine, 'Copie B', 'Le Parrain')
+            self.assertEqual(len(ma.get_duplicate_groups(racine)), 1)
+
+    def test_un_identifiant_face_a_un_silence_fusionne(self):
+        with tempfile.TemporaryDirectory() as brut:
+            racine = Path(brut)
+            self._dossier(racine, 'Copie A', 'Le Parrain', tmdbid='238')
+            self._dossier(racine, 'Copie B', 'Le Parrain')
+            self.assertEqual(len(ma.get_duplicate_groups(racine)), 1)
+
+    def test_la_contradiction_est_verifiee_sur_le_groupe_entier(self):
+        # A et B partagent l'identifiant 1, C leur ressemble mais declare 2.
+        # Unir C mettrait 1 et 2 dans le meme groupe : c'est interdit, meme si
+        # C pris isolement ne contredit personne directement.
+        with tempfile.TemporaryDirectory() as brut:
+            racine = Path(brut)
+            self._dossier(racine, 'Alpha', 'Meme Film', tmdbid='1')
+            self._dossier(racine, 'Beta', 'Meme Film', tmdbid='1')
+            self._dossier(racine, 'Gamma', 'Meme Film', tmdbid='2')
+            groupes = ma.get_duplicate_groups(racine)
+            self.assertEqual(len(groupes), 1)
+            self.assertEqual(len(groupes[0]), 2)
+            self.assertNotIn(racine / 'Gamma (2000)', groupes[0])
+
+
+class UnDossierOccupeNAccueillePasUnAutreFilm(unittest.TestCase):
+    """Avant de deverser dans un dossier existant, on verifie a qui il est."""
+
+    def _preparer(self, racine, nom, ident, avec_video):
+        d = racine / nom / '1080p'
+        d.mkdir(parents=True)
+        (d / f'{nom}.nfo').write_text(
+            f'<movie><title>{nom}</title><tmdbid>{ident}</tmdbid></movie>',
+            encoding='utf-8')
+        if avec_video:
+            (d / f'{nom}.mkv').write_bytes(b'x')
+        return racine / nom
+
+    def test_un_dossier_absent_ne_pose_aucun_probleme(self):
+        with tempfile.TemporaryDirectory() as brut:
+            self.assertIsNone(
+                ma.identite_du_dossier_diverge(Path(brut) / 'inexistant', 238))
+
+    def test_le_meme_identifiant_laisse_passer(self):
+        with tempfile.TemporaryDirectory() as brut:
+            d = self._preparer(Path(brut), 'Le Parrain (1972)', '238', True)
+            self.assertIsNone(ma.identite_du_dossier_diverge(d, 238))
+
+    def test_un_identifiant_en_texte_reste_comparable(self):
+        # TMDb renvoie un entier, le NFO porte du texte : cette seule
+        # difference ne doit pas faire conclure a une divergence.
+        with tempfile.TemporaryDirectory() as brut:
+            d = self._preparer(Path(brut), 'Le Parrain (1972)', '238', True)
+            self.assertIsNone(ma.identite_du_dossier_diverge(d, '238'))
+
+    def test_un_dossier_muet_laisse_passer(self):
+        with tempfile.TemporaryDirectory() as brut:
+            d = Path(brut) / 'Sans NFO (1972)' / '1080p'
+            d.mkdir(parents=True)
+            (d / 'film.mkv').write_bytes(b'x')
+            self.assertIsNone(ma.identite_du_dossier_diverge(d.parent, 238))
+
+    def test_un_nfo_perime_sans_video_est_signale_comme_tel(self):
+        with tempfile.TemporaryDirectory() as brut:
+            d = self._preparer(Path(brut), 'Parti ailleurs (1972)', '999', False)
+            self.assertEqual(ma.identite_du_dossier_diverge(d, 238), 'perime')
+
+    def test_un_dossier_habite_par_un_autre_film_est_occupe(self):
+        with tempfile.TemporaryDirectory() as brut:
+            d = self._preparer(Path(brut), 'Un autre film (1972)', '999', True)
+            self.assertEqual(ma.identite_du_dossier_diverge(d, 238), 'occupe')
+
 if __name__ == '__main__':
     unittest.main(verbosity=2)
