@@ -1046,25 +1046,6 @@ def get_root_media_files(d):
     return [f for f in d.iterdir() if f.is_file() and not is_script_file(f)]
 
 
-def pick_quality_dir(root_file, quality_dirs):
-    """Choose the quality directory that should own a root-level file."""
-    detected = detect_quality(root_file.name)
-    if detected:
-        for quality_dir in quality_dirs:
-            if quality_dir.name == detected:
-                return quality_dir
-
-    if len(quality_dirs) == 1:
-        return quality_dirs[0]
-
-    for preferred in ('1080p', '2160p', '720p', '480p'):
-        for quality_dir in quality_dirs:
-            if quality_dir.name == preferred:
-                return quality_dir
-
-    return quality_dirs[0]
-
-
 def get_consolidated_filename(f, clean_name):
     """Normalize filenames when consolidating into a quality directory."""
     if f.suffix.lower() in ('.jpg', '.png', '.svg'):
@@ -1115,19 +1096,6 @@ def aplatir_dossier_qualite(dossier, dry_run=False):
 def count_dir_files(d):
     """Count files recursively in a directory."""
     return sum(1 for f in d.rglob('*') if f.is_file())
-
-
-def choose_group_quality(group):
-    """Pick the default quality dir name for a duplicate group."""
-    seen = {
-        quality_dir.name
-        for movie_dir in group
-        for quality_dir in get_quality_subdirs(movie_dir)
-    }
-    for preferred in ('1080p', '2160p', '720p', '480p'):
-        if preferred in seen:
-            return preferred
-    return '1080p'
 
 
 def canonical_name_score(name):
@@ -1760,19 +1728,20 @@ def process_incoming(incoming_dir, movies_dir, dry_run, api_key, language, fetch
         fr_title = details.get('title') or title
         clean_name = sanitize(f"{fr_title} ({release_year})") if release_year else sanitize(fr_title)
         quality = detect_quality(video_path.name) or '1080p'
-        target_dir = movies_dir / clean_name / quality
+        target_dir = movies_dir / clean_name
+        radical = nom_de_version(clean_name, quality)
 
         print(f"[INCOMING] {video_path.name} -> {target_dir.relative_to(movies_dir)}/")
         if not dry_run:
             target_dir.mkdir(parents=True, exist_ok=True)
 
         for related in find_incoming_related_files(video_path):
-            new_name = get_consolidated_filename(related, clean_name)
+            new_name = get_consolidated_filename(related, radical)
             safe_move(related, target_dir / new_name, dry_run)
             moved += 1
 
         if fetch_metadata:
-            nfo_path = target_dir / f"{clean_name}.nfo"
+            nfo_path = target_dir / f"{radical}.nfo"
             if dry_run:
                 print(f"    FETCH {nfo_path.name}")
             else:
@@ -2138,9 +2107,9 @@ def run_post_import_reconciliation(config, dry_run=False):
     total_moved = 0
     for root in get_post_import_roots(config):
         log_message(f"[POST] Reconcile destination library: {root}")
-        # phase_quality_dirs rapatriait les fichiers dans les sous-dossiers de
-        # qualite ; depuis que la qualite vit dans le nom, elle defairait le
-        # rangement a chaque passage.
+        # L'aplatissement n'a pas sa place ici : il tourne a la demande, dans
+        # le mode manuel. Le cycle automatique se contente de reconcilier les
+        # doublons, les fichiers arrivant deja a plat.
         total_moved += phase_duplicate_dirs(root, dry_run)
         phase_cleanup(root, dry_run)
     return total_moved
@@ -2362,10 +2331,14 @@ def phase_nfo(movies_dir, dry_run):
             related = v['related']
             quality = v['quality'] or '1080p'
             source_dir = v['source_dir']
-            final_dir = (target_dir / quality) if is_multi else target_dir
+            # Plusieurs versions cohabitent desormais dans un seul dossier,
+            # distinguees par leur nom : Emby les presente comme un film unique
+            # assorti d'un selecteur de version.
+            final_dir = target_dir
+            radical = nom_de_version(clean_name, quality) if is_multi else clean_name
 
             if source_dir == final_dir:
-                needs_work = any(get_new_filename(f, clean_name) != f.name for f in related)
+                needs_work = any(get_new_filename(f, radical) != f.name for f in related)
                 if not needs_work:
                     for f in related:
                         handled_files.add(f)
@@ -2381,7 +2354,7 @@ def phase_nfo(movies_dir, dry_run):
 
             for f in sorted(related):
                 handled_files.add(f)
-                new_name = get_new_filename(f, clean_name)
+                new_name = get_new_filename(f, radical)
                 safe_move(f, final_dir / new_name, dry_run)
                 moved += 1
 
@@ -2494,18 +2467,19 @@ def phase_old_dirs(movies_dir, dry_run):
                 target_dir = movies_dir / clean_name
 
                 if target_dir != d:
-                    if target_dir.exists():
-                        quality = detect_quality(d.name) or '1080p'
-                        final_dir = target_dir / quality
-                    else:
-                        final_dir = target_dir
+                    # Rejoindre un dossier occupe ne creuse plus de sous-dossier :
+                    # c'est le nom du fichier qui evite la collision.
+                    quality = detect_quality(d.name) or '1080p'
+                    radical = (nom_de_version(clean_name, quality)
+                               if target_dir.exists() else clean_name)
+                    final_dir = target_dir
 
                     print(f"[DIR-FIX] {d.name}/ -> {final_dir.relative_to(movies_dir)}/")
                     if not dry_run:
                         final_dir.mkdir(parents=True, exist_ok=True)
 
                     for f in sorted(files):
-                        new_name = get_new_filename(f, clean_name)
+                        new_name = get_new_filename(f, radical)
                         safe_move(f, final_dir / new_name, dry_run)
                         moved += 1
 
@@ -2562,27 +2536,23 @@ def phase_old_dirs(movies_dir, dry_run):
     return moved
 
 
-def phase_quality_dirs(movies_dir, dry_run):
-    """Phase 4: Ensure quality-based movies have all files inside quality dirs."""
+def phase_aplatir_qualites(movies_dir, dry_run):
+    """Phase 4: faire remonter les fichiers hors des sous-dossiers de qualite.
+
+    L'exact inverse de ce que cette phase faisait autrefois. La qualite vit
+    desormais dans le nom du fichier, au format multi-version d'Emby, qui
+    presente alors les versions comme un seul film assorti d'un selecteur.
+    """
     print("=" * 60)
-    print("Phase 4: Consolidate quality directories\n")
+    print("Phase 4: Aplatir les sous-dossiers de qualite\n")
 
     moved = 0
-    for movie_dir in sorted(d for d in movies_dir.iterdir() if d.is_dir() and is_proper_dir(d)):
-        quality_dirs = get_quality_subdirs(movie_dir)
-        if not quality_dirs:
+    for movie_dir in sorted(d for d in movies_dir.iterdir()
+                            if d.is_dir() and is_proper_dir(d)):
+        if not get_quality_subdirs(movie_dir):
             continue
-
-        root_files = get_root_media_files(movie_dir)
-        if not root_files:
-            continue
-
-        print(f"[SPLIT] {movie_dir.name}")
-        for root_file in sorted(root_files):
-            target_dir = pick_quality_dir(root_file, quality_dirs)
-            new_name = get_consolidated_filename(root_file, movie_dir.name)
-            safe_move(root_file, target_dir / new_name, dry_run)
-            moved += 1
+        print(f"[FLAT] {movie_dir.name}")
+        moved += aplatir_dossier_qualite(movie_dir, dry_run)
         print()
 
     return moved
@@ -2603,38 +2573,24 @@ def phase_duplicate_dirs(movies_dir, dry_run):
         else:
             target_dir = choose_canonical_dir(group)
         source_dirs = [d for d in group if d != target_dir]
-        group_quality = choose_group_quality(group)
-
         print(f"[MERGE] {target_dir.name} <= {', '.join(d.name for d in source_dirs)}")
         if not dry_run:
             target_dir.mkdir(parents=True, exist_ok=True)
 
         for source_dir in source_dirs:
             for src in iter_movie_files(source_dir):
-                relative = src.relative_to(source_dir)
-                parts = relative.parts
-                if parts and parts[0] in QUALITY_DIR_NAMES:
-                    dst = target_dir.joinpath(*parts)
-                else:
-                    target_quality_dirs = get_quality_subdirs(target_dir)
-                    if target_quality_dirs:
-                        quality_dir = pick_quality_dir(src, target_quality_dirs)
-                        new_name = get_consolidated_filename(src, target_dir.name)
-                        dst = quality_dir / new_name
-                    else:
-                        new_name = get_consolidated_filename(src, target_dir.name)
-                        dst = target_dir / new_name
+                # La qualite d'origine, qu'elle vienne d'un sous-dossier ou du
+                # nom, se retrouve dans le nom du fichier fusionne.
+                parts = src.relative_to(source_dir).parts
+                radical = (nom_de_version(target_dir.name, parts[0])
+                           if parts and parts[0] in QUALITY_DIR_NAMES
+                           else target_dir.name)
+                dst = target_dir / get_consolidated_filename(src, radical)
 
                 if not dry_run:
                     dst.parent.mkdir(parents=True, exist_ok=True)
                 safe_move(src, dst, dry_run)
                 moved += 1
-
-            target_quality_dirs = get_quality_subdirs(target_dir)
-            if not target_quality_dirs and any(parts.name in QUALITY_DIR_NAMES for parts in source_dir.iterdir() if parts.is_dir()):
-                quality_dir = target_dir / group_quality
-                if not dry_run:
-                    quality_dir.mkdir(parents=True, exist_ok=True)
 
             if source_dir.exists():
                 remove_empty_dirs(source_dir, dry_run)
@@ -2888,7 +2844,7 @@ def main():
     handled, moved1 = phase_nfo(movies_dir, args.dry_run)
     handled, moved2, _ = phase_orphans(movies_dir, handled, args.dry_run)
     moved3 = phase_old_dirs(movies_dir, args.dry_run)
-    moved4 = phase_quality_dirs(movies_dir, args.dry_run)
+    moved4 = phase_aplatir_qualites(movies_dir, args.dry_run)
     moved5 = phase_duplicate_dirs(movies_dir, args.dry_run)
     phase_cleanup(movies_dir, args.dry_run)
     phase_report(movies_dir)

@@ -1315,5 +1315,24 @@ class UnDossierDeQualiteSAplatit(unittest.TestCase):
             ma.aplatir_dossier_qualite(d, dry_run=True)
             self.assertTrue((d / '1080p' / 'Le Parrain (1972).mkv').exists())
 
+class AucunePhaseNeCreuseDeSousDossierDeQualite(unittest.TestCase):
+    """La qualite vit dans le nom ; plus aucun chemin ne doit la creuser.
+
+    Quatre sites la composaient encore apres le passage a plat, dont trois sur
+    le chemin de la tache cron : la fusion de doublons, la phase 1 pour les
+    films multi-versions, et la phase 3 quand un dossier mal nomme rejoint un
+    dossier existant. Ce test les empeche de revenir par megarde.
+    """
+
+    MOTIFS = ('/ quality', '/ group_quality', 'joinpath(*parts)')
+
+    def test_aucun_chemin_ne_compose_un_sous_dossier_de_qualite(self):
+        source = Path(ma.__file__).read_text(encoding='utf-8')
+        for motif in self.MOTIFS:
+            fautives = [l.strip() for l in source.splitlines()
+                        if motif in l and not l.strip().startswith('#')]
+            self.assertEqual(fautives, [],
+                             f'« {motif} » compose encore un sous-dossier')
+
 if __name__ == '__main__':
     unittest.main(verbosity=2)
