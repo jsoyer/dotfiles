@@ -1398,7 +1398,7 @@ def rangs_de_saga(mots):
     return {m for m in mots if m.isdigit() or m in RANGS_ROMAINS}
 
 
-def doublons_inter_racines(entrees, ecart_minutes=1.0, recouvrement=0.85):
+def doublons_inter_racines(entrees, ecart_minutes=1.0, recouvrement=0.7):
     """Videos de dossiers differents partageant duree et vocabulaire.
 
     `entrees` fournit des couples (chemin, duree en minutes). Une duree
@@ -1434,7 +1434,10 @@ def doublons_inter_racines(entrees, ecart_minutes=1.0, recouvrement=0.85):
             # « Tintin et les Picaros » n'ont que leur heros en commun.
             if len(communs) < 2:
                 continue
-            if len(communs) / min(len(mots_a), len(mots_b)) >= recouvrement:
+            # On mesure sur la reunion, jamais sur le plus petit des deux :
+            # sinon une simple inclusion obtient un score parfait, et « Austin
+            # Powers » recouvre « Austin Powers - L'Espion qui m'a tiree ».
+            if len(communs) / len(mots_a | mots_b) >= recouvrement:
                 groupe.append(chemin_b)
         if len(groupe) > 1:
             vus.update(groupe)

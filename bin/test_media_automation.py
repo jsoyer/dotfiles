@@ -1570,5 +1570,47 @@ class UneSuiteNEstPasUnDoublonDeSonPremierVolet(unittest.TestCase):
             '/m/Psycho-Pass Sinners of the System - Case 1 (2019)/a - 1080p.mkv',
             '/m/Psycho-Pass Sinners of the System - Case 2 (2019)/b - 1080p.mkv'), [])
 
+class UnTitreInclusDansUnAutreNEstPasUneCopie(unittest.TestCase):
+    """Deuxieme serie de faux positifs reels, figee en tests.
+
+    Quand le premier volet n'a pas de sous-titre, son titre est entierement
+    contenu dans celui de sa suite. Diviser par le plus petit vocabulaire donne
+    alors un score parfait a une simple inclusion — le piege qui avait deja fait
+    recouvrir « Les Indestructibles » et « Les Indestructibles 2 ».
+
+    Le recouvrement se mesure donc sur la reunion des deux vocabulaires, ou ce
+    qui manque a l'un compte autant que ce qu'ils partagent.
+    """
+
+    def _couple(self, a, b, duree=100.0):
+        return ma.doublons_inter_racines([(Path(a), duree), (Path(b), duree)])
+
+    def test_une_suite_sous_titree_ne_recouvre_pas_son_premier_volet(self):
+        self.assertEqual(self._couple(
+            '/m/Austin Powers (1997)/Austin Powers (1997) - 1080p.mkv',
+            "/m/Austin Powers  L'Espion qui m'a tiree (1999)/"
+            "Austin Powers  L'Espion qui m'a tiree (1999) - 1080p.mkv"), [])
+
+    def test_un_dessin_anime_et_sa_suite_restent_distincts(self):
+        self.assertEqual(self._couple(
+            "/m/L'Age de glace (2002)/L'Age de glace (2002) - 1080p.mkv",
+            "/m/L'Age de glace  Les Aventures de Buck Wild (2022)/"
+            "L'Age de glace  Les Aventures de Buck Wild (2022) - 1080p.mkv"), [])
+
+    def test_un_titre_de_saga_ne_vaut_pas_pour_toute_la_saga(self):
+        self.assertEqual(self._couple(
+            '/m/Les Animaux Fantastiques (2016)/Les Animaux Fantastiques (2016) - 1080p.mkv',
+            '/m/Les Animaux Fantastiques  Les Crimes de Grindelwald (2018)/'
+            'Les Animaux Fantastiques  Les Crimes de Grindelwald (2018) - 1080p.mkv'), [])
+
+    def test_du_bruit_supplementaire_n_empeche_pas_de_reconnaitre_une_copie(self):
+        # La copie egaree porte des mots que la copie rangee n'a pas ; le
+        # critere doit rester assez tolerant pour la reconnaitre quand meme.
+        self.assertEqual(len(self._couple(
+            '/data/movies/Demon Slayer - Le train de l Infini (2020)/'
+            'Demon Slayer - Le train de l Infini (2020) - 1080p.mkv',
+            '/data/animes/Demon Slayer (2019)/'
+            "[KURISU_]Demon Slayer - Le train de l'infini S02 - FILM 1080P X265.mkv")), 1)
+
 if __name__ == '__main__':
     unittest.main(verbosity=2)
