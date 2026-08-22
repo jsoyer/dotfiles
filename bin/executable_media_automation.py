@@ -1376,6 +1376,13 @@ JETON_TECHNIQUE_RE = re.compile(r's\d{1,3}|e\d{1,4}')
 ANNEE_RE = re.compile(r'(?:19|20)\d{2}')
 BLOC_CROCHETS_RE = re.compile(r'\[[^\]]*\]')
 RANGS_ROMAINS = frozenset({'ii', 'iii', 'iv', 'v', 'vi', 'vii', 'viii'})
+# Ces mots qualifient une copie, jamais une oeuvre : deux fichiers qui ne
+# different que par eux restent deux copies du meme film.
+MOTS_EDITION = frozenset({
+    'remaster', 'remastered', 'restaure', 'restauree', 'extended', 'longue',
+    'integrale', 'uncut', 'unrated', 'director', 'directors', 'cut', 'redux',
+    'theatrical', 'cinema', 'special', 'edition', 'version', 'collector',
+})
 
 
 def mots_signifiants(nom):
@@ -1398,8 +1405,7 @@ def rangs_de_saga(mots):
     return {m for m in mots if m.isdigit() or m in RANGS_ROMAINS}
 
 
-def doublons_inter_racines(entrees, ecart_minutes=1.0, recouvrement=0.7,
-                           ecart_mots=1):
+def doublons_inter_racines(entrees, ecart_minutes=1.0):
     """Videos de dossiers differents partageant duree et vocabulaire.
 
     `entrees` fournit des couples (chemin, duree en minutes). Une duree
@@ -1435,16 +1441,13 @@ def doublons_inter_racines(entrees, ecart_minutes=1.0, recouvrement=0.7,
             # « Tintin et les Picaros » n'ont que leur heros en commun.
             if len(communs) < 2:
                 continue
-            # Au plus un mot d'ecart : « Qu'est-ce qu'on a encore fait au
-            # Bon Dieu » et « ... a tous fait ... » ne different que par un mot
-            # chacun, et sont pourtant deux films.
-            if len(mots_a ^ mots_b) > ecart_mots:
+            # Un ecart n'est admis que s'il porte sur des mots d'edition.
+            # Tolerer un mot au hasard ne pouvait pas marcher : « Qu'est-ce
+            # qu'on a fait au Bon Dieu » et « ... a tous fait ... » ne different
+            # que par « tous », et c'est ce mot qui fait le second film.
+            if (mots_a ^ mots_b) - MOTS_EDITION:
                 continue
-            # On mesure sur la reunion, jamais sur le plus petit des deux :
-            # sinon une simple inclusion obtient un score parfait, et « Austin
-            # Powers » recouvre « Austin Powers - L'Espion qui m'a tiree ».
-            if len(communs) / len(mots_a | mots_b) >= recouvrement:
-                groupe.append(chemin_b)
+            groupe.append(chemin_b)
         if len(groupe) > 1:
             vus.update(groupe)
             groupes.append(groupe)

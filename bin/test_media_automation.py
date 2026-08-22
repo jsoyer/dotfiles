@@ -1650,5 +1650,38 @@ class UnSeulMotPeutSeparerDeuxFilms(unittest.TestCase):
             '/data/animes/Demon Slayer (2019)/'
             "[KURISU_]Demon Slayer - Le train de l'infini S02 - FILM 1080P X265.mkv")), 1)
 
+class UnMotDEcartNEstTolereQuePourUneEdition(unittest.TestCase):
+    """Quatrieme faux positif reel : le mot d'ecart etait le titre lui-meme.
+
+    « Qu'est-ce qu'on a fait au Bon Dieu ? » et « ... a tous fait ... » ne
+    different que par « tous » — et c'est precisement ce mot qui distingue les
+    deux films. Tolerer un mot d'ecart au hasard ne pouvait pas marcher.
+
+    Un ecart n'est donc admis que s'il porte sur un mot d'edition : ceux-la
+    qualifient une copie, jamais une oeuvre.
+    """
+
+    def _couple(self, a, b, duree=100.0):
+        return ma.doublons_inter_racines([(Path(a), duree), (Path(b), duree)])
+
+    def test_un_mot_du_titre_separe_deux_films(self):
+        self.assertEqual(self._couple(
+            "/m/Qu est-ce qu on a fait au Bon Dieu (2014)/"
+            "Qu est-ce qu on a fait au Bon Dieu (2014) - 1080p.mkv",
+            "/m/Qu est-ce qu on a tous fait au Bon Dieu (2021)/"
+            "Qu est-ce qu on a tous fait au Bon Dieu (2021) - 1080p.mkv"), [])
+
+    def test_un_mot_d_edition_ne_separe_pas_deux_copies(self):
+        self.assertEqual(len(self._couple(
+            '/data/movies/Blade Runner (1982)/Blade Runner (1982) - 1080p.mkv',
+            '/data/animes/Blade Runner (1982)/'
+            'Blade Runner final cut - 1080p.mkv')), 1)
+
+    def test_deux_mots_d_edition_restent_toleres(self):
+        self.assertEqual(len(self._couple(
+            '/data/movies/Blade Runner (1982)/Blade Runner (1982) - 1080p.mkv',
+            '/data/animes/Blade Runner (1982)/'
+            'Blade Runner directors cut remastered - 1080p.mkv')), 1)
+
 if __name__ == '__main__':
     unittest.main(verbosity=2)
