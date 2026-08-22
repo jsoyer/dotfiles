@@ -1683,5 +1683,29 @@ class UnMotDEcartNEstTolereQuePourUneEdition(unittest.TestCase):
             '/data/animes/Blade Runner (1982)/'
             'Blade Runner directors cut remastered - 1080p.mkv')), 1)
 
+class UnCaractereInvisibleNeSurvitPasAuNettoyage(unittest.TestCase):
+    """Defaut revele par le premier import reel apres le passage a plat.
+
+    TMDb a livre « ...Des Minions et des Monstres » precede d'une marque
+    gauche-droite (U+200E) : invisible a l'ecran, mais bien presente dans le
+    nom du dossier, du fichier et du NFO — un piege pour le tri, la saisie et
+    toute comparaison de noms.
+    """
+
+    def test_la_marque_gauche_droite_disparait(self):
+        self.assertEqual(ma.sanitize('‎Des Minions et des Monstres'),
+                         'Des Minions et des Monstres')
+
+    def test_les_autres_caracteres_de_format_aussi(self):
+        # Espace sans chasse, liant sans chasse, BOM : la meme famille Unicode.
+        for parasite in ('​', '‍', '﻿', '‏'):
+            with self.subTest(parasite=hex(ord(parasite))):
+                self.assertEqual(ma.sanitize(f'Titre{parasite} propre'),
+                                 'Titre propre')
+
+    def test_le_nettoyage_ordinaire_ne_change_pas(self):
+        self.assertEqual(ma.sanitize('Pokemon : Les horizons'),
+                         'Pokemon Les horizons')
+
 if __name__ == '__main__':
     unittest.main(verbosity=2)

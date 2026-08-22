@@ -241,8 +241,14 @@ def sanitize(name):
     the two spaces that framed it, and the library grows a directory whose name
     is indistinguishable to the eye from the correct one — yet a different
     string for every tool that compares paths. Whitespace runs are collapsed.
+
+    TMDb livre aussi des caracteres de format Unicode — marque gauche-droite,
+    espace sans chasse — invisibles a l'ecran mais bien presents dans le nom :
+    un piege pour le tri, la saisie et toute comparaison. La categorie Cf part
+    en entier.
     """
-    return re.sub(r'\s+', ' ', ILLEGAL_CHARS.sub('', name)).strip()
+    visible = ''.join(c for c in name if unicodedata.category(c) != 'Cf')
+    return re.sub(r'\s+', ' ', ILLEGAL_CHARS.sub('', visible)).strip()
 
 
 def normalize(text):
