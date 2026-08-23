@@ -48,9 +48,6 @@
 # Aptfile_ubuntu_gui:     {{ include "dot_private/Aptfile_ubuntu_gui" | sha256sum }}
 # Snapfile_ubuntu_desktop: {{ include "dot_private/Snapfile_ubuntu_desktop" | sha256sum }}
 {{- end }}
-{{- if $isFedoraDesktop }}
-# Dnffile_fedora_gui:     {{ include "dot_private/Dnffile_fedora_gui" | sha256sum }}
-{{- end }}
 {{- if $isRPi }}
 # Aptfile_rpi_gui:        {{ include "dot_private/Aptfile_rpi_gui" | sha256sum }}
 {{- end }}
@@ -716,14 +713,6 @@ if _has_gui; then
 {{- end }}
 
 {{- if $isFedoraDesktop }}
-    _guifile="{{ .chezmoi.sourceDir }}/dot_private/Dnffile_fedora_gui"
-    if [[ -f "$_guifile" ]]; then
-        mapfile -t _guipkgs < <(grep -v '^\s*#' "$_guifile" | grep -v '^\s*$')
-        if (( ${#_guipkgs[@]} )); then
-            sudo dnf install -y --skip-unavailable "${_guipkgs[@]}" || _pkgfail "dnf: fedora-desktop GUI packages"
-        fi
-    fi
-
     # Zed Editor — no official dnf repo, use native installer
     if ! command -v zed &>/dev/null; then
         echo "🖊️ Installing Zed Editor..."
