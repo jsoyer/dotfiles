@@ -12,18 +12,23 @@ tap "homebrew/services"
 tap "reyamira/tap", "https://github.com/reyamira/homebrew-tap.git", trusted: true
 tap "rjyo/moshi", trusted: true
 tap "stablyai/orca", trusted: { casks: ["orca"] }
+tap "teamookla/speedtest", trusted: true
+brew "crane"
 brew "depot"
 brew "sdl2-compat"
 brew "herdr"
+brew "infisical"
 brew "kimi-code"
 brew "mactop"
 brew "models"
 brew "mosh"
 brew "openspec", link: false
+brew "ouch"
 brew "redis"
 brew "semgrep"
 brew "signal-cli"
 brew "rjyo/moshi/moshi-hook"
+brew "teamookla/speedtest/speedtest"
 cask "antigravity-cli"
 cask "bettercapture"
 cask "theboredteam/boring-notch/boring-notch", trusted: true
