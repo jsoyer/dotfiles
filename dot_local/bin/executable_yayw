@@ -12,6 +12,11 @@ YELLOW='\033[1;33m'
 RED='\033[0;31m'
 NC='\033[0m'
 
+# NOTE: `git status --porcelain` and not `git diff --quiet`:
+# diff only reports TRACKED files, so a brand-new per-hostname manifest
+# (e.g. Aptfile_<host> on a fresh machine) was never committed. It then
+# stayed untracked forever and tripped the A1 guard in chezmoi-autoupdate,
+# silently killing the unattended update. status sees untracked too.
 CHEZMOI_SOURCE_PATH="${CHEZMOI_SOURCE_PATH:-${HOME}/.local/share/chezmoi}"
 MANIFEST="${CHEZMOI_SOURCE_PATH}/dot_private/Pacfile_aur_desktop"
 
@@ -54,7 +59,7 @@ remove_from_manifest() {
 
 sync_to_git() {
     git -C "$CHEZMOI_SOURCE_PATH" pull --rebase origin main 2>/dev/null || true
-    if ! git -C "$CHEZMOI_SOURCE_PATH" diff --quiet "$MANIFEST" 2>/dev/null; then
+    if [[ -n "$(git -C "$CHEZMOI_SOURCE_PATH" status --porcelain -- "$MANIFEST" 2>/dev/null)" ]]; then
         git -C "$CHEZMOI_SOURCE_PATH" add "$MANIFEST"
         git -C "$CHEZMOI_SOURCE_PATH" commit -m "feat(yayw): update $(basename "$MANIFEST")"
         git -C "$CHEZMOI_SOURCE_PATH" push
