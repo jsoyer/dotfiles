@@ -79,9 +79,15 @@ if command -v copilot-cli &>/dev/null; then
     curl -fsSL https://gh.io/copilot-install | bash 2>/dev/null || true
 fi
 
-if command -v codex &>/dev/null && command -v npm &>/dev/null; then
-    echo "🤖 Updating Codex CLI..."
-    npm update -g @openai/codex 2>/dev/null || true
+if command -v npm &>/dev/null; then
+    echo "📦 Updating global npm packages..."
+    # `npm update -g` is a no-op for 0.x packages (caret pins the minor), so
+    # reinstall each global at @latest instead — that is how codex fell behind.
+    while read -r _pkg; do
+        [[ -n "$_pkg" ]] || continue
+        echo "  ⬆️  $_pkg"
+        npm install -g "${_pkg}@latest" >/dev/null 2>&1 || echo "  ⚠️  failed: $_pkg"
+    done < <(npm ls -g --depth=0 2>/dev/null | tail -n +2 | sed -E 's/^[^a-zA-Z@]*//; s/@[0-9][^@]*$//')
 fi
 {{- end }}
 
