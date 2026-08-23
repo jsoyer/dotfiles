@@ -34,7 +34,6 @@ cask "grok-build"
 cask "ledger-wallet"
 cask "logi-options+"
 cask "logitune"
-cask "orca"
 cask "plaud"
 cask "zoom"
 mas "Amphetamine", id: 937984704
