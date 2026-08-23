@@ -130,7 +130,10 @@ echo "Installing Flatpak packages (Ubuntu Desktop)..."
 
 _install_flatpak_ubuntu() {
     local pkg="$1"
-    if flatpak info --user "$pkg" &>/dev/null; then
+    # No --scope flag on purpose: `flatpak info --user` does NOT see a
+    # system-wide install, so it would happily install a duplicate --user copy
+    # of an app already present system-wide (~1 GB each on an RPi).
+    if flatpak info "$pkg" &>/dev/null; then
         echo "  $pkg already installed"
     else
         echo "  Installing $pkg..."
@@ -176,7 +179,10 @@ echo "Installing Flatpak packages (Fedora Desktop)..."
 
 _install_flatpak_fedora() {
     local pkg="$1"
-    if flatpak info --user "$pkg" &>/dev/null; then
+    # No --scope flag on purpose: `flatpak info --user` does NOT see a
+    # system-wide install, so it would happily install a duplicate --user copy
+    # of an app already present system-wide (~1 GB each on an RPi).
+    if flatpak info "$pkg" &>/dev/null; then
         echo "  $pkg already installed"
     else
         echo "  Installing $pkg..."
@@ -224,7 +230,10 @@ echo "Installing Flatpak packages (Raspberry Pi)..."
 
 _install_flatpak_rpi() {
     local pkg="$1"
-    if flatpak info --user "$pkg" &>/dev/null; then
+    # No --scope flag on purpose: `flatpak info --user` does NOT see a
+    # system-wide install, so it would happily install a duplicate --user copy
+    # of an app already present system-wide (~1 GB each on an RPi).
+    if flatpak info "$pkg" &>/dev/null; then
         echo "  $pkg already installed"
     else
         echo "  Installing $pkg..."

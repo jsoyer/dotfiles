@@ -460,7 +460,14 @@ sysup() {
 
       if command -v flatpak &>/dev/null; then
         echo "📦 Updating Flatpak apps..."
-        flatpak update -y
+        # Split by scope. A bare `flatpak update` also targets system-scope
+        # installs, and polkit refuses a non-interactive deploy for a normal
+        # user: "Flatpak system operation Deploy not allowed for user", which
+        # then makes the whole command exit non-zero.
+        flatpak update --user -y || true
+        if flatpak list --system --columns=application 2>/dev/null | grep -q .; then
+          sudo flatpak update --system -y || true
+        fi
       fi
 
       if command -v brew &>/dev/null; then

@@ -606,7 +606,14 @@ function sysup
 
             if command -q flatpak
                 echo "📦 Updating Flatpak apps..."
-                flatpak update -y
+                # Split by scope: a bare `flatpak update` also targets
+                # system-scope installs, and polkit refuses a non-interactive
+                # deploy for a normal user ("Deploy not allowed for user"),
+                # which makes the whole command exit non-zero.
+                flatpak update --user -y; or true
+                if flatpak list --system --columns=application 2>/dev/null | string match -q -r .
+                    sudo flatpak update --system -y; or true
+                end
             end
 
             if command -q brew

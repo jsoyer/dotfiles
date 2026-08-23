@@ -1271,7 +1271,15 @@ def sysup [] {
 
             if (which flatpak | is-not-empty) {
                 print "📦 Updating Flatpak apps..."
-                ^flatpak update -y
+                # Split by scope: a bare `flatpak update` also targets
+                # system-scope installs, and polkit refuses a non-interactive
+                # deploy for a normal user ("Deploy not allowed for user"),
+                # which makes the whole command exit non-zero.
+                (^flatpak update --user -y) | complete | ignore
+                let _sys = (^flatpak list --system --columns=application | complete)
+                if ($_sys.exit_code == 0 and ($_sys.stdout | str trim | is-not-empty)) {
+                    (^sudo flatpak update --system -y) | complete | ignore
+                }
             }
 
             if (which brew | is-not-empty) {
