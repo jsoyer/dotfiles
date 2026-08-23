@@ -1,0 +1,35 @@
+[Unit]
+Description=Moshi hook daemon (socket local + bridge WebSocket Moshi)
+Documentation=https://github.com/rjyo/moshi
+# NB: pas de network-online.target en scope --user (il n'existe pas côté user).
+# La résilience réseau est assurée par Restart=always + backoff ci-dessous.
+# Aucune limite de démarrages : le service ne doit jamais finir en "failed"
+# (clé de section [Unit], pas [Service] — systemd l'ignore silencieusement sinon).
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+ExecStart=%h/.local/bin/moshi-hook serve
+WorkingDirectory=%h
+
+# --- Toujours up ---
+# always (et pas on-failure) : le daemon peut sortir en code 0 (ex. après un
+# self-update ou une coupure du bridge) — on veut qu'il remonte quand même.
+Restart=always
+RestartSec=2
+# Backoff exponentiel 2s → 60s (systemd >= 254) : pas de crash-loop qui spamme
+# le journal si le réseau/pairing est cassé durablement.
+RestartSteps=5
+RestartMaxDelaySec=60
+# --- Arrêt propre ---
+KillSignal=SIGTERM
+TimeoutStopSec=20
+
+# --- Environnement ---
+# moshi-hook shelle vers tmux / git / ssh : PATH complet, ~/.local/bin inclus
+# (il s'y trouve lui-même, utile pour ses ré-exec).
+Environment=PATH=%h/.local/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin
+Environment=HOME=%h
+
+[Install]
+WantedBy=default.target

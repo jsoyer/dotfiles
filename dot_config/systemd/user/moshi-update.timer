@@ -1,0 +1,15 @@
+[Unit]
+Description=Vérification quotidienne des mises à jour moshi-hook
+
+[Timer]
+Unit=moshi-update.service
+OnCalendar=daily
+# Rattrape l'exécution si la machine était éteinte à l'heure prévue.
+Persistent=true
+# Étale la charge (évite de taper la release au même instant que les autres MAJ).
+RandomizedDelaySec=1h
+# Laisse le daemon démarrer avant de tenter une MAJ juste après un boot.
+OnBootSec=15min
+
+[Install]
+WantedBy=timers.target

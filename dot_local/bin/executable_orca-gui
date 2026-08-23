@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+# Lanceur GUI Orca "tout-en-un" : arrête le service headless, ouvre l'interface
+# graphique, puis restaure le service headless à la fermeture de la fenêtre.
+# Le service n'est redémarré que s'il tournait AVANT (on restaure l'état initial).
+set -uo pipefail
+
+SERVICE="orca-serve.service"
+APPIMAGE="${ORCA_APPIMAGE:-/opt/orca/orca-linux.AppImage}"
+
+note() { notify-send -a "Orca" "Orca" "$1" 2>/dev/null || true; }
+
+[[ -x "$APPIMAGE" ]] || { echo "AppImage Orca introuvable : $APPIMAGE" >&2; exit 1; }
+
+# Exécute "systemctl <action> <service>" en root.
+#  1) tente sudo -n (sans mot de passe, si la règle sudoers est installée)
+#  2) sinon bascule sur pkexec (fenêtre graphique de mot de passe)
+svc() {
+    local action="$1"
+    if sudo -n systemctl "$action" "$SERVICE" 2>/dev/null; then
+        return 0
+    fi
+    pkexec systemctl "$action" "$SERVICE"
+}
+
+# 1) Mémoriser l'état du service et l'arrêter s'il tourne
+was_active=0
+if systemctl is-active --quiet "$SERVICE"; then
+    was_active=1
+    note "Arrêt du service headless…"
+    if ! svc stop; then
+        note "Impossible d'arrêter $SERVICE — la GUI ne peut pas démarrer (port occupé)."
+        exit 1
+    fi
+fi
+
+# 2) Garantir la restauration même en cas de crash/Ctrl-C de la GUI
+restore() {
+    if [ "$was_active" -eq 1 ]; then
+        note "Redémarrage du service headless…"
+        svc start || note "ÉCHEC du redémarrage — lance : sudo systemctl start $SERVICE"
+    fi
+}
+trap restore EXIT INT TERM
+
+# 3) Lancer la GUI au premier plan ; le script attend la fermeture de la fenêtre
+note "Ouverture de l'interface graphique…"
+"$APPIMAGE" --no-sandbox "$@"

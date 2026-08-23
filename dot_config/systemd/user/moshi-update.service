@@ -1,0 +1,15 @@
+[Unit]
+Description=Met à jour moshi-hook vers la dernière release
+Documentation=file:%h/.local/bin/update-moshi
+# Le service tourne en scope --user : le binaire (~/.local/bin/moshi-hook) et
+# l'état (~/.config/moshi, ~/.local/state/moshi) appartiennent à l'utilisateur.
+
+[Service]
+Type=oneshot
+ExecStart=%h/.local/bin/update-moshi
+# Le script gère lui-même le restart du daemon et le rollback si la nouvelle
+# version ne remonte pas ; il sort en 0 sur simple coupure réseau (pas d'alerte
+# pour rien, la prochaine exécution rattrape).
+SuccessExitStatus=0
+TimeoutStartSec=10min
+Environment=PATH=%h/.local/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin

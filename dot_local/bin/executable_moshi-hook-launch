@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+#
+# moshi-hook-launch — Résout le binaire moshi-hook puis lance `serve`.
+#
+# Raison d'être : un plist launchd exige un chemin ABSOLU dans
+# ProgramArguments, or moshi-hook peut vivre à trois endroits selon la machine :
+#   /opt/homebrew/bin  (Apple Silicon)   /usr/local/bin  (Intel)   ~/.local/bin
+# Ce shim évite de générer un plist différent par machine.
+#
+# Côté Linux, moshi-hook.service pointe directement sur ~/.local/bin/moshi-hook :
+# ce shim n'y sert pas.
+#
+set -euo pipefail
+
+for candidate in \
+  "${HOME}/.local/bin/moshi-hook" \
+  /opt/homebrew/bin/moshi-hook \
+  /usr/local/bin/moshi-hook
+do
+  [[ -x "$candidate" ]] && exec "$candidate" serve "$@"
+done
+
+# Dernier recours : le PATH hérité de launchd (souvent minimal, d'où l'ordre
+# explicite ci-dessus).
+if command -v moshi-hook >/dev/null 2>&1; then
+  exec moshi-hook serve "$@"
+fi
+
+echo "moshi-hook introuvable — lance : moshi-setup" >&2
+exit 127

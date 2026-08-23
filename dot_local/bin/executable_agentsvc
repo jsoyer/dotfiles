@@ -1,0 +1,131 @@
+#!/usr/bin/env bash
+#
+# agentsvc — Point d'entrée unique pour les trois stacks d'agents auto-hébergés :
+#
+#   moshi   moshi-hook  (--user)  terminal mobile Moshi
+#   orca    orca-serve  (system)  runtime Orca headless
+#   cursor  cursor-worker (--user) worker privé Cursor
+#
+# L'installation reste manuelle et explicite (moshi-setup / orca-setup /
+# cursor-setup) : agentsvc ne fait qu'observer et piloter ce qui est déjà en
+# place. Aucun `enable` ici.
+#
+# Usage :
+#   agentsvc status  [cible]   état des services (défaut : all)
+#   agentsvc update  [cible]   déclenche les scripts de mise à jour
+#   agentsvc restart [cible]
+#   agentsvc logs    <cible>   suit le journal (Ctrl-C pour sortir)
+#   agentsvc reload            systemctl --user daemon-reload + rappel
+#
+# cible ∈ moshi | orca | cursor | all
+#
+set -uo pipefail
+
+CMD="${1:-status}"
+TARGET="${2:-all}"
+
+c_b=$'\033[1;34m'; c_g=$'\033[1;32m'; c_y=$'\033[1;33m'; c_r=$'\033[1;31m'; c_d=$'\033[2m'; c_0=$'\033[0m'
+die() { printf '%s[agentsvc]%s %s\n' "$c_r" "$c_0" "$*" >&2; exit 1; }
+
+usage() { sed -n '2,/^set -uo/p' "$0" | sed 's/^# \{0,1\}//; $d'; }
+
+case "$TARGET" in
+  moshi|orca|cursor|all) : ;;
+  *) die "Cible inconnue : ${TARGET} (moshi|orca|cursor|all)" ;;
+esac
+
+want() { [[ "$TARGET" == "all" || "$TARGET" == "$1" ]]; }
+
+# État coloré d'une unit (--user ou système).
+unit_state() {
+  local scope="$1" unit="$2" active enabled
+  # NB: is-active/is-enabled IMPRIMENT déjà un état ("inactive", "not-found") et
+  # sortent en code != 0. Un `|| echo absent` ajouterait une seconde ligne et
+  # casserait l'alignement — on ne garde donc que la sortie standard.
+  if [[ "$scope" == "user" ]]; then
+    active="$(systemctl --user is-active   "$unit" 2>/dev/null)" || true
+    enabled="$(systemctl --user is-enabled "$unit" 2>/dev/null)" || true
+  else
+    active="$(systemctl is-active   "$unit" 2>/dev/null)" || true
+    enabled="$(systemctl is-enabled "$unit" 2>/dev/null)" || true
+  fi
+  active="${active:-absent}"
+  enabled="${enabled:--}"
+  local color="$c_r"
+  [[ "$active" == "active" ]] && color="$c_g"
+  [[ "$active" == "activating" || "$active" == "inactive" ]] && color="$c_y"
+  printf '%s%-10s%s %s(%s)%s' "$color" "$active" "$c_0" "$c_d" "$enabled" "$c_0"
+}
+
+row() { printf '  %-22s %s\n' "$1" "$2"; }
+
+cmd_status() {
+  if want moshi; then
+    printf '%smoshi%s  — terminal mobile\n' "$c_b" "$c_0"
+    row "moshi-hook.service"  "$(unit_state user moshi-hook.service)"
+    row "moshi-update.timer"  "$(unit_state user moshi-update.timer)"
+    row "binaire"             "$(command -v moshi-hook 2>/dev/null || echo absent)"
+    echo
+  fi
+  if want orca; then
+    printf '%sorca%s   — runtime headless\n' "$c_b" "$c_0"
+    row "orca-serve.service"  "$(unit_state system orca-serve.service)"
+    row "orca-update.timer"   "$(unit_state system orca-update.timer)"
+    row "AppImage"            "$([[ -f /opt/orca/orca-linux.AppImage ]] && echo /opt/orca/orca-linux.AppImage || echo absente)"
+    echo
+  fi
+  if want cursor; then
+    printf '%scursor%s — worker privé\n' "$c_b" "$c_0"
+    row "cursor-worker.service" "$(unit_state user cursor-worker.service)"
+    row "cursor-update.timer"   "$(unit_state user cursor-update.timer)"
+    # Le compteur de redémarrages est le seul signal d'une boucle d'échec :
+    # un service qui reboucle affiche "activating" par intermittence.
+    local n; n="$(systemctl --user show -p NRestarts --value cursor-worker.service 2>/dev/null || echo 0)"
+    if [[ "${n:-0}" -gt 50 ]]; then
+      row "restarts" "$(printf '%s%s — boucle d'\''échec probable%s' "$c_r" "$n" "$c_0")"
+    else
+      row "restarts" "${n:-0}"
+    fi
+    row "binaire" "$(command -v cursor-agent 2>/dev/null || echo absent)"
+    echo
+  fi
+}
+
+cmd_update() {
+  want moshi  && { printf '%s▸ moshi%s\n'  "$c_b" "$c_0"; update-moshi         || true; }
+  want cursor && { printf '%s▸ cursor%s\n' "$c_b" "$c_0"; update-cursor-agent  || true; }
+  want orca   && { printf '%s▸ orca%s\n'   "$c_b" "$c_0"; sudo systemctl start orca-update.service || true; }
+}
+
+cmd_restart() {
+  want moshi  && systemctl --user restart moshi-hook.service    && printf 'moshi-hook redémarré\n'
+  want cursor && systemctl --user restart cursor-worker.service && printf 'cursor-worker redémarré\n'
+  want orca   && sudo systemctl restart orca-serve.service      && printf 'orca-serve redémarré\n'
+  return 0
+}
+
+cmd_logs() {
+  case "$TARGET" in
+    moshi)  exec journalctl --user -u moshi-hook.service -f ;;
+    cursor) exec journalctl --user -u cursor-worker.service -f ;;
+    orca)   exec journalctl -u orca-serve.service -f ;;
+    all)    die "Précise une cible : agentsvc logs moshi|orca|cursor" ;;
+  esac
+}
+
+cmd_reload() {
+  systemctl --user daemon-reload || die "daemon-reload a échoué."
+  printf '%s[agentsvc]%s systemd --user rechargé.\n' "$c_g" "$c_0"
+  printf '%sRappel :%s un changement d'\''unit ne prend effet qu'\''après un restart —\n' "$c_y" "$c_0"
+  printf '         agentsvc restart moshi|cursor, ou orca-setup pour orca (élévation auto).\n'
+}
+
+case "$CMD" in
+  status)  cmd_status ;;
+  update)  cmd_update ;;
+  restart) cmd_restart ;;
+  logs)    cmd_logs ;;
+  reload)  cmd_reload ;;
+  -h|--help|help) usage ;;
+  *) die "Commande inconnue : ${CMD} (voir --help)" ;;
+esac

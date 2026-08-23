@@ -1,0 +1,377 @@
+#!/usr/bin/env bash
+#
+# cursor-setup — Installe cursor-agent et configure le worker privé Cursor.
+#
+# `cursor-agent worker start` connecte cette machine à Cursor pour y exécuter des
+# agents cloud dans TON environnement. Le service tourne en scope --user : le
+# binaire, l'auth (~/.local/share/cursor-agent) et les worktrees appartiennent à
+# l'utilisateur.
+#
+# ⚠️ Piège historique : l'ancien cursor-worker.service pointait sur
+# ~/.local/bin/agent, qui est un symlink vers le CLI Grok (pas de sous-commande
+# `worker`) → 262 000 redémarrages en échec avant détection. Ce script vérifie
+# explicitement que le binaire répond à `worker --help` avant d'activer quoi que
+# ce soit, et refuse d'activer un worker non authentifié.
+#
+# Linux uniquement pour l'instant (le worker cible des serveurs/RPi).
+#
+# ⚠️ Le mode worker exige une CLÉ API (CURSOR_API_KEY) : le token de session de
+# `cursor-agent login` n'est pas accepté, même quand `cursor-agent status`
+# affiche "Login successful". La clé est stockée en 0600 dans
+# ~/.config/cursor/worker.env, lu par l'unit via EnvironmentFile=.
+#
+# Usage :
+#   cursor-setup                        install + activation du worker
+#   cursor-setup --api-key              saisie masquée de la clé API
+#   cursor-setup --api-key-file <path>  lit la clé dans un fichier
+#   cursor-setup --worker-dir <path>    racine exposée aux agents (répétable ;
+#                                       réécrit la surcharge, ne s'y ajoute pas)
+#   cursor-setup --clear-overrides      supprime la surcharge locale
+#   cursor-setup --name <nom>           nom affiché (défaut : <hostname>-worker)
+#   cursor-setup --no-service           binaire seulement
+#   cursor-setup --status
+#   cursor-setup --update
+#   cursor-setup --uninstall
+#   cursor-setup --dry-run
+#
+set -euo pipefail
+
+# --- Configuration ------------------------------------------------------------
+INSTALL_URL="https://cursor.com/install"
+BIN_DIR="${HOME}/.local/bin"
+BIN="${BIN_DIR}/cursor-agent"
+SERVICE="cursor-worker.service"
+UPDATE_TIMER="cursor-update.timer"
+# Clé API du worker. Lue par l'unit via EnvironmentFile= ; jamais dans le dépôt.
+ENV_FILE="${XDG_CONFIG_HOME:-$HOME/.config}/cursor/worker.env"
+
+WORKER_DIRS=()
+WORKER_NAME=""
+CLEAR_OVERRIDES=0
+API_KEY_PROMPT=0
+API_KEY_FILE=""
+DO_SERVICE=1
+DRY_RUN=0
+ASSUME_YES=0
+ACTION="install"
+
+# --- Helpers ------------------------------------------------------------------
+c_b=$'\033[1;34m'; c_g=$'\033[1;32m'; c_y=$'\033[1;33m'; c_r=$'\033[1;31m'; c_0=$'\033[0m'
+log()  { printf '%s[cursor-setup]%s %s\n' "$c_b" "$c_0" "$*"; }
+ok()   { printf '%s[cursor-setup]%s %s\n' "$c_g" "$c_0" "$*"; }
+warn() { printf '%s[cursor-setup]%s %s\n' "$c_y" "$c_0" "$*" >&2; }
+die()  { printf '%s[cursor-setup]%s %s\n' "$c_r" "$c_0" "$*" >&2; exit 1; }
+
+run() {
+  if [[ "$DRY_RUN" -eq 1 ]]; then printf '  %s+%s %s\n' "$c_y" "$c_0" "$*"; return 0; fi
+  "$@"
+}
+
+usage() { sed -n '2,/^set -euo/p' "$0" | sed 's/^# \{0,1\}//; $d'; }
+
+# --- Parsing des options ------------------------------------------------------
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --worker-dir)
+      _d="${2:?chemin manquant}"; shift
+      # Un chemin mal tapé passerait sans bruit et le worker exposerait autre
+      # chose que prévu : on refuse tout de suite, et on normalise (~, chemin
+      # relatif, slash final) pour que le drop-in soit comparable d'un run à
+      # l'autre.
+      _d="${_d/#\~/$HOME}"
+      [[ -d "$_d" ]] || die "Répertoire inexistant : ${_d} (faute de frappe ?)"
+      _d="$(cd "$_d" && pwd -P)"
+      WORKER_DIRS+=("$_d")
+      ;;
+    --name)             WORKER_NAME="${2:?nom manquant}"; shift ;;
+    --clear-overrides)  CLEAR_OVERRIDES=1 ;;
+    --api-key)      API_KEY_PROMPT=1 ;;
+    --api-key-file) API_KEY_FILE="${2:?chemin manquant}"; shift ;;
+    --no-service) DO_SERVICE=0 ;;
+    --status)     ACTION="status" ;;
+    --update)     ACTION="update" ;;
+    --uninstall)  ACTION="uninstall" ;;
+    --dry-run)    DRY_RUN=1 ;;
+    -y|--yes)     ASSUME_YES=1 ;;
+    -h|--help)    usage; exit 0 ;;
+    *)            die "Option inconnue : $1 (voir --help)" ;;
+  esac
+  shift
+done
+
+[[ "$(uname -s)" == "Linux" ]] || die "cursor-setup cible Linux (plateforme : $(uname -s))."
+
+have_systemd_user() {
+  command -v systemctl >/dev/null 2>&1 && systemctl --user show-environment >/dev/null 2>&1
+}
+
+agent_path() { [[ -x "$BIN" ]] && echo "$BIN" || command -v cursor-agent 2>/dev/null || true; }
+
+agent_version() { "$1" --version 2>/dev/null | head -1 || echo inconnue; }
+
+# Vérifie que le binaire est BIEN le CLI Cursor et pas un homonyme (Grok CLI
+# s'installe sous le nom `agent` dans le même répertoire).
+is_real_cursor_agent() {
+  local p="$1"
+  [[ -n "$p" && -x "$p" ]] || return 1
+  "$p" worker --help >/dev/null 2>&1
+}
+
+# ⚠️ `cursor-agent status` ne suffit PAS : il répond "Login successful" avec le
+# simple token de session, alors que le mode worker exige une clé API et sort en
+# "Authentication required for worker mode". `worker debug` est le seul preflight
+# qui teste réellement l'auth du worker — c'est donc lui qui fait foi.
+worker_auth_ok() {
+  local p="$1"
+  # shellcheck disable=SC1090
+  [[ -r "$ENV_FILE" ]] && set -a && . "$ENV_FILE" && set +a
+  timeout 45 "$p" worker debug >/dev/null 2>&1
+}
+
+# Écrit la clé API dans un fichier 0600 lu par l'unit via EnvironmentFile=.
+# Jamais d'argument en clair sur la ligne de commande par défaut : la saisie est
+# masquée, sinon la clé finirait dans l'historique du shell.
+write_api_key() {
+  local key=""
+  if [[ -n "$API_KEY_FILE" ]]; then
+    [[ -r "$API_KEY_FILE" ]] || die "Fichier de clé illisible : ${API_KEY_FILE}"
+    key="$(tr -d '[:space:]' < "$API_KEY_FILE")"
+  else
+    printf 'Clé API Cursor (saisie masquée, https://cursor.com/dashboard → Integrations) : '
+    read -rs key
+    echo
+    key="$(printf '%s' "$key" | tr -d '[:space:]')"
+  fi
+  [[ -n "$key" ]] || die "Clé vide — rien écrit."
+
+  local dir; dir="$(dirname "$ENV_FILE")"
+  run mkdir -p "$dir"
+  run chmod 700 "$dir"
+  if [[ "$DRY_RUN" -eq 0 ]]; then
+    ( umask 077; printf 'CURSOR_API_KEY=%s\n' "$key" > "$ENV_FILE" )
+    chmod 600 "$ENV_FILE"
+  fi
+  ok "Clé écrite dans ${ENV_FILE} (0600, hors du dépôt chezmoi)."
+}
+
+# --- Statut -------------------------------------------------------------------
+# systemctl is-active/is-enabled IMPRIMENT déjà un état ("inactive", "not-found")
+# puis sortent en code != 0 : un `|| echo inconnu` ajouterait une SECONDE ligne.
+# On ne garde donc que la sortie standard, avec un défaut si elle est vide.
+sstate() { local out; out="$("$@" 2>/dev/null)" || true; echo "${out:-inconnu}"; }
+
+do_status() {
+  local p; p="$(agent_path)"
+  printf '%sCursor worker%s\n' "$c_b" "$c_0"
+  if [[ -n "$p" ]]; then
+    printf '  Binaire  : %s (%s)\n' "$p" "$(agent_version "$p")"
+    if is_real_cursor_agent "$p"; then
+      printf '  CLI      : %scursor-agent valide%s\n' "$c_g" "$c_0"
+    else
+      printf '  CLI      : %sne répond pas à `worker --help` — mauvais binaire ?%s\n' "$c_r" "$c_0"
+    fi
+    printf '  Session  : %s\n' "$("$p" status >/dev/null 2>&1 && echo connecté || echo 'non connecté')"
+    printf '  Clé API  : %s\n' "$([[ -r "$ENV_FILE" ]] && echo "$ENV_FILE" || echo absente)"
+    printf '  Auth wkr : %s\n' "$(worker_auth_ok "$p" && echo OK || echo 'KO — worker start refusera de démarrer')"
+  else
+    printf '  Binaire  : %sabsent%s\n' "$c_r" "$c_0"
+  fi
+  if have_systemd_user; then
+    printf '  Service  : %s / %s\n' \
+      "$(sstate systemctl --user is-active "$SERVICE")" \
+      "$(sstate systemctl --user is-enabled "$SERVICE")"
+    # Le compteur de redémarrages est LE signal d'une boucle d'échec silencieuse.
+    printf '  Restarts : %s\n' "$(sstate systemctl --user show -p NRestarts --value "$SERVICE")"
+    printf '  Timer MAJ: %s\n' "$(sstate systemctl --user is-active "$UPDATE_TIMER")"
+
+    # Périmètre exposé aux agents cloud. On affiche DEUX choses car elles
+    # peuvent diverger : la config chargée par systemd, et ce que le process
+    # en cours expose réellement (si on a oublié un restart après un drop-in).
+    local exec_line dirs_cfg dir_live
+    exec_line="$(systemctl --user show -p ExecStart --value "$SERVICE" 2>/dev/null | grep -oP 'argv\[\]=\K[^;]*' || true)"
+    dirs_cfg="$(printf '%s' "$exec_line" | grep -oP -- '--worker-dir \K[^ ]+' | paste -sd' ' - || true)"
+    printf '  Config   : %s\n' "${dirs_cfg:-\$HOME (aucun --worker-dir)}"
+    dir_live="$(journalctl --user -u "$SERVICE" -n 200 --no-pager 2>/dev/null | grep -oP 'Directory: \K.*' | tail -1 || true)"
+    if [[ -n "$dir_live" ]]; then
+      if [[ -n "$dirs_cfg" && " $dirs_cfg " != *" $dir_live "* ]]; then
+        printf '  Exposé   : %s%s — DIVERGE de la config : restart requis%s\n' "$c_r" "$dir_live" "$c_0"
+      else
+        printf '  Exposé   : %s\n' "$dir_live"
+      fi
+    fi
+    [[ -f "${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user/${SERVICE}.d/override.conf" ]] \
+      && printf '  Surcharge: drop-in local présent (cursor-setup --clear-overrides pour l'\''enlever)\n'
+  fi
+}
+
+[[ "$ACTION" == "status" ]] && { do_status; exit 0; }
+[[ "$ACTION" == "update" ]] && exec "${BIN_DIR}/update-cursor-agent"
+
+# --- Désinstallation ----------------------------------------------------------
+if [[ "$ACTION" == "uninstall" ]]; then
+  if [[ "$ASSUME_YES" -eq 0 ]]; then
+    printf 'Désactiver le worker Cursor ? (le binaire est conservé) [y/N] '
+    read -r reply
+    [[ "$reply" =~ ^[yYoO]$ ]] || { log "Annulé."; exit 0; }
+  fi
+  if have_systemd_user; then
+    run systemctl --user disable --now "$SERVICE" 2>/dev/null || true
+    run systemctl --user disable --now "$UPDATE_TIMER" 2>/dev/null || true
+    run systemctl --user reset-failed "$SERVICE" 2>/dev/null || true
+    run systemctl --user daemon-reload
+  fi
+  ok "Worker désactivé."
+  exit 0
+fi
+
+# --- Étape 1 : binaire --------------------------------------------------------
+P="$(agent_path)"
+if [[ -n "$P" ]] && is_real_cursor_agent "$P"; then
+  ok "cursor-agent déjà installé : ${P} ($(agent_version "$P"))"
+else
+  [[ -n "$P" ]] && warn "Binaire présent mais sans sous-commande 'worker' — réinstallation."
+  log "Installation de cursor-agent…"
+  command -v curl >/dev/null 2>&1 || die "curl est requis."
+  if [[ "$DRY_RUN" -eq 1 ]]; then
+    printf '  %s+%s curl -fsS %s | bash\n' "$c_y" "$c_0" "$INSTALL_URL"
+  else
+    curl -fsS "$INSTALL_URL" | bash || die "L'installeur cursor-agent a échoué."
+    hash -r
+    P="$(agent_path)"
+    is_real_cursor_agent "$P" || die "cursor-agent installé mais 'worker --help' échoue — installation cassée."
+    ok "cursor-agent installé : ${P} ($(agent_version "$P"))"
+  fi
+fi
+
+if [[ "$DO_SERVICE" -eq 0 ]]; then
+  ok "Terminé (--no-service)."
+  exit 0
+fi
+
+[[ "$DRY_RUN" -eq 1 ]] || P="$(agent_path)"
+
+# --- Étape 2 : authentification du worker -------------------------------------
+# Sans auth, `worker start` sort immédiatement en erreur : avec Restart=always
+# c'est la crash-loop garantie. On refuse d'activer le service dans ce cas.
+[[ "$API_KEY_PROMPT" -eq 1 || -n "$API_KEY_FILE" ]] && write_api_key
+
+if [[ "$DRY_RUN" -eq 0 ]] && ! worker_auth_ok "$P"; then
+  warn "Le mode worker n'est pas authentifié."
+  warn "Le token de 'cursor-agent login' ne suffit pas : le worker exige une CLÉ API."
+  warn "Récupère-la sur https://cursor.com/dashboard → Integrations."
+  if [[ "$ASSUME_YES" -eq 1 || ! -t 0 ]]; then
+    die "Relance : cursor-setup --api-key  (ou --api-key-file <chemin>). Service NON activé."
+  fi
+  printf 'Saisir la clé API maintenant ? [Y/n] '
+  read -r reply
+  if [[ "$reply" =~ ^[nN]$ ]]; then
+    die "Service non activé (un worker non authentifié boucle en échec)."
+  fi
+  write_api_key
+  worker_auth_ok "$P" || die "Clé refusée par 'worker debug' — service NON activé."
+fi
+ok "Authentification worker OK."
+
+# --- Étape 3 : service --------------------------------------------------------
+UNIT_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user"
+[[ -f "${UNIT_DIR}/${SERVICE}" ]] \
+  || die "Unit absente : ${UNIT_DIR}/${SERVICE} — lance d'abord 'chezmoi apply'."
+
+# Surcharges locales (nom du worker, répertoires exposés) : un drop-in plutôt
+# qu'une modification de l'unit, pour que chezmoi reste maître du fichier de base.
+DROPIN="${UNIT_DIR}/${SERVICE}.d"
+DROPIN_CONF="${DROPIN}/override.conf"
+DROPIN_CHANGED=0
+
+if [[ "$CLEAR_OVERRIDES" -eq 1 ]]; then
+  if [[ -f "$DROPIN_CONF" ]]; then
+    run rm -f "$DROPIN_CONF"
+    run rmdir "$DROPIN" 2>/dev/null || true
+    DROPIN_CHANGED=1
+    ok "Surcharges locales supprimées — retour à l'unit de base."
+  else
+    log "Aucune surcharge locale à supprimer."
+  fi
+elif [[ ${#WORKER_DIRS[@]} -gt 0 || -n "$WORKER_NAME" ]]; then
+  # ⚠️ `ExecStart=` (vide) efface la ligne de l'unit de base : tout ce qu'on ne
+  # réécrit pas ici est PERDU, `--name` compris. On reprend donc le nom de base
+  # (<hostname>-worker) quand --name n'est pas fourni, sinon le worker
+  # réapparaîtrait chez Cursor sous un autre nom sans prévenir.
+  eff_name="${WORKER_NAME:-$(hostname)-worker}"
+
+  new_exec="ExecStart=%h/.local/bin/cursor-agent worker start --name ${eff_name}"
+  for d in "${WORKER_DIRS[@]}"; do
+    new_exec+=" --worker-dir ${d}"
+  done
+
+  run mkdir -p "$DROPIN"
+  if [[ "$DRY_RUN" -eq 0 ]]; then
+    new_content="$(printf '# Généré par cursor-setup — surcharges locales de cette machine.\n# Édition : cursor-setup --worker-dir <chemin>  |  suppression : --clear-overrides\n[Service]\nExecStart=\n%s\n' "$new_exec")"
+    if [[ ! -f "$DROPIN_CONF" ]] || [[ "$(cat "$DROPIN_CONF")" != "$new_content" ]]; then
+      printf '%s' "$new_content" > "$DROPIN_CONF"
+      DROPIN_CHANGED=1
+      log "Drop-in mis à jour : ${DROPIN_CONF}"
+    else
+      log "Drop-in déjà à jour — inchangé."
+    fi
+  else
+    printf '  %s+%s écrire %s :\n      %s\n' "$c_y" "$c_0" "$DROPIN_CONF" "$new_exec"
+  fi
+fi
+
+if ! have_systemd_user; then
+  warn "systemd --user indisponible — lance le worker à la main : cursor-agent worker start"
+  exit 0
+fi
+
+# Le linger garde le gestionnaire --user vivant après déconnexion SSH.
+if ! loginctl show-user "$(id -un)" -p Linger 2>/dev/null | grep -q 'Linger=yes'; then
+  log "Activation du linger…"
+  run sudo loginctl enable-linger "$(id -un)" || warn "Échec de l'activation du linger."
+fi
+
+run systemctl --user daemon-reload
+run systemctl --user reset-failed "$SERVICE" 2>/dev/null || true
+run systemctl --user enable --now "$SERVICE"
+
+# ⚠️ `enable --now` ne fait RIEN sur un service déjà actif : sans ce restart,
+# un drop-in fraîchement écrit est chargé par systemd mais le process en cours
+# tourne toujours sur l'ancienne ligne de commande — le changement passe
+# silencieusement à la trappe (et `systemctl show` affiche la NOUVELLE valeur,
+# ce qui masque le problème).
+if [[ "$DROPIN_CHANGED" -eq 1 ]] && systemctl --user is-active --quiet "$SERVICE"; then
+  log "Surcharges modifiées — redémarrage pour les appliquer…"
+  run systemctl --user restart "$SERVICE"
+fi
+
+if [[ "$DRY_RUN" -eq 1 ]]; then exit 0; fi
+
+# --- Vérification anti crash-loop ---------------------------------------------
+# On regarde le compteur de redémarrages APRÈS quelques secondes : c'est le seul
+# signal qui distingue "démarré" de "boucle d'échec".
+log "Vérification de la stabilité du worker (15 s)…"
+sleep 5
+n1="$(systemctl --user show -p NRestarts --value "$SERVICE" 2>/dev/null || echo 0)"
+sleep 10
+n2="$(systemctl --user show -p NRestarts --value "$SERVICE" 2>/dev/null || echo 0)"
+
+if ! systemctl --user is-active --quiet "$SERVICE"; then
+  # On DÉSACTIVE : laisser Restart=always sur un service qui échoue est
+  # exactement ce qui a produit 262 000 redémarrages invisibles.
+  systemctl --user disable --now "$SERVICE" || true
+  journalctl --user -u "$SERVICE" -n 15 --no-pager >&2 || true
+  die "Le worker n'a pas démarré — service désactivé. Voir : journalctl --user -u ${SERVICE} -e"
+elif [[ "$n2" -gt "$n1" ]]; then
+  systemctl --user disable --now "$SERVICE" || true
+  journalctl --user -u "$SERVICE" -n 15 --no-pager >&2 || true
+  die "Le worker redémarre en boucle (${n1} → ${n2}) — service désactivé pour éviter une boucle silencieuse."
+fi
+
+ok "Worker Cursor actif et stable ✔"
+
+# Le timer de MAJ n'est activé qu'APRÈS confirmation que le worker tourne : un
+# setup qui échoue ne doit rien laisser d'activé derrière lui.
+[[ -f "${UNIT_DIR}/cursor-update.timer" ]] && systemctl --user enable --now "$UPDATE_TIMER"
+
+echo
+do_status

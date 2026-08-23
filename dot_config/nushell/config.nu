@@ -1119,7 +1119,6 @@ alias bci = breww cleanup
 alias binfo = breww info
 alias bdo = breww doctor
 alias bdep = brew-deprecated
-alias buse = brew-usage # Taux d'utilisation Formulae/Casks
 
 # ============================================================================
 # Chezmoi
@@ -1224,36 +1223,13 @@ def cdestroy [] {
 def sysup [] {
     let os = (^uname | str trim)
 
-    # oh-my-zsh : upgrade.sh appele directement (la fonction `omz` n'existe que
-    # dans zsh). Non interactif par defaut, -v minimal limite le bruit.
-    let omz_dir = ($env.ZSH? | default $"($env.HOME)/.oh-my-zsh")
-    if ($"($omz_dir)/tools/upgrade.sh" | path exists) {
-        print "💤 Updating oh-my-zsh..."
-        try { ^$"($omz_dir)/tools/upgrade.sh" -v minimal }
-    }
-
-    # sysup doit tourner sans surveillance (appelee par `cup`). NONINTERACTIVE
-    # fait taire Homebrew, HOMEBREW_NO_ENV_HINTS ses hints, DEBIAN_FRONTEND
-    # dpkg. with-env limite la portee au bloc, le shell n'est pas pollue.
-    # HOMEBREW_NO_ASK : le mode "ask" de brew est actif par defaut et demande
-    # "Do you want to proceed? [y/n]" ; NONINTERACTIVE ne le couvre pas.
-    with-env {NONINTERACTIVE: "1", HOMEBREW_NO_ASK: "1", HOMEBREW_NO_ENV_HINTS: "1", DEBIAN_FRONTEND: "noninteractive"} {
     match $os {
         "Darwin" => {
             bup
-            # brew-cask-upgrade demande une confirmation par cask sans -y ; on
-            # appelle la commande complete pour ne pas rendre `bcu` muet quand
-            # tu l'utilises a la main.
-            ^breww cu -a -y
+            bcu
             if (which mas | is-not-empty) {
                 print "📱 Updating App Store apps..."
                 ^mas upgrade
-            }
-            # Condition positive sur mac-personal : nushell n'exporte pas
-            # MACHINE_PROFILE, une valeur vide doit exclure la machine de
-            # travail plutot que de l'inclure.
-            if ($env.MACHINE_PROFILE? | default "") == "mac-personal" {
-                update-ai
             }
         }
         "Linux" => {
@@ -1286,9 +1262,7 @@ def sysup [] {
 
             if (which flatpak | is-not-empty) {
                 print "📦 Updating Flatpak apps..."
-                # -y ne couvre pas les questions de choix (remote/version) :
-                # --noninteractive est le mode prevu pour l'automatisation.
-                ^flatpak update --noninteractive -y
+                ^flatpak update -y
             }
 
             if (which brew | is-not-empty) {
@@ -1302,135 +1276,24 @@ def sysup [] {
         }
         _ => { }
     }
-    }  # fin du with-env non interactif
 }
 
 # Update CLI AI tools (claude-code, copilot-cli, codex)
-# Format : "commande|update integre|repli"   (champ vide = non applicable)
-# Deux couches : BINAIRE, puis EXTENSIONS que l'updater du binaire ne touche pas.
-# Un updater integre passe devant Homebrew, meme quand l'outil vient de brew :
-# brew livrait cline 3.0.3 quand l'editeur en etait a 3.0.56.
-const _AI_TOOLS = [
-    "claude|claude update|"
-    "codex|codex update|npm update -g @openai/codex"
-    "cursor-agent|cursor-agent update|"
-    "grok|grok update|"
-    "copilot|copilot update|"
-    "kilo|kilo upgrade|"
-    "pi|pi update --all --no-approve|"
-]
-
-# VERIFIE EMPIRIQUEMENT le 2026-08-21 : les updaters integres REFUSENT d'agir
-# quand l'outil vient de brew. Ils detectent la source d'installation et
-# s'effacent — `qwen update` affiche seulement la commande npm a lancer,
-# `opencode upgrade` dit "Using method: brew -> skipped", et `kimi upgrade`
-# affiche "Detected install source: homebrew" en ajoutant lui-meme que les
-# sources tierces sont en retard. Les laisser dans la table les ferait compter
-# comme "mis a jour" alors que rien ne se passe. Ils restent a l'etape brew.
-# A reactiver tels quels s'ils sortent un jour des Brewfiles :
-#   "qwen|qwen update|"  "opencode|opencode upgrade|"  "kimi|kimi upgrade|"
-
-# gemini : binaire sans updater (reste sur brew), mais extensions couvertes.
-const _AI_EXTENSIONS = [
-    "gemini|gemini extensions update --all"
-]
-
-# Outils connus SANS route verifiee. On ne les met PAS a jour — on signale
-# seulement leur presence, pour qu'un outil installe demain ne reste pas fige
-# en silence. ⚠ "q" et "amp" sont des noms generiques : faux positif possible.
-const _AI_UNROUTED = [
-    "antigravity|Antigravity"
-    "q|Amazon Q CLI"
-    "aider|Aider"
-    "goose|Goose"
-    "roo|Roo Code"
-    "amp|Amp"
-]
-
-# update-ai [--dry-run]
-def update-ai [--dry-run] {
-    mut updated = 0
-    mut absent = 0
-    mut failed = 0
-    mut unrouted = 0
-
+def update-ai [] {
     print "🤖 Updating CLI AI tools..."
-
-    for entry in $_AI_TOOLS {
-        let parts = ($entry | split row "|")
-        let cmd = $parts.0
-        let self = $parts.1
-        let fallback = $parts.2
-
-        if (which $cmd | is-empty) {
-            $absent = $absent + 1
-            if $dry_run { print $"  ($cmd) — absent" }
-            continue
-        }
-
-        let action = (if ($self | is-not-empty) { $self } else { $fallback })
-        if ($action | is-empty) {
-            $absent = $absent + 1
-            continue
-        }
-
-        if $dry_run {
-            print $"  ($cmd) — ($action)"
-            continue
-        }
-
-        print $"  🤖 ($cmd)"
-        # Les actions sont de simples commandes espacees : pas besoin d'un shell.
-        let argv = ($action | split row " " | where {|it| $it != "" })
-        # do -i plutot que try/catch : nushell interdit de muter une variable
-        # capturee dans une closure, et do -i garde la sortie en direct.
-        do -i { ^($argv | first) ...($argv | skip 1) }
-        if $env.LAST_EXIT_CODE == 0 {
-            $updated = $updated + 1
-        } else {
-            $failed = $failed + 1
-            print -e $"     ⚠ ($cmd) : echec de la mise a jour, on continue"
-        }
+    if (which claude | is-not-empty) {
+        print "  🤖 Updating Claude Code..."
+        try { ^claude update } catch { }
     }
-
-    for entry in $_AI_EXTENSIONS {
-        let parts = ($entry | split row "|")
-        let cmd = $parts.0
-        let action = ($parts | skip 1 | str join "|")
-        if (which $cmd | is-empty) {
-            if $dry_run { print $"  ($cmd) ext — absent" }
-            continue
-        }
-
-        if $dry_run {
-            print $"  ($cmd) ext — ($action)"
-            continue
-        }
-
-        print $"  🧩 ($cmd) (extensions)"
-        let argv = ($action | split row " " | where {|it| $it != "" })
-        do -i { ^($argv | first) ...($argv | skip 1) }
-        if $env.LAST_EXIT_CODE == 0 {
-            $updated = $updated + 1
-        } else {
-            $failed = $failed + 1
-            print -e $"     ⚠ ($cmd) extensions : echec, on continue"
-        }
+    if (which copilot-cli | is-not-empty) {
+        print "  🤖 Updating Copilot CLI..."
+        try { curl -fsSL https://gh.io/copilot-install | bash } catch { }
     }
-
-    # Passe de decouverte : ni installation ni mise a jour, juste un signalement.
-    for entry in $_AI_UNROUTED {
-        let parts = ($entry | split row "|")
-        if (which $parts.0 | is-empty) { continue }
-        $unrouted = $unrouted + 1
-        print -e $"  ⚠ ($parts.1) \(($parts.0)\) installe, mais aucune route dans update-ai"
-    }
-
-    if $dry_run { return }
-    if $unrouted > 0 {
-        print $"  → ($updated) mis a jour, ($absent) absents, ($failed) en echec, ($unrouted) sans route"
-    } else {
-        print $"  → ($updated) mis a jour, ($absent) absents, ($failed) en echec"
+    if (which codex | is-not-empty) {
+        print "  🤖 Updating Codex CLI..."
+        if (which npm | is-not-empty) {
+            try { ^npm update -g @openai/codex } catch { }
+        }
     }
 }
 
@@ -1619,6 +1482,22 @@ def --wrapped ssh [...args: string] {
 def sshpw [...args: string] { ^ssh -o PreferredAuthentications=password ...$args }
 
 # ============================================================================
+# Ruby Configuration
+# ============================================================================
+let ruby_ver = "3.4.0"
+let gem_home = ($nu.home-dir | path join ".gem" "ruby" $ruby_ver)
+let gem_bin = ($gem_home | path join "bin")
+
+# Set GEM paths
+$env.GEM_HOME = $gem_home
+$env.GEM_PATH = $gem_home
+
+# Add gem bin to PATH if it exists
+if ($gem_bin | path exists) {
+  $env.PATH = ($env.PATH | prepend $gem_bin)
+}
+
+# ============================================================================
 # Integrations (sourced from cache generated in env.nu)
 # ============================================================================
 source ~/.cache/starship/init.nu
@@ -1687,5 +1566,54 @@ def snap [...args: string] {
 # Fedora Atomic: rpm-ostree → ostreew
 # (nushell does not support hyphens in def names; use an alias instead)
 alias "rpm-ostree" = ostreew
+
+# ============================================================================
+# Agents auto-hébergés (moshi / orca / cursor)
+# ============================================================================
+# Installation MANUELLE et explicite : chezmoi dépose les units et les scripts,
+# rien n'est activé automatiquement. Ces alias sont le point d'entrée.
+# Détail : ~/.local/bin/README.md, section "Self-hosted agent stacks".
+
+alias asvc = agentsvc
+alias asvcs = agentsvc status
+alias asvcu = agentsvc update
+
+# --- Moshi (terminal mobile) — Linux + macOS --------------------------------
+alias "moshi-install" = moshi-setup
+alias mhs = moshi-setup --status
+alias mhu = update-moshi
+
+# config.nu n'est pas un template chezmoi : le branchement OS se fait au runtime.
+def mhl [] {
+    if $nu.os-info.name == "macos" {
+        ^tail -f $"($nu.home-path)/Library/Logs/moshi-hook.log"
+    } else {
+        ^journalctl --user -u moshi-hook.service -f
+    }
+}
+
+def mhr [] {
+    if $nu.os-info.name == "macos" {
+        let uid = (^id -u | str trim)
+        ^launchctl kickstart -k $"gui/($uid)/com.jsoyer.moshi-hook"
+    } else {
+        ^systemctl --user restart moshi-hook.service
+    }
+}
+
+# --- Orca (runtime headless) — Linux uniquement, scope système --------------
+alias "orca-install" = orca-setup
+alias ov = orca-version
+alias os = orca-setup --status
+alias ol = journalctl -u orca-serve.service -f
+alias orr = sudo systemctl restart orca-serve.service
+alias ogui = orca-gui
+
+# --- Cursor (worker privé) — Linux uniquement -------------------------------
+alias "cursor-install" = cursor-setup
+alias cws = cursor-setup --status
+alias cwl = journalctl --user -u cursor-worker.service -f
+alias cwr = systemctl --user restart cursor-worker.service
+alias cwu = update-cursor-agent
 
 source ~/.cache/atuin/init.nu

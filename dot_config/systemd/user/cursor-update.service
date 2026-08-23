@@ -1,0 +1,13 @@
+[Unit]
+Description=Met à jour cursor-agent vers la dernière version
+Documentation=file:%h/.local/bin/update-cursor-agent
+# Scope --user : le binaire, l'auth et les versions vivent dans $HOME.
+
+[Service]
+Type=oneshot
+ExecStart=%h/.local/bin/update-cursor-agent
+# Le script gère lui-même le restart du worker, la détection de crash-loop et la
+# purge des anciennes versions ; il sort en 0 sur simple coupure réseau.
+SuccessExitStatus=0
+TimeoutStartSec=10min
+Environment=PATH=%h/.local/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin

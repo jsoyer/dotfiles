@@ -1,0 +1,38 @@
+{{- $mp := index . "machine_profile" -}}
+{{- $skip := list "windows" "toolbox" -}}
+{{- if and (eq .chezmoi.os "linux") (not (has $mp $skip)) -}}
+#!/usr/bin/env bash
+# =============================================================================
+# Recharge systemd --user quand une unit d'agent change
+# =============================================================================
+# ⚠️ CE SCRIPT N'ACTIVE ET NE DÉMARRE RIEN.
+#
+# L'installation des stacks moshi / orca / cursor est volontairement MANUELLE
+# (alias moshi-install / orca-install / cursor-install). Ce script se contente
+# d'un `daemon-reload` — sans lui, une unit modifiée par `chezmoi apply` reste
+# silencieusement inactive jusqu'au prochain redémarrage, et l'ancienne version
+# continue de tourner.
+#
+# Reruns quand une des units change :
+# moshi-hook:    {{ include "dot_config/systemd/user/moshi-hook.service" | sha256sum }}
+# moshi-update:  {{ include "dot_config/systemd/user/moshi-update.service" | sha256sum }}
+# moshi-timer:   {{ include "dot_config/systemd/user/moshi-update.timer" | sha256sum }}
+# cursor-worker: {{ include "dot_config/systemd/user/cursor-worker.service.tmpl" | sha256sum }}
+# cursor-update: {{ include "dot_config/systemd/user/cursor-update.service" | sha256sum }}
+# cursor-timer:  {{ include "dot_config/systemd/user/cursor-update.timer" | sha256sum }}
+
+set -uo pipefail
+
+command -v systemctl >/dev/null 2>&1 || exit 0
+systemctl --user show-environment >/dev/null 2>&1 || exit 0
+
+systemctl --user daemon-reload || exit 0
+echo "systemd --user rechargé (units d'agents modifiées)."
+
+# Rappel ciblé : uniquement pour les services DÉJÀ activés par l'utilisateur.
+for unit in moshi-hook.service cursor-worker.service; do
+    if systemctl --user is-enabled --quiet "${unit}" 2>/dev/null; then
+        echo "  ${unit} est activé : applique la nouvelle unit avec 'agentsvc restart ${unit%%-*}'"
+    fi
+done
+{{- end }}

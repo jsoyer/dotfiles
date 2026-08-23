@@ -443,7 +443,6 @@ alias bci='breww cleanup'
 alias binfo='breww info'
 alias bdo='breww doctor'
 alias bdep='brew-deprecated'
-alias buse='brew-usage' # Taux d'utilisation Formulae/Casks
 
 {{ end -}}
 # ============================================================================
@@ -565,40 +564,13 @@ end
 function sysup
     set os (uname -s | tr '[:upper:]' '[:lower:]')
 
-    # sysup doit tourner sans surveillance (appelee par `cup`). Chaque
-    # gestionnaire se tait a sa facon : NONINTERACTIVE pour Homebrew,
-    # HOMEBREW_NO_ENV_HINTS pour les hints, DEBIAN_FRONTEND pour dpkg.
-    # -f limite la portee a la fonction, le shell n'est pas pollue.
-    # HOMEBREW_NO_ASK : le mode "ask" de brew est actif par defaut et demande
-    # "Do you want to proceed? [y/n]" ; NONINTERACTIVE ne le couvre pas.
-    set -f -x NONINTERACTIVE 1
-    set -f -x HOMEBREW_NO_ASK 1
-    set -f -x HOMEBREW_NO_ENV_HINTS 1
-    set -f -x DEBIAN_FRONTEND noninteractive
-
-    # oh-my-zsh : upgrade.sh appele directement (la fonction `omz` n'existe
-    # que dans zsh). Non interactif par defaut, -v minimal limite le bruit.
-    set -l omz_dir (test -n "$ZSH"; and echo $ZSH; or echo "$HOME/.oh-my-zsh")
-    if test -x "$omz_dir/tools/upgrade.sh"
-        echo "💤 Updating oh-my-zsh..."
-        "$omz_dir/tools/upgrade.sh" -v minimal; or true
-    end
-
     switch $os
         case darwin
             bup
-            # brew-cask-upgrade demande une confirmation par cask sans -y ;
-            # on appelle la commande complete pour ne pas rendre `bcu` muet
-            # quand tu l'utilises a la main.
-            breww cu -a -y
+            bcu
             if command -q mas
                 echo "📱 Updating App Store apps..."
                 mas upgrade
-            end
-            # Condition positive sur mac-personal : une variable vide doit
-            # exclure la machine de travail, pas l'inclure.
-            if test "$MACHINE_PROFILE" = "mac-personal"
-                update-ai
             end
         case linux
             set -l _mp "$MACHINE_PROFILE"
@@ -623,9 +595,7 @@ function sysup
 
             if command -q flatpak
                 echo "📦 Updating Flatpak apps..."
-                # -y ne couvre pas les questions de choix (remote/version) :
-                # --noninteractive est le mode prevu pour l'automatisation.
-                flatpak update --noninteractive -y
+                flatpak update -y
             end
 
             if command -q brew
@@ -641,129 +611,21 @@ function sysup
     end
 end
 
-# Format : "commande|update integre|repli"   (champ vide = non applicable)
-# Deux couches : BINAIRE, puis EXTENSIONS que l'updater du binaire ne touche pas.
-# Un updater integre passe devant Homebrew, meme quand l'outil vient de brew :
-# brew livrait cline 3.0.3 quand l'editeur en etait a 3.0.56.
-set -g _AI_TOOLS \
-    "claude|claude update|" \
-    "codex|codex update|npm update -g @openai/codex" \
-    "cursor-agent|cursor-agent update|" \
-    "grok|grok update|" \
-    "copilot|copilot update|" \
-    "kilo|kilo upgrade|" \
-    "pi|pi update --all --no-approve|"
-
-# VERIFIE EMPIRIQUEMENT le 2026-08-21 : les updaters integres REFUSENT d'agir
-# quand l'outil vient de brew. Ils detectent la source d'installation et
-# s'effacent — `qwen update` affiche seulement la commande npm a lancer,
-# `opencode upgrade` dit "Using method: brew -> skipped", et `kimi upgrade`
-# affiche "Detected install source: homebrew" en ajoutant lui-meme que les
-# sources tierces sont en retard. Les laisser dans la table les ferait compter
-# comme "mis a jour" alors que rien ne se passe. Ils restent a l'etape brew.
-# A reactiver tels quels s'ils sortent un jour des Brewfiles :
-#   "qwen|qwen update|"  "opencode|opencode upgrade|"  "kimi|kimi upgrade|"
-
-# gemini : binaire sans updater (reste sur brew), mais extensions couvertes.
-set -g _AI_EXTENSIONS \
-    "gemini|gemini extensions update --all"
-
-# Outils connus SANS route verifiee. On ne les met PAS a jour — on signale
-# seulement leur presence, pour qu'un outil installe demain ne reste pas fige
-# en silence. ⚠ "q" et "amp" sont des noms generiques : faux positif possible.
-set -g _AI_UNROUTED \
-    "antigravity|Antigravity" \
-    "q|Amazon Q CLI" \
-    "aider|Aider" \
-    "goose|Goose" \
-    "roo|Roo Code" \
-    "amp|Amp"
-
-# update-ai [--dry-run]
 function update-ai
-    set -l dry 0
-    test "$argv[1]" = "--dry-run"; and set dry 1
-
-    set -l updated 0
-    set -l absent 0
-    set -l failed 0
-    set -l unrouted 0
-
     echo "🤖 Updating CLI AI tools..."
-
-    for entry in $_AI_TOOLS
-        set -l parts (string split '|' $entry)
-        set -l cmd $parts[1]
-        set -l self $parts[2]
-        set -l fallback $parts[3]
-
-        if not command -q $cmd
-            set absent (math $absent + 1)
-            test $dry -eq 1; and printf "  %-13s %s\n" $cmd "absent"
-            continue
-        end
-
-        set -l action ""
-        if test -n "$self"
-            set action $self
-        else if test -n "$fallback"
-            set action $fallback
-        else
-            set absent (math $absent + 1)
-            continue
-        end
-
-        if test $dry -eq 1
-            printf "  %-13s %s\n" $cmd "$action"
-            continue
-        end
-
-        echo "  🤖 $cmd"
-        # Un updater casse ne doit jamais interrompre les suivants.
-        if eval $action
-            set updated (math $updated + 1)
-        else
-            set failed (math $failed + 1)
-            echo "     ⚠ $cmd : echec de la mise a jour, on continue" >&2
-        end
+    if command -q claude
+        echo "  🤖 Updating Claude Code..."
+        claude update 2>/dev/null; or true
     end
-
-    for entry in $_AI_EXTENSIONS
-        set -l parts (string split -m1 '|' $entry)
-        set -l cmd $parts[1]
-        set -l action $parts[2]
-        if not command -q $cmd
-            test $dry -eq 1; and printf "  %-13s %s\n" "$cmd ext" "absent"
-            continue
-        end
-
-        if test $dry -eq 1
-            printf "  %-13s %s\n" "$cmd ext" "$action"
-            continue
-        end
-
-        echo "  🧩 $cmd (extensions)"
-        if eval $action
-            set updated (math $updated + 1)
-        else
-            set failed (math $failed + 1)
-            echo "     ⚠ $cmd extensions : echec, on continue" >&2
-        end
+    if command -q copilot-cli
+        echo "  🤖 Updating Copilot CLI..."
+        curl -fsSL https://gh.io/copilot-install | bash 2>/dev/null; or true
     end
-
-    # Passe de decouverte : ni installation ni mise a jour, juste un signalement.
-    for entry in $_AI_UNROUTED
-        set -l parts (string split -m1 '|' $entry)
-        command -q $parts[1]; or continue
-        set unrouted (math $unrouted + 1)
-        echo "  ⚠ $parts[2] ($parts[1]) installe, mais aucune route dans update-ai" >&2
-    end
-
-    test $dry -eq 1; and return 0
-    if test $unrouted -gt 0
-        echo "  → $updated mis a jour, $absent absents, $failed en echec, $unrouted sans route"
-    else
-        echo "  → $updated mis a jour, $absent absents, $failed en echec"
+    if command -q codex
+        echo "  🤖 Updating Codex CLI..."
+        if command -q npm
+            npm update -g @openai/codex 2>/dev/null; or true
+        end
     end
 end
 
@@ -1080,3 +942,41 @@ end
 function orca-update
     brew upgrade --cask stablyai/orca/orca
 end
+
+# ============================================================================
+# Agents auto-hébergés (moshi / orca / cursor)
+# ============================================================================
+# Installation MANUELLE et explicite : chezmoi dépose les units et les scripts,
+# rien n'est activé automatiquement. Ces alias sont le point d'entrée.
+# Détail : ~/.local/bin/README.md, section "Self-hosted agent stacks".
+
+alias asvc='agentsvc'
+alias asvcs='agentsvc status'
+alias asvcu='agentsvc update'
+
+# --- Moshi (terminal mobile) — Linux + macOS --------------------------------
+alias moshi-install='moshi-setup'
+alias mhs='moshi-setup --status'
+alias mhu='update-moshi'
+{{ if eq .chezmoi.os "darwin" -}}
+alias mhl='tail -f "$HOME/Library/Logs/moshi-hook.log"'
+alias mhr='launchctl kickstart -k "gui/"(id -u)"/com.jsoyer.moshi-hook"'
+{{ else -}}
+alias mhl='journalctl --user -u moshi-hook.service -f'
+alias mhr='systemctl --user restart moshi-hook.service'
+
+# --- Orca (runtime headless) — Linux uniquement, scope système --------------
+alias orca-install='orca-setup'
+alias ov='orca-version'
+alias os='orca-setup --status'
+alias ol='journalctl -u orca-serve.service -f'
+alias orr='sudo systemctl restart orca-serve.service'
+alias ogui='orca-gui'
+
+# --- Cursor (worker privé) — Linux uniquement -------------------------------
+alias cursor-install='cursor-setup'
+alias cws='cursor-setup --status'
+alias cwl='journalctl --user -u cursor-worker.service -f'
+alias cwr='systemctl --user restart cursor-worker.service'
+alias cwu='update-cursor-agent'
+{{ end -}}
