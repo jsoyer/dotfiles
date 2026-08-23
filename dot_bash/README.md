@@ -221,12 +221,12 @@ la='tree'
 
 #### 📂 Eza (ls replacement)
 ```bash
-ls='eza --color=always --icons'
-ll='eza -l --color=always --icons --git -a'
-l='eza -l --icons --git -a'
-lt='eza --tree --level=2 --long --icons --git'
-ltree='eza --tree --level=2 --icons --git'
-zl='eza -lagX --icons --color=always'
+ls='eza --color=always --icons=auto'
+ll='eza -l --color=always --icons=auto --git -a'
+l='eza -l --icons=auto --git -a'
+lt='eza --tree --level=2 --long --icons=auto --git'
+ltree='eza --tree --level=2 --icons=auto --git'
+zl='eza -lagX --icons=auto --color=always'
 ```
 
 #### 📁 Navigation

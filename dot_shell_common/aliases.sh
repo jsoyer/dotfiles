@@ -20,12 +20,12 @@ alias asr='atuin scripts run'
 [[ "${IS_MACOS:-false}" == "true" ]] && alias as='aerospace'
 
 # Eza (modern ls replacement)
-alias ls='eza --color=always --icons'
-alias ll='eza -l --color=always --icons --git -a'
-alias l='eza -l --icons --git -a'
-alias lt='eza --tree --level=2 --long --icons --git'
-alias ltree='eza --tree --level=2 --icons --git'
-alias zl='eza -lagX --icons --color=always'
+alias ls='eza --color=always --icons=auto'
+alias ll='eza -l --color=always --icons=auto --git -a'
+alias l='eza -l --icons=auto --git -a'
+alias lt='eza --tree --level=2 --long --icons=auto --git'
+alias ltree='eza --tree --level=2 --icons=auto --git'
+alias zl='eza -lagX --icons=auto --color=always'
 
 # ============================================================================
 # System

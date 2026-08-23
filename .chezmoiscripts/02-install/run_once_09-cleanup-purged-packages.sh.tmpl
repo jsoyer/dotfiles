@@ -1,0 +1,51 @@
+{{- if ne .chezmoi.os "windows" -}}
+#!/usr/bin/env bash
+# =============================================================================
+# One-time cleanup: uninstall packages purged from the Brewfiles on 2026-08-23
+# (deprecated upstream or deliberately dropped), then reclaim disk space.
+# brew bundle never uninstalls, so this does the removal side once per machine.
+# =============================================================================
+
+set -euo pipefail
+
+if ! command -v brew &>/dev/null; then
+    echo "🍺 Homebrew not installed, nothing to clean."
+    exit 0
+fi
+
+eval "$(brew shellenv)"
+
+# Dependents first (the_silver_searcher/zshdb pin pcre), then libraries.
+PURGED_FORMULAE=(
+    the_silver_searcher zshdb pcre
+    archiver cline docker-ls gemini-cli go@1.24 libgit2@1.7 speedtest-cli
+    amazon-ecs-cli docker-completion kimi-cli
+    bun terraform crush sketchybar dockle sqlit texpresso kdash sqld
+    pokemonsay turso graphite
+)
+PURGED_CASKS=(
+    betterdiscord-installer rar
+)
+
+removed=0
+for pkg in "${PURGED_FORMULAE[@]}"; do
+    if brew list --formula "$pkg" &>/dev/null; then
+        echo "🔄 Uninstalling purged formula: $pkg"
+        brew uninstall --ignore-dependencies "$pkg" 2>/dev/null || true
+        ((removed++)) || true
+    fi
+done
+for pkg in "${PURGED_CASKS[@]}"; do
+    if brew list --cask "$pkg" &>/dev/null; then
+        echo "🔄 Uninstalling purged cask: $pkg"
+        brew uninstall --cask "$pkg" 2>/dev/null || true
+        ((removed++)) || true
+    fi
+done
+
+echo "🧹 brew autoremove + cache prune..."
+brew autoremove 2>/dev/null || true
+brew cleanup --prune=all -s 2>/dev/null || true
+
+echo "✅ Purge cleanup done ($removed package(s) removed)."
+{{ end -}}

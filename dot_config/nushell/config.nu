@@ -942,12 +942,12 @@ alias asr = atuin scripts run
 
 # Eza (modern ls replacement)
 # Note: shadowing nushell's built-in ls with eza requires --wrapped
-def --wrapped ls [...args: string] { ^eza --color=always --icons ...$args }
-alias l = eza -l --icons --git -a
-alias ll = eza -l --color=always --icons --git -a
-alias lt = eza --tree --level=2 --long --icons --git
-alias ltree = eza --tree --level=2 --icons --git
-alias zl = eza -lagX --icons --color=always
+def --wrapped ls [...args: string] { ^eza --color=always --icons=auto ...$args }
+alias l = eza -l --icons=auto --git -a
+alias ll = eza -l --color=always --icons=auto --git -a
+alias lt = eza --tree --level=2 --long --icons=auto --git
+alias ltree = eza --tree --level=2 --icons=auto --git
+alias zl = eza -lagX --icons=auto --color=always
 
 # ============================================================================
 # System
