@@ -129,28 +129,36 @@ fi
 # ---------------------------------------------------------------------------
 log "Phase A: auto-heal"
 
-## A0. Auto-commit owned package manifests (Brewfiles)
+## A0. Auto-commit owned package manifests
 # ---------------------------------------------------------------------------
 # A0: auto-commit owned package manifests
-# A routine `brew bundle dump` leaves dot_private/Brewfile* modified, which the
-# A1 guard below would treat as "unsafe" and skip the update indefinitely. If —
-# and only if — Brewfiles are the ONLY changes, commit+push them so the guard
+# A routine dump by a package wrapper leaves its manifest under dot_private/
+# modified (or untracked, for a brand-new per-hostname overlay), which the A1
+# guard below treats as "unsafe" and skips the update INDEFINITELY. If — and
+# only if — those manifests are the ONLY changes, commit+push them so the guard
 # sees a clean tree. Any other dirty path still trips the strict A1 guard.
+#
+# This must cover every wrapper, not just Brewfiles: only breww and scoopw
+# commit their own manifest. aptw, dnfw, pacmanw, yayw, snapw, flatpakw,
+# ostreew and masw do not, so on those machines a single generated file
+# (e.g. an untracked dot_private/Aptfile_<hostname>) silently killed the
+# unattended update forever. Observed on diabolo.
 # ---------------------------------------------------------------------------
 if [[ -d "${CHEZMOI_SOURCE}/.git" ]]; then
     _dirty_paths="$(git -C "${CHEZMOI_SOURCE}" status --porcelain 2>/dev/null | cut -c4-)"
     if [[ -n "${_dirty_paths}" ]] \
-        && ! printf '%s\n' "${_dirty_paths}" | grep -v '^[[:space:]]*$' | grep -qv '^dot_private/Brewfile'; then
-        log "A0: only Brewfile manifests changed; auto-committing before update"
+        && ! printf '%s\n' "${_dirty_paths}" | grep -v '^[[:space:]]*$' \
+             | grep -qvE '^dot_private/(Brewfile|Aptfile|Dnffile|Pacfile|Rpmfile|Snapfile|Flatpakfile|Scoopfile)'; then
+        log "A0: only package manifests changed; auto-committing before update"
         git -C "${CHEZMOI_SOURCE}" add -A
         if git -C "${CHEZMOI_SOURCE}" diff --cached --quiet; then
             log "A0: nothing to commit"
         else
-            _a0_msg="$(git -C "${CHEZMOI_SOURCE}" commit --no-gpg-sign -m "style(brew): update brewfiles via chezmoi-autoupdate" 2>&1)"
+            _a0_msg="$(git -C "${CHEZMOI_SOURCE}" commit --no-gpg-sign -m "style(pkg): update package manifests via chezmoi-autoupdate" 2>&1)"
             if [[ $? -eq 0 ]]; then
-                log "A0: committed Brewfile changes"
+                log "A0: committed package manifest changes"
                 if _a0_push="$(git -C "${CHEZMOI_SOURCE}" push 2>&1)"; then
-                    log "A0: pushed Brewfile changes"
+                    log "A0: pushed package manifest changes"
                 else
                     log_err "A0: push failed: ${_a0_push}"
                 fi
