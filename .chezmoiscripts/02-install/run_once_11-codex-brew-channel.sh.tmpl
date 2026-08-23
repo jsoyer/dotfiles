@@ -1,0 +1,35 @@
+{{- if and (eq .chezmoi.os "darwin") (ne .chezmoi.hostname "jsoyer-macOS") -}}
+#!/usr/bin/env bash
+# =============================================================================
+# Personal Macs: the codex CLI comes from the Homebrew cask.
+# An npm global copy shadows it (~/.npm-global/bin sits earlier in PATH), so
+# drop it. The work Mac (jsoyer-macOS) is deliberately out of scope.
+# =============================================================================
+
+set -euo pipefail
+
+if command -v npm &>/dev/null && npm ls -g @openai/codex &>/dev/null; then
+    echo "🤖 Removing npm codex copy (it shadows the Homebrew cask)..."
+    npm uninstall -g @openai/codex || true
+fi
+
+if ! command -v brew &>/dev/null; then
+    echo "🍺 Homebrew not installed, leaving codex alone."
+    exit 0
+fi
+
+eval "$(brew shellenv)"
+
+if ! brew list --cask codex &>/dev/null; then
+    echo "🤖 Installing the codex cask..."
+    brew install --cask codex || true
+fi
+
+# The binary link is occasionally skipped on first install — reinstall repairs it.
+if brew list --cask codex &>/dev/null && [[ ! -e "$(brew --prefix)/bin/codex" ]]; then
+    echo "🔧 codex cask installed but not linked, reinstalling..."
+    brew reinstall --cask codex || true
+fi
+
+echo "✅ codex: Homebrew cask channel."
+{{ end -}}
