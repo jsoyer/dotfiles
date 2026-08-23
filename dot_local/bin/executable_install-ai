@@ -57,7 +57,32 @@ has_copilot() { command -v copilot-cli  >/dev/null 2>&1 || command -v copilot >/
 has_codex()   { command -v codex        >/dev/null 2>&1; }
 has_grok()    { [[ -x "$HOME/.grok/bin/agent" ]]; }
 has_cursor()  { command -v cursor-agent >/dev/null 2>&1 && cursor-agent worker --help >/dev/null 2>&1; }
-has_pi()      { command -v pi           >/dev/null 2>&1; }
+# pi must be the CURRENT npm scope (@earendil-works). The Brewfiles used to
+# install the old @mariozechner scope; its bin link occupies ~/.npm-global/bin/pi
+# and makes the official installer fail with EEXIST. An old-scope pi counts as
+# "missing" so the install step runs (after migrate_pi clears the way).
+has_pi() {
+  local tgt
+  command -v pi >/dev/null 2>&1 || return 1
+  tgt="$(readlink -f "$(command -v pi)" 2>/dev/null || true)"
+  [[ "$tgt" != *"@mariozechner/pi-coding-agent"* ]]
+}
+
+# Clear the old scope and any orphaned bin link before the pi.dev installer runs.
+migrate_pi() {
+  if npm ls -g @mariozechner/pi-coding-agent >/dev/null 2>&1; then
+    log "pi: old npm scope (@mariozechner) found — uninstalling before migrating…"
+    [[ "$DRY_RUN" -eq 1 ]] || npm uninstall -g @mariozechner/pi-coding-agent >/dev/null 2>&1 || true
+  fi
+  local bin="${HOME}/.npm-global/bin/pi"
+  if [[ -e "$bin" || -L "$bin" ]]; then
+    local tgt; tgt="$(readlink -f "$bin" 2>/dev/null || true)"
+    if [[ -z "$tgt" || ! -e "$tgt" || "$tgt" == *"@mariozechner"* ]]; then
+      log "pi: removing stale bin link ${bin} (would EEXIST the installer)"
+      [[ "$DRY_RUN" -eq 1 ]] || rm -f "$bin"
+    fi
+  fi
+}
 
 ver() { "$@" 2>/dev/null | head -1 | tr -d '\r'; }
 
@@ -97,6 +122,7 @@ step copilot "Copilot CLI"  has_copilot 'curl -fsSL https://gh.io/copilot-instal
 step codex   "Codex"        has_codex   'npm install -g @openai/codex'
 step grok    "Grok CLI"     has_grok    'curl -fsSL https://x.ai/cli/install.sh | bash'
 step cursor  "cursor-agent" has_cursor  'curl -fsS https://cursor.com/install | bash'
+want pi && ! has_pi && migrate_pi
 step pi      "pi (pi.dev)"  has_pi      'curl -fsSL https://pi.dev/install.sh | bash'
 
 echo
