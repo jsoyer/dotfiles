@@ -165,9 +165,9 @@ background_blur 30
 # ============================================================================
 
 {{ if eq .chezmoi.os "darwin" -}}
-shell {{ template "brew-prefix" . }}/bin/nu
+shell {{ template "brew-prefix" . }}/bin/zsh
 {{ else -}}
-shell /usr/bin/nu
+shell /usr/bin/zsh
 {{ end -}}
 editor .
 close_on_child_death no
