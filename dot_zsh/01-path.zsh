@@ -33,6 +33,13 @@ elif [[ -d "${HOME}/.linuxbrew" ]]; then
   _cache_eval linuxbrew "${HOME}/.linuxbrew/bin/brew shellenv"
 fi
 
+# brew shellenv drops the PATH export once its bin/ is already on PATH, so sbin/
+# never makes it in (mtr, unbound, php-fpm live there). Add it explicitly.
+for _brew_sbin in /opt/homebrew/sbin /usr/local/sbin /home/linuxbrew/.linuxbrew/sbin "${HOME}/.linuxbrew/sbin"; do
+  [[ -d "$_brew_sbin" ]] && path=("$_brew_sbin" "${path[@]}")
+done
+unset _brew_sbin
+
 # macOS-specific paths
 if [[ "${IS_MACOS}" == "true" ]]; then
   path=(
