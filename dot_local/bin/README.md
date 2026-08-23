@@ -469,7 +469,7 @@ disk. Activation is always an explicit command (the aliases below).
 | **Moshi** (mobile terminal) | `--user` (+ launchd on macOS) | `moshi-setup` | `update-moshi` | `moshi-hook.service`, `moshi-update.{service,timer}` |
 | **Orca** (headless runtime) | **system** (root) | `orca-setup` | `update-orca` | `orca-serve.service` + drop-in, `orca-update.{service,timer}` |
 | **Cursor** (private worker) | `--user` | `cursor-setup` | `update-cursor-agent` | `cursor-worker.service`, `cursor-update.{service,timer}` |
-| **herdr** (multiplexer) | `--user` | *(self-installing)* | `update-herdr` | `herdr-update.{service,timer}` |
+| **herdr** (multiplexer) | `--user` | `herdr-setup` | `update-herdr` | `herdr-update.{service,timer}` |
 
 `agentsvc` is the read-only umbrella over all four: `agentsvc status|update|restart|logs|reload`.
 
@@ -580,8 +580,9 @@ Three things make a mistyped path survivable, all learned the hard way:
 
 herdr is the odd one out: a **multiplexer, not a daemon**. Its server daemonizes
 itself (reparented to PID 1) and holds the live panes, so systemd manages only
-the update timer — there is no long-running unit and no installer script (herdr
-installs itself).
+the update timer — there is no long-running unit. `herdr-setup` installs the
+binary (official installer at herdr.dev) and enables the timer; the server
+itself is started by simply running `herdr`.
 
 That also makes the update dangerous to do naively. `herdr update --handoff`
 installs the new version and transfers live sessions to the new server. Without
@@ -604,10 +605,15 @@ agentsvc status herdr
 | Alias | Action |
 |-------|--------|
 | `asvcs` / `asvcu` | `agentsvc status` / `agentsvc update` |
-| `moshi-install` `mhs` `mhu` `mhl` `mhr` | moshi: install, status, update, logs, restart |
-| `orca-install` `ov` `os` `ol` `orr` `ogui` | orca: install, version, status, logs, restart, GUI |
-| `cursor-install` `cws` `cwl` `cwr` `cwu` | cursor: install, status, logs, restart, update |
-| `hu` `hs` `hl` | herdr: update (handoff), server status, timer logs |
+| `<stack>-install` | run the setup script (moshi, orca, cursor, herdr) |
+| `<stack>-status` | state of binary, service/timer, auth |
+| `<stack>-update` | run the updater (herdr's does a pane handoff) |
+| `<stack>-logs` | follow the relevant journal |
+| `<stack>-restart` | restart the service — deliberately absent for herdr (panes) |
+| `orca-gui`, `orca-version` | real scripts, orca-specific extras |
+
+One uniform scheme, tab-completable on the stack name. The earlier two-letter
+aliases (`mhs`, `cwl`, `hu`…) were dropped in favour of this.
 
 ## Related Documentation
 

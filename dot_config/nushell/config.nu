@@ -1589,9 +1589,8 @@ alias "rpm-ostree" = ostreew
 # ============================================================================
 # Self-hosted agent stacks (moshi / orca / cursor / herdr)
 # ============================================================================
-# Installation is MANUAL and explicit: chezmoi only drops the units and the
-# scripts, nothing is enabled automatically. These aliases are the entry point.
-# Details: ~/.local/bin/README.md, "Self-hosted Agent Stacks".
+# Uniform scheme: <stack>-install|status|update|logs|restart. Nothing is
+# enabled automatically. Details: ~/.local/bin/README.md.
 
 alias asvc = agentsvc
 alias asvcs = agentsvc status
@@ -1599,11 +1598,11 @@ alias asvcu = agentsvc update
 
 # --- Moshi (mobile terminal) — Linux + macOS --------------------------------
 alias "moshi-install" = moshi-setup
-alias mhs = moshi-setup --status
-alias mhu = update-moshi
+alias "moshi-status" = moshi-setup --status
+alias "moshi-update" = update-moshi
 
 # config.nu is not a chezmoi template: branch on the OS at runtime instead.
-def mhl [] {
+def "moshi-logs" [] {
     if $nu.os-info.name == "macos" {
         ^tail -f $"($nu.home-path)/Library/Logs/moshi-hook.log"
     } else {
@@ -1611,7 +1610,7 @@ def mhl [] {
     }
 }
 
-def mhr [] {
+def "moshi-restart" [] {
     if $nu.os-info.name == "macos" {
         let uid = (^id -u | str trim)
         ^launchctl kickstart -k $"gui/($uid)/com.jsoyer.moshi-hook"
@@ -1620,24 +1619,24 @@ def mhr [] {
     }
 }
 
+# --- herdr (multiplexer) — no herdr-restart: the server holds your panes ----
+alias "herdr-install" = herdr-setup
+alias "herdr-status" = herdr-setup --status
+alias "herdr-update" = update-herdr
+alias "herdr-logs" = journalctl --user -u herdr-update.service -f
+
 # --- Orca (headless runtime) — Linux only, system scope ---------------------
 alias "orca-install" = orca-setup
-alias ov = orca-version
-alias os = orca-setup --status
-alias ol = journalctl -u orca-serve.service -f
-alias orr = sudo systemctl restart orca-serve.service
-alias ogui = orca-gui
+alias "orca-status" = orca-setup --status
+alias "orca-update" = update-orca
+alias "orca-logs" = journalctl -u orca-serve.service -f
+alias "orca-restart" = sudo systemctl restart orca-serve.service
 
 # --- Cursor (private worker) — Linux only -----------------------------------
 alias "cursor-install" = cursor-setup
-alias cws = cursor-setup --status
-alias cwl = journalctl --user -u cursor-worker.service -f
-alias cwr = systemctl --user restart cursor-worker.service
-alias cwu = update-cursor-agent
-
-# --- herdr (multiplexer) — update timer only --------------------------------
-alias hu = update-herdr
-alias hs = herdr status server
-alias hl = journalctl --user -u herdr-update.service -f
+alias "cursor-status" = cursor-setup --status
+alias "cursor-update" = update-cursor-agent
+alias "cursor-logs" = journalctl --user -u cursor-worker.service -f
+alias "cursor-restart" = systemctl --user restart cursor-worker.service
 
 source ~/.cache/atuin/init.nu

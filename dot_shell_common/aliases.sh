@@ -643,8 +643,9 @@ alias jf='jj git fetch'
 # Self-hosted agent stacks (moshi / orca / cursor / herdr)
 # ============================================================================
 # Installation is MANUAL and explicit: chezmoi only drops the units and the
-# scripts, nothing is enabled automatically. These aliases are the entry point.
-# Details: ~/.local/bin/README.md, "Self-hosted Agent Stacks".
+# scripts, nothing is enabled automatically. These commands are the entry point.
+# Uniform scheme: <stack>-install|status|update|logs|restart. Tab-complete on
+# the stack name to discover everything. Details: ~/.local/bin/README.md.
 
 # Overview of every stack
 alias asvc='agentsvc'
@@ -653,34 +654,37 @@ alias asvcu='agentsvc update'
 
 # --- Moshi (mobile terminal) — Linux + macOS --------------------------------
 alias moshi-install='moshi-setup'
-alias mhs='moshi-setup --status'
-alias mhu='update-moshi'
+alias moshi-status='moshi-setup --status'
+alias moshi-update='update-moshi'
 if [[ "$(uname -s)" == "Darwin" ]]; then
-  alias mhl='tail -f "$HOME/Library/Logs/moshi-hook.log"'
-  alias mhr='launchctl kickstart -k "gui/$(id -u)/com.jsoyer.moshi-hook"'
+  alias moshi-logs='tail -f "$HOME/Library/Logs/moshi-hook.log"'
+  alias moshi-restart='launchctl kickstart -k "gui/$(id -u)/com.jsoyer.moshi-hook"'
 else
-  alias mhl='journalctl --user -u moshi-hook.service -f'
-  alias mhr='systemctl --user restart moshi-hook.service'
+  alias moshi-logs='journalctl --user -u moshi-hook.service -f'
+  alias moshi-restart='systemctl --user restart moshi-hook.service'
 fi
+
+# --- herdr (multiplexer) — update timer only, the server self-daemonizes ----
+# No herdr-restart on purpose: the server holds your panes. Use herdr-update
+# (handoff) or `herdr server stop` explicitly.
+alias herdr-install='herdr-setup'
+alias herdr-status='herdr-setup --status'
+alias herdr-update='update-herdr'
+alias herdr-logs='journalctl --user -u herdr-update.service -f'
 
 # --- Orca (headless runtime) — Linux only, system scope ---------------------
 if [[ "$(uname -s)" == "Linux" ]]; then
   alias orca-install='orca-setup'  # self-elevating: sudo would not find ~/.local/bin
-  alias ov='orca-version'
-  alias os='orca-setup --status'
-  alias ol='journalctl -u orca-serve.service -f'
-  alias orr='sudo systemctl restart orca-serve.service'
-  alias ogui='orca-gui'
+  alias orca-status='orca-setup --status'
+  alias orca-update='update-orca'  # self-elevating too
+  alias orca-logs='journalctl -u orca-serve.service -f'
+  alias orca-restart='sudo systemctl restart orca-serve.service'
+  # orca-gui and orca-version are real scripts, no alias needed
 
   # --- Cursor (private worker) — Linux only ---------------------------------
   alias cursor-install='cursor-setup'
-  alias cws='cursor-setup --status'
-  alias cwl='journalctl --user -u cursor-worker.service -f'
-  alias cwr='systemctl --user restart cursor-worker.service'
-  alias cwu='update-cursor-agent'
-
-  # --- herdr (multiplexer) — update timer only, the server self-daemonizes --
-  alias hu='update-herdr'
-  alias hs='herdr status server'
-  alias hl='journalctl --user -u herdr-update.service -f'
+  alias cursor-status='cursor-setup --status'
+  alias cursor-update='update-cursor-agent'
+  alias cursor-logs='journalctl --user -u cursor-worker.service -f'
+  alias cursor-restart='systemctl --user restart cursor-worker.service'
 fi

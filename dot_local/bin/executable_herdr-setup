@@ -1,0 +1,163 @@
+#!/usr/bin/env bash
+#
+# herdr-setup — Install herdr and enable its update timer.
+#
+# herdr is the odd one out of the agent stacks: a MULTIPLEXER, not a daemon.
+# Its server daemonizes itself (reparented to PID 1) and holds the live panes,
+# so there is no long-running systemd unit to enable here — only the daily
+# update timer (04:00, handoff-aware; see update-herdr).
+#
+# Nothing is enabled automatically by chezmoi: this script is the ONLY entry
+# point (alias `herdr-install`). Idempotent — safe to re-run.
+#
+# Usage:
+#   herdr-setup                  install the binary + enable the update timer
+#   herdr-setup --no-service     binary only (no timer)
+#   herdr-setup --status         binary, server and timer state
+#   herdr-setup --update         delegate to update-herdr
+#   herdr-setup --uninstall      disable the timer (binary and sessions kept)
+#   herdr-setup --dry-run        print without executing
+#
+set -euo pipefail
+
+# --- Configuration ------------------------------------------------------------
+INSTALLER_URL="https://herdr.dev/install.sh"
+BIN_DIR="${HOME}/.local/bin"
+UPDATE_TIMER="herdr-update.timer"
+
+DO_SERVICE=1
+DRY_RUN=0
+ASSUME_YES=0
+ACTION="install"
+
+# --- Helpers ------------------------------------------------------------------
+c_b=$'\033[1;34m'; c_g=$'\033[1;32m'; c_y=$'\033[1;33m'; c_r=$'\033[1;31m'; c_0=$'\033[0m'
+log()  { printf '%s[herdr-setup]%s %s\n' "$c_b" "$c_0" "$*"; }
+ok()   { printf '%s[herdr-setup]%s %s\n' "$c_g" "$c_0" "$*"; }
+warn() { printf '%s[herdr-setup]%s %s\n' "$c_y" "$c_0" "$*" >&2; }
+die()  { printf '%s[herdr-setup]%s %s\n' "$c_r" "$c_0" "$*" >&2; exit 1; }
+
+run() {
+  if [[ "$DRY_RUN" -eq 1 ]]; then printf '  %s+%s %s\n' "$c_y" "$c_0" "$*"; return 0; fi
+  "$@"
+}
+
+usage() { sed -n '2,/^set -euo/p' "$0" | sed 's/^# \{0,1\}//; $d'; }
+
+# --- Option parsing -----------------------------------------------------------
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --no-service) DO_SERVICE=0 ;;
+    --status)     ACTION="status" ;;
+    --update)     ACTION="update" ;;
+    --uninstall)  ACTION="uninstall" ;;
+    --dry-run)    DRY_RUN=1 ;;
+    -y|--yes)     ASSUME_YES=1 ;;
+    -h|--help)    usage; exit 0 ;;
+    *)            die "Unknown option: $1 (see --help)" ;;
+  esac
+  shift
+done
+
+have_systemd_user() {
+  command -v systemctl >/dev/null 2>&1 && systemctl --user show-environment >/dev/null 2>&1
+}
+
+herdr_path() { command -v herdr 2>/dev/null || { [[ -x "$BIN_DIR/herdr" ]] && echo "$BIN_DIR/herdr"; } || true; }
+herdr_version() { "$1" --version 2>/dev/null | awk 'NF{print $NF; exit}' || echo unknown; }
+server_field() { herdr status server 2>/dev/null | awk -F': *' -v k="$1" '$1==k{print $2; exit}'; }
+
+# systemctl is-active/is-enabled ALREADY print a state ("inactive", "not-found")
+# and then exit non-zero: an `|| echo unknown` would add a SECOND line.
+sstate() { local out; out="$("$@" 2>/dev/null)" || true; echo "${out:-unknown}"; }
+
+# --- Status -------------------------------------------------------------------
+do_status() {
+  local p; p="$(herdr_path)"
+  printf '%sherdr%s\n' "$c_b" "$c_0"
+  if [[ -n "$p" ]]; then
+    printf '  Binary   : %s (%s, channel %s)\n' "$p" "$(herdr_version "$p")" \
+      "$("$p" channel show 2>/dev/null | awk 'NF{print $NF; exit}' || echo unknown)"
+    local st ver compat
+    st="$(server_field status)"; ver="$(server_field version)"; compat="$(server_field compatible)"
+    printf '  Server   : %s%s\n' "${st:-stopped}" "${ver:+ ($ver)}"
+    # compatible=no means attaching will break: THE symptom of a failed handoff.
+    if [[ -n "$compat" && "$compat" != "yes" ]]; then
+      printf '  Compat   : %s%s — attach broken, see update-herdr%s\n' "$c_r" "$compat" "$c_0"
+    fi
+  else
+    printf '  Binary   : %smissing%s\n' "$c_r" "$c_0"
+  fi
+  if [[ "$(uname -s)" == "Linux" ]] && have_systemd_user; then
+    printf '  Timer    : %s / %s\n' \
+      "$(sstate systemctl --user is-active "$UPDATE_TIMER")" \
+      "$(sstate systemctl --user is-enabled "$UPDATE_TIMER")"
+  fi
+}
+
+[[ "$ACTION" == "status" ]] && { do_status; exit 0; }
+[[ "$ACTION" == "update" ]] && exec "${BIN_DIR}/update-herdr"
+
+# --- Uninstall ----------------------------------------------------------------
+if [[ "$ACTION" == "uninstall" ]]; then
+  if [[ "$ASSUME_YES" -eq 0 ]]; then
+    printf 'Disable the herdr update timer? (binary and live sessions are kept) [y/N] '
+    read -r reply
+    [[ "$reply" =~ ^[yY]$ ]] || { log "Cancelled."; exit 0; }
+  fi
+  if have_systemd_user; then
+    run systemctl --user disable --now "$UPDATE_TIMER" 2>/dev/null || true
+    run systemctl --user daemon-reload
+  fi
+  # The binary and any live server are deliberately left alone: killing the
+  # server would drop live panes. Remove by hand: rm ~/.local/bin/herdr
+  # (after `herdr server stop`).
+  ok "Timer disabled (binary and sessions kept)."
+  exit 0
+fi
+
+# --- Step 1: binary -----------------------------------------------------------
+P="$(herdr_path)"
+if [[ -n "$P" ]]; then
+  ok "herdr already installed: ${P} ($(herdr_version "$P"))"
+  log "To update: herdr-setup --update (handoff-aware)"
+else
+  log "Installing herdr from ${INSTALLER_URL}…"
+  command -v curl >/dev/null 2>&1 || die "curl is required."
+  if [[ "$DRY_RUN" -eq 1 ]]; then
+    printf '  %s+%s curl -fsSL %s | sh\n' "$c_y" "$c_0" "$INSTALLER_URL"
+  else
+    curl -fsSL "$INSTALLER_URL" | sh || die "The herdr installer failed."
+    hash -r
+    P="$(herdr_path)"
+    [[ -n "$P" ]] || die "herdr not found after installation (expected on PATH or in ${BIN_DIR})."
+    ok "herdr installed: ${P} ($(herdr_version "$P"))"
+  fi
+fi
+
+# --- Step 2: update timer -----------------------------------------------------
+if [[ "$DO_SERVICE" -eq 1 ]]; then
+  if [[ "$(uname -s)" != "Linux" ]] || ! have_systemd_user; then
+    warn "systemd --user unavailable — no update timer. Update by hand: update-herdr"
+  else
+    unit_dir="${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user"
+    if [[ ! -f "${unit_dir}/${UPDATE_TIMER}" ]]; then
+      die "Unit missing: ${unit_dir}/${UPDATE_TIMER} — run 'chezmoi apply' first."
+    fi
+    # Linger keeps the --user manager alive after logout, so the 04:00 timer
+    # actually fires on a headless box nobody is logged into.
+    if ! loginctl show-user "$(id -un)" -p Linger 2>/dev/null | grep -q 'Linger=yes'; then
+      log "Enabling linger (the timer fires even when logged out)…"
+      run sudo loginctl enable-linger "$(id -un)" || warn "Could not enable linger."
+    fi
+    run systemctl --user daemon-reload
+    run systemctl --user enable --now "$UPDATE_TIMER"
+    ok "Update timer enabled (daily at 04:00, handoff-aware)."
+  fi
+fi
+
+echo
+ok "Done."
+log "Start multiplexing:  herdr"
+log "State:               herdr-status"
+[[ "$DRY_RUN" -eq 1 ]] || { echo; do_status; }
