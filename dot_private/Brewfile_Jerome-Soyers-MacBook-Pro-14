@@ -10,13 +10,14 @@ tap "homebrew/command-not-found"
 tap "homebrew/core"
 tap "homebrew/services"
 tap "reyamira/tap", "https://github.com/reyamira/homebrew-tap.git", trusted: true
-tap "stablyai/orca"
+tap "stablyai/orca", trusted: { casks: ["orca"] }
 brew "sdl2-compat"
 brew "herdr"
 brew "kimi-code"
 brew "mactop"
 brew "models"
 brew "openspec", link: false
+brew "redis"
 brew "semgrep"
 brew "signal-cli"
 cask "antigravity"
@@ -33,7 +34,7 @@ cask "grok-build"
 cask "ledger-wallet"
 cask "logi-options+"
 cask "logitune"
-cask "stablyai/orca/orca", trusted: true
+cask "orca"
 cask "plaud"
 cask "zoom"
 mas "Amphetamine", id: 937984704
