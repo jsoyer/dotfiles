@@ -45,11 +45,7 @@
 # Pacfile_aur_gui:        {{ include "dot_private/Pacfile_aur_gui" | sha256sum }}
 {{- end }}
 {{- if $isUbuntuDesktop }}
-# Aptfile_ubuntu_gui:     {{ include "dot_private/Aptfile_ubuntu_gui" | sha256sum }}
 # Snapfile_ubuntu_desktop: {{ include "dot_private/Snapfile_ubuntu_desktop" | sha256sum }}
-{{- end }}
-{{- if $isRPi }}
-# Aptfile_rpi_gui:        {{ include "dot_private/Aptfile_rpi_gui" | sha256sum }}
 {{- end }}
 {{- if $isArchServer }}
 # Pacfile_arch_server:    {{ include "dot_private/Pacfile_arch_server" | sha256sum }}
@@ -697,14 +693,6 @@ if _has_gui; then
     echo "🖥️ Display server detected, installing GUI apps..."
 
 {{- if $isUbuntuDesktop }}
-    _guifile="{{ .chezmoi.sourceDir }}/dot_private/Aptfile_ubuntu_gui"
-    if [[ -f "$_guifile" ]]; then
-        mapfile -t _guipkgs < <(grep -v '^\s*#' "$_guifile" | grep -v '^\s*$')
-        if (( ${#_guipkgs[@]} )); then
-            sudo apt-get install -y "${_guipkgs[@]}" || _pkgfail "apt: ubuntu-desktop GUI packages"
-        fi
-    fi
-
     # Zed Editor — no official apt repo, use native installer
     if ! command -v zed &>/dev/null; then
         echo "🖊️ Installing Zed Editor..."
@@ -721,13 +709,6 @@ if _has_gui; then
 {{- end }}
 
 {{- if $isRPi }}
-    _guifile="{{ .chezmoi.sourceDir }}/dot_private/Aptfile_rpi_gui"
-    if [[ -f "$_guifile" ]]; then
-        mapfile -t _guipkgs < <(grep -v '^\s*#' "$_guifile" | grep -v '^\s*$')
-        if (( ${#_guipkgs[@]} )); then
-            sudo apt-get install -y "${_guipkgs[@]}" || _pkgfail "apt: rpi GUI packages"
-        fi
-    fi
     # Pi-Apps GUI apps handled by run_once_install-pi-apps.sh
 {{- end }}
 

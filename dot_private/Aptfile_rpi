@@ -24,3 +24,4 @@ locales
 # installed via custom apt repo in chezmoi scripts (not managed by aptw)
 # 1password-cli — run_once_install-1password.sh
 # gh — run_onchange_install-linux-packages.sh
+vlc
