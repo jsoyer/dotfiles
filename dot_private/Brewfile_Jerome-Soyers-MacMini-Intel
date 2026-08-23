@@ -11,5 +11,4 @@ cask "chatgpt"
 cask "fluidvoice"
 cask "grok-bot"
 cask "grok-build"
-cask "orca"
 mas "Remote Desktop", id: 409907375
