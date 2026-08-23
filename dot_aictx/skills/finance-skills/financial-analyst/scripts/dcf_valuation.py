@@ -106,9 +106,7 @@ class DCFModel:
                 else default_growth
             )
             fcf_margin = (
-                fcf_margins[year]
-                if year < len(fcf_margins)
-                else default_fcf_margin
+                fcf_margins[year] if year < len(fcf_margins) else default_fcf_margin
             )
 
             current_revenue = current_revenue * (1 + growth)
@@ -130,9 +128,9 @@ class DCFModel:
 
         # Perpetuity growth method: TV = FCF * (1+g) / (WACC - g)
         if self.wacc > terminal_growth:
-            self.terminal_value_perpetuity = (
-                terminal_fcf * (1 + terminal_growth)
-            ) / (self.wacc - terminal_growth)
+            self.terminal_value_perpetuity = (terminal_fcf * (1 + terminal_growth)) / (
+                self.wacc - terminal_growth
+            )
         else:
             self.terminal_value_perpetuity = 0.0
 
@@ -171,12 +169,8 @@ class DCFModel:
         net_debt = self.historical.get("net_debt", 0)
         shares_outstanding = self.historical.get("shares_outstanding", 1)
 
-        self.equity_value_perpetuity = (
-            self.enterprise_value_perpetuity - net_debt
-        )
-        self.equity_value_exit_multiple = (
-            self.enterprise_value_exit_multiple - net_debt
-        )
+        self.equity_value_perpetuity = self.enterprise_value_perpetuity - net_debt
+        self.equity_value_exit_multiple = self.enterprise_value_exit_multiple - net_debt
 
         self.value_per_share_perpetuity = safe_divide(
             self.equity_value_perpetuity, shares_outstanding
@@ -248,9 +242,7 @@ class DCFModel:
                 net_debt = self.historical.get("net_debt", 0)
                 shares = self.historical.get("shares_outstanding", 1)
                 equity = ev - net_debt
-                share_price_table[i][j] = round(
-                    safe_divide(equity, shares), 2
-                )
+                share_price_table[i][j] = round(safe_divide(equity, shares), 2)
 
         return {
             "wacc_values": wacc_range,
@@ -310,7 +302,9 @@ class DCFModel:
             return f"${val:,.2f}"
 
         lines.append(f"\n--- WACC ---")
-        lines.append(f"  Weighted Average Cost of Capital: {results['wacc'] * 100:.2f}%")
+        lines.append(
+            f"  Weighted Average Cost of Capital: {results['wacc'] * 100:.2f}%"
+        )
 
         lines.append(f"\n--- REVENUE PROJECTIONS ---")
         for i, rev in enumerate(results["projected_revenue"], 1):

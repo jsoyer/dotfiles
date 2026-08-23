@@ -83,13 +83,13 @@ def package_skill(skill_path: str, output_dir: str = None) -> Path | None:
 
     # Create the zip file
     try:
-        with zipfile.ZipFile(skill_filename, 'w', zipfile.ZIP_DEFLATED) as zipf:
-            for file_path in skill_path.rglob('*'):
+        with zipfile.ZipFile(skill_filename, "w", zipfile.ZIP_DEFLATED) as zipf:
+            for file_path in skill_path.rglob("*"):
                 if file_path.is_file():
                     # Skip hidden files and common junk
-                    if any(part.startswith('.') for part in file_path.parts):
+                    if any(part.startswith(".") for part in file_path.parts):
                         continue
-                    if file_path.name in ['__pycache__', '.DS_Store', 'Thumbs.db']:
+                    if file_path.name in ["__pycache__", ".DS_Store", "Thumbs.db"]:
                         continue
 
                     # Calculate relative path within the zip

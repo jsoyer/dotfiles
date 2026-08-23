@@ -1,4 +1,3 @@
-
 import sys
 import requests
 from bs4 import BeautifulSoup
@@ -9,82 +8,98 @@ from datetime import datetime
 # Suppress insecure request warnings
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
+
 def clean_text(text):
-    if not text: return ""
+    if not text:
+        return ""
     return text.strip()
+
 
 def parse_rss_content(content, source_name, limit=5):
     """
     Parses RSS/Atom content string (XML or HTML) and returns items.
     """
     try:
-        # Use html.parser which is built-in and lenient 
-        soup = BeautifulSoup(content, 'html.parser')
-        
+        # Use html.parser which is built-in and lenient
+        soup = BeautifulSoup(content, "html.parser")
+
         items = []
-        entries = soup.find_all(['item', 'entry'])
-        
+        entries = soup.find_all(["item", "entry"])
+
         for entry in entries:
             # --- Title ---
-            title_tag = entry.find('title')
-            if not title_tag: continue
+            title_tag = entry.find("title")
+            if not title_tag:
+                continue
             title = clean_text(title_tag.get_text())
-            
+
             # --- Link ---
             link = ""
-            link_tag = entry.find('link')
+            link_tag = entry.find("link")
             if link_tag:
-                if link_tag.has_attr('href'):
-                    link = link_tag['href']
+                if link_tag.has_attr("href"):
+                    link = link_tag["href"]
                 elif link_tag.get_text(strip=True):
                     link = link_tag.get_text(strip=True)
                 if not link:
                     link = str(link_tag.next_sibling).strip()
-            
+
             if not link:
-                guid = entry.find('guid')
-                if guid and guid.get_text(strip=True).startswith('http'):
+                guid = entry.find("guid")
+                if guid and guid.get_text(strip=True).startswith("http"):
                     link = guid.get_text(strip=True)
 
             # --- Time ---
-            pub = entry.find(['pubdate', 'published', 'updated', 'dc:date'])
+            pub = entry.find(["pubdate", "published", "updated", "dc:date"])
             time_str = clean_text(pub.get_text()) if pub else ""
-            
+
             # --- Summary / Content ---
-            content_encoded = entry.find('content:encoded')
-            description = entry.find('description')
-            summary = entry.find('summary')
-            content = entry.find('content')
-            
+            content_encoded = entry.find("content:encoded")
+            description = entry.find("description")
+            summary = entry.find("summary")
+            content = entry.find("content")
+
             raw_summary = ""
-            if content_encoded: raw_summary = content_encoded.get_text()
-            elif description: raw_summary = description.get_text()
-            elif summary: raw_summary = summary.get_text()
-            elif content: raw_summary = content.get_text()
-            
-            soup_desc = BeautifulSoup(raw_summary, 'html.parser')
-            clean_summary = soup_desc.get_text(separator=' ', strip=True)[:300] + "..." if len(raw_summary) > 300 else ""
-            
+            if content_encoded:
+                raw_summary = content_encoded.get_text()
+            elif description:
+                raw_summary = description.get_text()
+            elif summary:
+                raw_summary = summary.get_text()
+            elif content:
+                raw_summary = content.get_text()
+
+            soup_desc = BeautifulSoup(raw_summary, "html.parser")
+            clean_summary = (
+                soup_desc.get_text(separator=" ", strip=True)[:300] + "..."
+                if len(raw_summary) > 300
+                else ""
+            )
+
             # --- Heat ---
             heat = ""
-            comments = entry.find('slash:comments')
+            comments = entry.find("slash:comments")
             if comments:
                 heat = f"{comments.get_text(strip=True)} comments"
-            
-            items.append({
-                "source": source_name,
-                "title": title,
-                "url": link,
-                "time": time_str,
-                "heat": heat,
-                "summary": clean_summary
-            })
-            if len(items) >= limit: break
-            
+
+            items.append(
+                {
+                    "source": source_name,
+                    "title": title,
+                    "url": link,
+                    "time": time_str,
+                    "heat": heat,
+                    "summary": clean_summary,
+                }
+            )
+            if len(items) >= limit:
+                break
+
         return items
     except Exception as e:
         print(f"Content Parse failed: {e}", file=sys.stderr)
         return []
+
 
 def fetch_rss_feed(url, source_name, limit=5):
     """
@@ -95,12 +110,12 @@ def fetch_rss_feed(url, source_name, limit=5):
         # User-Agent is critical
         headers = {
             "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8"
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
         }
-        
+
         response = requests.get(url, headers=headers, timeout=15, verify=False)
-        response.encoding = response.apparent_encoding or 'utf-8'
-        
+        response.encoding = response.apparent_encoding or "utf-8"
+
         return parse_rss_content(response.content, source_name, limit)
 
     except Exception as e:

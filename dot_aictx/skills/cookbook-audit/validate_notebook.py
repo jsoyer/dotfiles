@@ -213,7 +213,9 @@ class NotebookValidator:
 
         # Check for key elements
         has_prerequisites = bool(
-            re.search(r"prerequisite|requirement|need|require", intro_text, re.IGNORECASE)
+            re.search(
+                r"prerequisite|requirement|need|require", intro_text, re.IGNORECASE
+            )
         )
         if not has_prerequisites:
             self.warnings.append("Introduction doesn't mention prerequisites")
@@ -288,7 +290,9 @@ class NotebookValidator:
 
     def check_model_constant(self):
         """Check that model name is defined as a constant at the top."""
-        model_constant_pattern = r'(MODEL|model|MODEL_NAME|model_name)\s*=\s*["\']claude-'
+        model_constant_pattern = (
+            r'(MODEL|model|MODEL_NAME|model_name)\s*=\s*["\']claude-'
+        )
 
         # Check first 5 code cells for model constant definition
         code_cells_checked = 0
@@ -438,7 +442,9 @@ class NotebookValidator:
             print("  - Overall pedagogical effectiveness")
 
         print(f"\n{'=' * 60}")
-        print(f"Summary: {len(self.issues)} critical issues, {len(self.warnings)} warnings")
+        print(
+            f"Summary: {len(self.issues)} critical issues, {len(self.warnings)} warnings"
+        )
         print(f"{'=' * 60}\n")
 
     def get_exit_code(self) -> int:

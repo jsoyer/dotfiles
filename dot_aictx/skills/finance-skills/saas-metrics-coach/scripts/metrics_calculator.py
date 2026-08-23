@@ -83,11 +83,15 @@ def calculate(
 
     # ── NRR ───────────────────────────────────────────────────────────────────
     if mrr_last and mrr_last > 0 and (expansion_mrr or churned_mrr or contraction_mrr):
-        nrr = ((mrr_last + expansion_mrr - churned_mrr - contraction_mrr) / mrr_last) * 100
+        nrr = (
+            (mrr_last + expansion_mrr - churned_mrr - contraction_mrr) / mrr_last
+        ) * 100
         r["NRR_Pct"] = round(nrr, 2)
     elif r.get("Churn_Pct"):
         r["NRR_Est_Pct"] = round((1 - r["Churn_Pct"] / 100) * 100, 2)
-        missing.append("NRR (accurate) — using churn-only estimate; provide expansion MRR for full NRR")
+        missing.append(
+            "NRR (accurate) — using churn-only estimate; provide expansion MRR for full NRR"
+        )
 
     # ── Rule of 40 ────────────────────────────────────────────────────────────
     if r.get("MoM_Growth_Pct") and profit_margin is not None:
@@ -100,18 +104,18 @@ def calculate(
 
 def report(r):
     labels = [
-        ("MRR",            "Monthly Recurring Revenue",     "$"),
-        ("ARR",            "Annual Recurring Revenue",       "$"),
-        ("ARPA",           "Avg Revenue Per Account/mo",     "$"),
-        ("MoM_Growth_Pct", "MoM MRR Growth",                "%"),
-        ("Churn_Pct",      "Monthly Churn Rate",             "%"),
-        ("CAC",            "Customer Acquisition Cost",      "$"),
-        ("LTV",            "Customer Lifetime Value",        "$"),
-        ("LTV_CAC",        "LTV:CAC Ratio",                  ":1"),
-        ("Payback_Months", "CAC Payback Period",             " months"),
-        ("NRR_Pct",        "NRR (Net Revenue Retention)",    "%"),
-        ("NRR_Est_Pct",    "NRR Estimate (churn-only)",      "%"),
-        ("Rule_of_40",     "Rule of 40 Score",               ""),
+        ("MRR", "Monthly Recurring Revenue", "$"),
+        ("ARR", "Annual Recurring Revenue", "$"),
+        ("ARPA", "Avg Revenue Per Account/mo", "$"),
+        ("MoM_Growth_Pct", "MoM MRR Growth", "%"),
+        ("Churn_Pct", "Monthly Churn Rate", "%"),
+        ("CAC", "Customer Acquisition Cost", "$"),
+        ("LTV", "Customer Lifetime Value", "$"),
+        ("LTV_CAC", "LTV:CAC Ratio", ":1"),
+        ("Payback_Months", "CAC Payback Period", " months"),
+        ("NRR_Pct", "NRR (Net Revenue Retention)", "%"),
+        ("NRR_Est_Pct", "NRR Estimate (churn-only)", "%"),
+        ("Rule_of_40", "Rule of 40 Score", ""),
     ]
 
     lines = ["=" * 54, "  SAAS METRICS CALCULATOR", "=" * 54, ""]
@@ -140,6 +144,7 @@ def report(r):
 
 # ── Interactive mode ──────────────────────────────────────────────────────────
 
+
 def _ask(prompt, required=False):
     while True:
         v = input(f"  {prompt}: ").strip()
@@ -156,7 +161,7 @@ def _ask(prompt, required=False):
 
 if __name__ == "__main__":
     import argparse
-    
+
     parser = argparse.ArgumentParser(description="SaaS Metrics Calculator")
     parser.add_argument("--mrr", type=float, help="Current MRR")
     parser.add_argument("--mrr-last", type=float, help="MRR last month")
@@ -164,15 +169,19 @@ if __name__ == "__main__":
     parser.add_argument("--churned", type=int, help="Customers churned this month")
     parser.add_argument("--new-customers", type=int, help="New customers acquired")
     parser.add_argument("--sm-spend", type=float, help="Sales & Marketing spend")
-    parser.add_argument("--gross-margin", type=float, default=70, help="Gross margin %% (default: 70)")
+    parser.add_argument(
+        "--gross-margin", type=float, default=70, help="Gross margin %% (default: 70)"
+    )
     parser.add_argument("--expansion-mrr", type=float, default=0, help="Expansion MRR")
     parser.add_argument("--churned-mrr", type=float, default=0, help="Churned MRR")
-    parser.add_argument("--contraction-mrr", type=float, default=0, help="Contraction MRR")
+    parser.add_argument(
+        "--contraction-mrr", type=float, default=0, help="Contraction MRR"
+    )
     parser.add_argument("--profit-margin", type=float, help="Net profit margin %%")
     parser.add_argument("--json", action="store_true", help="Output JSON format")
-    
+
     args = parser.parse_args()
-    
+
     # CLI mode
     if args.mrr is not None:
         inputs = {
@@ -182,20 +191,22 @@ if __name__ == "__main__":
             "churned": args.churned,
             "new_customers": args.new_customers,
             "sm_spend": args.sm_spend,
-            "gross_margin": args.gross_margin / 100 if args.gross_margin > 1 else args.gross_margin,
+            "gross_margin": args.gross_margin / 100
+            if args.gross_margin > 1
+            else args.gross_margin,
             "expansion_mrr": args.expansion_mrr,
             "churned_mrr": args.churned_mrr,
             "contraction_mrr": args.contraction_mrr,
             "profit_margin": args.profit_margin,
         }
         result = calculate(**inputs)
-        
+
         if args.json:
             print(json.dumps(result, indent=2))
         else:
             print("\n" + report(result))
         sys.exit(0)
-    
+
     # Interactive mode
     print("\nSaaS Metrics Calculator  (press Enter to skip)\n")
 

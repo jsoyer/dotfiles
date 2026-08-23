@@ -35,24 +35,29 @@ SEVERITY_WEIGHTS = {
 # Validation Rules
 # ---------------------------------------------------------------------------
 
+
 def check_state_count(states: List[str]) -> List[Dict[str, str]]:
     """Check if the workflow has too many states."""
     findings = []
     count = len(states)
 
     if count > MAX_RECOMMENDED_STATES:
-        findings.append({
-            "rule": "state_count",
-            "severity": "warning",
-            "message": f"Workflow has {count} states (recommended max: {MAX_RECOMMENDED_STATES}). "
-                       f"Complex workflows slow teams down and increase error rates.",
-        })
+        findings.append(
+            {
+                "rule": "state_count",
+                "severity": "warning",
+                "message": f"Workflow has {count} states (recommended max: {MAX_RECOMMENDED_STATES}). "
+                f"Complex workflows slow teams down and increase error rates.",
+            }
+        )
     elif count < 2:
-        findings.append({
-            "rule": "state_count",
-            "severity": "error",
-            "message": f"Workflow has only {count} state(s). A minimum of 2 states is required.",
-        })
+        findings.append(
+            {
+                "rule": "state_count",
+                "severity": "error",
+                "message": f"Workflow has only {count} state(s). A minimum of 2 states is required.",
+            }
+        )
 
     if count > 15:
         findings[-1]["severity"] = "error"
@@ -74,12 +79,14 @@ def check_dead_end_states(
     for state in states:
         state_lower = state.lower()
         if state_lower not in outgoing and state_lower not in terminal_states:
-            findings.append({
-                "rule": "dead_end_state",
-                "severity": "error",
-                "message": f"State '{state}' has no outgoing transitions and is not a terminal state. "
-                           f"Issues will get stuck here.",
-            })
+            findings.append(
+                {
+                    "rule": "dead_end_state",
+                    "severity": "error",
+                    "message": f"State '{state}' has no outgoing transitions and is not a terminal state. "
+                    f"Issues will get stuck here.",
+                }
+            )
 
     return findings
 
@@ -100,12 +107,14 @@ def check_orphan_states(
     for state in states:
         state_lower = state.lower()
         if state_lower not in incoming and state_lower != initial_lower:
-            findings.append({
-                "rule": "orphan_state",
-                "severity": "warning",
-                "message": f"State '{state}' has no incoming transitions and is not the initial state. "
-                           f"This state may be unreachable.",
-            })
+            findings.append(
+                {
+                    "rule": "orphan_state",
+                    "severity": "warning",
+                    "message": f"State '{state}' has no incoming transitions and is not the initial state. "
+                    f"This state may be unreachable.",
+                }
+            )
 
     return findings
 
@@ -117,12 +126,14 @@ def check_missing_terminal_state(states: List[str]) -> List[Dict[str, str]]:
 
     has_terminal = bool(states_lower & REQUIRED_TERMINAL_STATES)
     if not has_terminal:
-        findings.append({
-            "rule": "missing_terminal_state",
-            "severity": "error",
-            "message": f"No terminal state found. Expected one of: {', '.join(sorted(REQUIRED_TERMINAL_STATES))}. "
-                       f"Issues cannot be marked as complete.",
-        })
+        findings.append(
+            {
+                "rule": "missing_terminal_state",
+                "severity": "error",
+                "message": f"No terminal state found. Expected one of: {', '.join(sorted(REQUIRED_TERMINAL_STATES))}. "
+                f"Issues cannot be marked as complete.",
+            }
+        )
 
     return findings
 
@@ -140,12 +151,14 @@ def check_duplicate_transition_names(
         key = (from_state, name)
 
         if key in seen:
-            findings.append({
-                "rule": "duplicate_transition",
-                "severity": "warning",
-                "message": f"Duplicate transition name '{t.get('name', '')}' from state '{t.get('from', '')}'. "
-                           f"This can confuse users selecting transitions.",
-            })
+            findings.append(
+                {
+                    "rule": "duplicate_transition",
+                    "severity": "warning",
+                    "message": f"Duplicate transition name '{t.get('name', '')}' from state '{t.get('from', '')}'. "
+                    f"This can confuse users selecting transitions.",
+                }
+            )
         else:
             seen[key] = True
 
@@ -165,18 +178,22 @@ def check_missing_transitions(
         to_state = t.get("to", "").lower()
 
         if from_state and from_state not in defined_states:
-            findings.append({
-                "rule": "undefined_state_reference",
-                "severity": "error",
-                "message": f"Transition references undefined source state '{t.get('from', '')}'.",
-            })
+            findings.append(
+                {
+                    "rule": "undefined_state_reference",
+                    "severity": "error",
+                    "message": f"Transition references undefined source state '{t.get('from', '')}'.",
+                }
+            )
 
         if to_state and to_state not in defined_states:
-            findings.append({
-                "rule": "undefined_state_reference",
-                "severity": "error",
-                "message": f"Transition references undefined target state '{t.get('to', '')}'.",
-            })
+            findings.append(
+                {
+                    "rule": "undefined_state_reference",
+                    "severity": "error",
+                    "message": f"Transition references undefined target state '{t.get('to', '')}'.",
+                }
+            )
 
     return findings
 
@@ -219,12 +236,14 @@ def check_circular_paths(
         state_lower = state.lower()
         if state_lower not in terminal_states:
             if not can_reach_terminal(state_lower):
-                findings.append({
-                    "rule": "circular_no_exit",
-                    "severity": "error",
-                    "message": f"State '{state}' cannot reach any terminal state. "
-                               f"Issues entering this state will never be resolved.",
-                })
+                findings.append(
+                    {
+                        "rule": "circular_no_exit",
+                        "severity": "error",
+                        "message": f"State '{state}' cannot reach any terminal state. "
+                        f"Issues entering this state will never be resolved.",
+                    }
+                )
 
     return findings
 
@@ -234,18 +253,21 @@ def check_self_transitions(transitions: List[Dict[str, str]]) -> List[Dict[str, 
     findings = []
     for t in transitions:
         if t.get("from", "").lower() == t.get("to", "").lower():
-            findings.append({
-                "rule": "self_transition",
-                "severity": "info",
-                "message": f"State '{t.get('from', '')}' has a self-transition '{t.get('name', '')}'. "
-                           f"Ensure this is intentional (e.g., for triggering automation).",
-            })
+            findings.append(
+                {
+                    "rule": "self_transition",
+                    "severity": "info",
+                    "message": f"State '{t.get('from', '')}' has a self-transition '{t.get('name', '')}'. "
+                    f"Ensure this is intentional (e.g., for triggering automation).",
+                }
+            )
     return findings
 
 
 # ---------------------------------------------------------------------------
 # Main Validation
 # ---------------------------------------------------------------------------
+
 
 def validate_workflow(data: Dict[str, Any]) -> Dict[str, Any]:
     """Run all validations on a workflow definition."""
@@ -257,7 +279,13 @@ def validate_workflow(data: Dict[str, Any]) -> Dict[str, Any]:
         return {
             "health_score": 0,
             "grade": "invalid",
-            "findings": [{"rule": "no_states", "severity": "error", "message": "No states defined in workflow"}],
+            "findings": [
+                {
+                    "rule": "no_states",
+                    "severity": "error",
+                    "message": "No states defined in workflow",
+                }
+            ],
             "summary": {"errors": 1, "warnings": 0, "info": 0},
         }
 
@@ -318,6 +346,7 @@ def validate_workflow(data: Dict[str, Any]) -> Dict[str, Any]:
 # Output Formatting
 # ---------------------------------------------------------------------------
 
+
 def format_text_output(result: Dict[str, Any]) -> str:
     """Format results as readable text report."""
     lines = []
@@ -377,6 +406,7 @@ def format_json_output(result: Dict[str, Any]) -> Dict[str, Any]:
 # ---------------------------------------------------------------------------
 # CLI Interface
 # ---------------------------------------------------------------------------
+
 
 def main() -> int:
     """Main CLI entry point."""

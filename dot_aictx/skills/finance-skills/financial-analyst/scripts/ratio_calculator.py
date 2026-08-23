@@ -118,9 +118,7 @@ class FinancialRatioCalculator:
                 "name": "Current Ratio",
             },
             "quick_ratio": {
-                "value": safe_divide(
-                    current_assets - inventory, current_liabilities
-                ),
+                "value": safe_divide(current_assets - inventory, current_liabilities),
                 "formula": "(Current Assets - Inventory) / Current Liabilities",
                 "name": "Quick Ratio",
             },
@@ -144,9 +142,7 @@ class FinancialRatioCalculator:
         operating_income = self.income.get("operating_income", 0)
         interest_expense = self.income.get("interest_expense", 0)
         operating_cash_flow = self.cash_flow.get("operating_cash_flow", 0)
-        total_debt_service = self.cash_flow.get(
-            "total_debt_service", interest_expense
-        )
+        total_debt_service = self.cash_flow.get("total_debt_service", interest_expense)
 
         ratios = {
             "debt_to_equity": {
@@ -247,9 +243,7 @@ class FinancialRatioCalculator:
                 "name": "Price-to-Book Ratio",
             },
             "ps_ratio": {
-                "value": safe_divide(
-                    market_cap, revenue
-                ),
+                "value": safe_divide(market_cap, revenue),
                 "formula": "Market Cap / Revenue",
                 "name": "Price-to-Sales Ratio",
             },
@@ -346,7 +340,11 @@ class FinancialRatioCalculator:
         )
 
         percentage_ratios = {
-            "roe", "roa", "gross_margin", "operating_margin", "net_margin"
+            "roe",
+            "roa",
+            "gross_margin",
+            "operating_margin",
+            "net_margin",
         }
 
         for cat_name, ratios in categories.items():

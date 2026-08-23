@@ -18,18 +18,21 @@ from PIL import Image
 # Try to import optional dependencies
 try:
     import pytesseract
+
     HAS_TESSERACT = True
 except ImportError:
     HAS_TESSERACT = False
 
 try:
     import fitz  # PyMuPDF
+
     HAS_PYMUPDF = True
 except ImportError:
     HAS_PYMUPDF = False
 
 try:
     import cv2
+
     HAS_CV2 = True
 except ImportError:
     HAS_CV2 = False
@@ -37,12 +40,14 @@ except ImportError:
 
 class OCRError(Exception):
     """Custom exception for OCR errors."""
+
     pass
 
 
 @dataclass
 class OCRConfig:
     """Configuration for OCR processing."""
+
     psm: int = 3  # Page segmentation mode
     oem: int = 3  # OCR engine mode
     dpi: int = 300
@@ -63,11 +68,7 @@ class OCRProcessor:
     Extracts text from images and PDFs using Tesseract OCR.
     """
 
-    def __init__(
-        self,
-        source: Union[str, Path, Image.Image, bytes],
-        lang: str = 'eng'
-    ):
+    def __init__(self, source: Union[str, Path, Image.Image, bytes], lang: str = "eng"):
         """
         Initialize OCR processor.
 
@@ -76,7 +77,9 @@ class OCRProcessor:
             lang: OCR language code (e.g., 'eng', 'deu', 'eng+fra')
         """
         if not HAS_TESSERACT:
-            raise ImportError("pytesseract is required. Install with: pip install pytesseract")
+            raise ImportError(
+                "pytesseract is required. Install with: pip install pytesseract"
+            )
 
         self.config = OCRConfig()
         self.lang = lang
@@ -102,9 +105,9 @@ class OCRProcessor:
 
         suffix = path.suffix.lower()
 
-        if suffix == '.pdf':
+        if suffix == ".pdf":
             self._load_pdf(path)
-        elif suffix in ['.png', '.jpg', '.jpeg', '.tiff', '.tif', '.bmp', '.gif']:
+        elif suffix in [".png", ".jpg", ".jpeg", ".tiff", ".tif", ".bmp", ".gif"]:
             self._images = [Image.open(path)]
         else:
             raise OCRError(f"Unsupported file format: {suffix}")
@@ -112,7 +115,9 @@ class OCRProcessor:
     def _load_pdf(self, path: Path) -> None:
         """Load PDF and convert to images."""
         if not HAS_PYMUPDF:
-            raise ImportError("PyMuPDF is required for PDF processing. Install with: pip install PyMuPDF")
+            raise ImportError(
+                "PyMuPDF is required for PDF processing. Install with: pip install PyMuPDF"
+            )
 
         doc = fitz.open(path)
         self._images = []
@@ -132,12 +137,12 @@ class OCRProcessor:
         deskew: bool = False,
         denoise: bool = False,
         threshold: bool = False,
-        threshold_method: str = 'otsu',
+        threshold_method: str = "otsu",
         contrast: float = 1.0,
         sharpen: float = 0,
         scale: float = 1.0,
-        remove_shadows: bool = False
-    ) -> 'OCRProcessor':
+        remove_shadows: bool = False,
+    ) -> "OCRProcessor":
         """
         Preprocess images for better OCR accuracy.
 
@@ -155,7 +160,9 @@ class OCRProcessor:
             self for chaining
         """
         if not HAS_CV2:
-            raise ImportError("OpenCV is required for preprocessing. Install with: pip install opencv-python")
+            raise ImportError(
+                "OpenCV is required for preprocessing. Install with: pip install opencv-python"
+            )
 
         processed = []
 
@@ -171,7 +178,9 @@ class OCRProcessor:
 
             # Scale up if needed
             if scale > 1.0:
-                gray = cv2.resize(gray, None, fx=scale, fy=scale, interpolation=cv2.INTER_CUBIC)
+                gray = cv2.resize(
+                    gray, None, fx=scale, fy=scale, interpolation=cv2.INTER_CUBIC
+                )
 
             # Denoise
             if denoise:
@@ -189,11 +198,18 @@ class OCRProcessor:
 
             # Threshold
             if threshold:
-                if threshold_method == 'otsu':
-                    _, gray = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-                elif threshold_method == 'adaptive':
+                if threshold_method == "otsu":
+                    _, gray = cv2.threshold(
+                        gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU
+                    )
+                elif threshold_method == "adaptive":
                     gray = cv2.adaptiveThreshold(
-                        gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2
+                        gray,
+                        255,
+                        cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+                        cv2.THRESH_BINARY,
+                        11,
+                        2,
                     )
                 else:  # simple
                     _, gray = cv2.threshold(gray, 127, 255, cv2.THRESH_BINARY)
@@ -235,9 +251,7 @@ class OCRProcessor:
         center = (w // 2, h // 2)
         M = cv2.getRotationMatrix2D(center, angle, 1.0)
         rotated = cv2.warpAffine(
-            img, M, (w, h),
-            flags=cv2.INTER_CUBIC,
-            borderMode=cv2.BORDER_REPLICATE
+            img, M, (w, h), flags=cv2.INTER_CUBIC, borderMode=cv2.BORDER_REPLICATE
         )
 
         return rotated
@@ -256,19 +270,18 @@ class OCRProcessor:
 
         images_to_process = self._images
         if pages:
-            images_to_process = [self._images[p - 1] for p in pages if 0 < p <= len(self._images)]
+            images_to_process = [
+                self._images[p - 1] for p in pages if 0 < p <= len(self._images)
+            ]
 
         for img in images_to_process:
-            custom_config = f'--psm {self.config.psm} --oem {self.config.oem}'
+            custom_config = f"--psm {self.config.psm} --oem {self.config.oem}"
             text = pytesseract.image_to_string(
-                img,
-                lang=self.lang,
-                config=custom_config,
-                timeout=self.config.timeout
+                img, lang=self.lang, config=custom_config, timeout=self.config.timeout
             )
             texts.append(text)
 
-        return '\n\n'.join(texts)
+        return "\n\n".join(texts)
 
     def extract_structured(self) -> Dict[str, Any]:
         """
@@ -284,39 +297,39 @@ class OCRProcessor:
         total_conf = []
 
         for page_idx, img in enumerate(self._images):
-            custom_config = f'--psm {self.config.psm} --oem {self.config.oem}'
+            custom_config = f"--psm {self.config.psm} --oem {self.config.oem}"
             data = pytesseract.image_to_data(
                 img,
                 lang=self.lang,
                 config=custom_config,
                 output_type=pytesseract.Output.DICT,
-                timeout=self.config.timeout
+                timeout=self.config.timeout,
             )
 
             # Process data
             current_block = None
             current_line = None
 
-            for i in range(len(data['text'])):
-                text = data['text'][i].strip()
-                conf = int(data['conf'][i])
+            for i in range(len(data["text"])):
+                text = data["text"][i].strip()
+                conf = int(data["conf"][i])
 
                 if not text:
                     continue
 
                 word = {
-                    'text': text,
-                    'confidence': conf,
-                    'bbox': [
-                        data['left'][i],
-                        data['top'][i],
-                        data['width'][i],
-                        data['height'][i]
+                    "text": text,
+                    "confidence": conf,
+                    "bbox": [
+                        data["left"][i],
+                        data["top"][i],
+                        data["width"][i],
+                        data["height"][i],
                     ],
-                    'page': page_idx + 1,
-                    'block_num': data['block_num'][i],
-                    'line_num': data['line_num'][i],
-                    'word_num': data['word_num'][i]
+                    "page": page_idx + 1,
+                    "block_num": data["block_num"][i],
+                    "line_num": data["line_num"][i],
+                    "word_num": data["word_num"][i],
                 }
                 all_words.append(word)
 
@@ -325,10 +338,7 @@ class OCRProcessor:
 
             # Get full text for this page
             page_text = pytesseract.image_to_string(
-                img,
-                lang=self.lang,
-                config=custom_config,
-                timeout=self.config.timeout
+                img, lang=self.lang, config=custom_config, timeout=self.config.timeout
             )
             full_text.append(page_text)
 
@@ -340,41 +350,41 @@ class OCRProcessor:
         lines = self._group_into_lines(all_words)
 
         return {
-            'text': '\n\n'.join(full_text),
-            'blocks': blocks,
-            'lines': lines,
-            'words': all_words,
-            'confidence': round(avg_conf, 1),
-            'language': self.lang,
-            'pages': len(self._images),
-            'source': str(self._source_path) if self._source_path else None,
-            'preprocessed': self._preprocessed
+            "text": "\n\n".join(full_text),
+            "blocks": blocks,
+            "lines": lines,
+            "words": all_words,
+            "confidence": round(avg_conf, 1),
+            "language": self.lang,
+            "pages": len(self._images),
+            "source": str(self._source_path) if self._source_path else None,
+            "preprocessed": self._preprocessed,
         }
 
     def _group_into_blocks(self, words: List[Dict]) -> List[Dict]:
         """Group words into text blocks."""
         blocks = {}
         for word in words:
-            key = (word['page'], word['block_num'])
+            key = (word["page"], word["block_num"])
             if key not in blocks:
                 blocks[key] = {
-                    'page': word['page'],
-                    'block_num': word['block_num'],
-                    'words': [],
-                    'text': ''
+                    "page": word["page"],
+                    "block_num": word["block_num"],
+                    "words": [],
+                    "text": "",
                 }
-            blocks[key]['words'].append(word)
+            blocks[key]["words"].append(word)
 
         # Build block text
         for block in blocks.values():
-            block['text'] = ' '.join(w['text'] for w in block['words'])
+            block["text"] = " ".join(w["text"] for w in block["words"])
             # Calculate bounding box
-            if block['words']:
-                min_x = min(w['bbox'][0] for w in block['words'])
-                min_y = min(w['bbox'][1] for w in block['words'])
-                max_x = max(w['bbox'][0] + w['bbox'][2] for w in block['words'])
-                max_y = max(w['bbox'][1] + w['bbox'][3] for w in block['words'])
-                block['bbox'] = [min_x, min_y, max_x - min_x, max_y - min_y]
+            if block["words"]:
+                min_x = min(w["bbox"][0] for w in block["words"])
+                min_y = min(w["bbox"][1] for w in block["words"])
+                max_x = max(w["bbox"][0] + w["bbox"][2] for w in block["words"])
+                max_y = max(w["bbox"][1] + w["bbox"][3] for w in block["words"])
+                block["bbox"] = [min_x, min_y, max_x - min_x, max_y - min_y]
 
         return list(blocks.values())
 
@@ -382,19 +392,19 @@ class OCRProcessor:
         """Group words into lines."""
         lines = {}
         for word in words:
-            key = (word['page'], word['block_num'], word['line_num'])
+            key = (word["page"], word["block_num"], word["line_num"])
             if key not in lines:
                 lines[key] = {
-                    'page': word['page'],
-                    'block_num': word['block_num'],
-                    'line_num': word['line_num'],
-                    'words': [],
-                    'text': ''
+                    "page": word["page"],
+                    "block_num": word["block_num"],
+                    "line_num": word["line_num"],
+                    "words": [],
+                    "text": "",
                 }
-            lines[key]['words'].append(word)
+            lines[key]["words"].append(word)
 
         for line in lines.values():
-            line['text'] = ' '.join(w['text'] for w in line['words'])
+            line["text"] = " ".join(w["text"] for w in line["words"])
 
         return list(lines.values())
 
@@ -402,12 +412,9 @@ class OCRProcessor:
         """Extract text page by page."""
         results = {}
         for idx, img in enumerate(self._images):
-            custom_config = f'--psm {self.config.psm} --oem {self.config.oem}'
+            custom_config = f"--psm {self.config.psm} --oem {self.config.oem}"
             text = pytesseract.image_to_string(
-                img,
-                lang=self.lang,
-                config=custom_config,
-                timeout=self.config.timeout
+                img, lang=self.lang, config=custom_config, timeout=self.config.timeout
             )
             results[idx + 1] = text
         return results
@@ -423,40 +430,37 @@ class OCRProcessor:
 
         for img in self._images:
             # Use table detection mode
-            custom_config = f'--psm 6 --oem {self.config.oem}'
+            custom_config = f"--psm 6 --oem {self.config.oem}"
             data = pytesseract.image_to_data(
                 img,
                 lang=self.lang,
                 config=custom_config,
                 output_type=pytesseract.Output.DICT,
-                timeout=self.config.timeout
+                timeout=self.config.timeout,
             )
 
             # Simple heuristic: group by Y position for rows
             lines_by_y = {}
-            for i in range(len(data['text'])):
-                text = data['text'][i].strip()
+            for i in range(len(data["text"])):
+                text = data["text"][i].strip()
                 if not text:
                     continue
 
-                y = data['top'][i]
+                y = data["top"][i]
                 # Round Y to group nearby items
                 y_bucket = (y // 20) * 20
 
                 if y_bucket not in lines_by_y:
                     lines_by_y[y_bucket] = []
 
-                lines_by_y[y_bucket].append({
-                    'text': text,
-                    'x': data['left'][i]
-                })
+                lines_by_y[y_bucket].append({"text": text, "x": data["left"][i]})
 
             # Sort each row by X position
             if lines_by_y:
                 table = []
                 for y in sorted(lines_by_y.keys()):
-                    row = sorted(lines_by_y[y], key=lambda x: x['x'])
-                    table.append([item['text'] for item in row])
+                    row = sorted(lines_by_y[y], key=lambda x: x["x"])
+                    table.append([item["text"] for item in row])
                 tables.append(table)
 
         return tables
@@ -480,19 +484,21 @@ class OCRProcessor:
         ]
 
         # Add text content
-        lines.append(result['text'])
+        lines.append(result["text"])
 
-        content = '\n'.join(lines)
-        filepath.write_text(content, encoding='utf-8')
+        content = "\n".join(lines)
+        filepath.write_text(content, encoding="utf-8")
         return str(filepath)
 
     def export_json(self, filepath: Union[str, Path]) -> str:
         """Export structured data as JSON."""
         result = self.extract_structured()
-        result['extracted_at'] = datetime.now().isoformat()
+        result["extracted_at"] = datetime.now().isoformat()
 
         filepath = Path(filepath)
-        filepath.write_text(json.dumps(result, indent=2, ensure_ascii=False), encoding='utf-8')
+        filepath.write_text(
+            json.dumps(result, indent=2, ensure_ascii=False), encoding="utf-8"
+        )
         return str(filepath)
 
     def export_html(self, filepath: Union[str, Path]) -> str:
@@ -521,13 +527,13 @@ class OCRProcessor:
             f"<span><strong>Confidence:</strong> {result['confidence']}%</span>",
             "</div>",
             "<div class='content'>",
-            result['text'].replace('<', '&lt;').replace('>', '&gt;'),
+            result["text"].replace("<", "&lt;").replace(">", "&gt;"),
             "</div>",
-            "</body></html>"
+            "</body></html>",
         ]
 
-        content = '\n'.join(html)
-        filepath.write_text(content, encoding='utf-8')
+        content = "\n".join(html)
+        filepath.write_text(content, encoding="utf-8")
         return str(filepath)
 
     def export_searchable_pdf(self, filepath: Union[str, Path]) -> str:
@@ -540,18 +546,18 @@ class OCRProcessor:
 
         for img in self._images:
             # Get text and positions
-            custom_config = f'--psm {self.config.psm} --oem {self.config.oem}'
+            custom_config = f"--psm {self.config.psm} --oem {self.config.oem}"
             data = pytesseract.image_to_data(
                 img,
                 lang=self.lang,
                 config=custom_config,
                 output_type=pytesseract.Output.DICT,
-                timeout=self.config.timeout
+                timeout=self.config.timeout,
             )
 
             # Create PDF page from image
             img_bytes = io.BytesIO()
-            img.save(img_bytes, format='PNG')
+            img.save(img_bytes, format="PNG")
             img_bytes.seek(0)
 
             img_doc = fitz.open(stream=img_bytes, filetype="png")
@@ -560,15 +566,15 @@ class OCRProcessor:
             page.insert_image(rect, stream=img_bytes.getvalue())
 
             # Add invisible text layer
-            for i in range(len(data['text'])):
-                text = data['text'][i].strip()
+            for i in range(len(data["text"])):
+                text = data["text"][i].strip()
                 if not text:
                     continue
 
-                x = data['left'][i]
-                y = data['top'][i]
-                w = data['width'][i]
-                h = data['height'][i]
+                x = data["left"][i]
+                y = data["top"][i]
+                w = data["width"][i]
+                h = data["height"][i]
 
                 # Add text annotation
                 text_rect = fitz.Rect(x, y, x + w, y + h)
@@ -576,7 +582,7 @@ class OCRProcessor:
                     (x, y + h * 0.8),  # Baseline position
                     text,
                     fontsize=max(6, h * 0.7),
-                    render_mode=3  # Invisible
+                    render_mode=3,  # Invisible
                 )
 
             img_doc.close()
@@ -597,7 +603,7 @@ class OCRProcessor:
 
         for idx, table in enumerate(tables):
             filepath = output_dir / f"table_{idx + 1}.csv"
-            with open(filepath, 'w', newline='', encoding='utf-8') as f:
+            with open(filepath, "w", newline="", encoding="utf-8") as f:
                 writer = csv.writer(f)
                 writer.writerows(table)
             exported.append(str(filepath))
@@ -608,7 +614,9 @@ class OCRProcessor:
         """Export detected tables as JSON."""
         tables = self.extract_tables()
         filepath = Path(filepath)
-        filepath.write_text(json.dumps(tables, indent=2, ensure_ascii=False), encoding='utf-8')
+        filepath.write_text(
+            json.dumps(tables, indent=2, ensure_ascii=False), encoding="utf-8"
+        )
         return str(filepath)
 
     def parse_receipt(self) -> Dict[str, Any]:
@@ -616,56 +624,56 @@ class OCRProcessor:
         text = self.extract_text()
 
         receipt = {
-            'vendor': None,
-            'date': None,
-            'items': [],
-            'subtotal': None,
-            'tax': None,
-            'total': None,
-            'raw_text': text
+            "vendor": None,
+            "date": None,
+            "items": [],
+            "subtotal": None,
+            "tax": None,
+            "total": None,
+            "raw_text": text,
         }
 
-        lines = text.split('\n')
+        lines = text.split("\n")
 
         # Try to find vendor (usually first non-empty line)
         for line in lines[:5]:
             if line.strip():
-                receipt['vendor'] = line.strip()
+                receipt["vendor"] = line.strip()
                 break
 
         # Find date patterns
         date_patterns = [
-            r'\d{1,2}/\d{1,2}/\d{2,4}',
-            r'\d{1,2}-\d{1,2}-\d{2,4}',
-            r'\d{4}-\d{2}-\d{2}',
+            r"\d{1,2}/\d{1,2}/\d{2,4}",
+            r"\d{1,2}-\d{1,2}-\d{2,4}",
+            r"\d{4}-\d{2}-\d{2}",
         ]
         for pattern in date_patterns:
             match = re.search(pattern, text)
             if match:
-                receipt['date'] = match.group()
+                receipt["date"] = match.group()
                 break
 
         # Find total (look for common patterns)
         total_patterns = [
-            r'total[:\s]*\$?([\d,]+\.?\d*)',
-            r'amount[:\s]*\$?([\d,]+\.?\d*)',
-            r'grand total[:\s]*\$?([\d,]+\.?\d*)',
+            r"total[:\s]*\$?([\d,]+\.?\d*)",
+            r"amount[:\s]*\$?([\d,]+\.?\d*)",
+            r"grand total[:\s]*\$?([\d,]+\.?\d*)",
         ]
         for pattern in total_patterns:
             match = re.search(pattern, text.lower())
             if match:
-                receipt['total'] = match.group(1)
+                receipt["total"] = match.group(1)
                 break
 
         # Find tax
         tax_patterns = [
-            r'tax[:\s]*\$?([\d,]+\.?\d*)',
-            r'vat[:\s]*\$?([\d,]+\.?\d*)',
+            r"tax[:\s]*\$?([\d,]+\.?\d*)",
+            r"vat[:\s]*\$?([\d,]+\.?\d*)",
         ]
         for pattern in tax_patterns:
             match = re.search(pattern, text.lower())
             if match:
-                receipt['tax'] = match.group(1)
+                receipt["tax"] = match.group(1)
                 break
 
         return receipt
@@ -675,40 +683,40 @@ class OCRProcessor:
         text = self.extract_text()
 
         contact = {
-            'name': None,
-            'title': None,
-            'company': None,
-            'email': [],
-            'phone': [],
-            'address': None,
-            'website': [],
-            'raw_text': text
+            "name": None,
+            "title": None,
+            "company": None,
+            "email": [],
+            "phone": [],
+            "address": None,
+            "website": [],
+            "raw_text": text,
         }
 
         # Find emails
-        email_pattern = r'[\w\.-]+@[\w\.-]+\.\w+'
-        contact['email'] = re.findall(email_pattern, text)
+        email_pattern = r"[\w\.-]+@[\w\.-]+\.\w+"
+        contact["email"] = re.findall(email_pattern, text)
 
         # Find phone numbers
-        phone_pattern = r'[\+\d][\d\s\-\(\)]{8,}'
-        contact['phone'] = re.findall(phone_pattern, text)
+        phone_pattern = r"[\+\d][\d\s\-\(\)]{8,}"
+        contact["phone"] = re.findall(phone_pattern, text)
 
         # Find websites
-        url_pattern = r'(?:www\.)?[\w\-]+\.(?:com|org|net|io|co)(?:/[\w\-]*)?'
-        contact['website'] = re.findall(url_pattern, text.lower())
+        url_pattern = r"(?:www\.)?[\w\-]+\.(?:com|org|net|io|co)(?:/[\w\-]*)?"
+        contact["website"] = re.findall(url_pattern, text.lower())
 
         # First line often contains name
-        lines = [l.strip() for l in text.split('\n') if l.strip()]
+        lines = [l.strip() for l in text.split("\n") if l.strip()]
         if lines:
             # Name is usually the first or second line
             for line in lines[:3]:
                 # Skip if it looks like email/phone/url
-                if '@' in line or 'www' in line.lower() or re.search(r'\d{5,}', line):
+                if "@" in line or "www" in line.lower() or re.search(r"\d{5,}", line):
                     continue
                 # Likely a name if it's 2-4 words
                 words = line.split()
                 if 1 < len(words) <= 4 and all(w[0].isupper() for w in words if w):
-                    contact['name'] = line
+                    contact["name"] = line
                     break
 
         return contact
@@ -716,13 +724,14 @@ class OCRProcessor:
 
 # ==================== BATCH PROCESSING ====================
 
+
 def batch_ocr(
     input_dir: Union[str, Path],
     output_dir: Union[str, Path],
-    output_format: str = 'text',
-    lang: str = 'eng',
+    output_format: str = "text",
+    lang: str = "eng",
     recursive: bool = False,
-    preprocess: bool = False
+    preprocess: bool = False,
 ) -> Dict[str, Any]:
     """
     Process multiple documents with OCR.
@@ -743,7 +752,7 @@ def batch_ocr(
     output_dir.mkdir(parents=True, exist_ok=True)
 
     # Find files
-    extensions = ['*.png', '*.jpg', '*.jpeg', '*.tiff', '*.tif', '*.bmp', '*.pdf']
+    extensions = ["*.png", "*.jpg", "*.jpeg", "*.tiff", "*.tif", "*.bmp", "*.pdf"]
     files = []
     for ext in extensions:
         if recursive:
@@ -751,7 +760,7 @@ def batch_ocr(
         else:
             files.extend(input_dir.glob(ext))
 
-    results = {'success': 0, 'failed': 0, 'errors': []}
+    results = {"success": 0, "failed": 0, "errors": []}
 
     for filepath in files:
         try:
@@ -764,24 +773,24 @@ def batch_ocr(
             rel_path = filepath.relative_to(input_dir) if recursive else filepath.name
             out_name = Path(rel_path).stem
 
-            if output_format == 'text':
+            if output_format == "text":
                 out_path = output_dir / f"{out_name}.txt"
-                out_path.write_text(processor.extract_text(), encoding='utf-8')
-            elif output_format == 'markdown':
+                out_path.write_text(processor.extract_text(), encoding="utf-8")
+            elif output_format == "markdown":
                 out_path = output_dir / f"{out_name}.md"
                 processor.export_markdown(out_path)
-            elif output_format == 'json':
+            elif output_format == "json":
                 out_path = output_dir / f"{out_name}.json"
                 processor.export_json(out_path)
-            elif output_format == 'html':
+            elif output_format == "html":
                 out_path = output_dir / f"{out_name}.html"
                 processor.export_html(out_path)
 
-            results['success'] += 1
+            results["success"] += 1
 
         except Exception as e:
-            results['failed'] += 1
-            results['errors'].append({'file': str(filepath), 'error': str(e)})
+            results["failed"] += 1
+            results["errors"].append({"file": str(filepath), "error": str(e)})
 
     return results
 
@@ -791,16 +800,20 @@ def batch_ocr(
 if __name__ == "__main__":
     import argparse
 
-    parser = argparse.ArgumentParser(description='OCR Document Processor')
-    parser.add_argument('input', help='Input image, PDF, or directory')
-    parser.add_argument('-o', '--output', help='Output path')
-    parser.add_argument('--format', choices=['text', 'markdown', 'json', 'html'],
-                        default='text', help='Output format')
-    parser.add_argument('--lang', default='eng', help='OCR language code')
-    parser.add_argument('--batch', action='store_true', help='Batch processing mode')
-    parser.add_argument('--preprocess', action='store_true', help='Apply preprocessing')
-    parser.add_argument('--deskew', action='store_true', help='Deskew images')
-    parser.add_argument('--denoise', action='store_true', help='Denoise images')
+    parser = argparse.ArgumentParser(description="OCR Document Processor")
+    parser.add_argument("input", help="Input image, PDF, or directory")
+    parser.add_argument("-o", "--output", help="Output path")
+    parser.add_argument(
+        "--format",
+        choices=["text", "markdown", "json", "html"],
+        default="text",
+        help="Output format",
+    )
+    parser.add_argument("--lang", default="eng", help="OCR language code")
+    parser.add_argument("--batch", action="store_true", help="Batch processing mode")
+    parser.add_argument("--preprocess", action="store_true", help="Apply preprocessing")
+    parser.add_argument("--deskew", action="store_true", help="Deskew images")
+    parser.add_argument("--denoise", action="store_true", help="Denoise images")
 
     args = parser.parse_args()
 
@@ -808,13 +821,13 @@ if __name__ == "__main__":
 
     if args.batch or input_path.is_dir():
         # Batch mode
-        output_dir = args.output or 'ocr_output'
+        output_dir = args.output or "ocr_output"
         results = batch_ocr(
             input_path,
             output_dir,
             output_format=args.format,
             lang=args.lang,
-            preprocess=args.preprocess
+            preprocess=args.preprocess,
         )
         print(f"Processed: {results['success']} files")
         print(f"Failed: {results['failed']} files")
@@ -825,21 +838,21 @@ if __name__ == "__main__":
         if args.preprocess or args.deskew or args.denoise:
             processor.preprocess(deskew=args.deskew, denoise=args.denoise)
 
-        if args.format == 'text':
+        if args.format == "text":
             text = processor.extract_text()
             if args.output:
-                Path(args.output).write_text(text, encoding='utf-8')
+                Path(args.output).write_text(text, encoding="utf-8")
             else:
                 print(text)
-        elif args.format == 'markdown':
-            output = args.output or input_path.with_suffix('.md')
+        elif args.format == "markdown":
+            output = args.output or input_path.with_suffix(".md")
             processor.export_markdown(output)
             print(f"Saved to: {output}")
-        elif args.format == 'json':
-            output = args.output or input_path.with_suffix('.json')
+        elif args.format == "json":
+            output = args.output or input_path.with_suffix(".json")
             processor.export_json(output)
             print(f"Saved to: {output}")
-        elif args.format == 'html':
-            output = args.output or input_path.with_suffix('.html')
+        elif args.format == "html":
+            output = args.output or input_path.with_suffix(".html")
             processor.export_html(output)
             print(f"Saved to: {output}")

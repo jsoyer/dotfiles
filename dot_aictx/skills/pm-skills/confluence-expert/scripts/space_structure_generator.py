@@ -70,7 +70,10 @@ TEAM_TYPE_SECTIONS = {
             "description": "System architecture, design decisions, and technical standards",
             "labels": ["architecture", "technical"],
             "children": [
-                {"title": "Architecture Decision Records", "labels": ["adr", "decisions"]},
+                {
+                    "title": "Architecture Decision Records",
+                    "labels": ["adr", "decisions"],
+                },
                 {"title": "System Design Documents", "labels": ["design", "system"]},
                 {"title": "API Documentation", "labels": ["api", "reference"]},
                 {"title": "Tech Stack", "labels": ["tech-stack"]},
@@ -107,7 +110,10 @@ TEAM_TYPE_SECTIONS = {
                 {"title": "Product Vision", "labels": ["vision"]},
                 {"title": "Roadmap", "labels": ["roadmap"]},
                 {"title": "OKRs & Goals", "labels": ["okr", "goals"]},
-                {"title": "Competitive Analysis", "labels": ["competitive", "analysis"]},
+                {
+                    "title": "Competitive Analysis",
+                    "labels": ["competitive", "analysis"],
+                },
             ],
         },
         {
@@ -174,7 +180,10 @@ TEAM_TYPE_SECTIONS = {
                 {"title": "Project Charter", "labels": ["charter"]},
                 {"title": "Scope & Deliverables", "labels": ["scope", "deliverables"]},
                 {"title": "Stakeholder Map", "labels": ["stakeholders"]},
-                {"title": "Timeline & Milestones", "labels": ["timeline", "milestones"]},
+                {
+                    "title": "Timeline & Milestones",
+                    "labels": ["timeline", "milestones"],
+                },
             ],
         },
         {
@@ -245,6 +254,7 @@ PERMISSION_TEMPLATES = {
 # Structure Generator
 # ---------------------------------------------------------------------------
 
+
 def generate_space_structure(team_info: Dict[str, Any]) -> Dict[str, Any]:
     """Generate Confluence space structure from team information."""
     team_name = team_info.get("name", "Team")
@@ -276,16 +286,23 @@ def generate_space_structure(team_info: Dict[str, Any]) -> Dict[str, Any]:
             "children": [],
         }
         for project in projects:
-            project_name = project if isinstance(project, str) else project.get("name", "Project")
-            project_section["children"].append({
-                "title": project_name,
-                "labels": ["project", _slugify(project_name)],
-                "children": [
-                    {"title": f"{project_name} - Overview", "labels": ["overview"]},
-                    {"title": f"{project_name} - Requirements", "labels": ["requirements"]},
-                    {"title": f"{project_name} - Status", "labels": ["status"]},
-                ],
-            })
+            project_name = (
+                project if isinstance(project, str) else project.get("name", "Project")
+            )
+            project_section["children"].append(
+                {
+                    "title": project_name,
+                    "labels": ["project", _slugify(project_name)],
+                    "children": [
+                        {"title": f"{project_name} - Overview", "labels": ["overview"]},
+                        {
+                            "title": f"{project_name} - Requirements",
+                            "labels": ["requirements"],
+                        },
+                        {"title": f"{project_name} - Status", "labels": ["status"]},
+                    ],
+                }
+            )
         page_tree.append(project_section)
 
     # Get permissions
@@ -296,7 +313,9 @@ def generate_space_structure(team_info: Dict[str, Any]) -> Dict[str, Any]:
     _collect_labels(page_tree, all_labels)
 
     # Build recommendations
-    recommendations = _generate_recommendations(team_name, team_type, team_size, projects)
+    recommendations = _generate_recommendations(
+        team_name, team_type, team_size, projects
+    )
 
     return {
         "space_key": _generate_space_key(team_name),
@@ -366,16 +385,24 @@ def _generate_recommendations(
     """Generate setup recommendations."""
     recs = []
 
-    recs.append(f"Create the space with key '{_generate_space_key(team_name)}' and enable the blog feature for announcements.")
+    recs.append(
+        f"Create the space with key '{_generate_space_key(team_name)}' and enable the blog feature for announcements."
+    )
 
     if team_size > 10:
-        recs.append("Large team detected. Consider sub-spaces or restricted sections for sub-teams.")
+        recs.append(
+            "Large team detected. Consider sub-spaces or restricted sections for sub-teams."
+        )
 
     if team_size <= 3:
-        recs.append("Small team. Simplify the structure by merging low-traffic sections.")
+        recs.append(
+            "Small team. Simplify the structure by merging low-traffic sections."
+        )
 
     if len(projects) > 5:
-        recs.append("Many projects listed. Consider a separate space per project for better isolation.")
+        recs.append(
+            "Many projects listed. Consider a separate space per project for better isolation."
+        )
 
     if team_type == "engineering":
         recs.append("Set up page templates for ADRs, runbooks, and design docs.")
@@ -388,7 +415,9 @@ def _generate_recommendations(
         recs.append("Use labels consistently to enable filtered content views.")
 
     recs.append("Review and update space permissions quarterly.")
-    recs.append("Archive pages older than 6 months that are no longer actively referenced.")
+    recs.append(
+        "Archive pages older than 6 months that are no longer actively referenced."
+    )
 
     return recs
 
@@ -396,6 +425,7 @@ def _generate_recommendations(
 # ---------------------------------------------------------------------------
 # Output Formatting
 # ---------------------------------------------------------------------------
+
 
 def _format_page_tree(pages: List[Dict], indent: int = 0) -> List[str]:
     """Format page tree as indented text."""
@@ -470,6 +500,7 @@ def format_json_output(result: Dict[str, Any]) -> Dict[str, Any]:
 # ---------------------------------------------------------------------------
 # CLI Interface
 # ---------------------------------------------------------------------------
+
 
 def main() -> int:
     """Main CLI entry point."""

@@ -39,12 +39,19 @@ def run_scenario(
 
     result = subprocess.run(
         [
-            "claude", "-p", scenario.prompt,
-            "--model", model,
-            "--max-turns", str(max_turns),
-            "--add-dir", str(sandbox_dir),
-            "--allowedTools", "Read,Write,Edit,Bash,Glob,Grep",
-            "--output-format", "stream-json",
+            "claude",
+            "-p",
+            scenario.prompt,
+            "--model",
+            model,
+            "--max-turns",
+            str(max_turns),
+            "--add-dir",
+            str(sandbox_dir),
+            "--allowedTools",
+            "Read,Write,Edit,Bash,Glob,Grep",
+            "--output-format",
+            "stream-json",
             "--verbose",
         ],
         capture_output=True,
@@ -139,23 +146,27 @@ def _parse_stream_json(stdout: str) -> list[ObservationEvent]:
                         else:
                             output_str = str(output_content)[:5000]
 
-                        events.append(ObservationEvent(
-                            timestamp=f"T{info['order']:04d}",
-                            event="tool_complete",
-                            tool=info["tool"],
-                            session=msg.get("session_id", "unknown"),
-                            input=info["input"],
-                            output=output_str,
-                        ))
+                        events.append(
+                            ObservationEvent(
+                                timestamp=f"T{info['order']:04d}",
+                                event="tool_complete",
+                                tool=info["tool"],
+                                session=msg.get("session_id", "unknown"),
+                                input=info["input"],
+                                output=output_str,
+                            )
+                        )
 
     for _tool_use_id, info in pending.items():
-        events.append(ObservationEvent(
-            timestamp=f"T{info['order']:04d}",
-            event="tool_complete",
-            tool=info["tool"],
-            session="unknown",
-            input=info["input"],
-            output="",
-        ))
+        events.append(
+            ObservationEvent(
+                timestamp=f"T{info['order']:04d}",
+                event="tool_complete",
+                tool=info["tool"],
+                session="unknown",
+                input=info["input"],
+                output="",
+            )
+        )
 
     return sorted(events, key=lambda e: e.timestamp)

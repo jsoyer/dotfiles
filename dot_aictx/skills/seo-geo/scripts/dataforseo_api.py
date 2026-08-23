@@ -2,6 +2,7 @@
 """
 DataForSEO API wrapper
 """
+
 import urllib.request
 import urllib.parse
 import json
@@ -16,25 +17,21 @@ def api_post(endpoint: str, data: list) -> dict:
     """Make POST request to DataForSEO API"""
     login, password = get_dataforseo_credentials()
     if not login or not password:
-        print("error: DATAFORSEO_LOGIN and DATAFORSEO_PASSWORD not set", file=sys.stderr)
+        print(
+            "error: DATAFORSEO_LOGIN and DATAFORSEO_PASSWORD not set", file=sys.stderr
+        )
         print("Run: export DATAFORSEO_LOGIN=your_login", file=sys.stderr)
         print("     export DATAFORSEO_PASSWORD=your_password", file=sys.stderr)
         sys.exit(1)
-    
+
     url = f"{API_BASE}/{endpoint}"
     auth = base64.b64encode(f"{login}:{password}".encode()).decode()
-    headers = {
-        "Authorization": f"Basic {auth}",
-        "Content-Type": "application/json"
-    }
-    
+    headers = {"Authorization": f"Basic {auth}", "Content-Type": "application/json"}
+
     req = urllib.request.Request(
-        url,
-        data=json.dumps(data).encode(),
-        headers=headers,
-        method="POST"
+        url, data=json.dumps(data).encode(), headers=headers, method="POST"
     )
-    
+
     try:
         with urllib.request.urlopen(req, timeout=60) as resp:
             return json.loads(resp.read().decode())
@@ -53,11 +50,11 @@ def format_count(n) -> str:
         return "0"
     n = int(n)
     if n >= 1_000_000_000:
-        return f"{n/1_000_000_000:.1f}B"
+        return f"{n / 1_000_000_000:.1f}B"
     if n >= 1_000_000:
-        return f"{n/1_000_000:.1f}M"
+        return f"{n / 1_000_000:.1f}M"
     if n >= 1_000:
-        return f"{n/1_000:.1f}K"
+        return f"{n / 1_000:.1f}K"
     return str(n)
 
 

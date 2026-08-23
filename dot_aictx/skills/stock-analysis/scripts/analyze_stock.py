@@ -31,10 +31,26 @@ import yfinance as yf
 
 # Top 20 supported cryptocurrencies
 SUPPORTED_CRYPTOS = {
-    "BTC-USD", "ETH-USD", "BNB-USD", "SOL-USD", "XRP-USD",
-    "ADA-USD", "DOGE-USD", "AVAX-USD", "DOT-USD", "MATIC-USD",
-    "LINK-USD", "ATOM-USD", "UNI-USD", "LTC-USD", "BCH-USD",
-    "XLM-USD", "ALGO-USD", "VET-USD", "FIL-USD", "NEAR-USD",
+    "BTC-USD",
+    "ETH-USD",
+    "BNB-USD",
+    "SOL-USD",
+    "XRP-USD",
+    "ADA-USD",
+    "DOGE-USD",
+    "AVAX-USD",
+    "DOT-USD",
+    "MATIC-USD",
+    "LINK-USD",
+    "ATOM-USD",
+    "UNI-USD",
+    "LTC-USD",
+    "BCH-USD",
+    "XLM-USD",
+    "ALGO-USD",
+    "VET-USD",
+    "FIL-USD",
+    "NEAR-USD",
 }
 
 # Crypto category mapping for sector-like analysis
@@ -85,6 +101,7 @@ class StockData:
 @dataclass
 class CryptoFundamentals:
     """Crypto-specific fundamentals (replaces P/E, margins for crypto)."""
+
     market_cap: float | None
     market_cap_rank: str  # "large", "mid", "small"
     volume_24h: float | None
@@ -233,7 +250,10 @@ def fetch_stock_data(ticker: str, verbose: bool = False) -> StockData | None:
     for attempt in range(max_retries):
         try:
             if verbose:
-                print(f"Fetching data for {ticker}... (attempt {attempt + 1}/{max_retries})", file=sys.stderr)
+                print(
+                    f"Fetching data for {ticker}... (attempt {attempt + 1}/{max_retries})",
+                    file=sys.stderr,
+                )
 
             stock = yf.Ticker(ticker)
             info = stock.info
@@ -274,13 +294,19 @@ def fetch_stock_data(ticker: str, verbose: bool = False) -> StockData | None:
 
         except Exception as e:
             if attempt < max_retries - 1:
-                wait_time = 2 ** attempt  # Exponential backoff
+                wait_time = 2**attempt  # Exponential backoff
                 if verbose:
-                    print(f"Error fetching {ticker}: {e}. Retrying in {wait_time}s...", file=sys.stderr)
+                    print(
+                        f"Error fetching {ticker}: {e}. Retrying in {wait_time}s...",
+                        file=sys.stderr,
+                    )
                 time.sleep(wait_time)
             else:
                 if verbose:
-                    print(f"Failed to fetch {ticker} after {max_retries} attempts", file=sys.stderr)
+                    print(
+                        f"Failed to fetch {ticker} after {max_retries} attempts",
+                        file=sys.stderr,
+                    )
                 return None
 
     return None
@@ -362,10 +388,10 @@ def analyze_fundamentals(data: StockData) -> Fundamentals | None:
             metrics["operating_margin"] = round(op_margin, 3)
             if op_margin > 0.15:
                 scores.append(0.5)
-                explanations.append(f"Strong margin: {op_margin*100:.1f}%")
+                explanations.append(f"Strong margin: {op_margin * 100:.1f}%")
             elif op_margin < 0.05:
                 scores.append(-0.5)
-                explanations.append(f"Weak margin: {op_margin*100:.1f}%")
+                explanations.append(f"Weak margin: {op_margin * 100:.1f}%")
 
         # Revenue Growth
         rev_growth = info.get("revenueGrowth")
@@ -373,10 +399,10 @@ def analyze_fundamentals(data: StockData) -> Fundamentals | None:
             metrics["revenue_growth_yoy"] = round(rev_growth, 3)
             if rev_growth > 0.20:
                 scores.append(0.5)
-                explanations.append(f"Strong growth: {rev_growth*100:.1f}% YoY")
+                explanations.append(f"Strong growth: {rev_growth * 100:.1f}% YoY")
             elif rev_growth < 0.05:
                 scores.append(-0.3)
-                explanations.append(f"Slow growth: {rev_growth*100:.1f}% YoY")
+                explanations.append(f"Slow growth: {rev_growth * 100:.1f}% YoY")
             else:
                 scores.append(0.2)
 
@@ -388,7 +414,7 @@ def analyze_fundamentals(data: StockData) -> Fundamentals | None:
                 scores.append(0.3)
             elif debt_equity > 200:
                 scores.append(-0.5)
-                explanations.append(f"High debt: D/E {debt_equity/100:.1f}x")
+                explanations.append(f"High debt: D/E {debt_equity / 100:.1f}x")
 
         if not scores:
             return None
@@ -409,7 +435,9 @@ def analyze_fundamentals(data: StockData) -> Fundamentals | None:
         return None
 
 
-def analyze_crypto_fundamentals(data: StockData, verbose: bool = False) -> CryptoFundamentals | None:
+def analyze_crypto_fundamentals(
+    data: StockData, verbose: bool = False
+) -> CryptoFundamentals | None:
     """Analyze crypto-specific fundamentals (market cap, supply, category)."""
     if data.asset_type != "crypto":
         return None
@@ -463,7 +491,9 @@ def analyze_crypto_fundamentals(data: StockData, verbose: bool = False) -> Crypt
                     # Simple correlation on overlapping dates
                     common_dates = crypto_returns.index.intersection(btc_returns.index)
                     if len(common_dates) > 10:
-                        btc_correlation = crypto_returns.loc[common_dates].corr(btc_returns.loc[common_dates])
+                        btc_correlation = crypto_returns.loc[common_dates].corr(
+                            btc_returns.loc[common_dates]
+                        )
         except Exception:
             pass
 
@@ -480,7 +510,7 @@ def analyze_crypto_fundamentals(data: StockData, verbose: bool = False) -> Crypt
 
         # Build explanation
         explanations = []
-        explanations.append(f"Market cap: ${market_cap/1e9:.1f}B ({market_cap_rank})")
+        explanations.append(f"Market cap: ${market_cap / 1e9:.1f}B ({market_cap_rank})")
         if category != "Unknown":
             explanations.append(f"Category: {category}")
         if btc_correlation is not None:
@@ -604,10 +634,15 @@ def analyze_historical_patterns(data: StockData) -> HistoricalPatterns | None:
                     earnings_day = pd.Timestamp(earnings_date).date()
 
                     # Find closest trading day
-                    price_data = data.price_history[data.price_history.index.date == earnings_day]
+                    price_data = data.price_history[
+                        data.price_history.index.date == earnings_day
+                    ]
 
                     if not price_data.empty:
-                        day_change = ((price_data["Close"].iloc[0] - price_data["Open"].iloc[0]) / price_data["Open"].iloc[0]) * 100
+                        day_change = (
+                            (price_data["Close"].iloc[0] - price_data["Open"].iloc[0])
+                            / price_data["Open"].iloc[0]
+                        ) * 100
                         reactions.append(day_change)
                 except Exception:
                     continue
@@ -726,7 +761,9 @@ def analyze_market_context(verbose: bool = False) -> MarketContext | None:
 
         try:
             if verbose:
-                print("Fetching safe-haven indicators (GLD, TLT, UUP)...", file=sys.stderr)
+                print(
+                    "Fetching safe-haven indicators (GLD, TLT, UUP)...", file=sys.stderr
+                )
 
             # Fetch safe-haven ETFs
             gld = yf.Ticker("GLD")  # Gold
@@ -754,13 +791,21 @@ def analyze_market_context(verbose: bool = False) -> MarketContext | None:
                 uup_change_5d = ((uup_current - uup_5d_ago) / uup_5d_ago) * 100
 
             # Risk-off detection: All three safe-havens rising together
-            if (gld_change_5d is not None and gld_change_5d >= 2.0 and
-                tlt_change_5d is not None and tlt_change_5d >= 1.0 and
-                uup_change_5d is not None and uup_change_5d >= 1.0):
+            if (
+                gld_change_5d is not None
+                and gld_change_5d >= 2.0
+                and tlt_change_5d is not None
+                and tlt_change_5d >= 1.0
+                and uup_change_5d is not None
+                and uup_change_5d >= 1.0
+            ):
                 risk_off_detected = True
                 overall_score -= 0.5  # Reduce score significantly
                 if verbose:
-                    print(f"    🛡️ RISK-OFF DETECTED: GLD {gld_change_5d:+.1f}%, TLT {tlt_change_5d:+.1f}%, UUP {uup_change_5d:+.1f}%", file=sys.stderr)
+                    print(
+                        f"    🛡️ RISK-OFF DETECTED: GLD {gld_change_5d:+.1f}%, TLT {tlt_change_5d:+.1f}%, UUP {uup_change_5d:+.1f}%",
+                        file=sys.stderr,
+                    )
 
         except Exception as e:
             if verbose:
@@ -824,8 +869,21 @@ CRISIS_KEYWORDS = {
     "war": ["war", "invasion", "military strike", "attack", "conflict", "combat"],
     "economic": ["recession", "crisis", "collapse", "default", "bankruptcy", "crash"],
     "regulatory": ["sanctions", "embargo", "ban", "investigation", "fraud", "probe"],
-    "disaster": ["earthquake", "hurricane", "pandemic", "outbreak", "disaster", "catastrophe"],
-    "financial": ["emergency rate", "fed emergency", "bailout", "circuit breaker", "trading halt"],
+    "disaster": [
+        "earthquake",
+        "hurricane",
+        "pandemic",
+        "outbreak",
+        "disaster",
+        "catastrophe",
+    ],
+    "financial": [
+        "emergency rate",
+        "fed emergency",
+        "bailout",
+        "circuit breaker",
+        "trading halt",
+    ],
 }
 
 # Geopolitical event → sector mapping (v4.0.0)
@@ -905,7 +963,9 @@ def check_breaking_news(verbose: bool = False) -> list[str] | None:
                     # Parse publication date
                     pub_date = None
                     if hasattr(entry, "published_parsed") and entry.published_parsed:
-                        pub_date = datetime(*entry.published_parsed[:6], tzinfo=timezone.utc)
+                        pub_date = datetime(
+                            *entry.published_parsed[:6], tzinfo=timezone.utc
+                        )
 
                     # Skip if older than 24h
                     if pub_date and pub_date < cutoff_time:
@@ -920,8 +980,16 @@ def check_breaking_news(verbose: bool = False) -> list[str] | None:
                         for keyword in keywords:
                             if keyword in text:
                                 alert_text = entry.get("title", "Unknown alert")
-                                hours_ago = int((now - pub_date).total_seconds() / 3600) if pub_date else None
-                                time_str = f"{hours_ago}h ago" if hours_ago is not None else "recent"
+                                hours_ago = (
+                                    int((now - pub_date).total_seconds() / 3600)
+                                    if pub_date
+                                    else None
+                                )
+                                time_str = (
+                                    f"{hours_ago}h ago"
+                                    if hours_ago is not None
+                                    else "recent"
+                                )
 
                                 alert = f"{alert_text} ({time_str})"
                                 if alert not in alerts:  # Deduplicate
@@ -955,7 +1023,7 @@ def check_sector_geopolitical_risk(
     ticker: str,
     sector: str | None,
     breaking_news: list[str] | None,
-    verbose: bool = False
+    verbose: bool = False,
 ) -> tuple[str | None, float]:
     """
     Check if ticker is exposed to geopolitical risks based on breaking news.
@@ -996,25 +1064,35 @@ def check_sector_geopolitical_risk(
             penalty = 0.3  # Reduce BUY confidence by 30%
 
             if verbose:
-                print(f"    Geopolitical risk detected: {event_name} affects {ticker}", file=sys.stderr)
+                print(
+                    f"    Geopolitical risk detected: {event_name} affects {ticker}",
+                    file=sys.stderr,
+                )
 
             return warning, penalty
 
         # Check if sector is affected (even if ticker not in list)
         if sector and sector in event_data["sectors"]:
             # Sector exposure (weaker signal)
-            warning = f"⚠️ SECTOR RISK: {sector} sector exposed to {event_data['impact']}"
+            warning = (
+                f"⚠️ SECTOR RISK: {sector} sector exposed to {event_data['impact']}"
+            )
             penalty = 0.15  # Reduce BUY confidence by 15%
 
             if verbose:
-                print(f"    Sector risk detected: {event_name} affects {sector} sector", file=sys.stderr)
+                print(
+                    f"    Sector risk detected: {event_name} affects {sector} sector",
+                    file=sys.stderr,
+                )
 
             return warning, penalty
 
     return None, 0.0
 
 
-def analyze_sector_performance(data: StockData, verbose: bool = False) -> SectorComparison | None:
+def analyze_sector_performance(
+    data: StockData, verbose: bool = False
+) -> SectorComparison | None:
     """Compare stock performance to its sector."""
     try:
         sector = data.info.get("sector")
@@ -1041,7 +1119,9 @@ def analyze_sector_performance(data: StockData, verbose: bool = False) -> Sector
             return None
 
         # Calculate 1-month returns
-        stock_1m_ago = data.price_history["Close"].iloc[-min(22, len(data.price_history))]
+        stock_1m_ago = data.price_history["Close"].iloc[
+            -min(22, len(data.price_history))
+        ]
         stock_current = data.price_history["Close"].iloc[-1]
         stock_return_1m = ((stock_current - stock_1m_ago) / stock_1m_ago) * 100
 
@@ -1050,7 +1130,9 @@ def analyze_sector_performance(data: StockData, verbose: bool = False) -> Sector
         sector_return_1m = ((sector_current - sector_1m_ago) / sector_1m_ago) * 100
 
         # Calculate relative strength
-        relative_strength = stock_return_1m / sector_return_1m if sector_return_1m != 0 else 1.0
+        relative_strength = (
+            stock_return_1m / sector_return_1m if sector_return_1m != 0 else 1.0
+        )
 
         # Sector 10-day trend
         sector_10d_ago = sector_hist["Close"].iloc[-min(10, len(sector_hist))]
@@ -1144,7 +1226,9 @@ def analyze_earnings_timing(data: StockData) -> EarningsTiming | None:
         if days_until_earnings is not None and days_until_earnings <= 14:
             timing_flag = "pre_earnings"
             confidence_adjustment = -0.3
-            caveats.append(f"Earnings in {days_until_earnings} days - high volatility expected")
+            caveats.append(
+                f"Earnings in {days_until_earnings} days - high volatility expected"
+            )
 
         # Post-earnings check (< 5 days)
         price_change_5d = None
@@ -1158,13 +1242,19 @@ def analyze_earnings_timing(data: StockData) -> EarningsTiming | None:
                 if price_change_5d > 15:
                     timing_flag = "post_earnings"
                     confidence_adjustment = -0.2
-                    caveats.append(f"Up {price_change_5d:.1f}% in 5 days - gains may be priced in")
+                    caveats.append(
+                        f"Up {price_change_5d:.1f}% in 5 days - gains may be priced in"
+                    )
 
         return EarningsTiming(
             days_until_earnings=days_until_earnings,
             days_since_earnings=days_since_earnings,
-            next_earnings_date=next_earnings_date.strftime("%Y-%m-%d") if next_earnings_date else None,
-            last_earnings_date=last_earnings_date.strftime("%Y-%m-%d") if last_earnings_date else None,
+            next_earnings_date=next_earnings_date.strftime("%Y-%m-%d")
+            if next_earnings_date
+            else None,
+            last_earnings_date=last_earnings_date.strftime("%Y-%m-%d")
+            if last_earnings_date
+            else None,
             timing_flag=timing_flag,
             price_change_5d=price_change_5d,
             confidence_adjustment=confidence_adjustment,
@@ -1226,7 +1316,9 @@ def analyze_momentum(data: StockData) -> MomentumAnalysis | None:
         # Get 52-week high/low
         high_52w = data.info.get("fiftyTwoWeekHigh")
         low_52w = data.info.get("fiftyTwoWeekLow")
-        current_price = data.info.get("regularMarketPrice") or data.info.get("currentPrice")
+        current_price = data.info.get("regularMarketPrice") or data.info.get(
+            "currentPrice"
+        )
 
         price_vs_52w_low = None
         price_vs_52w_high = None
@@ -1271,7 +1363,9 @@ def analyze_momentum(data: StockData) -> MomentumAnalysis | None:
         if volume_ratio and volume_ratio > 1.5:
             explanations.append(f"Volume {volume_ratio:.1f}x average")
 
-        explanation = "; ".join(explanations) if explanations else "Momentum indicators neutral"
+        explanation = (
+            "; ".join(explanations) if explanations else "Momentum indicators neutral"
+        )
 
         return MomentumAnalysis(
             rsi_14d=rsi_14d,
@@ -1327,6 +1421,7 @@ async def get_fear_greed_index() -> tuple[float, int | None, str | None] | None:
     def _fetch():
         try:
             from fear_and_greed import get as get_fear_greed
+
             result = get_fear_greed()
             return result
         except Exception:
@@ -1359,7 +1454,9 @@ async def get_fear_greed_index() -> tuple[float, int | None, str | None] | None:
         return None
 
 
-async def get_short_interest(data: StockData) -> tuple[float, float | None, float | None] | None:
+async def get_short_interest(
+    data: StockData,
+) -> tuple[float, float | None, float | None] | None:
     """
     Analyze short interest (from yfinance).
     Returns: (score, short_interest_pct, days_to_cover) or None.
@@ -1379,7 +1476,9 @@ async def get_short_interest(data: StockData) -> tuple[float, float | None, floa
         # Scoring logic
         if short_pct_float > 20:
             if days_to_cover and days_to_cover > 10:
-                score = 0.4  # High short interest + high days to cover = squeeze potential
+                score = (
+                    0.4  # High short interest + high days to cover = squeeze potential
+                )
             else:
                 score = -0.3  # High short interest but justified
         elif short_pct_float < 5:
@@ -1405,6 +1504,7 @@ async def get_vix_term_structure() -> tuple[float, str | None, float | None] | N
     def _fetch():
         try:
             import yfinance as yf
+
             vix = yf.Ticker("^VIX")
             vix_data = vix.history(period="5d")
             if vix_data.empty:
@@ -1443,7 +1543,9 @@ async def get_vix_term_structure() -> tuple[float, str | None, float | None] | N
         return None
 
 
-async def get_insider_activity(ticker: str, period_days: int = 90) -> tuple[float, int | None, float | None] | None:
+async def get_insider_activity(
+    ticker: str, period_days: int = 90
+) -> tuple[float, int | None, float | None] | None:
     """
     Analyze insider trading from SEC Form 4 filings using edgartools.
     Returns: (score, net_shares, net_value_millions) or None.
@@ -1457,6 +1559,7 @@ async def get_insider_activity(ticker: str, period_days: int = 90) -> tuple[floa
 
     Note: SEC EDGAR API requires User-Agent with email.
     """
+
     def _fetch():
         try:
             from edgar import Company, set_identity
@@ -1491,13 +1594,15 @@ async def get_insider_activity(ticker: str, period_days: int = 90) -> tuple[floa
                 try:
                     # Check filing date
                     filing_date = filing.filing_date
-                    if hasattr(filing_date, 'to_pydatetime'):
+                    if hasattr(filing_date, "to_pydatetime"):
                         filing_date = filing_date.to_pydatetime()
                     elif isinstance(filing_date, str):
                         filing_date = datetime.strptime(filing_date, "%Y-%m-%d")
 
                     # Convert date object to datetime for comparison
-                    if hasattr(filing_date, 'year') and not hasattr(filing_date, 'hour'):
+                    if hasattr(filing_date, "year") and not hasattr(
+                        filing_date, "hour"
+                    ):
                         filing_date = datetime.combine(filing_date, datetime.min.time())
 
                     if filing_date < cutoff_date:
@@ -1509,22 +1614,29 @@ async def get_insider_activity(ticker: str, period_days: int = 90) -> tuple[floa
                         continue
 
                     # Process purchases (edgartools returns DataFrames)
-                    if hasattr(form4, 'common_stock_purchases'):
+                    if hasattr(form4, "common_stock_purchases"):
                         purchases = form4.common_stock_purchases
                         if isinstance(purchases, pd.DataFrame) and not purchases.empty:
-                            if 'Shares' in purchases.columns:
-                                total_bought_shares += int(purchases['Shares'].sum())
-                            if 'Price' in purchases.columns and 'Shares' in purchases.columns:
-                                total_bought_value += float((purchases['Shares'] * purchases['Price']).sum())
+                            if "Shares" in purchases.columns:
+                                total_bought_shares += int(purchases["Shares"].sum())
+                            if (
+                                "Price" in purchases.columns
+                                and "Shares" in purchases.columns
+                            ):
+                                total_bought_value += float(
+                                    (purchases["Shares"] * purchases["Price"]).sum()
+                                )
 
                     # Process sales
-                    if hasattr(form4, 'common_stock_sales'):
+                    if hasattr(form4, "common_stock_sales"):
                         sales = form4.common_stock_sales
                         if isinstance(sales, pd.DataFrame) and not sales.empty:
-                            if 'Shares' in sales.columns:
-                                total_sold_shares += int(sales['Shares'].sum())
-                            if 'Price' in sales.columns and 'Shares' in sales.columns:
-                                total_sold_value += float((sales['Shares'] * sales['Price']).sum())
+                            if "Shares" in sales.columns:
+                                total_sold_shares += int(sales["Shares"].sum())
+                            if "Price" in sales.columns and "Shares" in sales.columns:
+                                total_sold_value += float(
+                                    (sales["Shares"] * sales["Price"]).sum()
+                                )
 
                 except Exception:
                     continue
@@ -1560,11 +1672,14 @@ async def get_insider_activity(ticker: str, period_days: int = 90) -> tuple[floa
         return None
 
 
-async def get_put_call_ratio(data: StockData) -> tuple[float, float | None, int | None, int | None] | None:
+async def get_put_call_ratio(
+    data: StockData,
+) -> tuple[float, float | None, int | None, int | None] | None:
     """
     Calculate put/call ratio from options chain (contrarian indicator).
     Returns: (score, ratio, put_volume, call_volume) or None.
     """
+
     def _fetch():
         try:
             if data.ticker_obj is None:
@@ -1579,8 +1694,16 @@ async def get_put_call_ratio(data: StockData) -> tuple[float, float | None, int 
             opt_chain = data.ticker_obj.option_chain(nearest_exp)
 
             # Calculate total put and call volume
-            put_volume = opt_chain.puts["volume"].sum() if "volume" in opt_chain.puts.columns else 0
-            call_volume = opt_chain.calls["volume"].sum() if "volume" in opt_chain.calls.columns else 0
+            put_volume = (
+                opt_chain.puts["volume"].sum()
+                if "volume" in opt_chain.puts.columns
+                else 0
+            )
+            call_volume = (
+                opt_chain.calls["volume"].sum()
+                if "volume" in opt_chain.calls.columns
+                else 0
+            )
 
             if call_volume == 0 or put_volume == 0:
                 return None
@@ -1612,7 +1735,9 @@ async def get_put_call_ratio(data: StockData) -> tuple[float, float | None, int 
         return None
 
 
-async def analyze_sentiment(data: StockData, verbose: bool = False) -> SentimentAnalysis | None:
+async def analyze_sentiment(
+    data: StockData, verbose: bool = False
+) -> SentimentAnalysis | None:
     """
     Analyze market sentiment using 5 sub-indicators in parallel.
     Requires at least 2 of 5 indicators for valid sentiment.
@@ -1650,9 +1775,11 @@ async def analyze_sentiment(data: StockData, verbose: bool = False) -> Sentiment
             asyncio.wait_for(get_fear_greed_index(), timeout=10),
             asyncio.wait_for(get_short_interest(data), timeout=10),
             asyncio.wait_for(get_vix_term_structure(), timeout=10),
-            asyncio.wait_for(get_insider_activity(data.ticker, period_days=90), timeout=10),
+            asyncio.wait_for(
+                get_insider_activity(data.ticker, period_days=90), timeout=10
+            ),
             asyncio.wait_for(get_put_call_ratio(data), timeout=10),
-            return_exceptions=True  # Don't fail if one indicator fails
+            return_exceptions=True,  # Don't fail if one indicator fails
         )
 
         # Process Fear & Greed Index
@@ -1662,24 +1789,39 @@ async def analyze_sentiment(data: StockData, verbose: bool = False) -> Sentiment
             scores.append(fear_greed_score)
             explanations.append(f"{fear_greed_status} ({fear_greed_value})")
             if verbose:
-                print(f"    Fear & Greed: {fear_greed_status} ({fear_greed_value}) → score {fear_greed_score:+.2f}", file=sys.stderr)
+                print(
+                    f"    Fear & Greed: {fear_greed_status} ({fear_greed_value}) → score {fear_greed_score:+.2f}",
+                    file=sys.stderr,
+                )
         elif verbose and isinstance(fear_greed_result, Exception):
             print(f"    Fear & Greed: Failed ({fear_greed_result})", file=sys.stderr)
 
         # Process Short Interest
         short_interest_result = results[1]
-        if isinstance(short_interest_result, tuple) and short_interest_result is not None:
-            short_interest_score, short_interest_pct, days_to_cover = short_interest_result
+        if (
+            isinstance(short_interest_result, tuple)
+            and short_interest_result is not None
+        ):
+            short_interest_score, short_interest_pct, days_to_cover = (
+                short_interest_result
+            )
             scores.append(short_interest_score)
             if days_to_cover:
-                explanations.append(f"Short interest {short_interest_pct:.1f}% (days to cover: {days_to_cover:.1f})")
+                explanations.append(
+                    f"Short interest {short_interest_pct:.1f}% (days to cover: {days_to_cover:.1f})"
+                )
             else:
                 explanations.append(f"Short interest {short_interest_pct:.1f}%")
             warnings.append("Short interest data typically ~2 weeks old (FINRA lag)")
             if verbose:
-                print(f"    Short Interest: {short_interest_pct:.1f}% → score {short_interest_score:+.2f}", file=sys.stderr)
+                print(
+                    f"    Short Interest: {short_interest_pct:.1f}% → score {short_interest_score:+.2f}",
+                    file=sys.stderr,
+                )
         elif verbose and isinstance(short_interest_result, Exception):
-            print(f"    Short Interest: Failed ({short_interest_result})", file=sys.stderr)
+            print(
+                f"    Short Interest: Failed ({short_interest_result})", file=sys.stderr
+            )
 
         # Process VIX Term Structure
         vix_result = results[2]
@@ -1688,20 +1830,28 @@ async def analyze_sentiment(data: StockData, verbose: bool = False) -> Sentiment
             scores.append(vix_structure_score)
             explanations.append(f"VIX {vix_structure}")
             if verbose:
-                print(f"    VIX Structure: {vix_structure} (slope {vix_slope:.1f}%) → score {vix_structure_score:+.2f}", file=sys.stderr)
+                print(
+                    f"    VIX Structure: {vix_structure} (slope {vix_slope:.1f}%) → score {vix_structure_score:+.2f}",
+                    file=sys.stderr,
+                )
         elif verbose and isinstance(vix_result, Exception):
             print(f"    VIX Structure: Failed ({vix_result})", file=sys.stderr)
 
         # Process Insider Activity
         insider_result = results[3]
         if isinstance(insider_result, tuple) and insider_result is not None:
-            insider_activity_score, insider_net_shares, insider_net_value = insider_result
+            insider_activity_score, insider_net_shares, insider_net_value = (
+                insider_result
+            )
             scores.append(insider_activity_score)
             if insider_net_value:
                 explanations.append(f"Insider net: ${insider_net_value:.1f}M")
             warnings.append("Insider trades may lag filing by 2-3 days")
             if verbose:
-                print(f"    Insider Activity: Net ${insider_net_value:.1f}M → score {insider_activity_score:+.2f}", file=sys.stderr)
+                print(
+                    f"    Insider Activity: Net ${insider_net_value:.1f}M → score {insider_activity_score:+.2f}",
+                    file=sys.stderr,
+                )
         elif verbose and isinstance(insider_result, Exception):
             print(f"    Insider Activity: Failed ({insider_result})", file=sys.stderr)
 
@@ -1712,7 +1862,10 @@ async def analyze_sentiment(data: StockData, verbose: bool = False) -> Sentiment
             scores.append(put_call_score)
             explanations.append(f"Put/call ratio {put_call_ratio:.2f}")
             if verbose:
-                print(f"    Put/Call Ratio: {put_call_ratio:.2f} → score {put_call_score:+.2f}", file=sys.stderr)
+                print(
+                    f"    Put/Call Ratio: {put_call_ratio:.2f} → score {put_call_score:+.2f}",
+                    file=sys.stderr,
+                )
         elif verbose and isinstance(put_call_result, Exception):
             print(f"    Put/Call Ratio: Failed ({put_call_result})", file=sys.stderr)
 
@@ -1725,7 +1878,10 @@ async def analyze_sentiment(data: StockData, verbose: bool = False) -> Sentiment
     indicators_available = len(scores)
     if indicators_available < 2:
         if verbose:
-            print(f"    Sentiment: Insufficient data ({indicators_available}/5 indicators)", file=sys.stderr)
+            print(
+                f"    Sentiment: Insufficient data ({indicators_available}/5 indicators)",
+                file=sys.stderr,
+            )
         return None
 
     # Calculate overall score as simple average
@@ -1830,7 +1986,9 @@ def synthesize_signal(
     normalized_weights = [w / total_weight for w in weights]
 
     # Calculate weighted score
-    final_score = sum(score * weight for (_, score), weight in zip(components, normalized_weights))
+    final_score = sum(
+        score * weight for (_, score), weight in zip(components, normalized_weights)
+    )
 
     # Determine recommendation
     if final_score > 0.33:
@@ -1844,7 +2002,7 @@ def synthesize_signal(
 
     # Apply earnings timing adjustments and overrides
     if earnings_timing:
-        confidence *= (1.0 + earnings_timing.confidence_adjustment)
+        confidence *= 1.0 + earnings_timing.confidence_adjustment
 
         # Override recommendation if needed
         if earnings_timing.timing_flag == "pre_earnings":
@@ -1857,7 +2015,12 @@ def synthesize_signal(
                     recommendation = "HOLD"
 
     # Check overbought + near 52w high
-    if momentum and momentum.rsi_14d and momentum.rsi_14d > 70 and momentum.near_52w_high:
+    if (
+        momentum
+        and momentum.rsi_14d
+        and momentum.rsi_14d > 70
+        and momentum.near_52w_high
+    ):
         if recommendation == "BUY":
             recommendation = "HOLD"
             confidence *= 0.7
@@ -1870,7 +2033,7 @@ def synthesize_signal(
     # NEW v4.0.0: Geopolitical sector risk penalty
     if geopolitical_risk_penalty > 0:
         if recommendation == "BUY":
-            confidence *= (1.0 - geopolitical_risk_penalty)  # Apply penalty
+            confidence *= 1.0 - geopolitical_risk_penalty  # Apply penalty
 
     # Generate supporting points
     supporting_points = []
@@ -1919,7 +2082,9 @@ def synthesize_signal(
 
     # Add sector warnings
     if sector and sector.score < -0.2:
-        caveats.append(f"Sector {sector.sector_name} is weak despite stock fundamentals")
+        caveats.append(
+            f"Sector {sector.sector_name} is weak despite stock fundamentals"
+        )
 
     # Add market warnings
     if market_context and market_context.vix_status == "fear":
@@ -1927,7 +2092,9 @@ def synthesize_signal(
 
     # NEW v4.0.0: Risk-off warnings
     if market_context and market_context.risk_off_detected:
-        caveats.append(f"🛡️ RISK-OFF MODE: Flight to safety detected (GLD {market_context.gld_change_5d:+.1f}%, TLT {market_context.tlt_change_5d:+.1f}%, UUP {market_context.uup_change_5d:+.1f}%)")
+        caveats.append(
+            f"🛡️ RISK-OFF MODE: Flight to safety detected (GLD {market_context.gld_change_5d:+.1f}%, TLT {market_context.tlt_change_5d:+.1f}%, UUP {market_context.uup_change_5d:+.1f}%)"
+        )
 
     # NEW v4.0.0: Breaking news alerts
     if breaking_news:
@@ -2067,7 +2234,7 @@ def format_output_text(signal: Signal) -> str:
         f"Generated: {signal.timestamp}",
         "=" * 77,
         "",
-        f"RECOMMENDATION: {signal.recommendation} (Confidence: {signal.confidence*100:.0f}%)",
+        f"RECOMMENDATION: {signal.recommendation} (Confidence: {signal.confidence * 100:.0f}%)",
         "",
         "SUPPORTING POINTS:",
     ]
@@ -2075,22 +2242,26 @@ def format_output_text(signal: Signal) -> str:
     for point in signal.supporting_points:
         lines.append(f"• {point}")
 
-    lines.extend([
-        "",
-        "CAVEATS:",
-    ])
+    lines.extend(
+        [
+            "",
+            "CAVEATS:",
+        ]
+    )
 
     for caveat in signal.caveats:
         lines.append(f"• {caveat}")
 
-    lines.extend([
-        "",
-        "=" * 77,
-        "DISCLAIMER: This analysis is for informational purposes only and does NOT",
-        "constitute financial advice. Consult a licensed financial advisor before",
-        "making investment decisions. Data provided by Yahoo Finance.",
-        "=" * 77,
-    ])
+    lines.extend(
+        [
+            "",
+            "=" * 77,
+            "DISCLAIMER: This analysis is for informational purposes only and does NOT",
+            "constitute financial advice. Consult a licensed financial advisor before",
+            "making investment decisions. Data provided by Yahoo Finance.",
+            "=" * 77,
+        ]
+    )
 
     return "\n".join(lines)
 
@@ -2108,31 +2279,23 @@ def main():
     parser = argparse.ArgumentParser(
         description="Analyze stocks using Yahoo Finance data"
     )
-    parser.add_argument(
-        "tickers",
-        nargs="*",
-        help="Stock/crypto ticker(s) to analyze"
-    )
+    parser.add_argument("tickers", nargs="*", help="Stock/crypto ticker(s) to analyze")
     parser.add_argument(
         "--output",
         choices=["text", "json"],
         default="text",
-        help="Output format (default: text)"
+        help="Output format (default: text)",
     )
     parser.add_argument(
-        "--verbose",
-        action="store_true",
-        help="Verbose output to stderr"
+        "--verbose", action="store_true", help="Verbose output to stderr"
     )
     parser.add_argument(
-        "--portfolio", "-p",
-        type=str,
-        help="Analyze all assets in a portfolio"
+        "--portfolio", "-p", type=str, help="Analyze all assets in a portfolio"
     )
     parser.add_argument(
         "--period",
         choices=["daily", "weekly", "monthly", "quarterly", "yearly"],
-        help="Period for portfolio performance analysis"
+        help="Period for portfolio performance analysis",
     )
 
     args = parser.parse_args()
@@ -2143,6 +2306,7 @@ def main():
     if args.portfolio:
         try:
             from portfolio import PortfolioStore
+
             store = PortfolioStore()
             portfolio = store.get_portfolio(args.portfolio)
             if not portfolio:
@@ -2152,7 +2316,10 @@ def main():
                     portfolio = store.get_portfolio(default_name)
                     portfolio_name = default_name
                 else:
-                    print(f"Error: Portfolio '{args.portfolio}' not found", file=sys.stderr)
+                    print(
+                        f"Error: Portfolio '{args.portfolio}' not found",
+                        file=sys.stderr,
+                    )
                     sys.exit(1)
             else:
                 portfolio_name = portfolio.name
@@ -2161,11 +2328,16 @@ def main():
                 print(f"Portfolio '{portfolio_name}' has no assets", file=sys.stderr)
                 sys.exit(1)
 
-            portfolio_assets = [(a.ticker, a.quantity, a.cost_basis, a.type) for a in portfolio.assets]
+            portfolio_assets = [
+                (a.ticker, a.quantity, a.cost_basis, a.type) for a in portfolio.assets
+            ]
             args.tickers = [a.ticker for a in portfolio.assets]
 
             if args.verbose:
-                print(f"Analyzing portfolio: {portfolio_name} ({len(portfolio_assets)} assets)", file=sys.stderr)
+                print(
+                    f"Analyzing portfolio: {portfolio_name} ({len(portfolio_assets)} assets)",
+                    file=sys.stderr,
+                )
 
         except ImportError:
             print("Error: portfolio.py not found", file=sys.stderr)
@@ -2197,7 +2369,9 @@ def main():
         data = fetch_stock_data(ticker, verbose=args.verbose)
 
         if data is None:
-            print(f"Error: Invalid ticker '{ticker}' or data unavailable", file=sys.stderr)
+            print(
+                f"Error: Invalid ticker '{ticker}' or data unavailable", file=sys.stderr
+            )
             sys.exit(2)
 
         # Get company name
@@ -2207,7 +2381,10 @@ def main():
         is_crypto = data.asset_type == "crypto"
 
         if args.verbose and is_crypto:
-            print(f"  Asset type: CRYPTO (using crypto-specific analysis)", file=sys.stderr)
+            print(
+                f"  Asset type: CRYPTO (using crypto-specific analysis)",
+                file=sys.stderr,
+            )
 
         # Analyze components (different for crypto vs stock)
         if is_crypto:
@@ -2222,7 +2399,9 @@ def main():
             # Crypto fundamentals (market cap, category, BTC correlation)
             if args.verbose:
                 print(f"Analyzing crypto fundamentals...", file=sys.stderr)
-            crypto_fundamentals = analyze_crypto_fundamentals(data, verbose=args.verbose)
+            crypto_fundamentals = analyze_crypto_fundamentals(
+                data, verbose=args.verbose
+            )
 
             # Convert crypto fundamentals to regular Fundamentals for synthesize_signal
             if crypto_fundamentals:
@@ -2278,28 +2457,50 @@ def main():
             geopolitical_risk_penalty = 0.0
         else:
             sector_name = data.info.get("sector")
-            geopolitical_risk_warning, geopolitical_risk_penalty = check_sector_geopolitical_risk(
-                ticker=ticker,
-                sector=sector_name,
-                breaking_news=breaking_news,
-                verbose=args.verbose
+            geopolitical_risk_warning, geopolitical_risk_penalty = (
+                check_sector_geopolitical_risk(
+                    ticker=ticker,
+                    sector=sector_name,
+                    breaking_news=breaking_news,
+                    verbose=args.verbose,
+                )
             )
 
         if args.verbose:
             print(f"Components analyzed:", file=sys.stderr)
             if is_crypto:
-                print(f"  Crypto Fundamentals: {'✓' if fundamentals else '✗'}", file=sys.stderr)
-                print(f"  Market Context: {'✓' if market_context else '✗'}", file=sys.stderr)
+                print(
+                    f"  Crypto Fundamentals: {'✓' if fundamentals else '✗'}",
+                    file=sys.stderr,
+                )
+                print(
+                    f"  Market Context: {'✓' if market_context else '✗'}",
+                    file=sys.stderr,
+                )
                 print(f"  Momentum: {'✓' if momentum else '✗'}", file=sys.stderr)
-                print(f"  (Earnings, Sector, Sentiment: N/A for crypto)\n", file=sys.stderr)
+                print(
+                    f"  (Earnings, Sector, Sentiment: N/A for crypto)\n",
+                    file=sys.stderr,
+                )
             else:
                 print(f"  Earnings: {'✓' if earnings else '✗'}", file=sys.stderr)
-                print(f"  Fundamentals: {'✓' if fundamentals else '✗'}", file=sys.stderr)
-                print(f"  Analysts: {'✓' if analysts and analysts.score else '✗'}", file=sys.stderr)
+                print(
+                    f"  Fundamentals: {'✓' if fundamentals else '✗'}", file=sys.stderr
+                )
+                print(
+                    f"  Analysts: {'✓' if analysts and analysts.score else '✗'}",
+                    file=sys.stderr,
+                )
                 print(f"  Historical: {'✓' if historical else '✗'}", file=sys.stderr)
-                print(f"  Market Context: {'✓' if market_context else '✗'}", file=sys.stderr)
+                print(
+                    f"  Market Context: {'✓' if market_context else '✗'}",
+                    file=sys.stderr,
+                )
                 print(f"  Sector: {'✓' if sector else '✗'}", file=sys.stderr)
-                print(f"  Earnings Timing: {'✓' if earnings_timing else '✗'}", file=sys.stderr)
+                print(
+                    f"  Earnings Timing: {'✓' if earnings_timing else '✗'}",
+                    file=sys.stderr,
+                )
                 print(f"  Momentum: {'✓' if momentum else '✗'}", file=sys.stderr)
                 print(f"  Sentiment: {'✓' if sentiment else '✗'}\n", file=sys.stderr)
 
@@ -2348,7 +2549,9 @@ def main():
 
         # Print portfolio summary if in portfolio mode
         if portfolio_assets:
-            print_portfolio_summary(results, portfolio_assets, portfolio_name, args.period)
+            print_portfolio_summary(
+                results, portfolio_assets, portfolio_name, args.period
+            )
 
 
 def generate_portfolio_summary(
@@ -2462,7 +2665,9 @@ def print_portfolio_summary(
     period: str | None = None,
 ) -> None:
     """Print portfolio summary in text format."""
-    summary = generate_portfolio_summary(results, portfolio_assets, portfolio_name, period)
+    summary = generate_portfolio_summary(
+        results, portfolio_assets, portfolio_name, period
+    )
 
     print("\n" + "=" * 77)
     print(f"PORTFOLIO SUMMARY: {portfolio_name}")
@@ -2477,13 +2682,17 @@ def print_portfolio_summary(
     print(f"\nTotal Cost:    ${total_cost:,.2f}")
     print(f"Current Value: ${total_value:,.2f}")
     pnl_sign = "+" if total_pnl >= 0 else ""
-    print(f"Total P&L:     {pnl_sign}${total_pnl:,.2f} ({pnl_sign}{total_pnl_pct:.1f}%)")
+    print(
+        f"Total P&L:     {pnl_sign}${total_pnl:,.2f} ({pnl_sign}{total_pnl_pct:.1f}%)"
+    )
 
     # Period return
     if "period_return_pct" in summary:
         period_return = summary["period_return_pct"]
         period_sign = "+" if period_return >= 0 else ""
-        print(f"{summary['period'].capitalize()} Return: {period_sign}{period_return:.1f}%")
+        print(
+            f"{summary['period'].capitalize()} Return: {period_sign}{period_return:.1f}%"
+        )
 
     # Concentration warnings
     if summary.get("concentration_warnings"):
@@ -2496,7 +2705,9 @@ def print_portfolio_summary(
     for r in results:
         recommendations[r.recommendation] = recommendations.get(r.recommendation, 0) + 1
 
-    print(f"\nRECOMMENDATIONS: {recommendations['BUY']} BUY | {recommendations['HOLD']} HOLD | {recommendations['SELL']} SELL")
+    print(
+        f"\nRECOMMENDATIONS: {recommendations['BUY']} BUY | {recommendations['HOLD']} HOLD | {recommendations['SELL']} SELL"
+    )
     print("=" * 77)
 
 

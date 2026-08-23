@@ -10,16 +10,52 @@ SKILLS_DIR = os.path.join(os.path.dirname(__file__), "..", "dot_aictx", "skills"
 
 # Inference rules
 LANG_KEYWORDS = {
-    "typescript": ["typescript", "tsx", "ts ", "angular", "react", "vue", "nextjs", "next.js", "node"],
-    "javascript": ["javascript", "jsx", "js ", "node", "npm", "express", "webpack", "vite"],
-    "python": ["python", "django", "flask", "fastapi", "pandas", "pytorch", "tensorflow", "pip"],
+    "typescript": [
+        "typescript",
+        "tsx",
+        "ts ",
+        "angular",
+        "react",
+        "vue",
+        "nextjs",
+        "next.js",
+        "node",
+    ],
+    "javascript": [
+        "javascript",
+        "jsx",
+        "js ",
+        "node",
+        "npm",
+        "express",
+        "webpack",
+        "vite",
+    ],
+    "python": [
+        "python",
+        "django",
+        "flask",
+        "fastapi",
+        "pandas",
+        "pytorch",
+        "tensorflow",
+        "pip",
+    ],
     "rust": ["rust", "cargo", "tokio", "axum", "actix", "wasm"],
     "go": ["golang", " go ", "gin", "echo", "fiber", "goroutine"],
     "java": ["java", "spring", "maven", "gradle", "jvm", "jpa", "hibernate"],
     "kotlin": ["kotlin", "android", "jetpack", "compose", "coroutine", "ktor"],
     "swift": ["swift", "swiftui", "ios", "macos", "xcode", "uikit"],
     "cpp": ["c++", "cpp", "cmake", "stl", "raii", "template metaprogramming"],
-    "csharp": ["c#", "csharp", ".net", "dotnet", "asp.net", "entity framework", "blazor"],
+    "csharp": [
+        "c#",
+        "csharp",
+        ".net",
+        "dotnet",
+        "asp.net",
+        "entity framework",
+        "blazor",
+    ],
     "ruby": ["ruby", "rails", "sinatra", "gem"],
     "php": ["php", "laravel", "symfony", "composer"],
     "lua": ["lua", "neovim", "nvim", "love2d"],
@@ -30,7 +66,17 @@ LANG_KEYWORDS = {
 }
 
 TAG_KEYWORDS = {
-    "frontend": ["frontend", "ui", "ux", "component", "css", "tailwind", "design system", "responsive", "design critique"],
+    "frontend": [
+        "frontend",
+        "ui",
+        "ux",
+        "component",
+        "css",
+        "tailwind",
+        "design system",
+        "responsive",
+        "design critique",
+    ],
     "backend": ["backend", "api", "server", "microservice", "rest", "graphql", "grpc"],
     "fullstack": ["fullstack", "full-stack", "full stack", "convex"],
     "devops": ["devops", "ci/cd", "pipeline", "deploy", "infrastructure"],
@@ -40,24 +86,145 @@ TAG_KEYWORDS = {
     "aws": ["aws", "amazon", "s3", "lambda", "ec2", "dynamodb", "cloudformation"],
     "azure": ["azure", "entra", "microsoft cloud"],
     "gcp": ["gcp", "google cloud", "bigquery", "cloud run", "google workspace", "gws"],
-    "database": ["database", "sql", "postgres", "mysql", "mongo", "redis", "orm", "migration"],
+    "database": [
+        "database",
+        "sql",
+        "postgres",
+        "mysql",
+        "mongo",
+        "redis",
+        "orm",
+        "migration",
+    ],
     "api": ["api", "rest", "graphql", "openapi", "swagger", "endpoint"],
-    "security": ["security", "auth", "oauth", "jwt", "csrf", "xss", "injection", "penetration", "audit", "vulnerability"],
-    "testing": ["test", "tdd", "jest", "pytest", "vitest", "playwright", "cypress", "e2e", "unit test", "verification", "verify"],
-    "ml": ["machine learning", "ml", "ai", "model", "training", "pytorch", "tensorflow", "llm", "rag", "fine-tun", "langgraph", "langchain", "agent loop"],
-    "data": ["data", "analytics", "pandas", "spark", "etl", "pipeline", "warehouse", "spreadsheet", "excel", "sheets", "csv"],
-    "mobile": ["mobile", "ios", "android", "react native", "flutter", "swift", "kotlin"],
+    "security": [
+        "security",
+        "auth",
+        "oauth",
+        "jwt",
+        "csrf",
+        "xss",
+        "injection",
+        "penetration",
+        "audit",
+        "vulnerability",
+    ],
+    "testing": [
+        "test",
+        "tdd",
+        "jest",
+        "pytest",
+        "vitest",
+        "playwright",
+        "cypress",
+        "e2e",
+        "unit test",
+        "verification",
+        "verify",
+    ],
+    "ml": [
+        "machine learning",
+        "ml",
+        "ai",
+        "model",
+        "training",
+        "pytorch",
+        "tensorflow",
+        "llm",
+        "rag",
+        "fine-tun",
+        "langgraph",
+        "langchain",
+        "agent loop",
+    ],
+    "data": [
+        "data",
+        "analytics",
+        "pandas",
+        "spark",
+        "etl",
+        "pipeline",
+        "warehouse",
+        "spreadsheet",
+        "excel",
+        "sheets",
+        "csv",
+    ],
+    "mobile": [
+        "mobile",
+        "ios",
+        "android",
+        "react native",
+        "flutter",
+        "swift",
+        "kotlin",
+    ],
     "cli": ["cli", "command-line", "terminal", "shell", "bash"],
-    "monitoring": ["monitor", "observability", "logging", "metrics", "grafana", "prometheus", "canary"],
+    "monitoring": [
+        "monitor",
+        "observability",
+        "logging",
+        "metrics",
+        "grafana",
+        "prometheus",
+        "canary",
+    ],
     "cicd": ["ci/cd", "github actions", "gitlab", "jenkins", "pipeline", "deploy"],
     "blockchain": ["blockchain", "solidity", "smart contract", "web3", "ethereum"],
     "game": ["game", "unity", "unreal", "godot", "rendering"],
-    "productivity": ["calendar", "meeting", "email", "drive", "docs", "slides", "task", "schedule", "agenda", "standup", "persona", "briefing", "notes", "obsidian", "notion"],
-    "content": ["content", "seo", "marketing", "copywriting", "blog", "newsletter", "social media"],
-    "research": ["research", "search", "literature", "academic", "customer research", "account research"],
+    "productivity": [
+        "calendar",
+        "meeting",
+        "email",
+        "drive",
+        "docs",
+        "slides",
+        "task",
+        "schedule",
+        "agenda",
+        "standup",
+        "persona",
+        "briefing",
+        "notes",
+        "obsidian",
+        "notion",
+    ],
+    "content": [
+        "content",
+        "seo",
+        "marketing",
+        "copywriting",
+        "blog",
+        "newsletter",
+        "social media",
+    ],
+    "research": [
+        "research",
+        "search",
+        "literature",
+        "academic",
+        "customer research",
+        "account research",
+    ],
     "embedded": ["embedded", "firmware", "rtos", "microcontroller", "iot", "hardware"],
-    "editor": ["editor", "refactor", "code quality", "linting", "formatting", "simplif"],
-    "automation": ["automat", "workflow", "recipe", "cron", "schedule", "recurring", "self-improv", "continuous learn"],
+    "editor": [
+        "editor",
+        "refactor",
+        "code quality",
+        "linting",
+        "formatting",
+        "simplif",
+    ],
+    "automation": [
+        "automat",
+        "workflow",
+        "recipe",
+        "cron",
+        "schedule",
+        "recurring",
+        "self-improv",
+        "continuous learn",
+    ],
 }
 
 DEP_KEYWORDS = {
@@ -145,7 +312,7 @@ def process_skill(skill_dir):
         return False
 
     yaml_str = rest[:end_idx].strip()
-    body = rest[end_idx + 3:]
+    body = rest[end_idx + 3 :]
 
     try:
         frontmatter = yaml.safe_load(yaml_str) or {}
@@ -159,7 +326,11 @@ def process_skill(skill_dir):
     match_rules = infer_match(frontmatter, body)
 
     # Skip if nothing inferred
-    if not match_rules["languages"] and not match_rules["tags"] and not match_rules["deps"]:
+    if (
+        not match_rules["languages"]
+        and not match_rules["tags"]
+        and not match_rules["deps"]
+    ):
         return False
 
     # Build match block

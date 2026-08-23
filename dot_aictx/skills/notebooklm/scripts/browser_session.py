@@ -58,11 +58,15 @@ class BrowserSession:
 
         try:
             # Navigate to notebook
-            self.page.goto(self.notebook_url, wait_until="domcontentloaded", timeout=30000)
+            self.page.goto(
+                self.notebook_url, wait_until="domcontentloaded", timeout=30000
+            )
 
             # Check if login is needed
             if "accounts.google.com" in self.page.url:
-                raise RuntimeError("Authentication required. Please run auth_manager.py setup first.")
+                raise RuntimeError(
+                    "Authentication required. Please run auth_manager.py setup first."
+                )
 
             # Wait for page to be ready
             self._wait_for_ready()
@@ -83,10 +87,16 @@ class BrowserSession:
         """Wait for NotebookLM page to be ready"""
         try:
             # Wait for chat input
-            self.page.wait_for_selector("textarea.query-box-input", timeout=10000, state="visible")
+            self.page.wait_for_selector(
+                "textarea.query-box-input", timeout=10000, state="visible"
+            )
         except Exception:
             # Try alternative selector
-            self.page.wait_for_selector('textarea[aria-label="Feld für Anfragen"]', timeout=5000, state="visible")
+            self.page.wait_for_selector(
+                'textarea[aria-label="Feld für Anfragen"]',
+                timeout=5000,
+                state="visible",
+            )
 
     def ask(self, question: str) -> Dict[str, Any]:
         """
@@ -110,10 +120,14 @@ class BrowserSession:
             # Find chat input
             chat_input_selector = "textarea.query-box-input"
             try:
-                self.page.wait_for_selector(chat_input_selector, timeout=5000, state="visible")
+                self.page.wait_for_selector(
+                    chat_input_selector, timeout=5000, state="visible"
+                )
             except Exception:
                 chat_input_selector = 'textarea[aria-label="Feld für Anfragen"]'
-                self.page.wait_for_selector(chat_input_selector, timeout=5000, state="visible")
+                self.page.wait_for_selector(
+                    chat_input_selector, timeout=5000, state="visible"
+                )
 
             # Click and type with human-like behavior
             self.stealth.realistic_click(self.page, chat_input_selector)
@@ -142,7 +156,7 @@ class BrowserSession:
                 "question": question,
                 "answer": answer,
                 "session_id": self.id,
-                "notebook_url": self.notebook_url
+                "notebook_url": self.notebook_url,
             }
 
         except Exception as e:
@@ -151,21 +165,25 @@ class BrowserSession:
                 "status": "error",
                 "question": question,
                 "error": str(e),
-                "session_id": self.id
+                "session_id": self.id,
             }
 
     def _snapshot_latest_response(self) -> Optional[str]:
         """Get the current latest response text"""
         try:
             # Use correct NotebookLM selector
-            responses = self.page.query_selector_all(".to-user-container .message-text-content")
+            responses = self.page.query_selector_all(
+                ".to-user-container .message-text-content"
+            )
             if responses:
                 return responses[-1].inner_text()
         except Exception:
             pass
         return None
 
-    def _wait_for_latest_answer(self, previous_answer: Optional[str], timeout: int = 120) -> str:
+    def _wait_for_latest_answer(
+        self, previous_answer: Optional[str], timeout: int = 120
+    ) -> str:
         """Wait for and extract the new answer"""
         start_time = time.time()
         last_candidate = None
@@ -174,7 +192,7 @@ class BrowserSession:
         while time.time() - start_time < timeout:
             # Check if NotebookLM is still thinking (most reliable indicator)
             try:
-                thinking_element = self.page.query_selector('div.thinking-message')
+                thinking_element = self.page.query_selector("div.thinking-message")
                 if thinking_element and thinking_element.is_visible():
                     time.sleep(0.5)
                     continue
@@ -183,7 +201,9 @@ class BrowserSession:
 
             try:
                 # Use correct NotebookLM selector
-                responses = self.page.query_selector_all(".to-user-container .message-text-content")
+                responses = self.page.query_selector_all(
+                    ".to-user-container .message-text-content"
+                )
 
                 if responses:
                     latest_text = responses[-1].inner_text().strip()
@@ -241,7 +261,7 @@ class BrowserSession:
             "age_seconds": time.time() - self.created_at,
             "inactive_seconds": time.time() - self.last_activity,
             "message_count": self.message_count,
-            "notebook_url": self.notebook_url
+            "notebook_url": self.notebook_url,
         }
 
     def is_expired(self, timeout_seconds: int = 900) -> bool:

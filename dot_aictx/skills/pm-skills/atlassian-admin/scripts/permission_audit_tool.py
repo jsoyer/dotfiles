@@ -59,6 +59,7 @@ SEVERITY_WEIGHTS = {
 # Audit Checks
 # ---------------------------------------------------------------------------
 
+
 def check_over_permissioned_groups(
     schemes: List[Dict[str, Any]],
 ) -> List[Dict[str, str]]:
@@ -81,25 +82,29 @@ def check_over_permissioned_groups(
         for group, perms in group_permissions.items():
             admin_perms = perms & SENSITIVE_PERMISSIONS
             if len(admin_perms) >= 3:
-                findings.append({
-                    "rule": "over_permissioned_group",
-                    "severity": "high",
-                    "scheme": scheme_name,
-                    "group": group,
-                    "message": f"Group '{group}' has {len(admin_perms)} sensitive permissions "
-                               f"in scheme '{scheme_name}': {', '.join(sorted(admin_perms))}. "
-                               f"Review if all are necessary.",
-                })
+                findings.append(
+                    {
+                        "rule": "over_permissioned_group",
+                        "severity": "high",
+                        "scheme": scheme_name,
+                        "group": group,
+                        "message": f"Group '{group}' has {len(admin_perms)} sensitive permissions "
+                        f"in scheme '{scheme_name}': {', '.join(sorted(admin_perms))}. "
+                        f"Review if all are necessary.",
+                    }
+                )
 
             if "system_admin" in perms or "administer_jira" in perms:
-                findings.append({
-                    "rule": "admin_access_warning",
-                    "severity": "critical",
-                    "scheme": scheme_name,
-                    "group": group,
-                    "message": f"Group '{group}' has system/Jira admin access in '{scheme_name}'. "
-                               f"Ensure this is strictly necessary and membership is limited.",
-                })
+                findings.append(
+                    {
+                        "rule": "admin_access_warning",
+                        "severity": "critical",
+                        "scheme": scheme_name,
+                        "group": group,
+                        "message": f"Group '{group}' has system/Jira admin access in '{scheme_name}'. "
+                        f"Ensure this is strictly necessary and membership is limited.",
+                    }
+                )
 
     return findings
 
@@ -119,15 +124,19 @@ def check_direct_user_permissions(
             permission = grant.get("permission", "")
 
             if user and not grant.get("group"):
-                severity = "high" if permission.lower() in SENSITIVE_PERMISSIONS else "medium"
-                findings.append({
-                    "rule": "direct_user_permission",
-                    "severity": severity,
-                    "scheme": scheme_name,
-                    "user": user,
-                    "message": f"User '{user}' has direct permission '{permission}' in '{scheme_name}'. "
-                               f"Use groups instead for maintainability and audit clarity.",
-                })
+                severity = (
+                    "high" if permission.lower() in SENSITIVE_PERMISSIONS else "medium"
+                )
+                findings.append(
+                    {
+                        "rule": "direct_user_permission",
+                        "severity": severity,
+                        "scheme": scheme_name,
+                        "user": user,
+                        "message": f"User '{user}' has direct permission '{permission}' in '{scheme_name}'. "
+                        f"Use groups instead for maintainability and audit clarity.",
+                    }
+                )
 
     return findings
 
@@ -147,7 +156,11 @@ def check_missing_restrictions(
             granted_permissions.add(grant.get("permission", "").lower())
 
         # Check if delete permissions are unrestricted
-        delete_perms = {"delete_issues", "delete_all_comments", "delete_all_attachments"}
+        delete_perms = {
+            "delete_issues",
+            "delete_all_comments",
+            "delete_all_attachments",
+        }
         unrestricted_deletes = delete_perms & granted_permissions
 
         for grant in grants:
@@ -155,26 +168,36 @@ def check_missing_restrictions(
             group = grant.get("group", "")
             if perm in delete_perms and group:
                 # Check if granted to broad groups
-                broad_groups = {"users", "everyone", "all-users", "jira-users", "jira-software-users"}
+                broad_groups = {
+                    "users",
+                    "everyone",
+                    "all-users",
+                    "jira-users",
+                    "jira-software-users",
+                }
                 if group.lower() in broad_groups:
-                    findings.append({
-                        "rule": "unrestricted_delete",
-                        "severity": "critical",
-                        "scheme": scheme_name,
-                        "message": f"Delete permission '{perm}' granted to broad group '{group}' "
-                                   f"in '{scheme_name}'. Restrict to admins or leads only.",
-                    })
+                    findings.append(
+                        {
+                            "rule": "unrestricted_delete",
+                            "severity": "critical",
+                            "scheme": scheme_name,
+                            "message": f"Delete permission '{perm}' granted to broad group '{group}' "
+                            f"in '{scheme_name}'. Restrict to admins or leads only.",
+                        }
+                    )
 
         # Check if admin permissions exist
         admin_perms = {"administer_project", "administer_jira", "system_admin"}
         if not (admin_perms & granted_permissions):
-            findings.append({
-                "rule": "no_admin_defined",
-                "severity": "medium",
-                "scheme": scheme_name,
-                "message": f"No explicit admin permission defined in '{scheme_name}'. "
-                           f"Ensure project administration is properly assigned.",
-            })
+            findings.append(
+                {
+                    "rule": "no_admin_defined",
+                    "severity": "medium",
+                    "scheme": scheme_name,
+                    "message": f"No explicit admin permission defined in '{scheme_name}'. "
+                    f"Ensure project administration is properly assigned.",
+                }
+            )
 
     return findings
 
@@ -209,12 +232,14 @@ def check_scheme_consistency(
             name_b = scheme_names[j]
             diff = scheme_perms[name_a].symmetric_difference(scheme_perms[name_b])
             if len(diff) > 5:
-                findings.append({
-                    "rule": "scheme_inconsistency",
-                    "severity": "medium",
-                    "message": f"Schemes '{name_a}' and '{name_b}' differ significantly "
-                               f"({len(diff)} different permissions). Review for intentional differences.",
-                })
+                findings.append(
+                    {
+                        "rule": "scheme_inconsistency",
+                        "severity": "medium",
+                        "message": f"Schemes '{name_a}' and '{name_b}' differ significantly "
+                        f"({len(diff)} different permissions). Review for intentional differences.",
+                    }
+                )
 
     return findings
 
@@ -240,27 +265,33 @@ def check_compliance_gaps(
         # Check for separation of duties
         admin_groups = set()
         for grant in grants:
-            if grant.get("permission", "").lower() in SENSITIVE_PERMISSIONS and grant.get("group"):
+            if grant.get(
+                "permission", ""
+            ).lower() in SENSITIVE_PERMISSIONS and grant.get("group"):
                 admin_groups.add(grant["group"])
 
         if len(admin_groups) == 1 and len(groups_used) > 1:
-            findings.append({
-                "rule": "separation_of_duties",
-                "severity": "info",
-                "scheme": scheme_name,
-                "message": f"Only one group ('{next(iter(admin_groups))}') holds all sensitive permissions "
-                           f"in '{scheme_name}'. Consider separating duties across multiple groups.",
-            })
+            findings.append(
+                {
+                    "rule": "separation_of_duties",
+                    "severity": "info",
+                    "scheme": scheme_name,
+                    "message": f"Only one group ('{next(iter(admin_groups))}') holds all sensitive permissions "
+                    f"in '{scheme_name}'. Consider separating duties across multiple groups.",
+                }
+            )
 
         # Check user count
         if len(users_used) > 5:
-            findings.append({
-                "rule": "too_many_direct_users",
-                "severity": "high",
-                "scheme": scheme_name,
-                "message": f"Scheme '{scheme_name}' has {len(users_used)} direct user grants. "
-                           f"Migrate to group-based permissions for better governance.",
-            })
+            findings.append(
+                {
+                    "rule": "too_many_direct_users",
+                    "severity": "high",
+                    "scheme": scheme_name,
+                    "message": f"Scheme '{scheme_name}' has {len(users_used)} direct user grants. "
+                    f"Migrate to group-based permissions for better governance.",
+                }
+            )
 
     return findings
 
@@ -268,6 +299,7 @@ def check_compliance_gaps(
 # ---------------------------------------------------------------------------
 # Main Analysis
 # ---------------------------------------------------------------------------
+
 
 def audit_permissions(data: Dict[str, Any]) -> Dict[str, Any]:
     """Run full permission audit."""
@@ -339,21 +371,37 @@ def _generate_remediations(findings: List[Dict[str, str]]) -> List[str]:
         rules_seen.add(rule)
 
         if rule == "over_permissioned_group":
-            remediations.append("Review and reduce sensitive permissions for over-permissioned groups. Apply principle of least privilege.")
+            remediations.append(
+                "Review and reduce sensitive permissions for over-permissioned groups. Apply principle of least privilege."
+            )
         elif rule == "admin_access_warning":
-            remediations.append("Audit admin group membership. Limit system/Jira admin access to essential personnel only.")
+            remediations.append(
+                "Audit admin group membership. Limit system/Jira admin access to essential personnel only."
+            )
         elif rule == "direct_user_permission":
-            remediations.append("Migrate direct user permissions to group-based grants. Create functional groups for common permission sets.")
+            remediations.append(
+                "Migrate direct user permissions to group-based grants. Create functional groups for common permission sets."
+            )
         elif rule == "unrestricted_delete":
-            remediations.append("Restrict delete permissions to project admins or leads. Remove from broad user groups.")
+            remediations.append(
+                "Restrict delete permissions to project admins or leads. Remove from broad user groups."
+            )
         elif rule == "scheme_inconsistency":
-            remediations.append("Standardize permission schemes across projects. Document intentional differences.")
+            remediations.append(
+                "Standardize permission schemes across projects. Document intentional differences."
+            )
         elif rule == "too_many_direct_users":
-            remediations.append("Create groups for users with direct permissions. This simplifies onboarding/offboarding.")
+            remediations.append(
+                "Create groups for users with direct permissions. This simplifies onboarding/offboarding."
+            )
         elif rule == "separation_of_duties":
-            remediations.append("Consider splitting admin responsibilities across multiple groups for better separation of duties.")
+            remediations.append(
+                "Consider splitting admin responsibilities across multiple groups for better separation of duties."
+            )
         elif rule == "no_admin_defined":
-            remediations.append("Define explicit admin permissions in each scheme to ensure proper project governance.")
+            remediations.append(
+                "Define explicit admin permissions in each scheme to ensure proper project governance."
+            )
 
     return remediations
 
@@ -361,6 +409,7 @@ def _generate_remediations(findings: List[Dict[str, str]]) -> List[str]:
 # ---------------------------------------------------------------------------
 # Output Formatting
 # ---------------------------------------------------------------------------
+
 
 def format_text_output(result: Dict[str, Any]) -> str:
     """Format results as readable text report."""
@@ -422,6 +471,7 @@ def format_json_output(result: Dict[str, Any]) -> Dict[str, Any]:
 # ---------------------------------------------------------------------------
 # CLI Interface
 # ---------------------------------------------------------------------------
+
 
 def main() -> int:
     """Main CLI entry point."""
