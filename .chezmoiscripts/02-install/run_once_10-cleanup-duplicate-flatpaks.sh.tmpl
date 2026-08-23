@@ -1,0 +1,35 @@
+{{- $mp := index . "machine_profile" -}}
+{{- if and (eq .chezmoi.os "linux") (eq $mp "ubuntu-desktop") -}}
+#!/usr/bin/env bash
+# =============================================================================
+# One-time cleanup: remove flatpaks that duplicate snap-managed apps
+# (snap is the chosen manager for these on ubuntu-desktop — 2026-08-23)
+# =============================================================================
+
+set -euo pipefail
+
+if ! command -v flatpak &>/dev/null; then
+    echo "📦 flatpak not installed, nothing to dedup."
+    exit 0
+fi
+
+DUPES=(
+    com.discordapp.Discord
+    md.obsidian.Obsidian
+    org.localsend.localsend_app
+    org.signal.Signal
+    org.telegram.desktop
+)
+
+removed=0
+for app in "${DUPES[@]}"; do
+    if flatpak info "$app" &>/dev/null; then
+        echo "🔄 Removing flatpak duplicate: $app (managed by snap)"
+        flatpak uninstall -y "$app" 2>/dev/null || true
+        ((removed++)) || true
+    fi
+done
+
+flatpak uninstall --unused -y 2>/dev/null || true
+echo "✅ Removed $removed duplicate flatpak(s)."
+{{ end -}}
