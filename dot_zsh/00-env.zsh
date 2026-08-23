@@ -27,6 +27,11 @@ _is_rpi() {
   [[ -f /proc/device-tree/model ]] && grep -qi "raspberry pi" /proc/device-tree/model 2>/dev/null
 }
 
+# Homebrew 6 made "ask before install/upgrade" the default in a TTY,
+# which broke every scripted brew call (sysup, breww, chezmoi scripts).
+# Restore the historical non-interactive behaviour everywhere.
+export HOMEBREW_NO_ASK=1
+
 # Determine OS and apply specific logic
 case "${_OS}" in
   darwin*)

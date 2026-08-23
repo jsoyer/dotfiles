@@ -41,6 +41,10 @@ else if test -x /usr/local/bin/brew
     set -gx INFOPATH /usr/local/share/info $INFOPATH
 end
 
+# Homebrew 6 made "ask before install/upgrade" the default in a TTY,
+# which broke every scripted brew call (sysup, breww, chezmoi scripts).
+set -gx HOMEBREW_NO_ASK 1
+
 {{ end -}}
 # ============================================================================
 # PATH Configuration

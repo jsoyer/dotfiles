@@ -57,6 +57,11 @@ export IS_UBUNTU=false
 export IS_FEDORA=false
 export IS_ARCH=false
 
+# Homebrew 6 made "ask before install/upgrade" the default in a TTY,
+# which broke every scripted brew call (sysup, breww, chezmoi scripts).
+# Restore the historical non-interactive behaviour everywhere.
+export HOMEBREW_NO_ASK=1
+
 case "$OSTYPE" in
   darwin*)
     export IS_MACOS=true
