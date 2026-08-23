@@ -433,6 +433,9 @@ sysup() {
         echo "🍺 Cleaning up Homebrew cache..."
         brew cleanup --prune=all -s
       fi
+      # The AI CLIs update on macOS too — this call only existed in the
+      # Linux branch, so Macs never updated any of them through sysup.
+      update-ai
       ;;
     linux)
       case "${MACHINE_PROFILE:-}" in
@@ -496,7 +499,9 @@ update-ai() {
     echo "  🤖 Updating Claude Code..."
     claude update 2>/dev/null || true
   fi
-  if command -v copilot-cli &>/dev/null; then
+  # The binary is `copilot` since the standalone CLI; older installs shipped
+  # `copilot-cli`. Probing only the old name silently skipped it everywhere.
+  if command -v copilot &>/dev/null || command -v copilot-cli &>/dev/null; then
     echo "  🤖 Updating Copilot CLI..."
     curl -fsSL https://gh.io/copilot-install | bash 2>/dev/null || true
   fi

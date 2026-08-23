@@ -1240,6 +1240,8 @@ def sysup [] {
                 print "🍺 Cleaning up Homebrew cache..."
                 ^brew cleanup --prune=all -s
             }
+            # AI CLIs update on macOS too (was Linux-only by omission).
+            update-ai
         }
         "Linux" => {
             let mp = ($env.MACHINE_PROFILE? | default "")
@@ -1304,7 +1306,8 @@ def update-ai [] {
         print "  🤖 Updating Claude Code..."
         try { ^claude update } catch { }
     }
-    if (which copilot-cli | is-not-empty) {
+    # Binary is `copilot` since the standalone CLI (older installs: copilot-cli).
+    if (which copilot copilot-cli | is-not-empty) {
         print "  🤖 Updating Copilot CLI..."
         try { curl -fsSL https://gh.io/copilot-install | bash } catch { }
     }

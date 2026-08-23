@@ -587,6 +587,8 @@ function sysup
                 echo "🍺 Cleaning up Homebrew cache..."
                 brew cleanup --prune=all -s
             end
+            # AI CLIs update on macOS too (was Linux-only by omission).
+            update-ai
         case linux
             set -l _mp "$MACHINE_PROFILE"
             switch $_mp
@@ -642,7 +644,8 @@ function update-ai
         echo "  🤖 Updating Claude Code..."
         claude update 2>/dev/null; or true
     end
-    if command -q copilot-cli
+    # Binary is `copilot` since the standalone CLI (older installs: copilot-cli).
+    if command -q copilot; or command -q copilot-cli
         echo "  🤖 Updating Copilot CLI..."
         curl -fsSL https://gh.io/copilot-install | bash 2>/dev/null; or true
     end
