@@ -661,7 +661,8 @@ function update-ai
         "$HOME/.grok/bin/agent" update 2>/dev/null; or true
     end
     # cursor-agent: through our updater (worker restart + prune), not raw update.
-    if command -q update-cursor-agent
+    # Probe the binary too — the script is deployed everywhere by chezmoi.
+    if command -q cursor-agent; and command -q update-cursor-agent
         echo "  🤖 Updating cursor-agent..."
         update-cursor-agent; or true
     end

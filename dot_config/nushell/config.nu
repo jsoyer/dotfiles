@@ -1323,7 +1323,8 @@ def update-ai [] {
         try { ^$"($nu.home-path)/.grok/bin/agent" update } catch { }
     }
     # cursor-agent: through our updater (worker restart + prune), not raw update.
-    if (which update-cursor-agent | is-not-empty) {
+    # Probe the binary too — the script is deployed everywhere by chezmoi.
+    if ((which cursor-agent | is-not-empty) and (which update-cursor-agent | is-not-empty)) {
         print "  🤖 Updating cursor-agent..."
         try { ^update-cursor-agent } catch { }
     }

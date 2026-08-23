@@ -520,7 +520,10 @@ update-ai() {
   fi
   # cursor-agent: through our updater, which restarts the worker, watches for
   # a crash loop and prunes old versions — not the raw `cursor-agent update`.
-  if command -v update-cursor-agent &>/dev/null; then
+  # Probe the BINARY too: chezmoi deploys the update-cursor-agent script on
+  # every machine, including ones (Pis, Macs) where cursor-agent itself is not
+  # installed — without this, every sysup there printed a confusing error.
+  if command -v cursor-agent &>/dev/null && command -v update-cursor-agent &>/dev/null; then
     echo "  🤖 Updating cursor-agent..."
     update-cursor-agent || true
   fi
