@@ -1116,6 +1116,10 @@ alias bs = breww search
 alias bl = breww list
 alias brm = breww uninstall
 alias bci = breww cleanup
+# Aggressive reclaim: every cached download + the download cache itself.
+# `bci` keeps Homebrew's 120-day retention; this one does not.
+alias bcp = brew cleanup --prune=all -s
+alias bcpn = brew cleanup --prune=all -s --dry-run
 alias binfo = breww info
 alias bdo = breww doctor
 alias bdep = brew-deprecated
@@ -1231,6 +1235,11 @@ def sysup [] {
                 print "📱 Updating App Store apps..."
                 ^mas upgrade
             }
+            # bup/bcu upgrade but never reclaim: do it explicitly.
+            if (which brew | is-not-empty) {
+                print "🍺 Cleaning up Homebrew cache..."
+                ^brew cleanup --prune=all -s
+            }
         }
         "Linux" => {
             let mp = ($env.MACHINE_PROFILE? | default "")
@@ -1269,7 +1278,9 @@ def sysup [] {
                 print "🍺 Updating Linuxbrew packages..."
                 ^brew update
                 ^brew upgrade
-                ^brew cleanup
+                # --prune=all removes ALL cached downloads (not just >120 days),
+                # -s clears the download cache itself.
+                ^brew cleanup --prune=all -s
             }
 
             update-ai

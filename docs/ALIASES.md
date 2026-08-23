@@ -215,7 +215,9 @@ All package managers are wrapped to track installations in manifest files (`Brew
 | `bs` | `breww search` | Search packages |
 | `bl` | `breww list` | List installed |
 | `bun` | `breww uninstall` | Uninstall package |
-| `bci` | `breww cleanup` | Clean up |
+| `bci` | `breww cleanup` | Clean up (keeps Homebrew's 120-day cache retention) |
+| `bcp` | `brew cleanup --prune=all -s` | Aggressive reclaim: every cached download + the download cache |
+| `bcpn` | `brew cleanup --prune=all -s --dry-run` | Show what `bcp` would free, without deleting |
 | `binfo` | `breww info` | Show package info |
 | `bdo` | `breww doctor` | Diagnose issues |
 | `bdep` | `brew-deprecated` | List installed deprecated/disabled formulae & casks |
@@ -262,6 +264,7 @@ sysup
 **macOS behavior:**
 - Upgrades Homebrew packages (`bup`)
 - Upgrades Homebrew casks (`bcu`)
+- Reclaims the Homebrew cache (`brew cleanup --prune=all -s`) — `bup`/`bcu` never do
 - Upgrades App Store apps (`mas upgrade`)
 
 **Linux behavior (by profile):**

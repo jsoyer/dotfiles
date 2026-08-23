@@ -445,6 +445,12 @@ alias bdo='breww doctor'
 alias bdep='brew-deprecated'
 
 {{ end -}}
+# Deliberately OUTSIDE the darwin guard above: Linuxbrew exists too, and
+# reclaiming the cache matters most on Linux (an RPi SD card). `bci` keeps
+# Homebrew's 120-day retention; these do not.
+alias bcp='brew cleanup --prune=all -s'
+alias bcpn='brew cleanup --prune=all -s --dry-run'
+
 # ============================================================================
 # Package manager wrappers
 # ============================================================================
@@ -572,6 +578,11 @@ function sysup
                 echo "📱 Updating App Store apps..."
                 mas upgrade
             end
+            # bup/bcu upgrade but never reclaim: do it explicitly.
+            if command -q brew
+                echo "🍺 Cleaning up Homebrew cache..."
+                brew cleanup --prune=all -s
+            end
         case linux
             set -l _mp "$MACHINE_PROFILE"
             switch $_mp
@@ -601,7 +612,10 @@ function sysup
             if command -q brew
                 eval (brew shellenv)
                 echo "🍺 Updating Linuxbrew packages..."
-                brew update; and brew upgrade; and brew cleanup
+                brew update; and brew upgrade
+                # --prune=all removes ALL cached downloads (not just >120 days),
+                # -s clears the download cache itself.
+                brew cleanup --prune=all -s
             end
 
             update-ai

@@ -180,6 +180,10 @@ alias bs='breww search'
 alias bl='breww list'
 alias brm='breww uninstall'
 alias bci='breww cleanup'
+# Aggressive reclaim: every cached download + the download cache itself.
+# `bci` (breww cleanup) keeps Homebrew's 120-day retention; this one does not.
+alias bcp='brew cleanup --prune=all -s'
+alias bcpn='brew cleanup --prune=all -s --dry-run'  # what would be freed
 alias binfo='breww info'
 alias bdo='breww doctor'
 alias bdep='brew-deprecated'
@@ -423,6 +427,12 @@ sysup() {
         echo "📱 Updating App Store apps..."
         mas upgrade
       fi
+      # bup/bcu upgrade but never reclaim: do it explicitly. See the Linux
+      # branch below for what --prune=all -s actually removes.
+      if command -v brew &>/dev/null; then
+        echo "🍺 Cleaning up Homebrew cache..."
+        brew cleanup --prune=all -s
+      fi
       ;;
     linux)
       case "${MACHINE_PROFILE:-}" in
@@ -456,7 +466,11 @@ sysup() {
       if command -v brew &>/dev/null; then
         eval "$(brew shellenv)"
         echo "🍺 Updating Linuxbrew packages..."
-        brew update && brew upgrade && brew cleanup
+        brew update && brew upgrade
+        # --prune=all removes ALL cached downloads (not just those older than 120
+        # days), -s also clears the download cache itself. On a Pi with a small
+        # SD card this is the difference between a few hundred MB and a few GB.
+        brew cleanup --prune=all -s
       fi
 
       update-ai

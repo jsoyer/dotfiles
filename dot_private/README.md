@@ -116,11 +116,18 @@ Overlay filenames per manager: `Brewfile_<host>`, `Aptfile_<host>`, `Dnffile_<ho
 | `Flatpakfile_fedora_atomic` | Flatpak apps (system-wide) | fedora-atomic | Base |
 | `Flatpakfile_ubuntu_desktop` | Flatpak apps (`--user`) | ubuntu-desktop | Base |
 | `Flatpakfile_fedora_desktop` | Flatpak apps (`--user`) | fedora-desktop | Base |
+| `Flatpakfile_rpi` | Flatpak apps (`--user`), aarch64-capable only | rpi | Base |
 | `Flatpakfile_<hostname>` | Per-machine extras | any | Overlay |
 
 **Wrapper:** `flatpakw` (install/remove/dump → host overlay)
 
 **Installation:** Via `run_onchange_05-install-linux-flatpak.sh.tmpl` (flathub remote auto-added)
+
+> **Flatpaks never belong in a Brewfile.** `Brewfile_brew_only` is included
+> unconditionally by `Brewfile.tmpl` for every Linux profile, so anything in it
+> also reaches the RPi. Discord and Signal sat there and are x86_64-only on
+> Flathub, which made `brew bundle` fail on arm64. Flatpaks belong in the
+> per-profile `Flatpakfile_*` manifests, where the architecture is known.
 
 ---
 

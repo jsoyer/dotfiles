@@ -53,14 +53,6 @@ go "google.golang.org/grpc/cmd/protoc-gen-go-grpc"
 go "github.com/kyoh86/richgo"
 go "github.com/swaggo/swag/cmd/swag"
 cargo "eza"
-# NOTE: only aarch64-compatible flatpaks belong here. This file is shared
-# with the rpi profile, and Flathub has no aarch64 build for
-# com.discordapp.Discord or org.signal.Signal -- they live in the
-# per-profile Flatpakfile_* manifests instead.
-flatpak "io.github.shiftey.Desktop"
-flatpak "md.obsidian.Obsidian"
-flatpak "org.localsend.localsend_app"
-flatpak "tech.feliciano.pocket-casts"
 npm "@fission-ai/openspec"
 npm "@google/gemini-cli"
 npm "@juicesharp/rpiv-ask-user-question"
