@@ -506,6 +506,23 @@ update-ai() {
       npm update -g @openai/codex 2>/dev/null || true
     fi
   fi
+  # Grok: NEVER probe `agent` on PATH — that name is owned by cursor-agent
+  # (it has flip-flopped between the two; it caused the cursor-worker
+  # crash-loop). The Grok CLI home is authoritative.
+  if [[ -x "$HOME/.grok/bin/agent" ]]; then
+    echo "  🤖 Updating Grok CLI..."
+    "$HOME/.grok/bin/agent" update 2>/dev/null || true
+  fi
+  # cursor-agent: through our updater, which restarts the worker, watches for
+  # a crash loop and prunes old versions — not the raw `cursor-agent update`.
+  if command -v update-cursor-agent &>/dev/null; then
+    echo "  🤖 Updating cursor-agent..."
+    update-cursor-agent || true
+  fi
+  if command -v pi &>/dev/null; then
+    echo "  🤖 Updating pi (pi.dev) + extensions..."
+    pi update --all 2>/dev/null || true
+  fi
 }
 
 # Chezmoi update + package updates

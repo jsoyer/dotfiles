@@ -458,6 +458,29 @@ Custom Chezmoi status indicator in prompt:
 - Shows `✗` in red if last auto-update failed
 - No indicator if everything is healthy
 
+## Mandatory AI CLIs
+
+`install-ai` installs the six mandatory AI CLIs, one official one-liner each,
+idempotently: **claude, copilot-cli, codex, grok, cursor-agent, pi (pi.dev)**.
+`update-ai` (shell function, runs inside `sysup`) upgrades the same six.
+
+```bash
+install-ai              # install whatever is missing
+install-ai --status     # presence + version of each
+install-ai --only grok  # a single one
+```
+
+Two rules learned the hard way:
+
+- **These CLIs never go in a Brewfile.** Each ships its own installer and
+  self-updater; a brew/npm copy fights it. pi ended up installed through two
+  channels at once (`~/.npmrc` sets `prefix=~/.npm-global`, so the system npm
+  and Linuxbrew's npm share one global prefix — what looks like two installs
+  may be one). `pi-coding-agent` is blacklisted in `Brewfile_blacklist`.
+- **Grok is probed at `~/.grok/bin/agent`, never as `agent` on PATH** — that
+  name is owned by cursor-agent and has flip-flopped between the two (it is
+  what caused the cursor-worker crash-loop).
+
 ## Self-hosted Agent Stacks
 
 Three independent stacks, each with an installer, an updater and systemd units.

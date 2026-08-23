@@ -1314,6 +1314,21 @@ def update-ai [] {
             try { ^npm update -g @openai/codex } catch { }
         }
     }
+    # Grok: never probe `agent` on PATH — cursor-agent owns that name.
+    if ($"($nu.home-path)/.grok/bin/agent" | path exists) {
+        print "  🤖 Updating Grok CLI..."
+        try { ^$"($nu.home-path)/.grok/bin/agent" update } catch { }
+    }
+    # cursor-agent: through our updater (worker restart + prune), not raw update.
+    if (which update-cursor-agent | is-not-empty) {
+        print "  🤖 Updating cursor-agent..."
+        try { ^update-cursor-agent } catch { }
+    }
+    if (which pi | is-not-empty) {
+        print "  🤖 Updating pi (pi.dev) + extensions..."
+        try { ^pi update --all } catch {
+        }
+    }
 }
 
 # Chezmoi update + package updates

@@ -652,6 +652,20 @@ function update-ai
             npm update -g @openai/codex 2>/dev/null; or true
         end
     end
+    # Grok: never probe `agent` on PATH — cursor-agent owns that name.
+    if test -x "$HOME/.grok/bin/agent"
+        echo "  🤖 Updating Grok CLI..."
+        "$HOME/.grok/bin/agent" update 2>/dev/null; or true
+    end
+    # cursor-agent: through our updater (worker restart + prune), not raw update.
+    if command -q update-cursor-agent
+        echo "  🤖 Updating cursor-agent..."
+        update-cursor-agent; or true
+    end
+    if command -q pi
+        echo "  🤖 Updating pi (pi.dev) + extensions..."
+        pi update --all 2>/dev/null; or true
+    end
 end
 
 function cup
