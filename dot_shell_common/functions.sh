@@ -55,7 +55,7 @@ if command -v aerospace &>/dev/null; then
   }
 fi
 
-# Orca (stably.ai) cask upgrade
-orca-update() {
-  brew upgrade --cask stablyai/orca/orca
-}
+# NOTE: orca-update used to be defined here as a macOS cask upgrade. It moved
+# to the agent-stacks section of aliases.sh (darwin branch): defining a
+# function whose name is already an alias is a zsh parse error, and this file
+# loads after 10-aliases.

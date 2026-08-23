@@ -687,4 +687,7 @@ if [[ "$(uname -s)" == "Linux" ]]; then
   alias cursor-update='update-cursor-agent'
   alias cursor-logs='journalctl --user -u cursor-worker.service -f'
   alias cursor-restart='systemctl --user restart cursor-worker.service'
+else
+  # macOS runs Orca as a GUI cask, not the headless AppImage service.
+  alias orca-update='brew upgrade --cask stablyai/orca/orca'
 fi

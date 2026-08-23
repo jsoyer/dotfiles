@@ -1324,10 +1324,8 @@ def cup [...args: string] {
     print "✅ Update complete!"
 }
 
-# Orca (stably.ai) cask upgrade
-def orca-update [] {
-    ^brew upgrade --cask stablyai/orca/orca
-}
+# NOTE: orca-update moved to the agent-stacks section (OS-branching def:
+# brew cask on macOS, update-orca on Linux).
 
 # ============================================================================
 # Jujutsu (jj)
@@ -1628,7 +1626,14 @@ alias "herdr-logs" = journalctl --user -u herdr-update.service -f
 # --- Orca (headless runtime) — Linux only, system scope ---------------------
 alias "orca-install" = orca-setup
 alias "orca-status" = orca-setup --status
-alias "orca-update" = update-orca
+# macOS runs Orca as a GUI cask, not the headless AppImage service.
+def "orca-update" [] {
+    if $nu.os-info.name == "macos" {
+        ^brew upgrade --cask stablyai/orca/orca
+    } else {
+        ^update-orca
+    }
+}
 alias "orca-logs" = journalctl -u orca-serve.service -f
 alias "orca-restart" = sudo systemctl restart orca-serve.service
 
