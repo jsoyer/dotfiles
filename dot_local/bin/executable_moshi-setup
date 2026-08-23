@@ -12,6 +12,7 @@
 # Usage:
 #   moshi-setup                  full install + enable the service
 #   moshi-setup --no-service     binaries only (container, toolbox, CI)
+#   moshi-setup --no-hooks       skip writing agent hooks into the AI CLIs
 #   moshi-setup --no-packages    skip mosh/tmux (already in the manifests)
 #   moshi-setup --status         binary and service state
 #   moshi-setup --update         delegate to update-moshi
@@ -33,6 +34,7 @@ PLIST_UPDATE="com.jsoyer.moshi-update"
 DO_PACKAGES=1
 DO_HOOK=1
 DO_SERVICE=1
+DO_AGENT_HOOKS=1
 ASSUME_YES=0
 DRY_RUN=0
 ACTION="install"
@@ -69,6 +71,7 @@ while [[ $# -gt 0 ]]; do
     --no-packages) DO_PACKAGES=0 ;;
     --no-hook)     DO_HOOK=0 ;;
     --no-service)  DO_SERVICE=0 ;;
+    --no-hooks)    DO_AGENT_HOOKS=0 ;;
     --status)      ACTION="status" ;;
     --update)      ACTION="update" ;;
     --uninstall)   ACTION="uninstall" ;;
@@ -351,6 +354,17 @@ setup_service() {
   esac
 }
 
+# --- Step 4: agent hooks ------------------------------------------------------
+# `moshi-hook install` writes the Moshi hook configs into every supported AI
+# CLI (claude, codex, cursor, grok, pi, qwen, …). Idempotent and fast; it also
+# reports "hook gap" warnings when a CLI carries retired hooks.
+install_agent_hooks() {
+  local p; p="$(hook_path)"
+  [[ -n "$p" ]] || return 0
+  log "Writing agent hooks into the AI CLIs (moshi-hook install)…"
+  run "$p" install || warn "moshi-hook install failed — hooks may be stale."
+}
+
 # --- Actions ------------------------------------------------------------------
 # systemctl is-active/is-enabled ALREADY print a state ("inactive", "not-found")
 # and then exit non-zero: an `|| echo unknown` would add a SECOND line.
@@ -402,6 +416,7 @@ do_install() {
   [[ "$DO_PACKAGES" -eq 1 ]] && install_packages
   [[ "$DO_HOOK"     -eq 1 ]] && install_hook
   [[ "$DO_SERVICE"  -eq 1 ]] && setup_service
+  [[ "$DO_AGENT_HOOKS" -eq 1 ]] && install_agent_hooks
   echo
   ok "Done."
   local p; p="$(hook_path)"

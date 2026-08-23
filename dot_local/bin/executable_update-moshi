@@ -157,4 +157,9 @@ if [[ "$have_systemd" -eq 1 || "$have_launchd" -eq 1 ]]; then
   fi
 fi
 
+# A new version can ship new or retired agent hooks: refresh the hook configs
+# written into the AI CLIs. Idempotent, non-fatal.
+log "Refreshing agent hooks (moshi-hook install)…"
+"$BIN" install 2>/dev/null || warn "moshi-hook install failed — hooks may be stale."
+
 log "moshi-hook updated successfully (${CUR_VER} → ${NEW_VER})."

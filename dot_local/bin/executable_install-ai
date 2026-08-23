@@ -144,4 +144,11 @@ if [[ "$missing" -gt 0 ]]; then
   exit 1
 fi
 ok "Done ($installed newly installed)."
+
+# A freshly installed CLI has no Moshi agent hooks yet: refresh them so the
+# mobile app sees the new agent without waiting for the next moshi update.
+if [[ "$installed" -gt 0 && "$DRY_RUN" -eq 0 ]] && command -v moshi-hook >/dev/null 2>&1; then
+  log "Refreshing Moshi agent hooks for the new CLI(s)…"
+  moshi-hook install 2>/dev/null || warn "moshi-hook install failed — run it by hand."
+fi
 [[ "$DRY_RUN" -eq 1 ]] || { echo; do_status; }
