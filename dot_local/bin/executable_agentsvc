@@ -5,6 +5,8 @@
 #   moshi   moshi-hook  (--user)  terminal mobile Moshi
 #   orca    orca-serve  (system)  runtime Orca headless
 #   cursor  cursor-worker (--user) worker privé Cursor
+#   herdr   (timer seul)          multiplexeur — le serveur se démonise
+#                                 lui-même, systemd ne gère que sa mise à jour
 #
 # L'installation reste manuelle et explicite (moshi-setup / orca-setup /
 # cursor-setup) : agentsvc ne fait qu'observer et piloter ce qui est déjà en
@@ -17,7 +19,7 @@
 #   agentsvc logs    <cible>   suit le journal (Ctrl-C pour sortir)
 #   agentsvc reload            systemctl --user daemon-reload + rappel
 #
-# cible ∈ moshi | orca | cursor | all
+# cible ∈ moshi | orca | cursor | herdr | all
 #
 set -uo pipefail
 
@@ -30,8 +32,8 @@ die() { printf '%s[agentsvc]%s %s\n' "$c_r" "$c_0" "$*" >&2; exit 1; }
 usage() { sed -n '2,/^set -uo/p' "$0" | sed 's/^# \{0,1\}//; $d'; }
 
 case "$TARGET" in
-  moshi|orca|cursor|all) : ;;
-  *) die "Cible inconnue : ${TARGET} (moshi|orca|cursor|all)" ;;
+  moshi|orca|cursor|herdr|all) : ;;
+  *) die "Cible inconnue : ${TARGET} (moshi|orca|cursor|herdr|all)" ;;
 esac
 
 want() { [[ "$TARGET" == "all" || "$TARGET" == "$1" ]]; }
@@ -89,18 +91,46 @@ cmd_status() {
     row "binaire" "$(command -v cursor-agent 2>/dev/null || echo absent)"
     echo
   fi
+  if want herdr; then
+    printf '%sherdr%s  — multiplexeur\n' "$c_b" "$c_0"
+    # Pas de service long : le serveur se démonise hors de systemd. Son état se
+    # lit donc auprès du binaire, pas auprès de systemctl.
+    row "herdr-update.timer" "$(unit_state user herdr-update.timer)"
+    row "binaire"            "$(command -v herdr 2>/dev/null || echo absent)"
+    if command -v herdr >/dev/null 2>&1; then
+      local st ver compat
+      st="$(herdr status server 2>/dev/null | awk -F': *' '$1=="status"{print $2; exit}')"
+      ver="$(herdr status server 2>/dev/null | awk -F': *' '$1=="version"{print $2; exit}')"
+      compat="$(herdr status server 2>/dev/null | awk -F': *' '$1=="compatible"{print $2; exit}')"
+      row "serveur" "${st:-arrêté}${ver:+ ($ver)}"
+      # compatible=no => l'attach cassera : c'est LE symptôme d'un handoff raté.
+      if [[ -n "$compat" && "$compat" != "yes" ]]; then
+        row "compatible" "$(printf '%s%s — attach cassé, voir update-herdr%s' "$c_r" "$compat" "$c_0")"
+      fi
+    fi
+    echo
+  fi
 }
 
 cmd_update() {
   want moshi  && { printf '%s▸ moshi%s\n'  "$c_b" "$c_0"; update-moshi         || true; }
   want cursor && { printf '%s▸ cursor%s\n' "$c_b" "$c_0"; update-cursor-agent  || true; }
   want orca   && { printf '%s▸ orca%s\n'   "$c_b" "$c_0"; sudo systemctl start orca-update.service || true; }
+  want herdr  && { printf '%s▸ herdr%s\n'  "$c_b" "$c_0"; update-herdr         || true; }
 }
 
 cmd_restart() {
   want moshi  && systemctl --user restart moshi-hook.service    && printf 'moshi-hook redémarré\n'
   want cursor && systemctl --user restart cursor-worker.service && printf 'cursor-worker redémarré\n'
   want orca   && sudo systemctl restart orca-serve.service      && printf 'orca-serve redémarré\n'
+  # Pas de restart herdr : le serveur porte tes panes et n'est pas géré par
+  # systemd. Un restart brutal les perdrait — c'est `update-herdr` qui fait le
+  # handoff proprement.
+  if [[ "$TARGET" == "herdr" ]]; then
+    printf '%sherdr n'\''est pas redémarrable ici%s : le serveur porte tes panes.\n' "$c_y" "$c_0"
+    printf '  Mise à jour avec handoff : update-herdr\n'
+    printf '  Arrêt volontaire         : herdr server stop\n'
+  fi
   return 0
 }
 
@@ -109,7 +139,8 @@ cmd_logs() {
     moshi)  exec journalctl --user -u moshi-hook.service -f ;;
     cursor) exec journalctl --user -u cursor-worker.service -f ;;
     orca)   exec journalctl -u orca-serve.service -f ;;
-    all)    die "Précise une cible : agentsvc logs moshi|orca|cursor" ;;
+    herdr)  exec journalctl --user -u herdr-update.service -f ;;
+    all)    die "Précise une cible : agentsvc logs moshi|orca|cursor|herdr" ;;
   esac
 }
 

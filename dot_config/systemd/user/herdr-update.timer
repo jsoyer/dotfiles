@@ -1,0 +1,15 @@
+[Unit]
+Description=Vérification quotidienne des mises à jour herdr
+
+[Timer]
+Unit=herdr-update.service
+# Heure creuse volontaire (et pas "daily" = minuit pile) : l'update fait un
+# handoff du serveur qui porte tes panes. Mieux vaut qu'il tombe quand tu ne
+# tapes pas dedans.
+OnCalendar=*-*-* 04:00:00
+RandomizedDelaySec=30min
+# Rattrape si la machine était éteinte à 04:00.
+Persistent=true
+
+[Install]
+WantedBy=timers.target

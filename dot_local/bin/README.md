@@ -469,8 +469,9 @@ disk. Activation is always an explicit command (the aliases below).
 | **Moshi** (mobile terminal) | `--user` (+ launchd on macOS) | `moshi-setup` | `update-moshi` | `moshi-hook.service`, `moshi-update.{service,timer}` |
 | **Orca** (headless runtime) | **system** (root) | `orca-setup` | `update-orca` | `orca-serve.service` + drop-in, `orca-update.{service,timer}` |
 | **Cursor** (private worker) | `--user` | `cursor-setup` | `update-cursor-agent` | `cursor-worker.service`, `cursor-update.{service,timer}` |
+| **herdr** (multiplexer) | `--user` | *(self-installing)* | `update-herdr` | `herdr-update.{service,timer}` |
 
-`agentsvc` is the read-only umbrella over all three: `agentsvc status|update|restart|logs|reload`.
+`agentsvc` is the read-only umbrella over all four: `agentsvc status|update|restart|logs|reload`.
 
 ### moshi-setup
 
@@ -575,6 +576,29 @@ Three things make a mistyped path survivable, all learned the hard way:
   override change, and `--status` prints both `Config` and `Exposé`, flagging any
   divergence in red.
 
+### update-herdr
+
+herdr is the odd one out: a **multiplexer, not a daemon**. Its server daemonizes
+itself (reparented to PID 1) and holds the live panes, so systemd manages only
+the update timer — there is no long-running unit and no installer script (herdr
+installs itself).
+
+That also makes the update dangerous to do naively. `herdr update --handoff`
+installs the new version and transfers live sessions to the new server. Without
+the handoff the client moves to N+1 while the server stays at N, and the next
+attach fails on a protocol mismatch (`compatible: no`) — a broken terminal, not
+just a stale version. `update-herdr` passes `--handoff` only when a server is
+actually running, then verifies client/server versions agree afterwards.
+
+`agentsvc restart herdr` deliberately refuses: restarting the server would drop
+your panes. Use `update-herdr` (handoff) or `herdr server stop` explicitly.
+
+```bash
+hu                  # alias for update-herdr
+hs                  # herdr status server
+agentsvc status herdr
+```
+
 ### Aliases (bash, zsh, fish, nushell)
 
 | Alias | Action |
@@ -583,6 +607,7 @@ Three things make a mistyped path survivable, all learned the hard way:
 | `moshi-install` `mhs` `mhu` `mhl` `mhr` | moshi: install, status, update, logs, restart |
 | `orca-install` `ov` `os` `ol` `orr` `ogui` | orca: install, version, status, logs, restart, GUI |
 | `cursor-install` `cws` `cwl` `cwr` `cwu` | cursor: install, status, logs, restart, update |
+| `hu` `hs` `hl` | herdr: update (handoff), server status, timer logs |
 
 ## Related Documentation
 

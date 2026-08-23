@@ -1,0 +1,14 @@
+[Unit]
+Description=Met à jour herdr vers la dernière version
+Documentation=file:%h/.local/bin/update-herdr
+# Scope --user : le binaire (~/.local/bin/herdr), la config (~/.config/herdr) et
+# surtout les sessions vivantes appartiennent à l'utilisateur.
+
+[Service]
+Type=oneshot
+ExecStart=%h/.local/bin/update-herdr
+# Le script fait le handoff des sessions vivantes et vérifie la cohérence
+# client/serveur ; il sort en 0 sur simple coupure réseau.
+SuccessExitStatus=0
+TimeoutStartSec=10min
+Environment=PATH=%h/.local/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin

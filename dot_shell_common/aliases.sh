@@ -657,4 +657,9 @@ if [[ "$(uname -s)" == "Linux" ]]; then
   alias cwl='journalctl --user -u cursor-worker.service -f'
   alias cwr='systemctl --user restart cursor-worker.service'
   alias cwu='update-cursor-agent'
+
+  # --- herdr (multiplexeur) — timer de MAJ seul, le serveur se démonise -----
+  alias hu='update-herdr'
+  alias hs='herdr status server'
+  alias hl='journalctl --user -u herdr-update.service -f'
 fi

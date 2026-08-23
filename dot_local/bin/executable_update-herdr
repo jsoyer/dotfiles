@@ -1,0 +1,102 @@
+#!/usr/bin/env bash
+#
+# update-herdr — Met à jour le binaire herdr (~/.local/bin) via son self-update.
+#
+# Particularité vs update-moshi : herdr est un MULTIPLEXEUR, pas un daemon.
+# Le serveur (`herdr server`) se démonise lui-même (reparenté à PID 1) et porte
+# les panes/agents en cours. On ne le redémarre donc PAS bêtement : on utilise
+# `herdr update --handoff`, qui installe la nouvelle version puis transfère les
+# sessions vivantes au nouveau serveur (handoff), sans perdre les panes.
+#
+# ⚠️ Le handoff n'est pas un confort, c'est une SÉCURITÉ : sans lui le binaire
+# (client) passerait en N+1 pendant que le serveur resterait en N → mismatch de
+# protocole au prochain attach (`compatible: no`) = terminal cassé.
+#
+# C'est aussi pourquoi herdr n'a pas de service systemd « long » comme
+# moshi-hook ou cursor-worker : seul le timer de mise à jour est géré ici.
+#
+set -euo pipefail
+
+# --- Configuration ------------------------------------------------------------
+BIN="${HERDR_BIN:-$HOME/.local/bin/herdr}"
+BACKUP="${BIN}.bak"
+
+# --- Helpers ------------------------------------------------------------------
+log()  { printf '\033[1;34m[herdr-update]\033[0m %s\n' "$*"; }
+warn() { printf '\033[1;33m[herdr-update]\033[0m %s\n' "$*" >&2; }
+die()  { printf '\033[1;31m[herdr-update]\033[0m %s\n' "$*" >&2; exit 1; }
+
+# `herdr --version` imprime "herdr X.Y.Z" ; "inconnue" si le binaire est muet.
+bin_version() {
+  local v
+  v="$("$1" --version 2>/dev/null | awk 'NF{print $NF; exit}')" || true
+  echo "${v:-inconnue}"
+}
+
+# Champ d'une ligne "clé: valeur" de `herdr status server`.
+server_field() { "$BIN" status server 2>/dev/null | awk -F': *' -v k="$1" '$1==k{print $2; exit}'; }
+
+# --- Garde-fous ---------------------------------------------------------------
+[[ "$(id -u)" -ne 0 ]] || die "À lancer en tant qu'utilisateur, pas en root (binaire et sessions vivent dans \$HOME)."
+[[ -x "$BIN" ]] || BIN="$(command -v herdr 2>/dev/null || true)"
+[[ -n "$BIN" && -x "$BIN" ]] || die "Binaire herdr introuvable ou non exécutable."
+BACKUP="${BIN}.bak"
+
+CUR_VER="$(bin_version "$BIN")"
+SRV_STATUS="$(server_field status || true)"
+log "Version installée : ${CUR_VER} — serveur : ${SRV_STATUS:-absent} (canal : $("$BIN" channel show 2>/dev/null | awk 'NF{print $NF; exit}' || echo inconnu))"
+
+cp -f "$BIN" "$BACKUP"   # rollback possible si la release est cassée
+
+# --- Self-update --------------------------------------------------------------
+# --handoff seulement si un serveur tourne : sinon herdr n'a rien à transférer.
+UPDATE_ARGS=()
+[[ "$SRV_STATUS" == "running" ]] && UPDATE_ARGS+=(--handoff)
+
+set +e
+OUT="$("$BIN" update "${UPDATE_ARGS[@]}" 2>&1)"; RC=$?
+set -e
+printf '%s\n' "$OUT" | sed 's/^/    /'
+
+if [[ "$RC" -ne 0 ]]; then
+  # Réseau/release injoignable : le binaire n'a pas bougé, on ne casse rien.
+  warn "herdr update a échoué (code ${RC}) — binaire inchangé (${CUR_VER}), nouvelle tentative au prochain run."
+  exit 0
+fi
+
+# --- Validation ---------------------------------------------------------------
+NEW_VER="$(bin_version "$BIN")"
+if [[ "$NEW_VER" == "inconnue" ]]; then
+  warn "Le binaire mis à jour ne répond plus à --version — rollback."
+  mv -f "$BACKUP" "$BIN"; chmod 755 "$BIN"
+  die "Rollback effectué vers ${CUR_VER}. Release cassée ?"
+fi
+
+log "Version installée : ${CUR_VER}  →  version après update : ${NEW_VER}"
+
+if [[ "$NEW_VER" == "$CUR_VER" ]]; then
+  log "Déjà à jour (${CUR_VER}) — sessions intactes, aucun handoff."
+  exit 0
+fi
+
+# --- Cohérence client / serveur après handoff ---------------------------------
+# Le vrai risque post-update : un serveur resté en ancienne version. On vérifie
+# que le serveur répond, tourne la nouvelle version et reste compatible.
+if [[ "$SRV_STATUS" == "running" ]]; then
+  sleep 3
+  NEW_SRV_STATUS="$(server_field status || true)"
+  NEW_SRV_VER="$(server_field version || true)"
+  NEW_SRV_COMPAT="$(server_field compatible || true)"
+
+  if [[ "$NEW_SRV_STATUS" != "running" ]]; then
+    warn "⚠ Le serveur herdr ne répond plus après l'update (statut: ${NEW_SRV_STATUS:-aucun})."
+    warn "  Les panes en cours sont probablement perdus. Relance : herdr"
+  elif [[ "$NEW_SRV_VER" != "$NEW_VER" ]]; then
+    warn "⚠ Handoff incomplet : client ${NEW_VER} mais serveur toujours ${NEW_SRV_VER} (compatible: ${NEW_SRV_COMPAT})."
+    warn "  Si compatible=no, l'attach cassera. Correction : détache tes clients puis 'herdr server stop' et relance 'herdr'."
+  else
+    log "Handoff OK — serveur ${NEW_SRV_VER}, compatible: ${NEW_SRV_COMPAT} ✔"
+  fi
+fi
+
+log "herdr mis à jour avec succès (${CUR_VER} → ${NEW_VER})."

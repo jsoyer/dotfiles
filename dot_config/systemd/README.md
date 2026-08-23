@@ -315,6 +315,12 @@ explicit command (`moshi-install`, `cursor-install`, `orca-setup`).
 | `moshi-update.service` / `.timer` | Daily `update-moshi` | `moshi-setup` |
 | `cursor-worker.service` | Cursor private worker (`cursor-agent worker start`) | `cursor-setup` |
 | `cursor-update.service` / `.timer` | Daily `update-cursor-agent` | `cursor-setup` |
+| `herdr-update.service` / `.timer` | `update-herdr` at 04:00 (handoff-aware) | `systemctl --user enable --now herdr-update.timer` |
+
+herdr has **no long-running unit**: its server daemonizes itself outside systemd
+and holds the live panes. Only the update timer is managed here, and it runs at
+04:00 rather than `daily` (midnight) because the update hands the panes over to
+a new server process — better when you are not typing into them.
 
 Orca's units (`orca-serve.service`, `orca-update.{service,timer}`) live in
 `/etc/systemd/system` — **system scope, not user** — because the AppImage sits in
