@@ -20,12 +20,12 @@ temurin@19
 temurin@20
 
 # Deprecated taps (brew tap entries — not packages, tracked for reference)
-# homebrew/aliases
-# homebrew/bundle
+homebrew/aliases
+homebrew/bundle
 # homebrew/cask
-# homebrew/command-not-found
+homebrew/command-not-found
 # homebrew/core
-# homebrew/services
+homebrew/services
 
 # Removed during 2026-08-23 cleanup (deprecated or unused)
 archiver
@@ -65,7 +65,6 @@ dbcli/tap
 denji/nginx
 felixkratz/formulae
 goodwithtech/r
-harvard-cns/orla
 hashicorp/tap
 instantclienttap/instantclient
 jsoyer/tap
@@ -111,3 +110,4 @@ qwen-code
 pi-coding-agent
 @mariozechner/pi-coding-agent
 @openai/codex
+updatest/tap,

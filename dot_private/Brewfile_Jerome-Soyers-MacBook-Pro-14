@@ -1,11 +1,7 @@
 # Host overlay for Jerome-Soyers-MacBook-Pro-14 — extras beyond the shared base.
 # Managed by breww. Do not edit manually.
-tap "homebrew/aliases"
-tap "homebrew/bundle"
 tap "homebrew/cask"
-tap "homebrew/command-not-found"
 tap "homebrew/core"
-tap "homebrew/services"
 tap "rjyo/moshi", trusted: true
 tap "teamookla/speedtest", trusted: true
 brew "crane"
