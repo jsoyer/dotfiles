@@ -1,0 +1,104 @@
+#!/usr/bin/env bash
+# moshi-uninstall — take Moshi off this machine.
+#
+# `moshi-setup --uninstall` stops the services and deletes the binaries, but
+# leaves the agent hooks, the brew package and tap, the unit/plist files and the
+# logs behind. This finishes the job. Config and state survive unless --purge.
+
+set -euo pipefail
+
+ASSUME_YES=0
+PURGE=0
+
+usage() {
+    cat <<'EOF'
+Usage: moshi-uninstall [-y] [--purge]
+
+  -y, --yes    do not ask for confirmation
+  --purge      also drop ~/.config/moshi, ~/.local/state/moshi and the pairing
+
+Removes: agent hooks written by `moshi-hook install`, the moshi-hook binaries,
+the launchd agents (macOS) or user units (Linux), the brew package and tap, and
+the moshi logs.
+EOF
+}
+
+for arg in "$@"; do
+    case "$arg" in
+        -y|--yes) ASSUME_YES=1 ;;
+        --purge) PURGE=1 ;;
+        -h|--help) usage; exit 0 ;;
+        *) echo "moshi-uninstall: unknown option: $arg" >&2; usage >&2; exit 2 ;;
+    esac
+done
+
+if [[ "$ASSUME_YES" -eq 0 ]]; then
+    printf 'Remove Moshi from this machine%s? [y/N] ' \
+        "$([[ "$PURGE" -eq 1 ]] && printf ', including config and pairing')"
+    read -r reply
+    [[ "$reply" =~ ^[Yy]$ ]] || { echo "Aborted."; exit 0; }
+fi
+
+OS="$(uname -s)"
+
+# 1. Agent hooks first — this needs the binary, so it has to run before removal.
+if command -v moshi-hook &>/dev/null; then
+    echo "🪝 Removing Moshi hooks from the AI CLIs..."
+    moshi-hook uninstall 2>/dev/null || true
+    if [[ "$PURGE" -eq 1 ]]; then
+        echo "🔗 Removing the local pairing..."
+        moshi-hook unpair 2>/dev/null || true
+    fi
+fi
+
+# 2. Services and binaries, via the setup script that owns that logic.
+if command -v moshi-setup &>/dev/null; then
+    echo "🛑 Stopping services (moshi-setup --uninstall)..."
+    moshi-setup --uninstall -y || true
+fi
+
+# 3. What the setup script leaves behind.
+if [[ "$OS" == "Darwin" ]]; then
+    for label in com.jsoyer.moshi-hook com.jsoyer.moshi-update; do
+        plist="${HOME}/Library/LaunchAgents/${label}.plist"
+        if [[ -f "$plist" ]]; then
+            echo "🧹 Removing launch agent ${label}"
+            launchctl bootout "gui/$(id -u)/${label}" 2>/dev/null \
+                || launchctl unload "$plist" 2>/dev/null || true
+            rm -f "$plist"
+        fi
+    done
+    rm -f "${HOME}/Library/Logs/moshi-hook.log" "${HOME}/Library/Logs/moshi-update.log"
+
+    if command -v brew &>/dev/null; then
+        eval "$(brew shellenv)"
+        brew list --formula moshi-hook &>/dev/null && brew uninstall moshi-hook || true
+        brew tap | grep -qx "rjyo/moshi" && brew untap rjyo/moshi || true
+    fi
+else
+    units_dir="${XDG_CONFIG_HOME:-${HOME}/.config}/systemd/user"
+    removed_units=0
+    for unit in moshi-hook.service moshi-update.service moshi-update.timer; do
+        if [[ -f "${units_dir}/${unit}" ]]; then
+            rm -f "${units_dir}/${unit}"
+            removed_units=1
+        fi
+    done
+    if [[ "$removed_units" -eq 1 ]]; then
+        systemctl --user daemon-reload 2>/dev/null || true
+        echo "⚠️  The unit files are chezmoi-managed: the next \`chezmoi apply\` puts"
+        echo "    them back. Run \`chezmoi forget\` on them to make this stick."
+    fi
+fi
+
+rm -f "${HOME}/.local/bin/moshi-hook" "${HOME}/.local/bin/moshi-hook.bak" \
+      "${HOME}/.local/bin/moshi" 2>/dev/null || true
+
+if [[ "$PURGE" -eq 1 ]]; then
+    rm -rf "${XDG_CONFIG_HOME:-${HOME}/.config}/moshi" \
+           "${XDG_STATE_HOME:-${HOME}/.local/state}/moshi"
+fi
+
+echo "✅ Moshi removed."
+echo "   Still declared in the Brewfiles — drop \"rjyo/moshi\" and \"moshi-hook\""
+echo "   there (and blacklist them) or the next bundle run reinstalls it."

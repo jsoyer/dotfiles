@@ -1,0 +1,82 @@
+#!/usr/bin/env bash
+# orca-uninstall — take Orca off this machine.
+#
+# `orca-setup --uninstall` disables the services but leaves orca-serve.service
+# itself, its .bak, /opt/orca and the user config in place. This finishes the
+# job. On macOS there is no AppImage: Orca is just the cask.
+
+set -euo pipefail
+
+ASSUME_YES=0
+PURGE=0
+
+usage() {
+    cat <<'EOF'
+Usage: orca-uninstall [-y] [--purge]
+
+  -y, --yes    do not ask for confirmation
+  --purge      also drop ~/.config/orca
+
+Linux: stops orca-serve and orca-update, removes their units, /usr/local/bin/
+update-orca and /opt/orca. Needs root (re-runs itself with sudo).
+macOS: uninstalls the cask and untaps stablyai/orca.
+EOF
+}
+
+for arg in "$@"; do
+    case "$arg" in
+        -y|--yes) ASSUME_YES=1 ;;
+        --purge) PURGE=1 ;;
+        -h|--help) usage; exit 0 ;;
+        *) echo "orca-uninstall: unknown option: $arg" >&2; usage >&2; exit 2 ;;
+    esac
+done
+
+OS="$(uname -s)"
+
+if [[ "$ASSUME_YES" -eq 0 ]]; then
+    printf 'Remove Orca from this machine? [y/N] '
+    read -r reply
+    [[ "$reply" =~ ^[Yy]$ ]] || { echo "Aborted."; exit 0; }
+fi
+
+if [[ "$OS" == "Darwin" ]]; then
+    if command -v brew &>/dev/null; then
+        eval "$(brew shellenv)"
+        brew list --cask orca &>/dev/null && brew uninstall --cask --zap orca || true
+        brew tap | grep -qx "stablyai/orca" && brew untap stablyai/orca || true
+    fi
+    [[ "$PURGE" -eq 1 ]] && rm -rf "${HOME}/Library/Application Support/orca"
+    echo "✅ Orca removed (cask)."
+    exit 0
+fi
+
+# Linux: system scope, so re-run under sudo once.
+if [[ "${EUID}" -ne 0 ]]; then
+    exec sudo -E "$0" -y $([[ "$PURGE" -eq 1 ]] && echo --purge)
+fi
+
+if command -v orca-setup &>/dev/null; then
+    echo "🛑 Stopping services (orca-setup --uninstall)..."
+    orca-setup --uninstall -y || true
+else
+    systemctl disable --now orca-serve.service 2>/dev/null || true
+    systemctl disable --now orca-update.timer 2>/dev/null || true
+fi
+
+echo "🧹 Removing what the setup script leaves behind..."
+rm -f /etc/systemd/system/orca-serve.service \
+      /etc/systemd/system/orca-serve.service.bak \
+      /etc/systemd/system/orca-update.service \
+      /etc/systemd/system/orca-update.timer \
+      /usr/local/bin/update-orca
+rm -rf /etc/systemd/system/orca-serve.service.d /opt/orca
+systemctl daemon-reload 2>/dev/null || true
+
+if [[ "$PURGE" -eq 1 ]]; then
+    # The service ran as SUDO_USER, so its config lives in that user's home.
+    svc_home="$(getent passwd "${SUDO_USER:-root}" | cut -d: -f6)"
+    [[ -n "$svc_home" ]] && rm -rf "${svc_home}/.config/orca"
+fi
+
+echo "✅ Orca removed."
