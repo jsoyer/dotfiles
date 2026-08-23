@@ -27,7 +27,13 @@ PURGED_FORMULAE=(
     pokemonsay turso graphite
 )
 PURGED_CASKS=(
-    betterdiscord-installer rar
+    betterdiscord-installer rar orla
+)
+
+# orla's tap was renamed upstream, so both names have to go or brew follows the
+# redirect and taps it straight back.
+PURGED_TAPS=(
+    harvard-cns/orla dorcha-inc/orla
 )
 
 removed=0
@@ -42,6 +48,14 @@ for pkg in "${PURGED_CASKS[@]}"; do
     if brew list --cask "$pkg" &>/dev/null; then
         echo "🔄 Uninstalling purged cask: $pkg"
         brew uninstall --cask "$pkg" 2>/dev/null || true
+        ((removed++)) || true
+    fi
+done
+
+for t in "${PURGED_TAPS[@]}"; do
+    if brew tap | grep -qx "$t"; then
+        echo "🔄 Untapping purged tap: $t"
+        brew untap "$t" 2>/dev/null || true
         ((removed++)) || true
     fi
 done
