@@ -1,0 +1,44 @@
+{{- if ne .chezmoi.os "windows" -}}
+#!/usr/bin/env bash
+# =============================================================================
+# One-time cleanup: remove RustDesk from all machines (macOS + Linux)
+# =============================================================================
+
+set -euo pipefail
+
+echo "🧹 Removing RustDesk (if present)..."
+
+{{ if eq .chezmoi.os "darwin" -}}
+pkill -x RustDesk 2>/dev/null || true
+
+if command -v brew &>/dev/null && brew list --cask rustdesk &>/dev/null; then
+    brew uninstall --cask --zap rustdesk || true
+fi
+
+# Manual installs: app bundle + launchd services (com.carriez.*)
+sudo rm -rf /Applications/RustDesk.app 2>/dev/null || rm -rf /Applications/RustDesk.app 2>/dev/null || true
+for plist in ~/Library/LaunchAgents/com.carriez.*.plist; do
+    [ -e "$plist" ] || continue
+    launchctl unload "$plist" 2>/dev/null || true
+    rm -f "$plist"
+done
+sudo rm -f /Library/LaunchDaemons/com.carriez.*.plist 2>/dev/null || true
+rm -rf ~/Library/Preferences/com.carriez.* ~/.config/rustdesk 2>/dev/null || true
+{{ else -}}
+pkill -x rustdesk 2>/dev/null || true
+
+if command -v flatpak &>/dev/null; then
+    flatpak uninstall -y com.rustdesk.RustDesk 2>/dev/null || true
+fi
+if command -v apt-get &>/dev/null && dpkg -s rustdesk &>/dev/null; then
+    sudo apt-get remove -y rustdesk || true
+elif command -v dnf &>/dev/null && rpm -q rustdesk &>/dev/null; then
+    sudo dnf remove -y rustdesk || true
+elif command -v pacman &>/dev/null && pacman -Qi rustdesk &>/dev/null; then
+    sudo pacman -Rns --noconfirm rustdesk || true
+fi
+rm -rf ~/.config/rustdesk 2>/dev/null || true
+{{ end -}}
+
+echo "✅ RustDesk cleanup done."
+{{ end -}}

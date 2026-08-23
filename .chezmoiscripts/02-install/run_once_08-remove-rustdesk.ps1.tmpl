@@ -1,0 +1,28 @@
+{{- if eq .chezmoi.os "windows" -}}
+# One-time cleanup: remove RustDesk from Windows machines.
+
+#Requires -Version 5.1
+$ErrorActionPreference = 'Continue'
+
+Write-Host "🧹 Removing RustDesk (if present)..." -ForegroundColor Cyan
+
+Stop-Process -Name rustdesk -Force -ErrorAction SilentlyContinue
+
+if (Get-Command scoop -ErrorAction SilentlyContinue) {
+    scoop uninstall rustdesk 2>$null
+}
+if (Get-Command winget -ErrorAction SilentlyContinue) {
+    winget uninstall --id RustDesk.RustDesk --silent --disable-interactivity 2>$null
+}
+if (Get-Command choco -ErrorAction SilentlyContinue) {
+    choco uninstall rustdesk -y 2>$null
+}
+
+# Service left behind by the installer
+if (Get-Service -Name RustDesk -ErrorAction SilentlyContinue) {
+    Stop-Service -Name RustDesk -Force -ErrorAction SilentlyContinue
+    sc.exe delete RustDesk | Out-Null
+}
+
+Write-Host "✅ RustDesk cleanup done." -ForegroundColor Green
+{{ end -}}
