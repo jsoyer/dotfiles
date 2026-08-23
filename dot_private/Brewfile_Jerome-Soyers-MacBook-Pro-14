@@ -12,6 +12,7 @@ tap "homebrew/services"
 tap "reyamira/tap", "https://github.com/reyamira/homebrew-tap.git", trusted: true
 tap "rjyo/moshi", trusted: true
 tap "stablyai/orca", trusted: { casks: ["orca"] }
+brew "depot"
 brew "sdl2-compat"
 brew "herdr"
 brew "kimi-code"
