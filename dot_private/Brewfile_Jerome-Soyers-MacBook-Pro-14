@@ -10,16 +10,19 @@ tap "homebrew/command-not-found"
 tap "homebrew/core"
 tap "homebrew/services"
 tap "reyamira/tap", "https://github.com/reyamira/homebrew-tap.git", trusted: true
+tap "rjyo/moshi", trusted: true
 tap "stablyai/orca", trusted: { casks: ["orca"] }
 brew "sdl2-compat"
 brew "herdr"
 brew "kimi-code"
 brew "mactop"
 brew "models"
+brew "mosh"
 brew "openspec", link: false
 brew "redis"
 brew "semgrep"
 brew "signal-cli"
+brew "rjyo/moshi/moshi-hook"
 cask "antigravity-cli"
 cask "bettercapture"
 cask "theboredteam/boring-notch/boring-notch", trusted: true
@@ -30,6 +33,7 @@ cask "granola"
 cask "grok-bot"
 cask "grok-build"
 cask "ledger-wallet"
+cask "linear"
 cask "logi-options+"
 cask "logitune"
 cask "plaud"
