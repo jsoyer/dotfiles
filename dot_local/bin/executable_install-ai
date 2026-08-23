@@ -62,10 +62,16 @@ has_cursor()  { command -v cursor-agent >/dev/null 2>&1 && cursor-agent worker -
 # and makes the official installer fail with EEXIST. An old-scope pi counts as
 # "missing" so the install step runs (after migrate_pi clears the way).
 has_pi() {
-  local tgt
+  local tgt bp
   command -v pi >/dev/null 2>&1 || return 1
   tgt="$(readlink -f "$(command -v pi)" 2>/dev/null || true)"
-  [[ "$tgt" != *"@mariozechner/pi-coding-agent"* ]]
+  [[ "$tgt" == *"@mariozechner/pi-coding-agent"* ]] && return 1
+  # A pi living under the brew prefix is a Brewfile leftover, not the official
+  # install — it shadows or blocks the pi.dev installer. Field-verified on
+  # diabolo: `rm -f /home/linuxbrew/.linuxbrew/bin/pi` was the actual fix.
+  bp="$(brew --prefix 2>/dev/null || true)"
+  [[ -n "$bp" && "$tgt" == "$bp"/* ]] && return 1
+  return 0
 }
 
 # Clear the old scope and any orphaned bin link before the pi.dev installer runs.
@@ -81,6 +87,13 @@ migrate_pi() {
       log "pi: removing stale bin link ${bin} (would EEXIST the installer)"
       [[ "$DRY_RUN" -eq 1 ]] || rm -f "$bin"
     fi
+  fi
+  # Brewfile-era copy under the brew prefix (installed by brew's npm): its bin
+  # link blocks or shadows the official install. Field fix from diabolo.
+  local bp; bp="$(brew --prefix 2>/dev/null || true)"
+  if [[ -n "$bp" && ( -e "$bp/bin/pi" || -L "$bp/bin/pi" ) ]]; then
+    log "pi: removing Brewfile-era copy ${bp}/bin/pi"
+    [[ "$DRY_RUN" -eq 1 ]] || rm -f "$bp/bin/pi"
   fi
 }
 
