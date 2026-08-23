@@ -103,6 +103,7 @@ amazon-ecs-cli
 docker-completion
 rustdesk
 kimi-cli
+kimi-code
 
 # pi (pi.dev) is a mandatory AI CLI installed by install-ai (official
 # installer, self-updated by `pi update`). A brew/npm copy fights it -- this

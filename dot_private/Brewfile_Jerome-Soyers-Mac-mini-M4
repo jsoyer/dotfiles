@@ -10,7 +10,6 @@ brew "crit"
 brew "sdl2-compat"
 brew "herdr"
 brew "infisical"
-brew "kimi-code", link: false
 brew "mactop"
 brew "podcast-dl"
 brew "rclone"
