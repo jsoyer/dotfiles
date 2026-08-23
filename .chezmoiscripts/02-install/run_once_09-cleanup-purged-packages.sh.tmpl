@@ -17,6 +17,11 @@ eval "$(brew shellenv)"
 
 # Dependents first (the_silver_searcher/zshdb pin pcre), then libraries.
 PURGED_FORMULAE=(
+{{- if eq (index . "machine_profile") "rpi" }}
+    # rpi only: qwen-code moved out of the shared base (kept on fedora-pve
+    # via its hostname overlay and on macOS via Brewfile_personal)
+    qwen-code
+{{- end }}
     the_silver_searcher zshdb pcre
     archiver cline docker-ls gemini-cli go@1.24 libgit2@1.7 speedtest-cli
     amazon-ecs-cli docker-completion kimi-cli
