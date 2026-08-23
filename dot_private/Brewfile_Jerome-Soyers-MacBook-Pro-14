@@ -38,6 +38,7 @@ cask "linear"
 cask "logi-options+"
 cask "logitune"
 cask "plaud"
+cask "superwhisper"
 cask "zoom"
 mas "Amphetamine", id: 937984704
 mas "FaceScreen", id: 6702028512
