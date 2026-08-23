@@ -29,6 +29,7 @@ cask "theboredteam/boring-notch/boring-notch", trusted: true
 cask "chatgpt"
 cask "elgato-camera-hub"
 cask "elgato-stream-deck"
+cask "fluidvoice"
 cask "granola"
 cask "grok-bot"
 cask "grok-build"
