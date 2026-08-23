@@ -54,7 +54,22 @@ run_installer() {
 # The Grok CLI home is authoritative.
 has_claude()  { command -v claude       >/dev/null 2>&1; }
 has_copilot() { command -v copilot-cli  >/dev/null 2>&1 || command -v copilot >/dev/null 2>&1; }
-has_codex()   { command -v codex        >/dev/null 2>&1; }
+# codex must be the official standalone (installer drops it in ~/.local/bin).
+# An npm copy (the old Brewfile channel) counts as "missing" so the install
+# step runs after migrate_codex clears it.
+has_codex() {
+  local tgt
+  command -v codex >/dev/null 2>&1 || return 1
+  tgt="$(readlink -f "$(command -v codex)" 2>/dev/null || true)"
+  [[ "$tgt" != *"node_modules/@openai/codex"* ]]
+}
+
+migrate_codex() {
+  if npm ls -g @openai/codex >/dev/null 2>&1; then
+    log "codex: npm copy (old Brewfile channel) found — uninstalling before migrating…"
+    [[ "$DRY_RUN" -eq 1 ]] || npm uninstall -g @openai/codex >/dev/null 2>&1 || true
+  fi
+}
 has_grok()    { [[ -x "$HOME/.grok/bin/agent" ]]; }
 has_cursor()  { command -v cursor-agent >/dev/null 2>&1 && cursor-agent worker --help >/dev/null 2>&1; }
 # pi must be the CURRENT npm scope (@earendil-works). The Brewfiles used to
@@ -132,7 +147,8 @@ step() {
 
 step claude  "Claude Code"  has_claude  'curl -fsSL https://claude.ai/install.sh | bash'
 step copilot "Copilot CLI"  has_copilot 'curl -fsSL https://gh.io/copilot-install | bash'
-step codex   "Codex"        has_codex   'npm install -g @openai/codex'
+want codex && ! has_codex && migrate_codex
+step codex   "Codex"        has_codex   'curl -fsSL https://chatgpt.com/codex/install.sh | sh'
 step grok    "Grok CLI"     has_grok    'curl -fsSL https://x.ai/cli/install.sh | bash'
 step cursor  "cursor-agent" has_cursor  'curl -fsS https://cursor.com/install | bash'
 want pi && ! has_pi && migrate_pi

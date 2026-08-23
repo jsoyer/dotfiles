@@ -110,3 +110,4 @@ kimi-code
 # machine ended up with two pi installs, one per channel. Never re-add.
 pi-coding-agent
 @mariozechner/pi-coding-agent
+@openai/codex
