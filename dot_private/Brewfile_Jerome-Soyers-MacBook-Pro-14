@@ -13,10 +13,11 @@ tap "reyamira/tap", "https://github.com/reyamira/homebrew-tap.git", trusted: tru
 tap "stablyai/orca"
 brew "sdl2-compat"
 brew "herdr"
-brew "kimi-code", link: false
+brew "kimi-code"
 brew "mactop"
 brew "models"
 brew "openspec", link: false
+brew "semgrep"
 brew "signal-cli"
 cask "antigravity"
 cask "antigravity-cli"
