@@ -587,6 +587,8 @@ function sysup
                 echo "🍺 Cleaning up Homebrew cache..."
                 brew cleanup --prune=all -s
             end
+            echo "🐚 Updating oh-my-zsh..."
+            update-omz
             # AI CLIs update on macOS too (was Linux-only by omission).
             update-ai
         case linux
@@ -631,6 +633,8 @@ function sysup
                 brew cleanup --prune=all -s
             end
 
+            echo "🐚 Updating oh-my-zsh..."
+            update-omz
             update-ai
         case windows
             echo "🪣 Updating Scoop packages..."
@@ -638,21 +642,51 @@ function sysup
     end
 end
 
+# A CLI whose binary resolves under the brew prefix is brew-managed (macOS
+# casks): bup/bcu already updates it; its own updater would fight the cask.
+function _ai_brew_owned
+    set -l bin (command -v $argv[1] 2>/dev/null); or return 1
+    set -l t (readlink -f $bin 2>/dev/null); or return 1
+    set -l bp (brew --prefix 2>/dev/null); or return 1
+    string match -q "$bp/*" $t
+end
+
+# oh-my-zsh and its custom plugins are chezmoi externals refreshed every 168h —
+# pull them now so sysup means "everything is current".
+function update-omz
+    for d in "$HOME/.oh-my-zsh" \
+             "$HOME/.oh-my-zsh/custom/plugins/zsh-autosuggestions" \
+             "$HOME/.oh-my-zsh/custom/plugins/zsh-syntax-highlighting"
+        test -d "$d/.git"; or continue
+        git -C "$d" pull --ff-only -q 2>/dev/null; or true
+    end
+end
+
 function update-ai
     echo "🤖 Updating CLI AI tools..."
     if command -q claude
-        echo "  🤖 Updating Claude Code..."
-        claude update 2>/dev/null; or true
+        if _ai_brew_owned claude
+            echo "  🤖 Claude Code: brew-managed — bup handles it"
+        else
+            echo "  🤖 Updating Claude Code..."
+            claude update 2>/dev/null; or true
+        end
     end
     # Binary is `copilot` since the standalone CLI (older installs: copilot-cli).
     if command -q copilot; or command -q copilot-cli
-        echo "  🤖 Updating Copilot CLI..."
-        curl -fsSL https://gh.io/copilot-install | bash 2>/dev/null; or true
+        if _ai_brew_owned copilot; or _ai_brew_owned copilot-cli
+            echo "  🤖 Copilot CLI: brew-managed — bup handles it"
+        else
+            echo "  🤖 Updating Copilot CLI..."
+            curl -fsSL https://gh.io/copilot-install | bash 2>/dev/null; or true
+        end
     end
     if command -q codex
-        echo "  🤖 Updating Codex CLI..."
-        if command -q npm
-            npm update -g @openai/codex 2>/dev/null; or true
+        if _ai_brew_owned codex
+            echo "  🤖 Codex CLI: brew-managed — bup handles it"
+        else
+            echo "  🤖 Updating Codex CLI..."
+            codex update 2>/dev/null; or true
         end
     end
     # Grok: never probe `agent` on PATH — cursor-agent owns that name.
@@ -663,10 +697,14 @@ function update-ai
     # cursor-agent: through our updater (worker restart + prune), not raw update.
     # Probe the binary too — the script is deployed everywhere by chezmoi.
     if command -q cursor-agent; and command -q update-cursor-agent
-        echo "  🤖 Updating cursor-agent..."
-        update-cursor-agent; or true
+        if _ai_brew_owned cursor-agent
+            echo "  🤖 cursor-agent: brew-managed — bup handles it"
+        else
+            echo "  🤖 Updating cursor-agent..."
+            update-cursor-agent; or true
+        end
     end
-    if command -q pi
+    if command -q pi; and not _ai_brew_owned pi
         echo "  🤖 Updating pi (pi.dev) + extensions..."
         pi update --all 2>/dev/null; or true
     end

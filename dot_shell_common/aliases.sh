@@ -433,6 +433,8 @@ sysup() {
         echo "🍺 Cleaning up Homebrew cache..."
         brew cleanup --prune=all -s
       fi
+      echo "🐚 Updating oh-my-zsh..."
+      update-omz
       # The AI CLIs update on macOS too — this call only existed in the
       # Linux branch, so Macs never updated any of them through sysup.
       update-ai
@@ -483,6 +485,8 @@ sysup() {
         brew cleanup --prune=all -s
       fi
 
+      echo "🐚 Updating oh-my-zsh..."
+      update-omz
       update-ai
       ;;
     windows)
@@ -493,22 +497,55 @@ sysup() {
 }
 
 # Update CLI AI tools (claude-code, copilot-cli, codex)
+# A CLI whose binary resolves under the brew prefix is brew-managed (macOS
+# casks: claude-code, copilot-cli, cursor-cli, grok-build…): bup/bcu already
+# updates it, and running its own updater would install a second copy that
+# fights the cask — the pi/qwen duplicate disease.
+_ai_brew_owned() {
+  local t bp
+  t="$(readlink -f "$(command -v "$1" 2>/dev/null)" 2>/dev/null)" || return 1
+  bp="$(brew --prefix 2>/dev/null)" || return 1
+  [[ -n "$bp" && "$t" == "$bp"/* ]]
+}
+
+# oh-my-zsh and its custom plugins are chezmoi git-repo externals refreshed
+# only every 168h — pull them now so sysup means "everything is current".
+update-omz() {
+  local d
+  for d in "$HOME/.oh-my-zsh" \
+           "$HOME/.oh-my-zsh/custom/plugins/zsh-autosuggestions" \
+           "$HOME/.oh-my-zsh/custom/plugins/zsh-syntax-highlighting"; do
+    [[ -d "$d/.git" ]] || continue
+    git -C "$d" pull --ff-only -q 2>/dev/null || true
+  done
+}
+
 update-ai() {
   echo "🤖 Updating CLI AI tools..."
   if command -v claude &>/dev/null; then
-    echo "  🤖 Updating Claude Code..."
-    claude update 2>/dev/null || true
+    if _ai_brew_owned claude; then
+      echo "  🤖 Claude Code: brew-managed — bup handles it"
+    else
+      echo "  🤖 Updating Claude Code..."
+      claude update 2>/dev/null || true
+    fi
   fi
   # The binary is `copilot` since the standalone CLI; older installs shipped
   # `copilot-cli`. Probing only the old name silently skipped it everywhere.
   if command -v copilot &>/dev/null || command -v copilot-cli &>/dev/null; then
-    echo "  🤖 Updating Copilot CLI..."
-    curl -fsSL https://gh.io/copilot-install | bash 2>/dev/null || true
+    if _ai_brew_owned copilot || _ai_brew_owned copilot-cli; then
+      echo "  🤖 Copilot CLI: brew-managed — bup handles it"
+    else
+      echo "  🤖 Updating Copilot CLI..."
+      curl -fsSL https://gh.io/copilot-install | bash 2>/dev/null || true
+    fi
   fi
   if command -v codex &>/dev/null; then
-    echo "  🤖 Updating Codex CLI..."
-    if command -v npm &>/dev/null; then
-      npm update -g @openai/codex 2>/dev/null || true
+    if _ai_brew_owned codex; then
+      echo "  🤖 Codex CLI: brew-managed — bup handles it"
+    else
+      echo "  🤖 Updating Codex CLI..."
+      codex update 2>/dev/null || true
     fi
   fi
   # Grok: NEVER probe `agent` on PATH — that name is owned by cursor-agent
@@ -524,10 +561,14 @@ update-ai() {
   # every machine, including ones (Pis, Macs) where cursor-agent itself is not
   # installed — without this, every sysup there printed a confusing error.
   if command -v cursor-agent &>/dev/null && command -v update-cursor-agent &>/dev/null; then
-    echo "  🤖 Updating cursor-agent..."
-    update-cursor-agent || true
+    if _ai_brew_owned cursor-agent; then
+      echo "  🤖 cursor-agent: brew-managed — bup handles it"
+    else
+      echo "  🤖 Updating cursor-agent..."
+      update-cursor-agent || true
+    fi
   fi
-  if command -v pi &>/dev/null; then
+  if command -v pi &>/dev/null && ! _ai_brew_owned pi; then
     echo "  🤖 Updating pi (pi.dev) + extensions..."
     pi update --all 2>/dev/null || true
   fi
