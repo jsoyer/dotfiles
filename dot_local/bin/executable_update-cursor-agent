@@ -1,19 +1,19 @@
 #!/usr/bin/env bash
 #
-# update-cursor-agent — Met à jour cursor-agent, redémarre le worker si la
-# version a changé, et purge les anciennes versions.
+# update-cursor-agent — Update cursor-agent, restart the worker when the version
+# changed, and prune the old versions.
 #
-# Pendant de update-moshi, en scope UTILISATEUR. cursor-agent embarque son propre
-# `update` : il télécharge une nouvelle version dans
-# ~/.local/share/cursor-agent/versions/<date-sha>/ et repointe le symlink
-# ~/.local/bin/cursor-agent. Les anciennes versions ne sont JAMAIS supprimées
-# (3 versions ≈ 570 Mo constatés) — d'où la purge en fin de script.
+# Counterpart of update-moshi, in USER scope. cursor-agent ships its own
+# `update`: it downloads a new version into
+# ~/.local/share/cursor-agent/versions/<date-sha>/ and repoints the
+# ~/.local/bin/cursor-agent symlink. Old versions are NEVER deleted (570 MB for
+# 3 versions observed) — hence the prune at the end of this script.
 #
-# Usage :
-#   update-cursor-agent          met à jour, redémarre le worker, purge
-#   update-cursor-agent --prune  purge uniquement (utile quand `update` échoue
-#                                faute de clé API : sans ça le disque n'est
-#                                jamais récupéré)
+# Usage:
+#   update-cursor-agent          update, restart the worker, prune
+#   update-cursor-agent --prune  prune only (useful when `update` itself fails
+#                                for lack of an API key: without this the disk
+#                                space is never reclaimed)
 #
 set -euo pipefail
 
@@ -21,14 +21,14 @@ PRUNE_ONLY=0
 case "${1:-}" in
   --prune) PRUNE_ONLY=1 ;;
   "")      : ;;
-  *)       echo "Option inconnue : $1 (--prune)" >&2; exit 2 ;;
+  *)       echo "Unknown option: $1 (--prune)" >&2; exit 2 ;;
 esac
 
 # --- Configuration ------------------------------------------------------------
 BIN="${CURSOR_AGENT_BIN:-$HOME/.local/bin/cursor-agent}"
 VERSIONS_DIR="${CURSOR_AGENT_VERSIONS:-$HOME/.local/share/cursor-agent/versions}"
 SERVICE="cursor-worker.service"
-# Nombre de versions conservées en plus de la version active (rollback manuel).
+# How many versions to keep besides the active one (for a manual rollback).
 KEEP=1
 
 # --- Helpers ------------------------------------------------------------------
@@ -36,22 +36,22 @@ log()  { printf '\033[1;34m[cursor-update]\033[0m %s\n' "$*"; }
 warn() { printf '\033[1;33m[cursor-update]\033[0m %s\n' "$*" >&2; }
 die()  { printf '\033[1;31m[cursor-update]\033[0m %s\n' "$*" >&2; exit 1; }
 
-bin_version() { "$1" --version 2>/dev/null | head -1 | tr -d '\r' || echo inconnue; }
+bin_version() { "$1" --version 2>/dev/null | head -1 | tr -d '\r' || echo unknown; }
 
-# --- Purge des anciennes versions ---------------------------------------------
-# cursor-agent n'efface jamais les versions précédentes. On garde la version
-# active (cible du symlink) + KEEP versions récentes pour un rollback manuel.
+# --- Prune old versions -------------------------------------------------------
+# cursor-agent never deletes previous versions. Keep the active one (the symlink
+# target) plus KEEP recent ones for a manual rollback.
 prune_versions() {
   [[ -d "$VERSIONS_DIR" ]] || return 0
   local active active_dir="" kept=0 removed=0 v
   active="$(readlink -f "$BIN" 2>/dev/null || true)"
   [[ -n "$active" ]] && active_dir="$(basename "$(dirname "$active")")"
-  # Sans version active identifiable on ne supprime RIEN : le risque d'effacer
-  # le binaire en cours d'utilisation l'emporte sur le gain d'espace.
-  [[ -n "$active_dir" ]] || { warn "Version active indéterminable — purge annulée."; return 0; }
+  # With no identifiable active version we delete NOTHING: the risk of wiping
+  # the binary currently in use outweighs the disk space.
+  [[ -n "$active_dir" ]] || { warn "Active version undeterminable — prune cancelled."; return 0; }
 
-  # find + tri par mtime plutôt que `ls -t` : pas de parsing de sortie de ls, et
-  # insensible à un éventuel alias/wrapper `ls` (eza) dans l'environnement.
+  # find + mtime sort rather than `ls -t`: no parsing of ls output, and immune to
+  # an `ls` alias/wrapper (eza) in the environment.
   local all
   mapfile -t all < <(
     find "$VERSIONS_DIR" -mindepth 1 -maxdepth 1 -type d -printf '%T@ %f\n' 2>/dev/null \
@@ -65,38 +65,38 @@ prune_versions() {
     rm -rf -- "${VERSIONS_DIR:?}/${v}" && removed=$(( removed + 1 ))
   done
   if (( removed > 0 )); then
-    log "Purge : ${removed} ancienne(s) version(s) supprimée(s) de ${VERSIONS_DIR}."
+    log "Prune: ${removed} old version(s) removed from ${VERSIONS_DIR}."
   else
-    log "Purge : rien à supprimer (active=${active_dir}, conservées=$(( kept + 1 )))."
+    log "Prune: nothing to remove (active=${active_dir}, kept=$(( kept + 1 )))."
   fi
 }
 
-# systemctl --user a besoin de XDG_RUNTIME_DIR (absent si lancé hors session).
+# systemctl --user needs XDG_RUNTIME_DIR (absent when run outside a session).
 export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
 
-# --- Garde-fous ---------------------------------------------------------------
-[[ "$(id -u)" -ne 0 ]] || die "À lancer en tant qu'utilisateur, pas en root."
+# --- Guards -------------------------------------------------------------------
+[[ "$(id -u)" -ne 0 ]] || die "Run as your user, not root."
 [[ -x "$BIN" ]] || BIN="$(command -v cursor-agent 2>/dev/null || true)"
-[[ -n "$BIN" && -x "$BIN" ]] || die "cursor-agent introuvable — lance : cursor-setup"
+[[ -n "$BIN" && -x "$BIN" ]] || die "cursor-agent not found — run: cursor-setup"
 
-# Vérifie qu'on parle bien au CLI Cursor (le CLI Grok s'installe aussi sous
-# ~/.local/bin sous le nom `agent` et n'a pas de sous-commande `worker`).
+# Make sure we are talking to the Cursor CLI (the Grok CLI also installs under
+# ~/.local/bin as `agent` and has no `worker` subcommand).
 "$BIN" worker --help >/dev/null 2>&1 \
-  || die "${BIN} ne répond pas à 'worker --help' — ce n'est pas le CLI Cursor."
+  || die "${BIN} does not answer 'worker --help' — this is not the Cursor CLI."
 
 have_systemd=0
 if command -v systemctl >/dev/null 2>&1 && systemctl --user cat "$SERVICE" >/dev/null 2>&1; then
   have_systemd=1
 fi
 
-# --- Mise à jour --------------------------------------------------------------
+# --- Update -------------------------------------------------------------------
 CUR_VER="$(bin_version "$BIN")"
-log "Version installée : ${CUR_VER}"
+log "Installed version: ${CUR_VER}"
 
 if [[ "$PRUNE_ONLY" -eq 1 ]]; then
   NEW_VER="$CUR_VER"
   prune_versions
-  log "Purge terminée (aucune mise à jour tentée)."
+  log "Prune done (no update attempted)."
   exit 0
 fi
 
@@ -106,49 +106,49 @@ set -e
 printf '%s\n' "$OUT" | sed 's/^/    /'
 
 if [[ "$RC" -ne 0 ]]; then
-  # Coupure réseau : non fatal, le binaire n'a pas bougé. On n'échoue pas le
-  # timer pour ça — la prochaine exécution rattrapera.
-  warn "cursor-agent update a échoué (code ${RC}) — version inchangée (${CUR_VER})."
+  # Network outage: not fatal, the binary did not move. Do not fail the timer
+  # over it — the next run catches up.
+  warn "cursor-agent update failed (code ${RC}) — version unchanged (${CUR_VER})."
   exit 0
 fi
 
 hash -r
 NEW_VER="$(bin_version "$BIN")"
 
-if [[ "$NEW_VER" == "inconnue" ]]; then
-  die "Le binaire mis à jour ne répond plus à '--version' — vérifie l'installation."
+if [[ "$NEW_VER" == "unknown" ]]; then
+  die "The updated binary no longer answers '--version' — check the installation."
 fi
 
-log "Version installée : ${CUR_VER}  →  version après update : ${NEW_VER}"
+log "Installed version: ${CUR_VER}  →  version after update: ${NEW_VER}"
 
 if [[ "$NEW_VER" == "$CUR_VER" ]]; then
-  log "Déjà à jour (${CUR_VER}) — worker laissé intact."
+  log "Already up to date (${CUR_VER}) — worker left alone."
 else
-  # --- Restart du worker ------------------------------------------------------
-  # Le process en cours tourne toujours sur l'ancienne version : sans restart, la
-  # nouvelle n'est active qu'au prochain (re)démarrage.
+  # --- Restart the worker -----------------------------------------------------
+  # The running process still holds the old version: without a restart, the new
+  # one only takes effect at the next (re)start.
   if [[ "$have_systemd" -eq 1 ]]; then
     if systemctl --user is-active --quiet "$SERVICE" || systemctl --user is-enabled --quiet "$SERVICE"; then
-      log "Redémarrage de ${SERVICE}…"
-      systemctl --user restart "$SERVICE" || warn "restart non-propre (poursuite de la vérification)."
-      # On compare le compteur de redémarrages : un worker qui reboucle est
-      # "active" par intermittence, `is-active` seul ne suffit pas à le voir.
+      log "Restarting ${SERVICE}…"
+      systemctl --user restart "$SERVICE" || warn "unclean restart (continuing with the check)."
+      # Compare the restart counter: a looping worker is intermittently
+      # "active", so `is-active` alone cannot see it.
       sleep 5
       n1="$(systemctl --user show -p NRestarts --value "$SERVICE" 2>/dev/null || echo 0)"
       sleep 10
       n2="$(systemctl --user show -p NRestarts --value "$SERVICE" 2>/dev/null || echo 0)"
       if ! systemctl --user is-active --quiet "$SERVICE" || [[ "$n2" -gt "$n1" ]]; then
-        warn "Worker instable après update (${n1} → ${n2}) — voir : journalctl --user -u ${SERVICE} -e"
-        warn "Rollback possible : cursor-agent update --version <ancienne> (versions dans ${VERSIONS_DIR})"
+        warn "Worker unstable after the update (${n1} → ${n2}) — see: journalctl --user -u ${SERVICE} -e"
+        warn "Rollback possible: cursor-agent update --version <old> (versions in ${VERSIONS_DIR})"
       else
-        log "Worker actif et stable ✔"
+        log "Worker active and stable ✔"
       fi
     else
-      log "${SERVICE} ni actif ni activé — pas de restart."
+      log "${SERVICE} neither active nor enabled — no restart."
     fi
   fi
 fi
 
 prune_versions
 
-log "cursor-agent à jour (${NEW_VER})."
+log "cursor-agent up to date (${NEW_VER})."

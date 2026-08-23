@@ -1,26 +1,27 @@
 #!/usr/bin/env bash
 #
-# orca-setup — Installe et configure Orca en serveur headless (systemd SYSTEM).
+# orca-setup — Install and configure Orca as a headless server (SYSTEM systemd).
 #
-# Successeur de install-orca-systemd.sh. Fait tout ce que faisait ce dernier, et
-# en plus : télécharge l'AppImage si elle est absente, choisit l'asset selon
-# l'ARCHITECTURE (un RPi arm64 recevait silencieusement le binaire x86_64), et
-# détecte l'adresse d'appairage au lieu de la coder en dur.
+# Successor to install-orca-systemd.sh. Does everything that script did, plus:
+# downloads the AppImage when missing, picks the asset by ARCHITECTURE (an arm64
+# RPi silently received the x86_64 AppImage), and detects the pairing address
+# instead of hardcoding it.
 #
-# Scope SYSTEM et non --user : l'AppImage vit dans /opt/orca et le service doit
-# tourner au boot sans session ouverte. C'est pourquoi les units ne sont PAS
-# déployées par chezmoi (qui n'écrit que dans $HOME) mais générées ici.
+# SYSTEM scope, not --user: the AppImage lives in /opt/orca and the service must
+# start at boot with no session open. That is why the units are NOT deployed by
+# chezmoi (which only writes inside $HOME) but generated here.
 #
-# Linux uniquement — Orca ne publie pas d'AppImage macOS utilisable en headless.
+# Linux only — Orca publishes no macOS AppImage usable headless.
 #
-# ⚠️ S'invoque SANS sudo : le script s'élève lui-même. `sudo orca-setup` échoue
-# en "command not found" car le secure_path de sudo n'inclut pas ~/.local/bin.
+# WARNING: invoke it WITHOUT sudo, the script elevates itself. `sudo orca-setup`
+# fails with "command not found" because sudo's secure_path excludes
+# ~/.local/bin.
 #
-# Usage :
-#   orca-setup                              install complet (demande le mdp sudo)
-#   orca-setup --pairing-address 100.x.y.z  force l'adresse d'appairage
-#   orca-setup --port 6768                  force le port du runtime
-#   orca-setup --status                     état (pas de root requis)
+# Usage:
+#   orca-setup                              full install (prompts for sudo)
+#   orca-setup --pairing-address 100.x.y.z  force the pairing address
+#   orca-setup --port 6768                  force the runtime port
+#   orca-setup --status                     state (no root needed)
 #   orca-setup --uninstall
 #   orca-setup --dry-run
 #
@@ -29,7 +30,7 @@ set -euo pipefail
 # --- Configuration ------------------------------------------------------------
 REPO="stablyai/orca"
 DEST_DIR="/opt/orca"
-APP_NAME="orca-linux.AppImage"          # nom local, indépendant de l'asset
+APP_NAME="orca-linux.AppImage"          # local name, independent of the asset
 DEST="${DEST_DIR}/${APP_NAME}"
 SERVICE="orca-serve.service"
 DROPIN_DIR="/etc/systemd/system/${SERVICE}.d"
@@ -56,11 +57,11 @@ run() {
   "$@"
 }
 
-# Écrit un fichier, ou affiche son chemin + contenu en --dry-run.
+# Write a file, or print its path plus content under --dry-run.
 write_file() {
   local path="$1"
   if [[ "$DRY_RUN" -eq 1 ]]; then
-    printf '  %s+%s écrire %s\n' "$c_y" "$c_0" "$path"
+    printf '  %s+%s write %s\n' "$c_y" "$c_0" "$path"
     cat >/dev/null
     return 0
   fi
@@ -69,49 +70,50 @@ write_file() {
 
 usage() { sed -n '2,/^set -euo/p' "$0" | sed 's/^# \{0,1\}//; $d'; }
 
-# --- Parsing des options ------------------------------------------------------
+# --- Option parsing -----------------------------------------------------------
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --pairing-address) PAIRING_ADDR="${2:?adresse manquante}"; shift ;;
-    --port)            PORT="${2:?port manquant}"; shift ;;
-    --user)            SVC_USER="${2:?utilisateur manquant}"; shift ;;
+    --pairing-address) PAIRING_ADDR="${2:?address missing}"; shift ;;
+    --port)            PORT="${2:?port missing}"; shift ;;
+    --user)            SVC_USER="${2:?user missing}"; shift ;;
     --no-service)      DO_SERVICE=0 ;;
     --status)          ACTION="status" ;;
     --uninstall)       ACTION="uninstall" ;;
     --dry-run)         DRY_RUN=1 ;;
     -y|--yes)          ASSUME_YES=1 ;;
     -h|--help)         usage; exit 0 ;;
-    *)                 die "Option inconnue : $1 (voir --help)" ;;
+    *)                 die "Unknown option: $1 (see --help)" ;;
   esac
   shift
 done
 
-[[ "$(uname -s)" == "Linux" ]] || die "Orca headless est supporté sur Linux uniquement (plateforme : $(uname -s))."
+[[ "$(uname -s)" == "Linux" ]] || die "Headless Orca is Linux-only (platform: $(uname -s))."
 
-# --- Sélection de l'asset selon l'architecture --------------------------------
-# ⚠️ La release publie deux AppImages. Sans ce test, un RPi arm64 téléchargeait
-# orca-linux.AppImage (x86_64) et le service échouait avec "Exec format error".
+# --- Asset selection by architecture ------------------------------------------
+# WARNING: the release publishes two AppImages. Without this check an arm64 RPi
+# downloaded orca-linux.AppImage (x86_64) and the service failed with
+# "Exec format error".
 case "$(uname -m)" in
   x86_64|amd64)   ASSET="orca-linux.AppImage" ;;
   aarch64|arm64)  ASSET="orca-linux-arm64.AppImage" ;;
-  *)              die "Architecture non supportée par les releases Orca : $(uname -m)" ;;
+  *)              die "Architecture not supported by the Orca releases: $(uname -m)" ;;
 esac
 URL="https://github.com/${REPO}/releases/latest/download/${ASSET}"
 
-# --- Statut (ne demande pas root) ---------------------------------------------
+# --- Status (does not require root) -------------------------------------------
 appimage_version() {
   local img="$1" tmpd ver
-  [[ -f "$img" ]] || { echo "absente"; return 0; }
-  tmpd="$(mktemp -d)" || { echo "inconnue"; return 0; }
+  [[ -f "$img" ]] || { echo "missing"; return 0; }
+  tmpd="$(mktemp -d)" || { echo "unknown"; return 0; }
   ( cd "$tmpd" && "$img" --appimage-extract '*.desktop' >/dev/null 2>&1 ) || true
   ver="$(grep -hm1 '^X-AppImage-Version=' "$tmpd"/squashfs-root/*.desktop 2>/dev/null | cut -d= -f2)"
   rm -rf "$tmpd"
-  echo "${ver:-inconnue}"
+  echo "${ver:-unknown}"
 }
 
-# systemctl is-active/is-enabled IMPRIMENT déjà un état ("inactive", "not-found")
-# puis sortent en code != 0 : un `|| echo inconnu` ajouterait une SECONDE ligne.
-sstate() { local out; out="$("$@" 2>/dev/null)" || true; echo "${out:-inconnu}"; }
+# systemctl is-active/is-enabled ALREADY print a state ("inactive", "not-found")
+# and then exit non-zero: an `|| echo unknown` would add a SECOND line.
+sstate() { local out; out="$("$@" 2>/dev/null)" || true; echo "${out:-unknown}"; }
 
 do_status() {
   printf '%sOrca%s\n' "$c_b" "$c_0"
@@ -119,42 +121,42 @@ do_status() {
   printf '  Service  : %s / %s\n' \
     "$(sstate systemctl is-active "$SERVICE")" \
     "$(sstate systemctl is-enabled "$SERVICE")"
-  printf '  Timer MAJ: %s\n' "$(sstate systemctl is-active orca-update.timer)"
+  printf '  Timer    : %s\n' "$(sstate systemctl is-active orca-update.timer)"
   if ss -ltn 2>/dev/null | grep -qE ":${PORT}\b"; then
-    printf '  Port %s : en écoute\n' "$PORT"
+    printf '  Port %s : listening\n' "$PORT"
   else
-    printf '  Port %s : %saucune écoute%s\n' "$PORT" "$c_y" "$c_0"
+    printf '  Port %s : %snot listening%s\n' "$PORT" "$c_y" "$c_0"
   fi
 }
 
 if [[ "$ACTION" == "status" ]]; then do_status; exit 0; fi
 
-# --- Élévation ----------------------------------------------------------------
-# ⚠️ NE PAS appeler `sudo orca-setup` : le secure_path de sudo ne contient pas
-# ~/.local/bin, la commande serait introuvable. On s'élève soi-même avec le
-# chemin ABSOLU du script (résolu, car $0 peut être relatif si on l'invoque par
-# `./orca-setup` ou `bash orca-setup`).
+# --- Elevation ----------------------------------------------------------------
+# Do NOT call `sudo orca-setup`: sudo's secure_path does not include
+# ~/.local/bin, so the command would not be found. We elevate ourselves with the
+# ABSOLUTE path of the script (resolved, because $0 can be relative when invoked
+# as `./orca-setup` or `bash orca-setup`).
 if [[ "$(id -u)" -ne 0 ]]; then
   self="$(readlink -f -- "$0" 2>/dev/null || true)"
-  [[ -n "$self" && -r "$self" ]] || die "Impossible de résoudre le chemin du script ($0) pour l'élévation."
-  log "Droits root requis (écriture /opt + systemd) — élévation via sudo…"
+  [[ -n "$self" && -r "$self" ]] || die "Cannot resolve the script path ($0) for elevation."
+  log "Root required (writing /opt + systemd) — elevating through sudo…"
   exec sudo -- "$self" "$@"
 fi
 
-# Utilisateur propriétaire de la session Orca (le profil userData est chez lui).
+# User owning the Orca session (the userData profile is theirs).
 if [[ -z "$SVC_USER" ]]; then
   SVC_USER="${SUDO_USER:-}"
   [[ -n "$SVC_USER" && "$SVC_USER" != "root" ]] || SVC_USER="$(logname 2>/dev/null || true)"
-  [[ -n "$SVC_USER" ]] || die "Impossible de déterminer l'utilisateur cible — précise --user <nom>."
+  [[ -n "$SVC_USER" ]] || die "Cannot determine the target user — pass --user <name>."
 fi
-id "$SVC_USER" >/dev/null 2>&1 || die "Utilisateur inconnu : ${SVC_USER}"
+id "$SVC_USER" >/dev/null 2>&1 || die "Unknown user: ${SVC_USER}"
 
-# --- Désinstallation ----------------------------------------------------------
+# --- Uninstall ----------------------------------------------------------------
 do_uninstall() {
   if [[ "$ASSUME_YES" -eq 0 ]]; then
-    printf 'Retirer le service Orca et ses units ? (l'\''AppImage est conservée) [y/N] '
+    printf 'Remove the Orca service and its units? (the AppImage is kept) [y/N] '
     read -r reply
-    [[ "$reply" =~ ^[yYoO]$ ]] || { log "Annulé."; exit 0; }
+    [[ "$reply" =~ ^[yY]$ ]] || { log "Cancelled."; exit 0; }
   fi
   run systemctl disable --now "$SERVICE" 2>/dev/null || true
   run systemctl disable --now orca-update.timer 2>/dev/null || true
@@ -162,14 +164,14 @@ do_uninstall() {
   run rm -f /etc/systemd/system/orca-update.service /etc/systemd/system/orca-update.timer
   run rm -f "$UPDATE_SCRIPT"
   run systemctl daemon-reload
-  ok "Units retirées. AppImage conservée dans ${DEST_DIR} (rm -rf ${DEST_DIR} pour tout effacer)."
+  ok "Units removed. AppImage kept in ${DEST_DIR} (rm -rf ${DEST_DIR} to wipe everything)."
 }
 
 if [[ "$ACTION" == "uninstall" ]]; then do_uninstall; exit 0; fi
 
-# --- Adresse d'appairage ------------------------------------------------------
-# Le mobile joint le runtime via cette IP. Tailscale d'abord (adresse stable
-# quel que soit le réseau), sinon l'IP source de la route par défaut.
+# --- Pairing address ----------------------------------------------------------
+# The phone reaches the runtime through this IP. Tailscale first (stable address
+# whatever the network), otherwise the source IP of the default route.
 detect_pairing_addr() {
   local ip
   if command -v tailscale >/dev/null 2>&1; then
@@ -182,35 +184,35 @@ detect_pairing_addr() {
 
 if [[ -z "$PAIRING_ADDR" ]]; then
   PAIRING_ADDR="$(detect_pairing_addr)"
-  [[ -n "$PAIRING_ADDR" ]] || die "Adresse d'appairage indéterminable — précise --pairing-address <ip>."
-  log "Adresse d'appairage détectée : ${PAIRING_ADDR}"
+  [[ -n "$PAIRING_ADDR" ]] || die "Cannot determine the pairing address — pass --pairing-address <ip>."
+  log "Detected pairing address: ${PAIRING_ADDR}"
 fi
 
-# --- Téléchargement de l'AppImage si absente ----------------------------------
+# --- Download the AppImage when missing ---------------------------------------
 if [[ ! -f "$DEST" ]]; then
-  log "AppImage absente — téléchargement de ${ASSET}…"
-  command -v curl >/dev/null 2>&1 || die "curl est requis."
+  log "AppImage missing — downloading ${ASSET}…"
+  command -v curl >/dev/null 2>&1 || die "curl is required."
   run mkdir -p "$DEST_DIR"
   if [[ "$DRY_RUN" -eq 0 ]]; then
     TMP="$(mktemp "${DEST_DIR}/.${APP_NAME}.XXXXXX")"
     trap 'rm -f "$TMP"' EXIT
     curl -fL --retry 3 --retry-delay 2 --progress-bar -o "$TMP" "$URL" \
-      || die "Échec du téléchargement depuis ${URL}"
-    # Une AppImage valide démarre par un en-tête ELF (0x7F 'E' 'L' 'F').
+      || die "Download failed from ${URL}"
+    # A valid AppImage starts with an ELF header (0x7F 'E' 'L' 'F').
     [[ "$(head -c 4 "$TMP" | od -An -tx1 | tr -d ' ')" == "7f454c46" ]] \
-      || die "Le fichier téléchargé n'est pas un exécutable ELF valide."
+      || die "The downloaded file is not a valid ELF executable."
     chmod 755 "$TMP"
     mv -f "$TMP" "$DEST"
     trap - EXIT
   fi
-  ok "AppImage installée : ${DEST} ($(appimage_version "$DEST"))"
+  ok "AppImage installed: ${DEST} ($(appimage_version "$DEST"))"
 else
-  ok "AppImage déjà présente : ${DEST} ($(appimage_version "$DEST"))"
+  ok "AppImage already present: ${DEST} ($(appimage_version "$DEST"))"
 fi
 
-# --- Script de mise à jour ----------------------------------------------------
-# Emplacement système : contexte SELinux `bin_t`, exécutable par systemd.
-# (Un script sous /home/... porte `home_t` que systemd refuse d'exécuter.)
+# --- Update script ------------------------------------------------------------
+# System location: SELinux `bin_t` context, executable by systemd.
+# (A script under /home carries `home_t`, which systemd refuses to execute.)
 SRC_UPDATE=""
 for c in "$(dirname "$0")/update-orca" "/home/${SVC_USER}/.local/bin/update-orca"; do
   [[ -r "$c" ]] && { SRC_UPDATE="$c"; break; }
@@ -218,20 +220,20 @@ done
 if [[ -n "$SRC_UPDATE" ]]; then
   run install -m 0755 "$SRC_UPDATE" "$UPDATE_SCRIPT"
   command -v restorecon >/dev/null 2>&1 && run restorecon -v "$UPDATE_SCRIPT" >/dev/null || true
-  ok "Script de MAJ installé : ${UPDATE_SCRIPT}"
+  ok "Update script installed: ${UPDATE_SCRIPT}"
 else
-  warn "update-orca introuvable — le timer de MAJ ne sera pas fonctionnel."
-  warn "Lance 'chezmoi apply' pour déployer ~/.local/bin/update-orca, puis relance orca-setup."
+  warn "update-orca not found — the update timer will not work."
+  warn "Run 'chezmoi apply' to deploy ~/.local/bin/update-orca, then re-run orca-setup."
 fi
 
 if [[ "$DO_SERVICE" -eq 0 ]]; then
-  ok "Terminé (--no-service : aucune unit écrite)."
+  ok "Done (--no-service: no unit written)."
   exit 0
 fi
 
-# --- Unit principale ----------------------------------------------------------
-# On la génère intégralement pour qu'une machine neuve fonctionne sans passer par
-# l'enregistrement CLI depuis l'UI Orca.
+# --- Main unit ----------------------------------------------------------------
+# Generated in full so a fresh machine works without going through the CLI
+# registration from the Orca UI.
 if [[ -f "/etc/systemd/system/${SERVICE}" && "$DRY_RUN" -eq 0 ]]; then
   cp -f "/etc/systemd/system/${SERVICE}" "/etc/systemd/system/${SERVICE}.bak"
 fi
@@ -253,79 +255,80 @@ RestartSec=5
 [Install]
 WantedBy=multi-user.target
 EOF
-ok "Unit écrite : /etc/systemd/system/${SERVICE} (user=${SVC_USER}, port=${PORT}, pairing=${PAIRING_ADDR})"
+ok "Unit written: /etc/systemd/system/${SERVICE} (user=${SVC_USER}, port=${PORT}, pairing=${PAIRING_ADDR})"
 
-# --- Drop-in : arrêt propre + logs propres ------------------------------------
-# Le service échouait à l'arrêt : Electron ignore SIGINT, systemd temporisait
-# puis tuait le process (SIGABRT + coredump). On bascule sur SIGTERM (mieux géré
-# par Electron), on tue tout l'arbre de process et on laisse plus de marge.
+# --- Drop-in: clean shutdown + clean logs -------------------------------------
+# The service used to fail on stop: Electron ignores SIGINT, systemd waited out
+# its timeout then killed the process (SIGABRT + coredump). We switch to SIGTERM
+# (which Electron handles), kill the whole process tree, and allow more time.
 run mkdir -p "$DROPIN_DIR"
 write_file "${DROPIN_DIR}/override.conf" <<'EOF'
-# Géré par orca-setup — arrêt propre + logs propres du serveur Orca.
+# Managed by orca-setup — clean shutdown and clean logs for the Orca server.
 [Service]
-# --- Arrêt propre (Electron) ---
-# Electron réagit mieux à SIGTERM qu'à SIGINT pour un shutdown gracieux.
+# --- Clean shutdown (Electron) ---
+# Electron handles SIGTERM far better than SIGINT for a graceful shutdown.
 KillSignal=SIGTERM
-# Termine le process principal puis SIGKILL le reste de l'arbre au timeout.
+# Terminate the main process, then SIGKILL the rest of the tree at the timeout.
 KillMode=mixed
-# Marge d'arrêt plus large avant le kill forcé.
+# Wider shutdown window before the forced kill.
 TimeoutStopSec=45
-# En cas de timeout, tuer proprement (SIGKILL) au lieu d'un abort/coredump.
+# On timeout, kill cleanly (SIGKILL) instead of abort/coredump.
 TimeoutStopFailureMode=kill
 
-# --- Logs propres en headless ---
-# NB: valeur entre guillemets — sinon systemd découpe sur les espaces.
-# GPU : pas d'accélération matérielle sur GPU virtio.
+# --- Clean logs in headless mode ---
+# NB: quoted values — otherwise systemd splits on spaces.
+# GPU: no hardware acceleration on a virtio GPU.
 Environment="ELECTRON_EXTRA_LAUNCH_ARGS=--disable-gpu"
-# D-Bus : pas de session bus en headless. Socket INEXISTANT volontaire : Chromium
-# échoue la connexion sans tenter d'opération privilégiée (pointer vers le bus
-# système déclenchait un refus polkit sur StartTransientUnit).
+# D-Bus: no session bus in headless mode. The socket is DELIBERATELY
+# nonexistent: Chromium then fails to connect without attempting a privileged
+# operation (pointing at the system bus triggered a polkit denial on
+# StartTransientUnit).
 Environment="DBUS_SESSION_BUS_ADDRESS=unix:path=/run/orca-no-session-bus"
 #
-# Ces warnings Chromium/Electron en headless sont inévitables à la source (pas de
-# vrai X, pas de session bus, pas de GPU) et totalement bénins. On les masque du
-# journal via LogFilterPatterns (~ = deny). Les vraies erreurs passent toujours.
+# These Chromium/Electron warnings are unavoidable at the source in headless
+# mode (no real X, no session bus, no GPU) and entirely benign. We hide them
+# from the journal with LogFilterPatterns (~ = deny). Real errors still pass.
 LogFilterPatterns=~vaInitialize failed
 LogFilterPatterns=~Failed to connect to the bus
 LogFilterPatterns=~Failed to call method: org.freedesktop.DBus
 LogFilterPatterns=~libva error
 EOF
-ok "Drop-in écrit : ${DROPIN_DIR}/override.conf"
+ok "Drop-in written: ${DROPIN_DIR}/override.conf"
 
-# --- Timer de mise à jour -----------------------------------------------------
+# --- Update timer -------------------------------------------------------------
 write_file /etc/systemd/system/orca-update.service <<EOF
 [Unit]
-Description=Met à jour l'AppImage Orca vers la dernière release
+Description=Update the Orca AppImage to the latest release
 Wants=network-online.target
 After=network-online.target
 
 [Service]
 Type=oneshot
-# Le script tourne déjà en root ici : pas de sudo, il gère stop/update/start.
+# The script already runs as root here: no sudo, it handles stop/update/start.
 ExecStart=${UPDATE_SCRIPT}
-# Ne pas marquer le boot en échec si GitHub est injoignable ponctuellement.
+# Do not mark the boot as failed when GitHub is momentarily unreachable.
 SuccessExitStatus=0
 TimeoutStartSec=30min
 EOF
 
 write_file /etc/systemd/system/orca-update.timer <<'EOF'
 [Unit]
-Description=Vérification quotidienne des mises à jour Orca
+Description=Daily check for Orca updates
 
 [Timer]
 Unit=orca-update.service
 OnCalendar=daily
-# Rattrape l'exécution si la machine était éteinte à l'heure prévue.
+# Catch up if the machine was off at the scheduled time.
 Persistent=true
-# Étale la charge (évite les updates simultanées à minuit pile).
+# Spread the load (avoid simultaneous updates at midnight sharp).
 RandomizedDelaySec=1h
 
 [Install]
 WantedBy=timers.target
 EOF
-ok "Units de MAJ écrites."
+ok "Update units written."
 
-# --- Application --------------------------------------------------------------
+# --- Apply --------------------------------------------------------------------
 run systemctl daemon-reload
 run systemctl enable --now "$SERVICE"
 [[ -n "$SRC_UPDATE" ]] && run systemctl enable --now orca-update.timer
@@ -334,11 +337,11 @@ if [[ "$DRY_RUN" -eq 1 ]]; then exit 0; fi
 
 sleep 3
 if systemctl is-active --quiet "$SERVICE"; then
-  ok "${SERVICE} actif ✔"
+  ok "${SERVICE} active ✔"
 else
-  warn "${SERVICE} n'est pas actif — voir : journalctl -u ${SERVICE} -e"
+  warn "${SERVICE} is not active — see: journalctl -u ${SERVICE} -e"
 fi
 echo
 do_status
 echo
-log "Tester la MAJ tout de suite :  sudo systemctl start orca-update.service"
+log "Test the update right away:  sudo systemctl start orca-update.service"

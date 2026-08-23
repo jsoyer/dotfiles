@@ -1,14 +1,15 @@
 [Unit]
-Description=Vérification quotidienne des mises à jour cursor-agent
+Description=Daily check for cursor-agent updates
 
 [Timer]
 Unit=cursor-update.service
 OnCalendar=daily
-# Rattrape l'exécution si la machine était éteinte à l'heure prévue.
+# Catch up if the machine was off at the scheduled time.
 Persistent=true
-# Étale la charge (évite de taper la release au même instant que les autres MAJ).
+# Spread the load (avoid hitting the release at the same instant as every other
+# update on the fleet).
 RandomizedDelaySec=1h
-# Laisse le worker démarrer avant de tenter une MAJ juste après un boot.
+# Let the worker come up before attempting an update right after boot.
 OnBootSec=20min
 
 [Install]

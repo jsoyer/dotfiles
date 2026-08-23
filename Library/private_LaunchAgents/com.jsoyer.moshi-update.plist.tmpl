@@ -7,13 +7,13 @@
     <key>Label</key>
     <string>com.jsoyer.moshi-update</string>
 
-    <!-- Pendant macOS de moshi-update.timer. -->
+    <!-- macOS counterpart of moshi-update.timer. -->
     <key>ProgramArguments</key>
     <array>
         <string>{{ .chezmoi.homeDir }}/.local/bin/update-moshi</string>
     </array>
 
-    <!-- Une fois par jour à 04h12 (heure creuse, décalée des autres MAJ). -->
+    <!-- Once a day at 04:12 (off-hour, offset from the other updates). -->
     <key>StartCalendarInterval</key>
     <dict>
         <key>Hour</key>
@@ -22,7 +22,7 @@
         <integer>12</integer>
     </dict>
 
-    <!-- Pas de RunAtLoad : inutile de mettre à jour au chargement de l'agent. -->
+    <!-- No RunAtLoad: no point updating when the agent is loaded. -->
     <key>RunAtLoad</key>
     <false/>
 

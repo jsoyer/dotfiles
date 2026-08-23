@@ -1,42 +1,42 @@
 [Unit]
-Description=Cursor private worker (agents cloud exécutés sur cette machine)
+Description=Cursor private worker (cloud agents running on this machine)
 Documentation=https://docs.cursor.com/en/cli/overview
-# Pas de network-online.target en scope --user (il n'existe pas côté user) :
-# la résilience réseau passe par Restart=always + backoff ci-dessous.
-# Aucune limite de démarrages, mais un VRAI backoff — voir la note ci-dessous.
+# No network-online.target in --user scope (it does not exist there): network
+# resilience comes from Restart=always plus the backoff below.
+# No start limit, but a REAL backoff — see the note below.
 StartLimitIntervalSec=0
 
 [Service]
 Type=simple
-# ⚠️ `cursor-agent`, PAS `agent` : ~/.local/bin/agent est le CLI Grok, qui n'a
-# aucune sous-commande `worker`. L'ancienne version de cette unit pointait
-# dessus et a bouclé 262 000 fois en échec sans que rien ne le signale.
+# WARNING: `cursor-agent`, NOT `agent`: ~/.local/bin/agent is the Grok CLI,
+# which has no `worker` subcommand at all. The previous version of this unit
+# pointed at it and failed 262,957 times without anything flagging it.
 ExecStart=%h/.local/bin/cursor-agent worker start --name {{ .chezmoi.hostname }}-worker
 WorkingDirectory=%h
 
-# --- Toujours up ---
+# --- Always up ---
 Restart=always
 RestartSec=10
-# Backoff exponentiel 10s → 5min (systemd >= 254). Sans ça, une commande
-# invalide ou une auth expirée relance le binaire toutes les 10 s indéfiniment.
+# Exponential backoff 10s -> 5min (systemd >= 254). Without it, an invalid
+# command or an expired token restarts the binary every 10s forever.
 RestartSteps=5
 RestartMaxDelaySec=300
-# --- Arrêt propre ---
+# --- Clean shutdown ---
 KillSignal=SIGTERM
 TimeoutStopSec=30
 
-# --- Environnement ---
-# cursor-agent shelle vers git / node / les outils du projet : PATH complet.
+# --- Environment ---
+# cursor-agent shells out to git / node / project tooling: full PATH.
 Environment=PATH=%h/.local/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin
 Environment=HOME=%h
 
-# --- Authentification du worker ---
-# ⚠️ Le token de session de `cursor-agent login` n'est PAS accepté en mode
-# worker : `worker start` répond "Authentication required for worker mode".
-# Il faut une clé API (CURSOR_API_KEY). Elle vit dans un fichier 0600 hors du
-# dépôt — le préfixe `-` rend le fichier optionnel pour que l'unit se charge
-# quand même sur une machine où le worker n'est pas configuré.
-# Écrit par : cursor-setup --api-key
+# --- Worker authentication ---
+# WARNING: the session token from `cursor-agent login` is NOT accepted in worker
+# mode: `worker start` answers "Authentication required for worker mode".
+# It needs an API key (CURSOR_API_KEY), kept in a 0600 file outside the repo.
+# The leading `-` makes the file optional so the unit still loads on a machine
+# where the worker is not configured.
+# Written by: cursor-setup --api-key
 EnvironmentFile=-%h/.config/cursor/worker.env
 
 [Install]

@@ -3,22 +3,21 @@
 {{- if and (eq .chezmoi.os "linux") (not (has $mp $skip)) -}}
 #!/usr/bin/env bash
 # =============================================================================
-# Recharge systemd --user quand une unit d'agent change
+# Reload systemd --user when an agent unit changes
 # =============================================================================
-# ⚠️ CE SCRIPT N'ACTIVE ET NE DÉMARRE RIEN.
+# THIS SCRIPT NEVER ENABLES OR STARTS ANYTHING.
 #
-# L'installation des stacks moshi / orca / cursor / herdr est volontairement
-# MANUELLE (alias moshi-install / orca-install / cursor-install). Ce script se
-# contente d'un `daemon-reload` — sans lui, une unit modifiée par
-# `chezmoi apply` reste silencieusement inactive jusqu'au prochain redémarrage,
-# et l'ancienne version continue de tourner.
+# Installing the moshi / orca / cursor / herdr stacks is deliberately MANUAL
+# (moshi-install / orca-install / cursor-install). This script only runs
+# `daemon-reload` — without it, a unit modified by `chezmoi apply` stays
+# silently inactive until the next reboot while the old version keeps running.
 #
-# ⚠️ Préfixe `after_` OBLIGATOIRE : un `run_onchange_` nu peut se déclencher
-# AVANT que chezmoi ait écrit les units, et le daemon-reload porte alors sur
-# l'ancien contenu — no-op silencieux. Constaté en réel sur herdr-update.service,
-# qui pointait encore sur update-herdr.sh après un apply.
+# The `after_` prefix is REQUIRED: a bare `run_onchange_` can fire BEFORE
+# chezmoi has written the units, in which case the daemon-reload applies to the
+# old content — a silent no-op. Observed for real on herdr-update.service, which
+# still resolved to update-herdr.sh after a full apply.
 #
-# Reruns quand une des units change :
+# Reruns whenever one of the units changes:
 # moshi-hook:    {{ include "dot_config/systemd/user/moshi-hook.service" | sha256sum }}
 # moshi-update:  {{ include "dot_config/systemd/user/moshi-update.service" | sha256sum }}
 # moshi-timer:   {{ include "dot_config/systemd/user/moshi-update.timer" | sha256sum }}
@@ -34,12 +33,12 @@ command -v systemctl >/dev/null 2>&1 || exit 0
 systemctl --user show-environment >/dev/null 2>&1 || exit 0
 
 systemctl --user daemon-reload || exit 0
-echo "systemd --user rechargé (units d'agents modifiées)."
+echo "systemd --user reloaded (agent units changed)."
 
-# Rappel ciblé : uniquement pour les services DÉJÀ activés par l'utilisateur.
+# Targeted reminder, only for services the user has actually enabled.
 for unit in moshi-hook.service cursor-worker.service; do
     if systemctl --user is-enabled --quiet "${unit}" 2>/dev/null; then
-        echo "  ${unit} est activé : applique la nouvelle unit avec 'agentsvc restart ${unit%%-*}'"
+        echo "  ${unit} is enabled: apply the new unit with 'agentsvc restart ${unit%%-*}'"
     fi
 done
 {{- end }}

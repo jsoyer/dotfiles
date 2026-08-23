@@ -7,23 +7,24 @@
     <key>Label</key>
     <string>com.jsoyer.moshi-hook</string>
 
-    <!-- Pendant macOS de moshi-hook.service. Le binaire peut venir de Homebrew
-         (tap rjyo/moshi) ou de ~/.local/bin : moshi-hook-launch résout le bon. -->
+    <!-- macOS counterpart of moshi-hook.service. The binary may come from
+         Homebrew (tap rjyo/moshi) or from ~/.local/bin: moshi-hook-launch
+         resolves whichever is present. -->
     <key>ProgramArguments</key>
     <array>
         <string>{{ .chezmoi.homeDir }}/.local/bin/moshi-hook-launch</string>
     </array>
 
-    <!-- Équivalent de Restart=always : launchd relance à chaque sortie, y
-         compris un exit 0 (le daemon peut sortir proprement après un update). -->
+    <!-- Equivalent of Restart=always: launchd relaunches on every exit,
+         including exit 0 (the daemon can exit cleanly after an update). -->
     <key>KeepAlive</key>
     <true/>
 
     <key>RunAtLoad</key>
     <true/>
 
-    <!-- Anti crash-loop : launchd impose déjà 10s minimum entre deux relances,
-         on monte à 10s explicitement pour rester lisible dans les logs. -->
+    <!-- Anti crash-loop: launchd already enforces 10s between relaunches; set
+         it explicitly so the intent is readable in the logs. -->
     <key>ThrottleInterval</key>
     <integer>10</integer>
 

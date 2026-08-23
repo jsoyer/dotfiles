@@ -1,14 +1,13 @@
 [Unit]
-Description=Vérification quotidienne des mises à jour herdr
+Description=Daily check for herdr updates
 
 [Timer]
 Unit=herdr-update.service
-# Heure creuse volontaire (et pas "daily" = minuit pile) : l'update fait un
-# handoff du serveur qui porte tes panes. Mieux vaut qu'il tombe quand tu ne
-# tapes pas dedans.
+# Deliberately an off-hour, not "daily" (= midnight sharp): the update hands
+# over the server that holds your panes. Better when you are not typing in them.
 OnCalendar=*-*-* 04:00:00
 RandomizedDelaySec=30min
-# Rattrape si la machine était éteinte à 04:00.
+# Catch up if the machine was off at 04:00.
 Persistent=true
 
 [Install]

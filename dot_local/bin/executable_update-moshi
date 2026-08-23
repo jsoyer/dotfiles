@@ -1,17 +1,16 @@
 #!/usr/bin/env bash
 #
-# update-moshi — Met à jour le binaire moshi-hook et redémarre le daemon si la
-# version a changé.
+# update-moshi — Update the moshi-hook binary and restart the daemon if the
+# version changed.
 #
-# Flux : sauvegarde du binaire → self-update (`moshi-hook update`) ou
-# `brew upgrade` selon le mode d'installation → vérification que le nouveau
-# binaire répond → restart du service si la version a bougé → rollback
-# automatique si le service ne remonte pas.
+# Flow: back up the binary → self-update (`moshi-hook update`) or `brew upgrade`
+# depending on how it was installed → check the new binary answers → restart the
+# service if the version moved → roll back automatically if it does not come up.
 #
-# Pendant de update-orca, mais en scope UTILISATEUR : moshi-hook vit dans
-# ~/.local/bin et dépend de ~/.config/moshi + ~/.local/state/moshi. Pas de root,
-# pas de copie vers /usr/local/bin (le piège SELinux home_t ne concerne que les
-# units SYSTEM ; une unit --user exécute très bien un binaire sous /home).
+# Counterpart of update-orca, but in USER scope: moshi-hook lives in
+# ~/.local/bin and depends on ~/.config/moshi + ~/.local/state/moshi. No root,
+# no copy into /usr/local/bin (the SELinux home_t trap only affects SYSTEM
+# units; a --user unit runs a binary under /home just fine).
 #
 set -euo pipefail
 
@@ -25,29 +24,29 @@ log()  { printf '\033[1;34m[moshi-update]\033[0m %s\n' "$*"; }
 warn() { printf '\033[1;33m[moshi-update]\033[0m %s\n' "$*" >&2; }
 die()  { printf '\033[1;31m[moshi-update]\033[0m %s\n' "$*" >&2; exit 1; }
 
-# `moshi-hook version` imprime "moshi-hook X.Y.Z" ; renvoie "inconnue" si muet.
+# `moshi-hook version` prints "moshi-hook X.Y.Z"; returns "unknown" if silent.
 bin_version() {
   local v
   v="$("$1" version 2>/dev/null | awk 'NF{print $NF; exit}')" || true
-  echo "${v:-inconnue}"
+  echo "${v:-unknown}"
 }
 
-# systemctl --user a besoin de XDG_RUNTIME_DIR (présent quand lancé par systemd,
-# à reconstruire si le script est appelé depuis cron/ssh sans session).
+# systemctl --user needs XDG_RUNTIME_DIR (present when launched by systemd, must
+# be rebuilt if the script is called from cron/ssh without a session).
 export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
 
-# --- Garde-fous ---------------------------------------------------------------
-[[ "$(id -u)" -ne 0 ]] || die "À lancer en tant qu'utilisateur, pas en root (binaire et état vivent dans \$HOME)."
+# --- Guards -------------------------------------------------------------------
+[[ "$(id -u)" -ne 0 ]] || die "Run as your user, not root (binary and state live in \$HOME)."
 
-# Le binaire peut aussi venir de Homebrew (macOS) : on suit le PATH en priorité.
+# The binary may also come from Homebrew (macOS): prefer whatever is on PATH.
 if ! [[ -x "$BIN" ]]; then
   BIN="$(command -v moshi-hook 2>/dev/null || true)"
 fi
-[[ -n "$BIN" && -x "$BIN" ]] || die "Binaire moshi-hook introuvable ou non exécutable."
+[[ -n "$BIN" && -x "$BIN" ]] || die "moshi-hook binary not found or not executable."
 BACKUP="${BIN}.bak"
 
-# Installé par Homebrew ? Alors c'est brew qui met à jour : un self-update
-# écraserait le binaire dans le Cellar et brew le réécrirait au prochain upgrade.
+# Installed by Homebrew? Then brew owns the update: a self-update would overwrite
+# the binary in the Cellar and brew would rewrite it at the next upgrade.
 BREW_MANAGED=0
 if command -v brew >/dev/null 2>&1; then
   case "$BIN" in
@@ -55,7 +54,7 @@ if command -v brew >/dev/null 2>&1; then
   esac
 fi
 
-# --- Détection du superviseur -------------------------------------------------
+# --- Supervisor detection -----------------------------------------------------
 have_systemd=0
 have_launchd=0
 if command -v systemctl >/dev/null 2>&1 && systemctl --user cat "$SERVICE" >/dev/null 2>&1; then
@@ -82,80 +81,80 @@ service_active() {
   fi
 }
 
-# --- Version actuelle + sauvegarde --------------------------------------------
+# --- Current version + backup -------------------------------------------------
 CUR_VER="$(bin_version "$BIN")"
-log "Version installée : ${CUR_VER}"
+log "Installed version: ${CUR_VER}"
 
-# --- Mise à jour --------------------------------------------------------------
+# --- Update -------------------------------------------------------------------
 if [[ "$BREW_MANAGED" -eq 1 ]]; then
-  log "Binaire géré par Homebrew — mise à jour via brew."
+  log "Binary managed by Homebrew — updating through brew."
   set +e
   OUT="$(brew upgrade moshi-hook 2>&1)"; RC=$?
   set -e
   printf '%s\n' "$OUT" | sed 's/^/    /'
   if [[ "$RC" -ne 0 ]]; then
-    warn "brew upgrade a échoué (code ${RC}) — binaire inchangé (${CUR_VER})."
+    warn "brew upgrade failed (code ${RC}) — binary unchanged (${CUR_VER})."
     exit 0
   fi
 else
-  # `moshi-hook update` télécharge la release et remplace le binaire par rename
-  # atomique : le daemon en cours garde son inode, inutile de l'arrêter avant.
-  cp -f "$BIN" "$BACKUP"   # rollback possible même si le self-update foire à moitié
+  # `moshi-hook update` downloads the release and replaces the binary with an
+  # atomic rename: the running daemon keeps its inode, no need to stop it first.
+  cp -f "$BIN" "$BACKUP"   # rollback stays possible even on a half-failed update
   set +e
   OUT="$("$BIN" update 2>&1)"; RC=$?
   set -e
   printf '%s\n' "$OUT" | sed 's/^/    /'
   if [[ "$RC" -ne 0 ]]; then
-    # Réseau/API injoignable : non fatal, le binaire n'a pas bougé. On n'échoue
-    # pas le timer pour une coupure passagère — la prochaine exécution rattrapera.
-    warn "moshi-hook update a échoué (code ${RC}) — binaire inchangé (${CUR_VER}), nouvelle tentative au prochain run."
+    # Network/API unreachable: not fatal, the binary did not move. Do not fail
+    # the timer over a transient outage — the next run catches up.
+    warn "moshi-hook update failed (code ${RC}) — binary unchanged (${CUR_VER}), will retry on the next run."
     exit 0
   fi
 fi
 
-# --- Validation du nouveau binaire --------------------------------------------
+# --- Validate the new binary --------------------------------------------------
 NEW_VER="$(bin_version "$BIN")"
-if [[ "$NEW_VER" == "inconnue" ]]; then
-  warn "Le binaire mis à jour ne répond plus à 'version' — rollback."
+if [[ "$NEW_VER" == "unknown" ]]; then
+  warn "The updated binary no longer answers 'version' — rolling back."
   if [[ -f "$BACKUP" ]]; then
     mv -f "$BACKUP" "$BIN"
     chmod 755 "$BIN"
     restart_service || true
-    die "Rollback effectué vers ${CUR_VER}. Release cassée ?"
+    die "Rolled back to ${CUR_VER}. Broken release?"
   fi
-  die "Aucune sauvegarde disponible (installation brew) — tente : brew reinstall moshi-hook"
+  die "No backup available (brew install) — try: brew reinstall moshi-hook"
 fi
 
-log "Version installée : ${CUR_VER}  →  version après update : ${NEW_VER}"
+log "Installed version: ${CUR_VER}  →  version after update: ${NEW_VER}"
 
 if [[ "$NEW_VER" == "$CUR_VER" ]]; then
-  log "Déjà à jour (${CUR_VER}) — daemon laissé intact, aucun restart."
+  log "Already up to date (${CUR_VER}) — daemon left alone, no restart."
   exit 0
 fi
 
-# --- Restart du daemon --------------------------------------------------------
-# Le process en cours tourne toujours sur l'ancien inode : sans restart, la
-# nouvelle version n'est active qu'au prochain (re)démarrage.
+# --- Restart the daemon -------------------------------------------------------
+# The running process still holds the old inode: without a restart, the new
+# version only takes effect at the next (re)start.
 if [[ "$have_systemd" -eq 1 || "$have_launchd" -eq 1 ]]; then
   if service_active || { [[ "$have_systemd" -eq 1 ]] && systemctl --user is-enabled --quiet "$SERVICE"; }; then
-    log "Redémarrage du service…"
-    restart_service || warn "restart non-propre (poursuite de la vérification)."
+    log "Restarting the service…"
+    restart_service || warn "unclean restart (continuing with the check)."
     sleep 3
     if service_active; then
-      log "Service actif ✔"
+      log "Service active ✔"
     else
-      warn "Service KO après update — rollback vers ${CUR_VER}…"
+      warn "Service down after the update — rolling back to ${CUR_VER}…"
       if [[ -f "$BACKUP" ]]; then
         mv -f "$BACKUP" "$BIN"
         chmod 755 "$BIN"
         restart_service || true
-        die "Rollback effectué. Voir : journalctl --user -u ${SERVICE} -e"
+        die "Rolled back. See: journalctl --user -u ${SERVICE} -e"
       fi
-      die "Service KO et pas de sauvegarde (installation brew). Voir les logs."
+      die "Service down and no backup (brew install). Check the logs."
     fi
   else
-    log "Service ni actif ni activé — pas de restart."
+    log "Service neither active nor enabled — no restart."
   fi
 fi
 
-log "moshi-hook mis à jour avec succès (${CUR_VER} → ${NEW_VER})."
+log "moshi-hook updated successfully (${CUR_VER} → ${NEW_VER})."

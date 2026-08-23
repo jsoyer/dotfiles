@@ -1,22 +1,22 @@
 #!/usr/bin/env bash
 #
-# moshi-setup — Installe et configure la stack Moshi (moshi-hook + mosh + tmux).
+# moshi-setup — Install and configure the Moshi stack (moshi-hook + mosh + tmux).
 #
-# Multi-plateforme : Debian/Ubuntu/RPi (apt), Fedora/RHEL (dnf), Fedora Atomic
+# Cross-platform: Debian/Ubuntu/RPi (apt), Fedora/RHEL (dnf), Fedora Atomic
 # (rpm-ostree), Arch/OmArchy (pacman), openSUSE (zypper), Alpine (apk), Void
-# (xbps), macOS (Homebrew + tap rjyo/moshi). Fallback Homebrew/Linuxbrew.
+# (xbps), macOS (Homebrew + tap rjyo/moshi). Falls back to Homebrew/Linuxbrew.
 #
-# Rien n'est activé automatiquement par chezmoi : ce script est le SEUL point
-# d'entrée (alias `moshi-install`). Idempotent — relançable sans risque.
+# Nothing is enabled automatically by chezmoi: this script is the ONLY entry
+# point (alias `moshi-install`). Idempotent — safe to re-run.
 #
-# Usage :
-#   moshi-setup                  install complet + activation du service
-#   moshi-setup --no-service     binaires seulement (conteneur, toolbox, CI)
-#   moshi-setup --no-packages    saute mosh/tmux (déjà gérés par les manifests)
-#   moshi-setup --status         état du binaire + du service
-#   moshi-setup --update         délègue à update-moshi
-#   moshi-setup --uninstall      retire service + binaire (garde mosh/tmux)
-#   moshi-setup --dry-run        affiche sans exécuter
+# Usage:
+#   moshi-setup                  full install + enable the service
+#   moshi-setup --no-service     binaries only (container, toolbox, CI)
+#   moshi-setup --no-packages    skip mosh/tmux (already in the manifests)
+#   moshi-setup --status         binary and service state
+#   moshi-setup --update         delegate to update-moshi
+#   moshi-setup --uninstall      remove service + binary (keeps mosh/tmux)
+#   moshi-setup --dry-run        print without executing
 #
 set -euo pipefail
 
@@ -44,7 +44,7 @@ ok()   { printf '%s[moshi-setup]%s %s\n' "$c_g" "$c_0" "$*"; }
 warn() { printf '%s[moshi-setup]%s %s\n' "$c_y" "$c_0" "$*" >&2; }
 die()  { printf '%s[moshi-setup]%s %s\n' "$c_r" "$c_0" "$*" >&2; exit 1; }
 
-# Exécute une commande, ou l'affiche seulement en --dry-run.
+# Run a command, or just print it under --dry-run.
 run() {
   if [[ "$DRY_RUN" -eq 1 ]]; then
     printf '  %s+%s %s\n' "$c_y" "$c_0" "$*"
@@ -53,17 +53,17 @@ run() {
   "$@"
 }
 
-# sudo seulement si on n'est pas déjà root et que sudo existe.
+# sudo only when not already root and sudo exists.
 SUDO=""
 need_sudo() {
   [[ "$(id -u)" -eq 0 ]] && { SUDO=""; return 0; }
-  command -v sudo >/dev/null 2>&1 || die "Droits root requis mais sudo est introuvable."
+  command -v sudo >/dev/null 2>&1 || die "Root required but sudo is not available."
   SUDO="sudo"
 }
 
 usage() { sed -n '2,/^set -euo/p' "$0" | sed 's/^# \{0,1\}//; $d'; }
 
-# --- Parsing des options ------------------------------------------------------
+# --- Option parsing -----------------------------------------------------------
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --no-packages) DO_PACKAGES=0 ;;
@@ -75,27 +75,27 @@ while [[ $# -gt 0 ]]; do
     --dry-run)     DRY_RUN=1 ;;
     -y|--yes)      ASSUME_YES=1 ;;
     -h|--help)     usage; exit 0 ;;
-    *)             die "Option inconnue : $1 (voir --help)" ;;
+    *)             die "Unknown option: $1 (see --help)" ;;
   esac
   shift
 done
 
-# --- Détection de la plateforme -----------------------------------------------
+# --- Platform detection -------------------------------------------------------
 OS="$(uname -s)"
 case "$OS" in
   Linux)  PLATFORM="linux" ;;
   Darwin) PLATFORM="darwin" ;;
-  *)      die "Plateforme non supportée : ${OS} (Linux et macOS uniquement)." ;;
+  *)      die "Unsupported platform: ${OS} (Linux and macOS only)." ;;
 esac
 
-# Un toolbox/conteneur partage le réseau de l'hôte : y faire tourner un second
-# daemon moshi-hook entrerait en conflit avec celui de l'hôte.
+# A toolbox/container shares the host network: running a second moshi-hook
+# daemon inside it would fight with the one on the host.
 IN_CONTAINER=0
 if [[ -f /.toolboxenv || -n "${TOOLBOX_PATH:-}" || -f /run/.containerenv || -f /.dockerenv ]]; then
   IN_CONTAINER=1
 fi
 
-# Identifiant de distribution : ID puis ID_LIKE (ex. "ubuntu" → "debian").
+# Distribution identifiers: ID then ID_LIKE (e.g. "ubuntu" → "debian").
 distro_ids() {
   [[ -r /etc/os-release ]] || return 0
   # shellcheck disable=SC1091
@@ -103,14 +103,14 @@ distro_ids() {
   printf '%s %s\n' "${ID:-}" "${ID_LIKE:-}"
 }
 
-# Gestionnaire de paquets à utiliser pour mosh/tmux.
+# Which package manager to use for mosh/tmux.
 detect_pm() {
   if [[ "$PLATFORM" == "darwin" ]]; then
     command -v brew >/dev/null 2>&1 && { echo brew; return; }
     echo none; return
   fi
 
-  # Fedora Atomic : dnf existe mais est en lecture seule côté image.
+  # Fedora Atomic: dnf exists but the image is read-only.
   if command -v rpm-ostree >/dev/null 2>&1 && [[ "$IN_CONTAINER" -eq 0 ]]; then
     echo rpm-ostree; return
   fi
@@ -125,7 +125,7 @@ detect_pm() {
     *" void "*)                                             command -v xbps-install >/dev/null 2>&1 && { echo xbps; return; } ;;
   esac
 
-  # Fallback : on sonde les binaires si /etc/os-release n'a rien donné.
+  # Fallback: probe the binaries if /etc/os-release told us nothing.
   for pm in apt-get dnf pacman zypper apk xbps-install brew; do
     command -v "$pm" >/dev/null 2>&1 || continue
     case "$pm" in
@@ -138,7 +138,7 @@ detect_pm() {
   echo none
 }
 
-# --- Étape 1 : mosh + tmux ----------------------------------------------------
+# --- Step 1: mosh + tmux ------------------------------------------------------
 install_packages() {
   local pm; pm="$(detect_pm)"
   local missing=()
@@ -146,14 +146,14 @@ install_packages() {
   command -v tmux >/dev/null 2>&1 || missing+=(tmux)
 
   if [[ ${#missing[@]} -eq 0 ]]; then
-    ok "mosh et tmux déjà présents — rien à installer."
+    ok "mosh and tmux already present — nothing to install."
     return 0
   fi
-  log "Paquets manquants : ${missing[*]} (gestionnaire détecté : ${pm})"
+  log "Missing packages: ${missing[*]} (detected manager: ${pm})"
 
-  # Les wrappers du dépôt (aptw/dnfw/pacmanw/breww) installent ET mettent à jour
-  # le manifest correspondant (dot_private/Aptfile_*, Dnffile_*…). On les préfère
-  # au gestionnaire brut pour que la machine suivante hérite du paquet.
+  # The repo wrappers (aptw/dnfw/pacmanw/breww) install AND update the matching
+  # manifest (dot_private/Aptfile_*, Dnffile_*…). Prefer them over the raw
+  # package manager so the next machine inherits the package.
   local wrapper=""
   case "$pm" in
     apt)    command -v aptw    >/dev/null 2>&1 && wrapper="aptw" ;;
@@ -162,9 +162,9 @@ install_packages() {
     brew)   command -v breww   >/dev/null 2>&1 && wrapper="breww" ;;
   esac
   if [[ -n "$wrapper" ]]; then
-    log "Utilisation du wrapper ${wrapper} (le manifest sera mis à jour)."
+    log "Using the ${wrapper} wrapper (the manifest will be updated)."
     run "$wrapper" install "${missing[@]}"
-    ok "Paquets installés : ${missing[*]}"
+    ok "Packages installed: ${missing[*]}"
     return 0
   fi
 
@@ -179,11 +179,11 @@ install_packages() {
       run $SUDO dnf install -y "${missing[@]}"
       ;;
     rpm-ostree)
-      # Superposition sur l'image : nécessite un redémarrage pour être active.
-      warn "Fedora Atomic détecté — installation par superposition (redémarrage requis)."
+      # Layered onto the image: needs a reboot before it is usable.
+      warn "Fedora Atomic detected — installing as a layered package (reboot required)."
       need_sudo
       run $SUDO rpm-ostree install --idempotent "${missing[@]}"
-      warn "Redémarre pour que ${missing[*]} soient disponibles, puis relance moshi-setup."
+      warn "Reboot to make ${missing[*]} available, then re-run moshi-setup."
       ;;
     pacman)
       need_sudo
@@ -205,44 +205,44 @@ install_packages() {
       run brew install "${missing[@]}"
       ;;
     none)
-      warn "Aucun gestionnaire de paquets reconnu — installe ${missing[*]} manuellement."
+      warn "No recognised package manager — install ${missing[*]} manually."
       return 0
       ;;
   esac
-  ok "Paquets installés : ${missing[*]}"
+  ok "Packages installed: ${missing[*]}"
 }
 
-# --- Étape 2 : moshi-hook -----------------------------------------------------
+# --- Step 2: moshi-hook -------------------------------------------------------
 install_hook_brew() {
-  log "Installation de moshi-hook via Homebrew (tap ${BREW_TAP})…"
+  log "Installing moshi-hook through Homebrew (tap ${BREW_TAP})…"
   run brew tap "$BREW_TAP"
-  # `brew trust` n'existe pas dans Homebrew mainline ; la commande est donnée par
-  # la doc du tap. On la tente sans jamais échouer dessus.
+  # `brew trust` does not exist in mainline Homebrew; the command comes from the
+  # tap's own documentation. Attempt it, but never fail on it.
   run brew trust "$BREW_TAP" 2>/dev/null || true
   run brew install moshi-hook
 }
 
 install_hook_curl() {
-  log "Installation de moshi-hook via ${INSTALLER_URL}…"
-  command -v curl >/dev/null 2>&1 || die "curl est requis pour installer moshi-hook."
+  log "Installing moshi-hook through ${INSTALLER_URL}…"
+  command -v curl >/dev/null 2>&1 || die "curl is required to install moshi-hook."
   if [[ "$DRY_RUN" -eq 1 ]]; then
     printf '  %s+%s curl -fsSL %s | INSTALL_DIR=%s MOSHI_HOOK_SKIP_FIRST_RUN=1 sh\n' \
       "$c_y" "$c_0" "$INSTALLER_URL" "$INSTALL_DIR"
     return 0
   fi
-  # MOSHI_HOOK_SKIP_FIRST_RUN : l'installeur propose un `set --first-run`
-  # interactif. C'est nous qui pilotons la suite (service + pairing).
+  # MOSHI_HOOK_SKIP_FIRST_RUN: the installer offers an interactive
+  # `set --first-run`. We drive what comes next ourselves (service + pairing).
   curl -fsSL "$INSTALLER_URL" \
     | INSTALL_DIR="$INSTALL_DIR" MOSHI_HOOK_SKIP_FIRST_RUN=1 sh \
-    || die "L'installeur moshi-hook a échoué."
+    || die "The moshi-hook installer failed."
 }
 
 install_hook() {
   local existing=""
   existing="$(command -v moshi-hook 2>/dev/null || true)"
   if [[ -n "$existing" ]]; then
-    ok "moshi-hook déjà installé : ${existing} ($(hook_version "$existing"))"
-    log "Pour mettre à jour : moshi-setup --update"
+    ok "moshi-hook already installed: ${existing} ($(hook_version "$existing"))"
+    log "To update: moshi-setup --update"
     return 0
   fi
 
@@ -252,39 +252,39 @@ install_hook() {
     install_hook_curl
   fi
 
-  # L'installeur pose le binaire dans INSTALL_DIR : il doit être dans le PATH.
+  # The installer drops the binary in INSTALL_DIR: it must be on PATH.
   if ! command -v moshi-hook >/dev/null 2>&1 && [[ ! -x "$BIN" ]]; then
-    die "moshi-hook introuvable après installation (attendu : ${BIN})."
+    die "moshi-hook not found after installation (expected: ${BIN})."
   fi
   case ":${PATH}:" in
     *":${INSTALL_DIR}:"*) : ;;
-    *) warn "${INSTALL_DIR} n'est pas dans le PATH — ajoute-le (voir dot_zsh/01-path.zsh)." ;;
+    *) warn "${INSTALL_DIR} is not on PATH — add it (see dot_zsh/01-path.zsh)." ;;
   esac
-  ok "moshi-hook installé."
+  ok "moshi-hook installed."
 }
 
-# Chemin réel du binaire, brew ou ~/.local/bin.
+# Actual binary path, brew or ~/.local/bin.
 hook_path() { command -v moshi-hook 2>/dev/null || { [[ -x "$BIN" ]] && echo "$BIN"; } || true; }
-hook_version() { "$1" version 2>/dev/null | awk 'NF{print $NF; exit}' || echo inconnue; }
+hook_version() { "$1" version 2>/dev/null | awk 'NF{print $NF; exit}' || echo unknown; }
 
-# --- Étape 3 : service --------------------------------------------------------
+# --- Step 3: service ----------------------------------------------------------
 have_systemd_user() {
   command -v systemctl >/dev/null 2>&1 || return 1
   systemctl --user show-environment >/dev/null 2>&1
 }
 
 enable_linger() {
-  # Sans linger, le gestionnaire systemd --user est tué à la déconnexion : le
-  # daemon moshi-hook mourrait dès la fin de la session SSH — exactement ce
-  # qu'on ne veut pas sur une machine qu'on rejoint en mosh.
+  # Without linger the systemd --user manager is killed at logout, so the
+  # moshi-hook daemon would die at the end of the SSH session — exactly what we
+  # do not want on a machine we reach over mosh.
   local u; u="$(id -un)"
   if loginctl show-user "$u" -p Linger 2>/dev/null | grep -q 'Linger=yes'; then
-    ok "Linger déjà actif pour ${u}."
+    ok "Linger already enabled for ${u}."
     return 0
   fi
   need_sudo
-  log "Activation du linger (le service survit à la déconnexion)…"
-  run $SUDO loginctl enable-linger "$u" || warn "Échec de l'activation du linger."
+  log "Enabling linger (the service survives logout)…"
+  run $SUDO loginctl enable-linger "$u" || warn "Could not enable linger."
 }
 
 setup_service_linux() {
@@ -294,17 +294,17 @@ setup_service_linux() {
     [[ -f "${unit_dir}/${u}" ]] || missing+=("$u")
   done
   if [[ ${#missing[@]} -gt 0 ]]; then
-    die "Units absentes de ${unit_dir} : ${missing[*]} — lance d'abord 'chezmoi apply'."
+    die "Units missing from ${unit_dir}: ${missing[*]} — run 'chezmoi apply' first."
   fi
 
   if ! have_systemd_user; then
-    warn "systemd --user indisponible (conteneur, WSL sans systemd…)."
-    warn "Lance le daemon à la main : ${BIN} serve &"
+    warn "systemd --user unavailable (container, WSL without systemd…)."
+    warn "Start the daemon by hand: ${BIN} serve &"
     return 0
   fi
 
   enable_linger
-  log "Activation des units systemd --user…"
+  log "Enabling the systemd --user units…"
   run systemctl --user daemon-reload
   run systemctl --user enable --now "$SERVICE"
   run systemctl --user enable --now "$UPDATE_TIMER"
@@ -312,9 +312,9 @@ setup_service_linux() {
 
   sleep 2
   if systemctl --user is-active --quiet "$SERVICE"; then
-    ok "${SERVICE} actif ✔"
+    ok "${SERVICE} active ✔"
   else
-    warn "${SERVICE} n'est pas actif — voir : journalctl --user -u ${SERVICE} -e"
+    warn "${SERVICE} is not active — see: journalctl --user -u ${SERVICE} -e"
   fi
 }
 
@@ -325,24 +325,24 @@ setup_service_darwin() {
     [[ -f "${agents}/${p}.plist" ]] || missing+=("${p}.plist")
   done
   if [[ ${#missing[@]} -gt 0 ]]; then
-    die "LaunchAgents absents de ${agents} : ${missing[*]} — lance d'abord 'chezmoi apply'."
+    die "LaunchAgents missing from ${agents}: ${missing[*]} — run 'chezmoi apply' first."
   fi
   for p in "$PLIST_HOOK" "$PLIST_UPDATE"; do
-    log "Chargement de ${p}…"
+    log "Loading ${p}…"
     run launchctl unload "${agents}/${p}.plist" 2>/dev/null || true
-    run launchctl load "${agents}/${p}.plist" || warn "Échec du chargement de ${p}."
+    run launchctl load "${agents}/${p}.plist" || warn "Could not load ${p}."
   done
-  ok "LaunchAgents chargés."
+  ok "LaunchAgents loaded."
 }
 
 setup_service() {
   if [[ "$IN_CONTAINER" -eq 1 ]]; then
-    warn "Conteneur/toolbox détecté — le daemon moshi-hook doit tourner sur l'HÔTE."
-    warn "Service non configuré ici (utilise --no-service pour masquer cet avertissement)."
+    warn "Container/toolbox detected — the moshi-hook daemon belongs on the HOST."
+    warn "Service not configured here (use --no-service to silence this warning)."
     return 0
   fi
   if [[ -z "$(hook_path)" ]]; then
-    warn "moshi-hook absent — service non configuré."
+    warn "moshi-hook missing — service not configured."
     return 0
   fi
   case "$PLATFORM" in
@@ -352,35 +352,35 @@ setup_service() {
 }
 
 # --- Actions ------------------------------------------------------------------
-# systemctl is-active/is-enabled IMPRIMENT déjà un état ("inactive", "not-found")
-# puis sortent en code != 0 : un `|| echo inconnu` ajouterait une SECONDE ligne.
-sstate() { local out; out="$("$@" 2>/dev/null)" || true; echo "${out:-inconnu}"; }
+# systemctl is-active/is-enabled ALREADY print a state ("inactive", "not-found")
+# and then exit non-zero: an `|| echo unknown` would add a SECOND line.
+sstate() { local out; out="$("$@" 2>/dev/null)" || true; echo "${out:-unknown}"; }
 
 do_status() {
   local p; p="$(hook_path)"
   printf '%sMoshi%s\n' "$c_b" "$c_0"
   if [[ -n "$p" ]]; then
-    printf '  Binaire  : %s (%s)\n' "$p" "$(hook_version "$p")"
+    printf '  Binary   : %s (%s)\n' "$p" "$(hook_version "$p")"
   else
-    printf '  Binaire  : %sabsent%s\n' "$c_r" "$c_0"
+    printf '  Binary   : %smissing%s\n' "$c_r" "$c_0"
   fi
-  printf '  mosh     : %s\n' "$(command -v mosh 2>/dev/null || echo absent)"
-  printf '  tmux     : %s\n' "$(command -v tmux 2>/dev/null || echo absent)"
+  printf '  mosh     : %s\n' "$(command -v mosh 2>/dev/null || echo missing)"
+  printf '  tmux     : %s\n' "$(command -v tmux 2>/dev/null || echo missing)"
   if [[ "$PLATFORM" == "linux" ]] && have_systemd_user; then
     printf '  Service  : %s / %s\n' \
       "$(sstate systemctl --user is-active "$SERVICE")" \
       "$(sstate systemctl --user is-enabled "$SERVICE")"
-    printf '  Timer MAJ: %s\n' "$(sstate systemctl --user is-active "$UPDATE_TIMER")"
+    printf '  Timer    : %s\n' "$(sstate systemctl --user is-active "$UPDATE_TIMER")"
   elif [[ "$PLATFORM" == "darwin" ]]; then
-    printf '  Service  : %s\n' "$(launchctl list 2>/dev/null | grep -c "$PLIST_HOOK" | sed 's/^0$/non chargé/;s/^[1-9].*/chargé/')"
+    printf '  Service  : %s\n' "$(launchctl list 2>/dev/null | grep -c "$PLIST_HOOK" | sed 's/^0$/not loaded/;s/^[1-9].*/loaded/')"
   fi
 }
 
 do_uninstall() {
   if [[ "$ASSUME_YES" -eq 0 ]]; then
-    printf 'Retirer le service et le binaire moshi-hook ? [y/N] '
+    printf 'Remove the moshi-hook service and binary? [y/N] '
     read -r reply
-    [[ "$reply" =~ ^[yYoO]$ ]] || { log "Annulé."; exit 0; }
+    [[ "$reply" =~ ^[yY]$ ]] || { log "Cancelled."; exit 0; }
   fi
   if [[ "$PLATFORM" == "linux" ]] && have_systemd_user; then
     run systemctl --user disable --now "$SERVICE" 2>/dev/null || true
@@ -391,23 +391,23 @@ do_uninstall() {
       run launchctl unload "${HOME}/Library/LaunchAgents/${p}.plist" 2>/dev/null || true
     done
   fi
-  # mosh et tmux sont laissés en place : ce sont des outils généraux, souvent
-  # déclarés dans les manifests de paquets.
+  # mosh and tmux are left alone: they are general-purpose tools, usually
+  # declared in the package manifests.
   run rm -f "$BIN" "${BIN}.bak" "${INSTALL_DIR}/moshi"
-  ok "Désinstallé (mosh et tmux conservés)."
+  ok "Uninstalled (mosh and tmux kept)."
 }
 
 do_install() {
-  log "Plateforme : ${PLATFORM} / $(uname -m)$([[ "$IN_CONTAINER" -eq 1 ]] && echo ' (conteneur)')"
+  log "Platform: ${PLATFORM} / $(uname -m)$([[ "$IN_CONTAINER" -eq 1 ]] && echo ' (container)')"
   [[ "$DO_PACKAGES" -eq 1 ]] && install_packages
   [[ "$DO_HOOK"     -eq 1 ]] && install_hook
   [[ "$DO_SERVICE"  -eq 1 ]] && setup_service
   echo
-  ok "Terminé."
+  ok "Done."
   local p; p="$(hook_path)"
   if [[ -n "$p" ]]; then
-    log "Étape suivante — appairer l'appli mobile :  moshi pair"
-    log "État :                                      moshi-setup --status"
+    log "Next step — pair the mobile app:  moshi pair"
+    log "State:                            moshi-setup --status"
   fi
 }
 
