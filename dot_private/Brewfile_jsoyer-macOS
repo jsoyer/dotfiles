@@ -1,0 +1,12 @@
+# Host overlay for jsoyer-macOS — extras beyond the shared base.
+# Managed by breww. Do not edit manually.
+tap "siderolabs/tap", trusted: true
+brew "age"
+brew "awscli"
+brew "herdr"
+brew "mole"
+brew "virt-manager"
+cask "claude"
+cask "claude-code"
+cask "fluidvoice"
+cask "visual-studio-code"
