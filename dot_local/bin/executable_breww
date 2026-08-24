@@ -123,6 +123,36 @@ def get_cu_skip_file() -> Path:
     return BREWFILE_DIR / f"Brewfile_cu_skip_{get_hostname()}"
 
 
+def iter_cu_skip_files() -> list[Path]:
+    """Skip files for this host and MACHINE_PROFILE (hostname match is case-insensitive)."""
+    keys = {get_hostname().lower()}
+    profile = os.environ.get("MACHINE_PROFILE", "")
+    if profile:
+        keys.add(profile.lower())
+    found: list[Path] = []
+    seen: set[Path] = set()
+    if not BREWFILE_DIR.is_dir():
+        return found
+    for path in sorted(BREWFILE_DIR.glob("Brewfile_cu_skip_*")):
+        suffix = path.name[len("Brewfile_cu_skip_") :]
+        if suffix.lower() in keys and path not in seen:
+            seen.add(path)
+            found.append(path)
+    return found
+
+
+def load_cu_skip() -> list[str]:
+    """Merge hostname + profile skip lists, preserving first-seen order."""
+    packages: list[str] = []
+    seen: set[str] = set()
+    for path in iter_cu_skip_files():
+        for pkg in load_package_list(path):
+            if pkg not in seen:
+                seen.add(pkg)
+                packages.append(pkg)
+    return packages
+
+
 def _split_brew_args(args: list[str]) -> tuple[str, list[str], list[str]]:
     """Split `brew` argv into (command, flags, positionals)."""
     if not args:
@@ -416,7 +446,7 @@ def main():
             f"  breww <command>             Passthrough to brew\n\n"
             f"Base file (read-only): {base_brewfile or 'unknown (check MACHINE_PROFILE)'}\n"
             f"Host overlay:          {get_host_brewfile()}\n"
-            f"Cask skip file:        {get_cu_skip_file()}\n"
+            f"Cask skip files:       {', '.join(p.name for p in iter_cu_skip_files()) or get_cu_skip_file().name}\n"
             f"Hostname:              {hostname}\n"
             f"MACHINE_PROFILE:       {os.environ.get('MACHINE_PROFILE', 'unset')}\n"
         )
@@ -435,7 +465,7 @@ def main():
     if "install" in args:
         check_native_available(args)
 
-    skip = load_package_list(get_cu_skip_file())
+    skip = load_cu_skip()
     cmd, flags, positionals = _split_brew_args(args)
     skip_bulk = bool(skip) and (
         (cmd == "cu" and not positionals)
@@ -446,6 +476,8 @@ def main():
             f"{YELLOW}Skipping casks (no admin on this host): {', '.join(skip)}{NC}"
         )
         print(f"{YELLOW}Override with an explicit name: breww {cmd} <cask>{NC}")
+        # Pin so unwrapped `brew upgrade` (cmupgrade, other scripts) skips them too.
+        subprocess.run(["brew", "pin", *skip], capture_output=True)
         plans = plan_brew_commands(
             args,
             skip,

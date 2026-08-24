@@ -41,8 +41,13 @@ if [[ "${YES}" == "false" && "${DRY_RUN}" == "false" ]]; then
 fi
 
 if command -v brew >/dev/null 2>&1; then
-    run brew update
-    run brew upgrade
+    if command -v breww >/dev/null 2>&1; then
+        run breww update
+        run breww upgrade
+    else
+        run brew update
+        run brew upgrade
+    fi
     run brew cleanup
 fi
 

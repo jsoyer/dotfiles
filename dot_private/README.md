@@ -26,7 +26,7 @@ Every manager reads two layers and installs their **union**:
 - `<hostname>` = `{{ .chezmoi.hostname }}` in templates, `uname -n \| cut -d. -f1` in wrappers.
 - **Install** = base, then the host overlay **only if it exists** (`[[ -f ]]` guard → a machine with no overlay behaves exactly as before).
 - **Wrappers** write `installed − base − blacklist` to the overlay and **never touch the base**, so two machines of the same profile never clobber each other's package list.
-- **Cask upgrade skip** (`Brewfile_cu_skip_<hostname>`): one token per line. `breww` omits those casks from bulk `cu` / `upgrade` (`bcu`, `bup`, `sysup`). Used on the Mac Pro (`jsoyer-macOS`) for casks that require admin. Explicit `breww cu -a obs` still upgrades.
+- **Cask upgrade skip** (`Brewfile_cu_skip_<hostname>` and `Brewfile_cu_skip_<MACHINE_PROFILE>`): one token per line. `breww` omits those casks from bulk `cu` / `upgrade` (`bcu`, `bup`, `sysup`). Mac Pro uses both `jsoyer-macOS` and `mac-pro` files. Explicit `breww cu -a obs` still upgrades.
 - **Promote** a package to the shared base by moving its line from `<Manager>file_<hostname>` into the profile base (or `breww --promote <name>`), then commit.
 
 Overlay filenames per manager: `Brewfile_<host>`, `Aptfile_<host>`, `Dnffile_<host>`,
@@ -46,6 +46,7 @@ Overlay filenames per manager: `Brewfile_<host>`, `Aptfile_<host>`, `Dnffile_<ho
 | `Brewfile_pro` | Additional packages (included for `mac-pro` profile) | mac-pro |
 | `Brewfile_personal` | Personal machine extras (included for `mac-personal` profile) | mac-personal |
 | `Brewfile_cu_skip_jsoyer-macOS` | Casks skipped on bulk upgrade (admin required; non-admin Mac Pro) | jsoyer-macOS |
+| `Brewfile_cu_skip_mac-pro` | Same skip list keyed by `MACHINE_PROFILE` (hostname-independent) | mac-pro |
 
 **Usage:** Installed via `brew bundle` in `run_after_brew-bundle.sh.tmpl`
 

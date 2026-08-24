@@ -172,6 +172,12 @@ alias b='breww'
 if [[ "$OSTYPE" == darwin* ]]; then
     mas() { command masw "$@"; }
 fi
+# Mac Pro is a non-admin account: raw `brew upgrade` must still hit breww
+# so Brewfile_cu_skip_mac-pro is applied. subprocess in breww calls the
+# real brew binary via PATH, so this does not recurse.
+if [[ "${MACHINE_PROFILE:-}" == "mac-pro" ]]; then
+    brew() { command breww "$@"; }
+fi
 alias bi='breww install'
 alias bu='breww update'
 alias bup='breww upgrade'

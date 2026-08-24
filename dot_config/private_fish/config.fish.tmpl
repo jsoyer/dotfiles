@@ -436,6 +436,11 @@ alias b='breww'
 function mas --wraps masw --description 'mas wrapper with Brewfile sync'
     command masw $argv
 end
+{{ if eq .machine_profile "mac-pro" -}}
+function brew --wraps brew --description 'breww wrapper so cask skip list applies'
+    command breww $argv
+end
+{{ end -}}
 alias bi='breww install'
 alias bu='breww update'
 alias bup='breww upgrade'
