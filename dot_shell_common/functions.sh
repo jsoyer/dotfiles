@@ -55,7 +55,5 @@ if command -v aerospace &>/dev/null; then
   }
 fi
 
-# NOTE: orca-update used to be defined here as a macOS cask upgrade. It moved
-# to the agent-stacks section of aliases.sh (darwin branch): defining a
-# function whose name is already an alias is a zsh parse error, and this file
-# loads after 10-aliases.
+# NOTE: orca-update used to be a macOS cask upgrade here. Agent stacks are
+# Linux-only now (aliases.sh); do not reintroduce a function of that name.

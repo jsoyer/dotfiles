@@ -72,6 +72,31 @@ bin/media_absolute_refresh.py
 bin/media_automation
 {{ end }}
 
+# ── Agent stacks (moshi / orca / herdr / cursor-worker) : Linux only ──
+# Must not show up in `chezmoi apply` on macOS (especially mac-pro).
+{{ if ne .chezmoi.os "linux" }}
+.config/systemd
+.local/bin/agentsvc
+.local/bin/cursor-setup
+.local/bin/herdr-setup
+.local/bin/herdr-uninstall
+.local/bin/moshi-hook-launch
+.local/bin/moshi-setup
+.local/bin/moshi-uninstall
+.local/bin/orca-gui
+.local/bin/orca-setup
+.local/bin/orca-uninstall
+.local/bin/orca-version
+.local/bin/update-cursor-agent
+.local/bin/update-herdr
+.local/bin/update-moshi
+.local/bin/update-orca
+{{ end }}
+{{ if eq .machine_profile "mac-pro" }}
+Library/LaunchAgents/com.jsoyer.moshi-hook.plist
+Library/LaunchAgents/com.jsoyer.moshi-update.plist
+{{ end }}
+
 # ── ~/.agents : plus gere par chezmoi, mais toujours utilise ──
 # dot_agents/ a ete supprime de la source par d9794e50 (consolidation aictx).
 # chezmoi se souvenait de l'avoir ecrit et voulait donc supprimer ~/.agents a

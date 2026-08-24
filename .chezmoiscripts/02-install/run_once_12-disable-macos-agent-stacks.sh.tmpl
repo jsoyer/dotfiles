@@ -1,0 +1,25 @@
+{{- if eq .machine_profile "mac-pro" -}}
+#!/usr/bin/env bash
+# =============================================================================
+# One-time: unload leftover moshi LaunchAgents on the work Mac Pro.
+# Agent stacks are Linux-only; they must not keep running (or prompting) here.
+# =============================================================================
+set -euo pipefail
+
+uid="$(id -u)"
+unloaded=0
+for label in com.jsoyer.moshi-hook com.jsoyer.moshi-update; do
+    target="gui/${uid}/${label}"
+    if launchctl print "${target}" &>/dev/null; then
+        launchctl bootout "${target}" 2>/dev/null || true
+        unloaded=1
+    fi
+    rm -f "${HOME}/Library/LaunchAgents/${label}.plist"
+done
+
+if (( unloaded )); then
+    echo "ℹ️  Stopped leftover moshi LaunchAgents (not used on mac-pro)."
+else
+    echo "ℹ️  No moshi/orca LaunchAgents loaded, skipping."
+fi
+{{- end -}}
