@@ -1,0 +1,13 @@
+# Casks to skip on bulk upgrades for MACHINE_PROFILE=mac-pro (non-admin).
+# Applied by breww to `cu` / `upgrade` with no package names (`bcu`, `bup`, `sysup`).
+# Also used when the hostname file does not match Python's uname.
+# To upgrade one of these anyway: brew unpin obs && breww cu -a obs
+#
+# These write under /Library or run a privileged installer.
+
+obs
+logitune
+logi-options+
+xquartz
+elgato-camera-hub
+elgato-stream-deck

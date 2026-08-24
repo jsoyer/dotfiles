@@ -12,6 +12,7 @@ import importlib.machinery
 import importlib.util
 import tempfile
 import unittest
+import unittest.mock
 from pathlib import Path
 
 _BREWW_PATH = Path(__file__).resolve().parent / "executable_breww"
@@ -171,6 +172,38 @@ class SkipFilePath(unittest.TestCase):
         self.assertEqual(path.parent, breww.BREWFILE_DIR)
         self.assertTrue(path.name.startswith("Brewfile_cu_skip_"))
         self.assertIn(breww.get_hostname(), path.name)
+
+
+class LoadCuSkip(unittest.TestCase):
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp())
+        self.prev_dir = breww.BREWFILE_DIR
+        breww.BREWFILE_DIR = self.tmp
+
+    def tearDown(self):
+        breww.BREWFILE_DIR = self.prev_dir
+        for child in self.tmp.iterdir():
+            child.unlink()
+        self.tmp.rmdir()
+
+    def test_profile_file_is_loaded_when_hostname_does_not_match(self):
+        (self.tmp / "Brewfile_cu_skip_mac-pro").write_text("obs\nlogitune\n")
+        with unittest.mock.patch.object(breww, "get_hostname", return_value="other-host"):
+            with unittest.mock.patch.dict("os.environ", {"MACHINE_PROFILE": "mac-pro"}):
+                self.assertEqual(breww.load_cu_skip(), ["obs", "logitune"])
+
+    def test_hostname_match_is_case_insensitive(self):
+        (self.tmp / "Brewfile_cu_skip_jsoyer-macOS").write_text("obs\n")
+        with unittest.mock.patch.object(breww, "get_hostname", return_value="jsoyer-macos"):
+            with unittest.mock.patch.dict("os.environ", {"MACHINE_PROFILE": "mac-personal"}):
+                self.assertEqual(breww.load_cu_skip(), ["obs"])
+
+    def test_profile_and_hostname_lists_are_merged(self):
+        (self.tmp / "Brewfile_cu_skip_mac-pro").write_text("obs\nlogitune\n")
+        (self.tmp / "Brewfile_cu_skip_jsoyer-macOS").write_text("obs\nxquartz\n")
+        with unittest.mock.patch.object(breww, "get_hostname", return_value="jsoyer-macOS"):
+            with unittest.mock.patch.dict("os.environ", {"MACHINE_PROFILE": "mac-pro"}):
+                self.assertEqual(breww.load_cu_skip(), ["obs", "xquartz", "logitune"])
 
 
 if __name__ == "__main__":
