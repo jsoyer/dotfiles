@@ -712,54 +712,37 @@ alias jp='jj git push'
 alias jf='jj git fetch'
 
 # ============================================================================
-# Self-hosted agent stacks (moshi / orca / cursor / herdr)
+# Self-hosted agent stacks (moshi / orca / cursor / herdr) — Linux only
 # ============================================================================
-# Installation is MANUAL and explicit: chezmoi only drops the units and the
-# scripts, nothing is enabled automatically. These commands are the entry point.
-# Uniform scheme: <stack>-install|status|update|logs|restart. Tab-complete on
-# the stack name to discover everything. Details: ~/.local/bin/README.md.
+# Hidden on macOS (especially mac-pro): chezmoi must not surface these names
+# in the shell. Installation stays MANUAL on Linux. Details: ~/.local/bin/README.md.
 
-# Overview of every stack
-alias asvc='agentsvc'
-alias asvcs='agentsvc status'
-alias asvcu='agentsvc update'
+if [[ "$(uname -s)" == "Linux" ]]; then
+  alias asvc='agentsvc'
+  alias asvcs='agentsvc status'
+  alias asvcu='agentsvc update'
 
-# --- Moshi (mobile terminal) — Linux + macOS --------------------------------
-alias moshi-install='moshi-setup'
-alias moshi-status='moshi-setup --status'
-alias moshi-update='update-moshi'
-if [[ "$(uname -s)" == "Darwin" ]]; then
-  alias moshi-logs='tail -f "$HOME/Library/Logs/moshi-hook.log"'
-  alias moshi-restart='launchctl kickstart -k "gui/$(id -u)/com.jsoyer.moshi-hook"'
-else
+  alias moshi-install='moshi-setup'
+  alias moshi-status='moshi-setup --status'
+  alias moshi-update='update-moshi'
   alias moshi-logs='journalctl --user -u moshi-hook.service -f'
   alias moshi-restart='systemctl --user restart moshi-hook.service'
-fi
 
-# --- herdr (multiplexer) — update timer only, the server self-daemonizes ----
-# No herdr-restart on purpose: the server holds your panes. Use herdr-update
-# (handoff) or `herdr server stop` explicitly.
-alias herdr-install='herdr-setup'
-alias herdr-status='herdr-setup --status'
-alias herdr-update='update-herdr'
-alias herdr-logs='journalctl --user -u herdr-update.service -f'
+  # No herdr-restart: the server holds your panes.
+  alias herdr-install='herdr-setup'
+  alias herdr-status='herdr-setup --status'
+  alias herdr-update='update-herdr'
+  alias herdr-logs='journalctl --user -u herdr-update.service -f'
 
-# --- Orca (headless runtime) — Linux only, system scope ---------------------
-if [[ "$(uname -s)" == "Linux" ]]; then
-  alias orca-install='orca-setup'  # self-elevating: sudo would not find ~/.local/bin
+  alias orca-install='orca-setup'
   alias orca-status='orca-setup --status'
-  alias orca-update='update-orca'  # self-elevating too
+  alias orca-update='update-orca'
   alias orca-logs='journalctl -u orca-serve.service -f'
   alias orca-restart='sudo systemctl restart orca-serve.service'
-  # orca-gui and orca-version are real scripts, no alias needed
 
-  # --- Cursor (private worker) — Linux only ---------------------------------
   alias cursor-install='cursor-setup'
   alias cursor-status='cursor-setup --status'
   alias cursor-update='update-cursor-agent'
   alias cursor-logs='journalctl --user -u cursor-worker.service -f'
   alias cursor-restart='systemctl --user restart cursor-worker.service'
-else
-  # macOS runs Orca as a GUI cask, not the headless AppImage service.
-  alias orca-update='brew upgrade --cask stablyai/orca/orca'
 fi

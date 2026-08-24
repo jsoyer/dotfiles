@@ -1385,8 +1385,7 @@ def cup [...args: string] {
     print "✅ Update complete!"
 }
 
-# NOTE: orca-update moved to the agent-stacks section (OS-branching def:
-# brew cask on macOS, update-orca on Linux).
+# NOTE: orca-update lives in the Linux-only agent-stacks section below.
 
 # ============================================================================
 # Jujutsu (jj)
@@ -1646,63 +1645,37 @@ def snap [...args: string] {
 alias "rpm-ostree" = ostreew
 
 # ============================================================================
-# Self-hosted agent stacks (moshi / orca / cursor / herdr)
+# Self-hosted agent stacks (moshi / orca / cursor / herdr) — Linux only
 # ============================================================================
-# Uniform scheme: <stack>-install|status|update|logs|restart. Nothing is
-# enabled automatically. Details: ~/.local/bin/README.md.
+# Hidden on macOS (especially mac-pro). config.nu is not a chezmoi template.
 
-alias asvc = agentsvc
-alias asvcs = agentsvc status
-alias asvcu = agentsvc update
+if $nu.os-info.name != "macos" {
+    alias asvc = agentsvc
+    alias asvcs = agentsvc status
+    alias asvcu = agentsvc update
 
-# --- Moshi (mobile terminal) — Linux + macOS --------------------------------
-alias "moshi-install" = moshi-setup
-alias "moshi-status" = moshi-setup --status
-alias "moshi-update" = update-moshi
+    alias "moshi-install" = moshi-setup
+    alias "moshi-status" = moshi-setup --status
+    alias "moshi-update" = update-moshi
+    def "moshi-logs" [] { ^journalctl --user -u moshi-hook.service -f }
+    def "moshi-restart" [] { ^systemctl --user restart moshi-hook.service }
 
-# config.nu is not a chezmoi template: branch on the OS at runtime instead.
-def "moshi-logs" [] {
-    if $nu.os-info.name == "macos" {
-        ^tail -f $"($nu.home-path)/Library/Logs/moshi-hook.log"
-    } else {
-        ^journalctl --user -u moshi-hook.service -f
-    }
+    alias "herdr-install" = herdr-setup
+    alias "herdr-status" = herdr-setup --status
+    alias "herdr-update" = update-herdr
+    alias "herdr-logs" = journalctl --user -u herdr-update.service -f
+
+    alias "orca-install" = orca-setup
+    alias "orca-status" = orca-setup --status
+    alias "orca-update" = update-orca
+    alias "orca-logs" = journalctl -u orca-serve.service -f
+    alias "orca-restart" = sudo systemctl restart orca-serve.service
+
+    alias "cursor-install" = cursor-setup
+    alias "cursor-status" = cursor-setup --status
+    alias "cursor-update" = update-cursor-agent
+    alias "cursor-logs" = journalctl --user -u cursor-worker.service -f
+    alias "cursor-restart" = systemctl --user restart cursor-worker.service
 }
-
-def "moshi-restart" [] {
-    if $nu.os-info.name == "macos" {
-        let uid = (^id -u | str trim)
-        ^launchctl kickstart -k $"gui/($uid)/com.jsoyer.moshi-hook"
-    } else {
-        ^systemctl --user restart moshi-hook.service
-    }
-}
-
-# --- herdr (multiplexer) — no herdr-restart: the server holds your panes ----
-alias "herdr-install" = herdr-setup
-alias "herdr-status" = herdr-setup --status
-alias "herdr-update" = update-herdr
-alias "herdr-logs" = journalctl --user -u herdr-update.service -f
-
-# --- Orca (headless runtime) — Linux only, system scope ---------------------
-alias "orca-install" = orca-setup
-alias "orca-status" = orca-setup --status
-# macOS runs Orca as a GUI cask, not the headless AppImage service.
-def "orca-update" [] {
-    if $nu.os-info.name == "macos" {
-        ^brew upgrade --cask stablyai/orca/orca
-    } else {
-        ^update-orca
-    }
-}
-alias "orca-logs" = journalctl -u orca-serve.service -f
-alias "orca-restart" = sudo systemctl restart orca-serve.service
-
-# --- Cursor (private worker) — Linux only -----------------------------------
-alias "cursor-install" = cursor-setup
-alias "cursor-status" = cursor-setup --status
-alias "cursor-update" = update-cursor-agent
-alias "cursor-logs" = journalctl --user -u cursor-worker.service -f
-alias "cursor-restart" = systemctl --user restart cursor-worker.service
 
 source ~/.cache/atuin/init.nu
