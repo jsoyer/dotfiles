@@ -73,7 +73,8 @@ bin/media_automation
 {{ end }}
 
 # ── Agent stacks (moshi / orca / herdr / cursor-worker) : Linux only ──
-# Must not show up in `chezmoi apply` on macOS (especially mac-pro).
+# Ignore = do not re-apply. Actual deletion of leftovers is
+# run_once_12-disable-macos-agent-stacks.sh (ignore never removes).
 {{ if ne .chezmoi.os "linux" }}
 .config/systemd
 .local/bin/agentsvc
