@@ -1,0 +1,12 @@
+# Casks to skip on bulk upgrades for jsoyer-macOS (Mac Pro, non-admin).
+# Applied by breww to `cu` / `upgrade` with no package names (`bcu`, `bup`, `sysup`).
+# To upgrade one of these anyway: breww cu -a obs
+#
+# These write under /Library or run a privileged installer.
+
+obs
+logitune
+logi-options+
+xquartz
+elgato-camera-hub
+elgato-stream-deck

@@ -211,7 +211,7 @@ All package managers are wrapped to track installations in manifest files (`Brew
 | `bi` | `breww install` | Install package |
 | `bu` | `breww update` | Update package list |
 | `bup` | `breww upgrade` | Upgrade packages |
-| `bcu` | `breww cu -a` | Upgrade casks (uses brew-cask-upgrade) |
+| `bcu` | `breww cu -a` | Upgrade casks (uses brew-cask-upgrade). Host skip list: `Brewfile_cu_skip_<hostname>` |
 | `bs` | `breww search` | Search packages |
 | `bl` | `breww list` | List installed |
 | `bun` | `breww uninstall` | Uninstall package |
