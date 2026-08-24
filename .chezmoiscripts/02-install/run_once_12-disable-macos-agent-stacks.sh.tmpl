@@ -1,25 +1,67 @@
-{{- if eq .machine_profile "mac-pro" -}}
+{{- if eq .chezmoi.os "darwin" -}}
 #!/usr/bin/env bash
 # =============================================================================
-# One-time: unload leftover moshi LaunchAgents on the work Mac Pro.
-# Agent stacks are Linux-only; they must not keep running (or prompting) here.
+# One-time: delete leftover moshi/orca/herdr/cursor-worker files on macOS.
+# .chezmoiignore stops chezmoi from re-applying them, but does NOT remove
+# targets already written. This script is the removal side.
 # =============================================================================
 set -euo pipefail
 
+removed=0
+
+rm_if_present() {
+    local f="$1"
+    if [[ -e "$f" || -L "$f" ]]; then
+        rm -f "$f"
+        echo "  removed ${f}"
+        removed=$((removed + 1))
+    fi
+}
+
+{{ if eq .machine_profile "mac-pro" -}}
 uid="$(id -u)"
-unloaded=0
 for label in com.jsoyer.moshi-hook com.jsoyer.moshi-update; do
     target="gui/${uid}/${label}"
     if launchctl print "${target}" &>/dev/null; then
         launchctl bootout "${target}" 2>/dev/null || true
-        unloaded=1
+        echo "  unloaded ${target}"
+        removed=$((removed + 1))
     fi
-    rm -f "${HOME}/Library/LaunchAgents/${label}.plist"
+    rm_if_present "${HOME}/Library/LaunchAgents/${label}.plist"
+done
+{{ end -}}
+
+for f in \
+    "${HOME}/.local/bin/agentsvc" \
+    "${HOME}/.local/bin/cursor-setup" \
+    "${HOME}/.local/bin/herdr-setup" \
+    "${HOME}/.local/bin/herdr-uninstall" \
+    "${HOME}/.local/bin/moshi-hook-launch" \
+    "${HOME}/.local/bin/moshi-setup" \
+    "${HOME}/.local/bin/moshi-uninstall" \
+    "${HOME}/.local/bin/orca-gui" \
+    "${HOME}/.local/bin/orca-setup" \
+    "${HOME}/.local/bin/orca-uninstall" \
+    "${HOME}/.local/bin/orca-version" \
+    "${HOME}/.local/bin/update-cursor-agent" \
+    "${HOME}/.local/bin/update-herdr" \
+    "${HOME}/.local/bin/update-moshi" \
+    "${HOME}/.local/bin/update-orca" \
+    "${HOME}/.config/systemd/user/moshi-hook.service" \
+    "${HOME}/.config/systemd/user/moshi-update.service" \
+    "${HOME}/.config/systemd/user/moshi-update.timer" \
+    "${HOME}/.config/systemd/user/herdr-update.service" \
+    "${HOME}/.config/systemd/user/herdr-update.timer" \
+    "${HOME}/.config/systemd/user/cursor-update.service" \
+    "${HOME}/.config/systemd/user/cursor-update.timer" \
+    "${HOME}/.config/systemd/user/cursor-worker.service"
+do
+    rm_if_present "$f"
 done
 
-if (( unloaded )); then
-    echo "ℹ️  Stopped leftover moshi LaunchAgents (not used on mac-pro)."
+if (( removed > 0 )); then
+    echo "ℹ️  Removed ${removed} leftover moshi/orca/herdr file(s) (Linux-only stacks)."
 else
-    echo "ℹ️  No moshi/orca LaunchAgents loaded, skipping."
+    echo "ℹ️  No leftover moshi/orca/herdr files, skipping."
 fi
 {{- end -}}
