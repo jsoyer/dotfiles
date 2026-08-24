@@ -451,6 +451,10 @@ temurin@8
 
 Prevents these packages from being automatically re-added.
 
+**Per-host cask upgrade skip** (`dot_private/Brewfile_cu_skip_<hostname>`):
+
+Casks that need admin (OBS virtualcam, Logitech, Elgato, XQuartz) stay installed but are skipped by bulk `bcu` / `bup` / `sysup`. Only the matching hostname file is read; other machines are unchanged. Override with an explicit name: `breww cu -a obs`.
+
 ### Starship Integration
 
 Custom Chezmoi status indicator in prompt:

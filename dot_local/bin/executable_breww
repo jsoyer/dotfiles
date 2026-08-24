@@ -97,19 +97,126 @@ def run_brew_command(args):
     return result.returncode
 
 
+def load_package_list(path: Path) -> list[str]:
+    """Load a one-token-per-line package list. Comments and blanks are ignored."""
+    if not path.exists():
+        return []
+    packages: list[str] = []
+    seen: set[str] = set()
+    with path.open() as f:
+        for raw in f:
+            line = raw.split("#", 1)[0].strip()
+            if not line or line in seen:
+                continue
+            seen.add(line)
+            packages.append(line)
+    return packages
+
+
 def load_blacklist() -> set:
     """Load the set of blacklisted package identity strings from Brewfile_blacklist."""
-    blacklist_path = BREWFILE_DIR / "Brewfile_blacklist"
-    if not blacklist_path.exists():
-        return set()
-    packages = set()
-    with blacklist_path.open() as f:
-        for line in f:
-            line = line.strip()
-            if not line or line.startswith("#"):
-                continue
-            packages.add(line)
-    return packages
+    return set(load_package_list(BREWFILE_DIR / "Brewfile_blacklist"))
+
+
+def get_cu_skip_file() -> Path:
+    """Per-hostname cask skip list (bulk `cu` / `upgrade` only)."""
+    return BREWFILE_DIR / f"Brewfile_cu_skip_{get_hostname()}"
+
+
+def _split_brew_args(args: list[str]) -> tuple[str, list[str], list[str]]:
+    """Split `brew` argv into (command, flags, positionals)."""
+    if not args:
+        return "", [], []
+    flags: list[str] = []
+    positionals: list[str] = []
+    for arg in args[1:]:
+        if arg == "--":
+            continue
+        if arg.startswith("-"):
+            flags.append(arg)
+        else:
+            positionals.append(arg)
+    return args[0], flags, positionals
+
+
+def plan_brew_commands(
+    args: list[str],
+    skip: list[str],
+    *,
+    installed_casks: list[str] | None = None,
+    outdated_casks: list[str] | None = None,
+) -> list[list[str]]:
+    """
+    Rewrite bulk `cu` / `upgrade` so host-local skip casks are not touched.
+
+    Explicit package names (e.g. `breww cu -a obs`) are honored as-is.
+    A bare `brew cu -a` must never be emitted when a skip list is active:
+    that would upgrade the skipped casks too.
+    """
+    if not args:
+        return []
+    if not skip:
+        return [args]
+
+    cmd, flags, positionals = _split_brew_args(args)
+    skip_set = set(skip)
+
+    if cmd == "cu":
+        if positionals:
+            return [args]
+        remaining = [c for c in (installed_casks or []) if c not in skip_set]
+        if not remaining:
+            return []
+        return [[cmd, *flags, *remaining]]
+
+    if cmd == "upgrade":
+        if positionals:
+            return [args]
+        if "--formula" in flags and "--cask" not in flags:
+            return [args]
+        remaining = [c for c in (outdated_casks or []) if c not in skip_set]
+        other_flags = [f for f in flags if f not in ("--formula", "--cask")]
+        plans: list[list[str]] = []
+        if "--cask" not in flags:
+            plans.append(["upgrade", "--formula", *other_flags])
+        if remaining:
+            plans.append(["upgrade", "--cask", *other_flags, *remaining])
+        return plans
+
+    return [args]
+
+
+def brew_list_casks() -> list[str]:
+    """Installed cask tokens, or empty if the query fails (fail closed)."""
+    result = subprocess.run(
+        ["brew", "list", "--cask", "-1"],
+        capture_output=True,
+        text=True,
+    )
+    names = [ln.strip() for ln in result.stdout.splitlines() if ln.strip()]
+    if result.returncode != 0 and not names:
+        print(
+            f"{RED}Warning: brew list --cask failed; "
+            f"skipping bulk cask upgrade to honor the skip list{NC}"
+        )
+        return []
+    return names
+
+
+def brew_outdated_casks(*, greedy: bool = False) -> list[str]:
+    """Outdated cask tokens, or empty if the query fails (fail closed)."""
+    cmd = ["brew", "outdated", "--cask", "--quiet"]
+    if greedy:
+        cmd.append("--greedy")
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    names = [ln.strip() for ln in result.stdout.splitlines() if ln.strip()]
+    if result.returncode not in (0, 1) and not names:
+        print(
+            f"{RED}Warning: brew outdated --cask failed; "
+            f"skipping cask upgrades to honor the skip list{NC}"
+        )
+        return []
+    return names
 
 
 def _extract_identity(line: str) -> str | None:
@@ -309,6 +416,7 @@ def main():
             f"  breww <command>             Passthrough to brew\n\n"
             f"Base file (read-only): {base_brewfile or 'unknown (check MACHINE_PROFILE)'}\n"
             f"Host overlay:          {get_host_brewfile()}\n"
+            f"Cask skip file:        {get_cu_skip_file()}\n"
             f"Hostname:              {hostname}\n"
             f"MACHINE_PROFILE:       {os.environ.get('MACHINE_PROFILE', 'unset')}\n"
         )
@@ -326,6 +434,37 @@ def main():
     # Warn about native packages on Linux
     if "install" in args:
         check_native_available(args)
+
+    skip = load_package_list(get_cu_skip_file())
+    cmd, flags, positionals = _split_brew_args(args)
+    skip_bulk = bool(skip) and (
+        (cmd == "cu" and not positionals)
+        or (cmd == "upgrade" and not positionals and "--formula" not in flags)
+    )
+    if skip_bulk:
+        print(
+            f"{YELLOW}Skipping casks (no admin on this host): {', '.join(skip)}{NC}"
+        )
+        print(f"{YELLOW}Override with an explicit name: breww {cmd} <cask>{NC}")
+        plans = plan_brew_commands(
+            args,
+            skip,
+            installed_casks=brew_list_casks() if cmd == "cu" else None,
+            outdated_casks=(
+                brew_outdated_casks(greedy="--greedy" in flags)
+                if cmd == "upgrade"
+                else None
+            ),
+        )
+        if not plans:
+            print(f"{YELLOW}Nothing to upgrade after applying the cask skip list.{NC}")
+            sys.exit(0)
+        returncode = 0
+        for plan in plans:
+            rc = run_brew_command(plan)
+            if rc != 0:
+                returncode = rc
+        sys.exit(returncode)
 
     # Run the brew command
     returncode = run_brew_command(args)
