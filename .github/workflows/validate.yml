@@ -39,6 +39,9 @@ jobs:
       - name: Whitespace check
         run: git diff --check
 
+      - name: NAS-only media scripts stay ignored
+        run: python3 scripts/test_nas_media_scope.py
+
       - name: Validate templates
         run: |
           # Verify all templates parse without errors
