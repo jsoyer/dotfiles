@@ -19,6 +19,8 @@ rm_if_present() {
 }
 
 {{ if eq .machine_profile "mac-pro" -}}
+# mac-personal LaunchAgents still call moshi-hook-launch / update-moshi
+# (installed by moshi-setup, not chezmoi). Only wipe leftovers on mac-pro.
 uid="$(id -u)"
 for label in com.jsoyer.moshi-hook com.jsoyer.moshi-update; do
     target="gui/${uid}/${label}"
@@ -29,8 +31,6 @@ for label in com.jsoyer.moshi-hook com.jsoyer.moshi-update; do
     fi
     rm_if_present "${HOME}/Library/LaunchAgents/${label}.plist"
 done
-{{ end -}}
-
 for f in \
     "${HOME}/.local/bin/agentsvc" \
     "${HOME}/.local/bin/cursor-setup" \
@@ -58,6 +58,7 @@ for f in \
 do
     rm_if_present "$f"
 done
+{{ end -}}
 
 if (( removed > 0 )); then
     echo "ℹ️  Removed ${removed} leftover moshi/orca/herdr file(s) (Linux-only stacks)."

@@ -1,14 +1,4 @@
-# Cleanup: old resource directories replaced by ~/.aictx/
-{{- if stat (joinPath .chezmoi.homeDir ".skills") }}
-.skills
-{{- end }}
-{{- if stat (joinPath .chezmoi.homeDir ".agents") }}
-.agents
-{{- end }}
-
-# media_automation is NAS-only (omv-nice / omv-dijon). serie_renommer.py
-# was added after the ignore list and leaked onto other machines, including
-# Mac Pro. Ignore stops re-apply; this deletes the leftover.
-{{- if and (not (or (eq .chezmoi.hostname "omv-nice") (eq .chezmoi.hostname "omv-dijon"))) (stat (joinPath .chezmoi.homeDir "bin/serie_renommer.py")) }}
-bin/serie_renommer.py
-{{- end }}
+# Leftovers are deleted by run_once scripts, not here.
+# chezmoiremove prompts on every interactive `ca` until the path is gone,
+# and used to fight .chezmoiignore over ~/.agents (agent tooling still
+# uses that directory). Keep this file empty of target paths.

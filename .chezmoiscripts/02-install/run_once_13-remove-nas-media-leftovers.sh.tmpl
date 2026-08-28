@@ -1,0 +1,47 @@
+{{- if not (or (eq .chezmoi.hostname "omv-nice") (eq .chezmoi.hostname "omv-dijon")) -}}
+#!/usr/bin/env bash
+# =============================================================================
+# One-time: delete leftover NAS-only media scripts off omv-nice / omv-dijon.
+# .chezmoiignore stops chezmoi from re-applying them. chezmoiremove is not
+# used here: `ca` (chezmoi apply -v) would ask to remove leftovers on every
+# run until each file is gone.
+# =============================================================================
+set -euo pipefail
+
+removed=0
+
+rm_if_present() {
+    local f="$1"
+    if [[ -e "$f" || -L "$f" ]]; then
+        rm -f "$f"
+        echo "  removed ${f}"
+        removed=$((removed + 1))
+    fi
+}
+
+rm_dir_if_present() {
+    local d="$1"
+    if [[ -d "$d" ]]; then
+        rm -rf "$d"
+        echo "  removed ${d}/"
+        removed=$((removed + 1))
+    fi
+}
+
+rm_if_present "${HOME}/bin/serie_renommer.py"
+rm_if_present "${HOME}/bin/media_automation.py"
+rm_if_present "${HOME}/bin/audit_seasonless.sh"
+rm_if_present "${HOME}/bin/test_media_automation.py"
+rm_if_present "${HOME}/bin/anime_absolute_plan.py"
+rm_if_present "${HOME}/bin/anime_folder_plan.py"
+rm_if_present "${HOME}/bin/infuse_rename_plan.py"
+rm_if_present "${HOME}/bin/media_absolute_shows.py"
+rm_if_present "${HOME}/bin/media_absolute_refresh.py"
+rm_dir_if_present "${HOME}/bin/media_automation"
+
+if (( removed > 0 )); then
+    echo "ℹ️  Removed ${removed} leftover NAS-only media path(s)."
+else
+    echo "ℹ️  No leftover NAS-only media scripts, skipping."
+fi
+{{- end -}}
