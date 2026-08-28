@@ -8,6 +8,5 @@ brew "pnpm"
 brew "infisical/get-cli/infisical", trusted: true
 cask "chatgpt"
 cask "fluidvoice"
-cask "grok-bot"
 cask "grok-build"
 mas "Remote Desktop", id: 409907375
