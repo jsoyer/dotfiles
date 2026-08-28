@@ -1,4 +1,4 @@
-{{- if and (eq .chezmoi.os "darwin") (ne .chezmoi.hostname "jsoyer-macOS") -}}
+{{- if and (eq .chezmoi.os "darwin") (ne (index . "machine_profile") "mac-pro") -}}
 #!/usr/bin/env bash
 # Update macOS App Store apps via mas-cli
 

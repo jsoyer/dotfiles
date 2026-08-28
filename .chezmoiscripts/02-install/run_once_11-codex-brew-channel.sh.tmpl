@@ -1,9 +1,9 @@
-{{- if and (eq .chezmoi.os "darwin") (ne .chezmoi.hostname "jsoyer-macOS") -}}
+{{- if and (eq .chezmoi.os "darwin") (ne (index . "machine_profile") "mac-pro") -}}
 #!/usr/bin/env bash
 # =============================================================================
 # Personal Macs: the codex CLI comes from the Homebrew cask.
 # An npm global copy shadows it (~/.npm-global/bin sits earlier in PATH), so
-# drop it. The work Mac (jsoyer-macOS) is deliberately out of scope.
+# drop it. The work Mac (mac-pro) is deliberately out of scope.
 # =============================================================================
 
 set -euo pipefail

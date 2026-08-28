@@ -74,7 +74,7 @@ fi
 # ===============================================================
 # Machine-specific configuration (Work vs Personal)
 # ===============================================================
-{{ if eq .chezmoi.hostname "jsoyer-macOS" -}}
+{{ if eq .machine_profile "mac-pro" -}}
 # Work machine
 export GIT_AUTHOR_EMAIL="{{ .work_email }}"
 alias k="kubectl"

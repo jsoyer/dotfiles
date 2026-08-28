@@ -13,7 +13,9 @@
     name = "Jerome Soyer"
     email = "jeromesoyer@gmail.com"
     work_email = "jsoyer@varonis.com"
-    # Profile detection — order matters: most specific first
+    # Profile detection — order matters: most specific first.
+    # Scripts and shells must branch on machine_profile, not hostname.
+    # jsoyer-macOS is the detector for mac-pro, not a second source of truth.
     # Profiles: windows, mac-pro, mac-personal, rpi, ubuntu-server, ubuntu-desktop,
     #   fedora-atomic, toolbox, fedora-server, fedora-desktop, omarchy, arch-server, arch-desktop, debian
     machine_profile   = "{{- if eq .chezmoi.os "windows" -}}windows
