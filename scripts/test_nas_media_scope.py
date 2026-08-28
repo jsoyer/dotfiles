@@ -8,10 +8,11 @@ import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+IGNORE = ROOT / '.chezmoiignore.tmpl'
 
 
 def nas_ignore_block():
-    ignore = (ROOT / '.chezmoiignore').read_text()
+    ignore = IGNORE.read_text()
     start = ignore.index('media_automation : NAS uniquement')
     return ignore[start:ignore.index('{{ end }}', start)]
 
@@ -36,11 +37,28 @@ class MediaScriptsStayNasOnly(unittest.TestCase):
                 missing.append(target)
         self.assertEqual(missing, [], f'NAS ignore missing: {missing}')
 
-    def test_leaked_renamer_is_removed_off_nas(self):
+    def test_future_bin_siblings_are_covered_by_glob(self):
+        self.assertIn('bin/**', nas_ignore_block())
+
+    def test_leaked_scripts_are_deleted_once_not_prompted(self):
         remove = (ROOT / '.chezmoiremove.tmpl').read_text()
-        self.assertIn('bin/serie_renommer.py', remove)
-        self.assertIn('omv-nice', remove)
-        self.assertIn('omv-dijon', remove)
+        self.assertNotIn('bin/serie_renommer.py', remove)
+        script = (ROOT / '.chezmoiscripts/02-install'
+                  / 'run_once_13-remove-nas-media-leftovers.sh.tmpl').read_text()
+        for name in (
+            'serie_renommer.py',
+            'media_automation.py',
+            'audit_seasonless.sh',
+            'test_media_automation.py',
+            'anime_absolute_plan.py',
+            'anime_folder_plan.py',
+            'infuse_rename_plan.py',
+            'media_absolute_shows.py',
+            'media_absolute_refresh.py',
+        ):
+            self.assertIn(name, script, f'run_once_13 missing {name}')
+        self.assertIn('omv-nice', script)
+        self.assertIn('omv-dijon', script)
 
 
 if __name__ == '__main__':

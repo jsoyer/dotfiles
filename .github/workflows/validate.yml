@@ -42,6 +42,9 @@ jobs:
       - name: NAS-only media scripts stay ignored
         run: python3 scripts/test_nas_media_scope.py
 
+      - name: Chezmoi consistency guards
+        run: python3 scripts/test_chezmoi_consistency.py
+
       - name: Validate templates
         run: |
           # Verify all templates parse without errors
