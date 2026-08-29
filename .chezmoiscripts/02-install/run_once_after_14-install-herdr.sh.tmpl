@@ -1,0 +1,23 @@
+{{- if eq .chezmoi.os "linux" -}}
+#!/usr/bin/env bash
+# =============================================================================
+# Linux: install herdr via the official one-liner (https://herdr.dev/install.sh).
+# macOS keeps the Homebrew formula (Brewfile overlays + bup); this script is
+# not generated there.
+#
+# `after_` so herdr-setup is already written. Always --no-service: enabling
+# the systemd timer calls `sudo loginctl enable-linger`, which would hang
+# an unattended chezmoi apply. Turn the timer on with `herdr-install`.
+# =============================================================================
+set -euo pipefail
+
+SETUP="${HOME}/.local/bin/herdr-setup"
+if [[ ! -x "$SETUP" ]]; then
+    echo "herdr-setup missing at ${SETUP} — skip (chezmoi did not deploy it?)"
+    exit 0
+fi
+
+export PATH="${HOME}/.local/bin:${PATH}"
+echo "📺 Installing herdr (official installer, no service/timer)…"
+"$SETUP" --no-service || echo "herdr-setup failed (non-fatal)"
+{{- end -}}

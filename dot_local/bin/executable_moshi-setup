@@ -356,7 +356,7 @@ setup_service() {
 
 # --- Step 4: agent hooks ------------------------------------------------------
 # `moshi-hook install` writes the Moshi hook configs into every supported AI
-# CLI (claude, codex, cursor, grok, pi, qwen, …). Idempotent and fast; it also
+# CLI (claude, codex, cursor, grok, pi, omp, qwen, …). Idempotent and fast; it also
 # reports "hook gap" warnings when a CLI carries retired hooks.
 install_agent_hooks() {
   local p; p="$(hook_path)"
