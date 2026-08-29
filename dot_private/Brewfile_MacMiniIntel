@@ -1,10 +1,13 @@
 # Host overlay for MacMiniIntel — extras beyond the shared base.
 # Managed by breww. Do not edit manually.
+tap "can1357/tap"
 tap "infisical/get-cli"
 brew "sdl2-compat"
 brew "herdr"
 brew "openspec"
 brew "pnpm"
+brew "pydantic"
+brew "can1357/tap/omp", trusted: true
 brew "infisical/get-cli/infisical", trusted: true
 cask "chatgpt"
 cask "fluidvoice"
