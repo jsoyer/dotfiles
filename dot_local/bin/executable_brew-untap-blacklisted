@@ -1,0 +1,121 @@
+#!/usr/bin/env python3
+"""Untap Homebrew taps listed in Brewfile_blacklist.
+
+Third-party taps left behind after the 2026-08-23 cleanup still get loaded on
+`brew update` / cask upgrade. Homebrew 6 treats stale DSL
+(`depends_on macos: :sierra`, `appcast`) as a hard error, which aborted
+chezmoi's update-homebrew.sh (sidneys/homebrew).
+"""
+from __future__ import annotations
+
+import argparse
+import os
+import subprocess
+import sys
+from pathlib import Path
+from shutil import which
+
+CHEZMOI_SOURCE = Path(
+    os.environ.get("CHEZMOI_SOURCE_PATH", Path.home() / ".local" / "share" / "chezmoi")
+)
+DEFAULT_BLACKLIST = CHEZMOI_SOURCE / "dot_private" / "Brewfile_blacklist"
+
+
+def blacklist_taps(text: str) -> list[str]:
+    """Tap tokens from a Brewfile_blacklist (user/repo, not @npm or plain pkgs)."""
+    taps: list[str] = []
+    seen: set[str] = set()
+    for raw in text.splitlines():
+        line = raw.split("#", 1)[0].strip().rstrip(",")
+        if not line or line.startswith("@") or line.count("/") != 1:
+            continue
+        if line in seen:
+            continue
+        seen.add(line)
+        taps.append(line)
+    return taps
+
+
+def canonical_tap(name: str) -> str:
+    return name.strip().rstrip(",")
+
+
+def matching_tapped(name: str, tapped: list[str]) -> list[str]:
+    """Return actual `brew tap` names that match a blacklist tap token."""
+    want = canonical_tap(name)
+    return [t for t in tapped if canonical_tap(t) == want]
+
+
+def live_taps() -> list[str]:
+    proc = subprocess.run(
+        ["brew", "tap"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    return [line.strip() for line in (proc.stdout or "").splitlines() if line.strip()]
+
+
+def untap(name: str, dry_run: bool) -> bool:
+    if dry_run:
+        print(f"would untap {name}")
+        return True
+    print(f"🔄 Untapping blacklisted tap: {name}")
+    proc = subprocess.run(
+        ["brew", "untap", name],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if proc.returncode == 0:
+        return True
+    err = (proc.stderr or proc.stdout or "").strip()
+    print(f"   ⚠️  brew untap {name}: {err}", file=sys.stderr)
+    return False
+
+
+def plan_untaps(blacklist_text: str, tapped: list[str]) -> list[str]:
+    planned: list[str] = []
+    seen: set[str] = set()
+    for token in blacklist_taps(blacklist_text):
+        for actual in matching_tapped(token, tapped):
+            if actual not in seen:
+                seen.add(actual)
+                planned.append(actual)
+    return planned
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--blacklist",
+        type=Path,
+        default=DEFAULT_BLACKLIST,
+        help="Path to Brewfile_blacklist",
+    )
+    parser.add_argument("--dry-run", action="store_true")
+    args = parser.parse_args(argv)
+
+    if not args.blacklist.exists():
+        print(f"No blacklist at {args.blacklist}, nothing to untap.")
+        return 0
+    if which("brew") is None:
+        print("brew not found, nothing to untap.")
+        return 0
+
+    tapped = live_taps()
+    planned = plan_untaps(args.blacklist.read_text(), tapped)
+    if not planned:
+        print("✅ No blacklisted taps are currently tapped.")
+        return 0
+
+    ok = 0
+    for name in planned:
+        if untap(name, args.dry_run):
+            ok += 1
+    print(f"✅ Untap done ({ok}/{len(planned)}).")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

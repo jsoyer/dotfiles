@@ -2,6 +2,8 @@
 #!/usr/bin/env bash
 # Update Homebrew packages
 # filter: {{ include "dot_local/bin/executable_brewfile-filter-bottled" | sha256sum }}
+# untap:   {{ include "dot_local/bin/executable_brew-untap-blacklisted" | sha256sum }}
+# blacklist: {{ include "dot_private/Brewfile_blacklist" | sha256sum }}
 
 set -euo pipefail
 
@@ -12,8 +14,18 @@ fi
 
 eval "$(brew shellenv)"
 
+# Drop blacklisted taps before brew update. Homebrew 6 aborts the whole
+# update when a leftover tap still has disabled cask DSL (sidneys/homebrew).
+UNTAP_PY="{{ .chezmoi.sourceDir }}/dot_local/bin/executable_brew-untap-blacklisted"
+BLACKLIST="{{ .chezmoi.sourceDir }}/dot_private/Brewfile_blacklist"
+if [[ -f "$UNTAP_PY" ]] && command -v python3 >/dev/null; then
+    python3 "$UNTAP_PY" --blacklist "$BLACKLIST" || true
+fi
+
 echo "Updating Homebrew..."
-brew update
+if ! brew update; then
+    echo "⚠️  brew update failed (broken third-party tap?). Continuing with upgrades."
+fi
 
 echo "Upgrading packages..."
 FILTER_PY="{{ .chezmoi.sourceDir }}/dot_local/bin/executable_brewfile-filter-bottled"
@@ -34,9 +46,9 @@ else
     brew upgrade --formula || true
 fi
 {{- if eq (index . "machine_profile") "mac-pro" }}
-brew upgrade --cask
+brew upgrade --cask || echo "⚠️  cask upgrade failed; continuing."
 {{- else }}
-brew upgrade --greedy --cask
+brew upgrade --greedy --cask || echo "⚠️  cask upgrade failed; continuing."
 {{- end }}
 
 echo "Cleaning up old versions..."

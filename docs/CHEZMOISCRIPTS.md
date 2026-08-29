@@ -31,6 +31,7 @@ Handles manifests-based package installation and CLI tool setup, runs on manifes
 
 | Script | Trigger | OS/Profiles | Purpose |
 |--------|---------|-----|---------|
+| `run_onchange_02-untap-blacklisted-taps.sh` | Blacklist hash change | Homebrew hosts | Untap leftover `Brewfile_blacklist` taps so Homebrew 6 does not abort `brew update` on stale cask DSL (sidneys/homebrew). |
 | `run_onchange_03-brew-bundle.sh` | Brewfile hash change | macOS, Linuxbrew | `brew bundle` from the profile Brewfile + hostname overlay. Drops formulae Homebrew cannot pour (Tier 3 / no bottle, including bottled formulae with an unbottled required dep) so Intel Sequoia does not print `Installing X has failed!`. Already-installed copies are kept. |
 | `run_onchange_install-linux-packages.sh` | Manifest change | All Linux | Install packages from Aptfile/Dnffile/Pacfile manifests, GitHub CLI, 1Password CLI, uv |
 | `run_onchange_after_brew-bundle.sh` | Manifest change | macOS | Run post-Homebrew tasks (setup Python, Node via version managers) |

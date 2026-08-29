@@ -30,3 +30,10 @@
 - **FIX:** `dot_local/bin/executable_brewfile-filter-bottled` drops those `brew` lines before bundle and lists only pourable outdated formulae for `run_onchange_update-homebrew.sh`. Keep installed kegs; compile by hand with `brew install --build-from-source <name>` if needed.
 - **Verify:** `python3 dot_local/bin/test_brewfile_filter_bottled.py`
 
+## 2026-08-29 — sidneys/homebrew aborts brew update
+
+- **ENV:** Homebrew 6 treats `depends_on macos: :sierra` as a hard error (no replacement). `sidneys/homebrew` still has that DSL plus invalid `appcast` casks.
+- **LOGIC:** The tap was in `Brewfile_blacklist` but never untapped. `brew update` (after a tap refresh, when it enumerates casks) exits 1, and `update-homebrew.sh` `set -e` failed chezmoi apply. No sidneys casks were installed.
+- **FIX:** `brew-untap-blacklisted` untaps blacklist taps (including `updatest/tap,` with a trailing comma). `update-homebrew.sh` runs that first and continues if `brew update` / cask upgrade still fail.
+- **Verify:** `python3 dot_local/bin/test_brew_untap_blacklisted.py`
+

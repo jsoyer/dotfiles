@@ -1,0 +1,17 @@
+{{- if lookPath "brew" -}}
+#!/usr/bin/env bash
+# Untap third-party taps listed in Brewfile_blacklist.
+# Homebrew 6 errors hard on stale cask DSL (sidneys/homebrew: macos :sierra).
+# blacklist: {{ include "dot_private/Brewfile_blacklist" | sha256sum }}
+# helper:    {{ include "dot_local/bin/executable_brew-untap-blacklisted" | sha256sum }}
+
+set -uo pipefail
+eval "$(brew shellenv)"
+
+HELPER="{{ .chezmoi.sourceDir }}/dot_local/bin/executable_brew-untap-blacklisted"
+BLACKLIST="{{ .chezmoi.sourceDir }}/dot_private/Brewfile_blacklist"
+
+if [[ -f "$HELPER" ]] && command -v python3 >/dev/null; then
+    python3 "$HELPER" --blacklist "$BLACKLIST" || true
+fi
+{{ end -}}

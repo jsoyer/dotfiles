@@ -41,6 +41,16 @@ python3 dot_local/bin/test_brewfile_filter_bottled.py
 
 To force a source build on this machine: `brew install --build-from-source <name>`.
 
+### brew-untap-blacklisted
+
+Untap leftover taps listed in `Brewfile_blacklist`. Homebrew 6 aborts `brew update` when a stale tap still ships disabled cask DSL (`sidneys/homebrew` used `depends_on macos: :sierra`). The blacklist already prevented re-adding; this actually removes the tap.
+
+```bash
+python3 dot_local/bin/executable_brew-untap-blacklisted --dry-run
+python3 dot_local/bin/executable_brew-untap-blacklisted
+python3 dot_local/bin/test_brew_untap_blacklisted.py
+```
+
 **Example workflow:**
 ```bash
 brew install ripgrep       # Command
