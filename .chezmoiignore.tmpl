@@ -244,16 +244,15 @@ bin/serie_renommer.py
 bin/media_automation
 {{ end }}
 
-# ── Agent stacks (moshi / orca / herdr / cursor-worker) : Linux only ──
-# Ignore = do not re-apply. Actual deletion of leftovers is
-# run_once_12-disable-macos-agent-stacks.sh, and only on mac-pro.
-# mac-personal LaunchAgents still expect the shims (written by moshi-setup).
+# ── Agent stacks (moshi / orca / cursor-worker) : Linux only ──
+# herdr is the exception: scripts deploy on every Unix host (binary via
+# Homebrew on macOS, herdr.dev one-liner on Linux). Ignore = do not re-apply.
+# Actual deletion of leftovers is run_once_12, and only moshi/orca/cursor
+# wrappers are wiped (mac-pro only).
 {{ if ne .chezmoi.os "linux" }}
 .config/systemd
 .local/bin/agentsvc
 .local/bin/cursor-setup
-.local/bin/herdr-setup
-.local/bin/herdr-uninstall
 .local/bin/moshi-hook-launch
 .local/bin/moshi-setup
 .local/bin/moshi-uninstall
@@ -262,7 +261,6 @@ bin/media_automation
 .local/bin/orca-uninstall
 .local/bin/orca-version
 .local/bin/update-cursor-agent
-.local/bin/update-herdr
 .local/bin/update-moshi
 .local/bin/update-orca
 {{ end }}

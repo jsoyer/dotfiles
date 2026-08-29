@@ -45,6 +45,9 @@ jobs:
       - name: Chezmoi consistency guards
         run: python3 scripts/test_chezmoi_consistency.py
 
+      - name: omp and herdr use official one-liners
+        run: python3 scripts/test_omp_herdr_scope.py
+
       - name: Validate templates
         run: |
           # Verify all templates parse without errors

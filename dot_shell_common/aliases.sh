@@ -444,6 +444,7 @@ sysup() {
       # The AI CLIs update on macOS too — this call only existed in the
       # Linux branch, so Macs never updated any of them through sysup.
       update-ai
+      _update_herdr_if_present
       ;;
     linux)
       case "${MACHINE_PROFILE:-}" in
@@ -494,6 +495,7 @@ sysup() {
       echo "🐚 Updating oh-my-zsh..."
       update-omz
       update-ai
+      _update_herdr_if_present
       ;;
     windows)
       echo "🪣 Updating Scoop packages..."
@@ -577,6 +579,30 @@ update-ai() {
   if command -v pi &>/dev/null && ! _ai_brew_owned pi; then
     echo "  🤖 Updating pi (pi.dev) + extensions..."
     pi update --all 2>/dev/null || true
+  fi
+  # omp: macOS Homebrew is the channel (bup). Elsewhere the official
+  # one-liner / `omp update`.
+  if command -v omp &>/dev/null; then
+    if _ai_brew_owned omp; then
+      echo "  🤖 omp: brew-managed — bup handles it"
+    else
+      echo "  🤖 Updating omp..."
+      omp update 2>/dev/null || curl -fsSL https://omp.sh/install | sh 2>/dev/null || true
+    fi
+  fi
+}
+
+_update_herdr_if_present() {
+  if ! command -v herdr &>/dev/null; then
+    return 0
+  fi
+  if _ai_brew_owned herdr; then
+    echo "📺 herdr: brew-managed — bup handles it"
+    return 0
+  fi
+  if command -v update-herdr &>/dev/null; then
+    echo "📺 Updating herdr..."
+    update-herdr || true
   fi
 }
 
@@ -712,12 +738,21 @@ alias jp='jj git push'
 alias jf='jj git fetch'
 
 # ============================================================================
-# Self-hosted agent stacks (moshi / orca / cursor / herdr) — Linux only
+# herdr — every Unix machine (official installer, not Homebrew)
+# ============================================================================
+# No herdr-restart: the server holds your panes.
+alias herdr-install='herdr-setup'
+alias herdr-status='herdr-setup --status'
+alias herdr-update='update-herdr'
+
+# Self-hosted agent stacks (moshi / orca / cursor) — Linux only
 # ============================================================================
 # Hidden on macOS (especially mac-pro): chezmoi must not surface these names
 # in the shell. Installation stays MANUAL on Linux. Details: ~/.local/bin/README.md.
 
 if [[ "$(uname -s)" == "Linux" ]]; then
+  alias herdr-logs='journalctl --user -u herdr-update.service -f'
+
   alias asvc='agentsvc'
   alias asvcs='agentsvc status'
   alias asvcu='agentsvc update'
@@ -727,12 +762,6 @@ if [[ "$(uname -s)" == "Linux" ]]; then
   alias moshi-update='update-moshi'
   alias moshi-logs='journalctl --user -u moshi-hook.service -f'
   alias moshi-restart='systemctl --user restart moshi-hook.service'
-
-  # No herdr-restart: the server holds your panes.
-  alias herdr-install='herdr-setup'
-  alias herdr-status='herdr-setup --status'
-  alias herdr-update='update-herdr'
-  alias herdr-logs='journalctl --user -u herdr-update.service -f'
 
   alias orca-install='orca-setup'
   alias orca-status='orca-setup --status'

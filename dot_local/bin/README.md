@@ -464,9 +464,12 @@ Custom Chezmoi status indicator in prompt:
 
 ## Mandatory AI CLIs
 
-`install-ai` installs the six mandatory AI CLIs, one official one-liner each,
-idempotently: **claude, copilot-cli, codex, grok, cursor-agent, pi (pi.dev)**.
-`update-ai` (shell function, runs inside `sysup`) upgrades the same six.
+`install-ai` installs the seven mandatory AI CLIs, one official one-liner each,
+idempotently: **claude, copilot-cli, codex, grok, cursor-agent, pi (pi.dev),
+omp (omp.sh)**. `update-ai` (shell function, runs inside `sysup`) upgrades the
+same seven. omp is a separate product from pi — different binary (`omp`).
+**macOS** keeps Homebrew `can1357/tap/omp` (`bup`); **Linux and the rest** use
+`https://omp.sh/install`.
 
 ```bash
 install-ai              # install whatever is missing
@@ -476,11 +479,12 @@ install-ai --only grok  # a single one
 
 Two rules learned the hard way:
 
-- **These CLIs never go in a Brewfile.** Each ships its own installer and
-  self-updater; a brew/npm copy fights it. pi ended up installed through two
-  channels at once (`~/.npmrc` sets `prefix=~/.npm-global`, so the system npm
-  and Linuxbrew's npm share one global prefix — what looks like two installs
-  may be one). `pi-coding-agent` is blacklisted in `Brewfile_blacklist`.
+- **These CLIs never go in a Brewfile** (except **omp on macOS**, which stays
+  on `can1357/tap/omp`). Each ships its own installer and self-updater; a
+  brew/npm copy fights it. pi ended up installed through two channels at once
+  (`~/.npmrc` sets `prefix=~/.npm-global`, so the system npm and Linuxbrew's
+  npm share one global prefix — what looks like two installs may be one).
+  `pi-coding-agent` is blacklisted in `Brewfile_blacklist`.
 - **Grok is probed at `~/.grok/bin/agent`, never as `agent` on PATH** — that
   name is owned by cursor-agent and has flip-flopped between the two (it is
   what caused the cursor-worker crash-loop).
@@ -488,15 +492,19 @@ Two rules learned the hard way:
 ## Self-hosted Agent Stacks
 
 Three independent stacks, each with an installer, an updater and systemd units.
-**Nothing is enabled automatically**: `chezmoi apply` only drops the files on
-disk. Activation is always an explicit command (the aliases below).
+**Moshi / orca / cursor are not enabled automatically**: `chezmoi apply` only
+drops the files on disk, and activation is an explicit command (the aliases
+below). **herdr is the exception**:
+- **macOS** — Homebrew formula on the hostname Brewfile overlays (`bup` upgrades it)
+- **Linux** — official `https://herdr.dev/install.sh` via `run_once_after_14-install-herdr`
+  (never Linuxbrew). The systemd update timer stays Linux-only (`herdr-install`).
 
 | Stack | Scope | Installer | Updater | Units |
 |-------|-------|-----------|---------|-------|
 | **Moshi** (mobile terminal) | `--user` (+ launchd on macOS) | `moshi-setup` | `update-moshi` | `moshi-hook.service`, `moshi-update.{service,timer}` |
 | **Orca** (headless runtime) | **system** (root) | `orca-setup` | `update-orca` | `orca-serve.service` + drop-in, `orca-update.{service,timer}` |
 | **Cursor** (private worker) | `--user` | `cursor-setup` | `update-cursor-agent` | `cursor-worker.service`, `cursor-update.{service,timer}` |
-| **herdr** (multiplexer) | `--user` | `herdr-setup` | `update-herdr` | `herdr-update.{service,timer}` |
+| **herdr** (multiplexer) | `--user` (binary on every Unix host) | `herdr-setup` | `update-herdr` | `herdr-update.{service,timer}` (Linux) |
 
 `agentsvc` is the read-only umbrella over all four: `agentsvc status|update|restart|logs|reload`.
 
@@ -608,8 +616,12 @@ Three things make a mistyped path survivable, all learned the hard way:
 herdr is the odd one out: a **multiplexer, not a daemon**. Its server daemonizes
 itself (reparented to PID 1) and holds the live panes, so systemd manages only
 the update timer — there is no long-running unit. `herdr-setup` installs the
-binary (official installer at herdr.dev) and enables the timer; the server
-itself is started by simply running `herdr`.
+binary (official installer at herdr.dev on Linux; Homebrew on macOS) and
+enables the timer on Linux; the server itself is started by simply running
+`herdr`. chezmoi applies `herdr-setup` / `update-herdr` on every Unix machine.
+On Linux, `run_once_after_14-install-herdr` runs the installer once
+(`--no-service`, so an unattended apply never prompts for linger sudo). Linux
+can still enable the 04:00 timer with `herdr-install`.
 
 That also makes the update dangerous to do naively. `herdr update --handoff`
 installs the new version and transfers live sessions to the new server. Without

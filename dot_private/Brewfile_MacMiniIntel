@@ -10,4 +10,5 @@ cask "chatgpt"
 cask "fluidvoice"
 cask "grok-bot"
 cask "grok-build"
+cask "linear"
 mas "Remote Desktop", id: 409907375

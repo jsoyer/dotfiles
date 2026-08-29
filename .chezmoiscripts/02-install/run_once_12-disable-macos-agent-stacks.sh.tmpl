@@ -1,9 +1,15 @@
 {{- if eq .chezmoi.os "darwin" -}}
 #!/usr/bin/env bash
 # =============================================================================
-# One-time: delete leftover moshi/orca/herdr/cursor-worker files on macOS.
+# One-time: delete leftover moshi/orca/cursor-worker files on macOS.
 # .chezmoiignore stops chezmoi from re-applying them, but does NOT remove
 # targets already written. This script is the removal side.
+#
+# herdr is NOT in this wipe: it is installed on every Unix machine
+# (Homebrew on macOS, herdr.dev one-liner on Linux via herdr-setup /
+# run_once_after_14-install-herdr). Editing this script re-runs it; the
+# wrapper wipe is mac-pro only so mac-personal LaunchAgents keep their
+# moshi shims.
 # =============================================================================
 set -euo pipefail
 
@@ -20,7 +26,7 @@ rm_if_present() {
 
 {{ if eq .machine_profile "mac-pro" -}}
 # mac-personal LaunchAgents still call moshi-hook-launch / update-moshi
-# (installed by moshi-setup, not chezmoi). Only wipe leftovers on mac-pro.
+# (installed by moshi-setup, not chezmoi). Only wipe those leftovers on mac-pro.
 uid="$(id -u)"
 for label in com.jsoyer.moshi-hook com.jsoyer.moshi-update; do
     target="gui/${uid}/${label}"
@@ -34,8 +40,6 @@ done
 for f in \
     "${HOME}/.local/bin/agentsvc" \
     "${HOME}/.local/bin/cursor-setup" \
-    "${HOME}/.local/bin/herdr-setup" \
-    "${HOME}/.local/bin/herdr-uninstall" \
     "${HOME}/.local/bin/moshi-hook-launch" \
     "${HOME}/.local/bin/moshi-setup" \
     "${HOME}/.local/bin/moshi-uninstall" \
@@ -44,9 +48,15 @@ for f in \
     "${HOME}/.local/bin/orca-uninstall" \
     "${HOME}/.local/bin/orca-version" \
     "${HOME}/.local/bin/update-cursor-agent" \
-    "${HOME}/.local/bin/update-herdr" \
     "${HOME}/.local/bin/update-moshi" \
-    "${HOME}/.local/bin/update-orca" \
+    "${HOME}/.local/bin/update-orca"
+do
+    rm_if_present "$f"
+done
+{{ end -}}
+
+# systemd units are Linux-only leftovers on any Mac.
+for f in \
     "${HOME}/.config/systemd/user/moshi-hook.service" \
     "${HOME}/.config/systemd/user/moshi-update.service" \
     "${HOME}/.config/systemd/user/moshi-update.timer" \
@@ -58,11 +68,10 @@ for f in \
 do
     rm_if_present "$f"
 done
-{{ end -}}
 
 if (( removed > 0 )); then
-    echo "ℹ️  Removed ${removed} leftover moshi/orca/herdr file(s) (Linux-only stacks)."
+    echo "ℹ️  Removed ${removed} leftover moshi/orca/cursor file(s) (Linux-only stacks)."
 else
-    echo "ℹ️  No leftover moshi/orca/herdr files, skipping."
+    echo "ℹ️  No leftover moshi/orca/cursor files, skipping."
 fi
 {{- end -}}
