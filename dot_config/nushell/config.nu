@@ -1377,12 +1377,10 @@ def update-ai [] {
         try { ^pi update --all } catch {
         }
     }
-    # omp (omp.sh): official one-liner, never the Homebrew tap.
+    # omp: macOS Homebrew is the channel (bup). Elsewhere official one-liner.
     if (which omp | is-not-empty) {
         if (_ai_brew_owned omp) {
-            print "  🤖 omp: Homebrew copy — migrating to https://omp.sh/install"
-            try { ^brew uninstall --force omp } catch { }
-            try { curl -fsSL https://omp.sh/install | sh } catch { }
+            print "  🤖 omp: brew-managed — bup handles it"
         } else {
             print "  🤖 Updating omp..."
             try { ^omp update } catch {
@@ -1393,7 +1391,12 @@ def update-ai [] {
 }
 
 def _update_herdr_if_present [] {
-    if ((which herdr | is-not-empty) and (which update-herdr | is-not-empty)) {
+    if (which herdr | is-empty) { return }
+    if (_ai_brew_owned herdr) {
+        print "📺 herdr: brew-managed — bup handles it"
+        return
+    }
+    if (which update-herdr | is-not-empty) {
         print "📺 Updating herdr..."
         try { ^update-herdr } catch { }
     }

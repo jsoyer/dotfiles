@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
-"""Guards for omp (omp.sh) and herdr (herdr.dev) one-liner channels.
+"""Guards for omp and herdr install channels.
 
-OMP is the seventh mandatory AI CLI. HERDR is installed on every Unix host.
-Neither belongs in a Brewfile.
+macOS keeps Homebrew for both. Linux (and the rest) use official one-liners.
 """
 import unittest
 from pathlib import Path
@@ -14,6 +13,7 @@ RUN12 = ROOT / '.chezmoiscripts/02-install/run_once_12-disable-macos-agent-stack
 RUN14 = ROOT / '.chezmoiscripts/02-install/run_once_after_14-install-herdr.sh.tmpl'
 BLACKLIST = ROOT / 'dot_private/Brewfile_blacklist'
 ALIASES = ROOT / 'dot_shell_common/aliases.sh'
+HERDR_SETUP = ROOT / 'dot_local/bin/executable_herdr-setup'
 
 
 def _read(path: Path) -> str:
@@ -27,18 +27,22 @@ class OmpIsSeventhCli(unittest.TestCase):
         self.assertIn('https://omp.sh/install', text)
         self.assertIn('claude|copilot|codex|grok|cursor|pi|omp', text)
         self.assertIn('migrate_omp', text)
+        self.assertIn('Darwin', text)
 
-    def test_update_ai_mentions_omp(self):
-        self.assertIn('omp update', _read(ALIASES))
+    def test_update_ai_leaves_macos_brew_omp_alone(self):
+        aliases = _read(ALIASES)
+        self.assertIn('omp update', aliases)
+        self.assertIn('omp: brew-managed — bup handles it', aliases)
+        self.assertNotIn('migrating to https://omp.sh/install', aliases)
         fish = _read(ROOT / 'dot_config/private_fish/config.fish.tmpl')
         self.assertIn('omp update', fish)
         nu = _read(ROOT / 'dot_config/nushell/config.nu')
         self.assertIn('omp update', nu)
 
-    def test_blacklist_blocks_brew_omp(self):
+    def test_blacklist_does_not_block_macos_brew_omp(self):
         text = _read(BLACKLIST)
-        self.assertIn('\nomp\n', text)
-        self.assertIn('can1357/tap/omp', text)
+        self.assertNotIn('\nomp\n', text)
+        self.assertNotIn('can1357/tap/omp', text)
 
 
 class HerdrIsEverywhere(unittest.TestCase):
@@ -59,26 +63,39 @@ class HerdrIsEverywhere(unittest.TestCase):
         self.assertIn('herdr-update.service', text)
         self.assertIn('eq .machine_profile "mac-pro"', text)
 
-    def test_run_once_14_uses_official_installer(self):
+    def test_run_once_14_is_linux_only_oneliner(self):
         self.assertTrue(RUN14.exists())
         text = _read(RUN14)
+        self.assertIn('eq .chezmoi.os "linux"', text)
         self.assertIn('herdr-setup', text)
         self.assertIn('--no-service', text)
         self.assertNotIn('brew install', text)
 
-    def test_blacklist_blocks_brew_herdr(self):
-        self.assertIn('\nherdr\n', _read(BLACKLIST))
+    def test_herdr_setup_does_not_uninstall_macos_brew(self):
+        text = _read(HERDR_SETUP)
+        self.assertIn('Darwin', text)
+        self.assertIn('Linuxbrew copy found', text)
 
-    def test_hostname_brewfiles_dropped_herdr_and_omp(self):
+    def test_blacklist_does_not_block_macos_brew_herdr(self):
+        self.assertNotIn('\nherdr\n', _read(BLACKLIST))
+
+    def test_macos_overlays_keep_brew_herdr(self):
+        overlay = ROOT / 'dot_private/Brewfile_Jerome-Soyers-Mac-mini-M4'
+        text = overlay.read_text()
+        self.assertIn('brew "herdr"', text)
+        self.assertIn('can1357/tap/omp', text)
+
+    def test_linux_brewfiles_do_not_ship_herdr_or_omp(self):
         offenders = []
-        for path in (ROOT / 'dot_private').glob('Brewfile_*'):
-            if path.name == 'Brewfile_blacklist':
+        for name in ('Brewfile_brew_only', 'Brewfile_rpi', 'Brewfile_fedora_atomic'):
+            path = ROOT / 'dot_private' / name
+            if not path.exists():
                 continue
             text = path.read_text()
             for needle in ('brew "herdr"', 'can1357/tap/omp', 'brew "omp"'):
                 if needle in text:
-                    offenders.append(f'{path.name}: {needle}')
-        self.assertEqual(offenders, [], f'still brew-channel: {offenders}')
+                    offenders.append(f'{name}: {needle}')
+        self.assertEqual(offenders, [], f'linux brewfile still has: {offenders}')
 
     def test_herdr_aliases_are_not_linux_only(self):
         text = _read(ALIASES)

@@ -2,6 +2,7 @@
 # Managed by breww. Do not edit manually.
 tap "infisical/get-cli"
 brew "sdl2-compat"
+brew "herdr"
 brew "openspec"
 brew "pnpm"
 brew "infisical/get-cli/infisical", trusted: true

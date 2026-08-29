@@ -1,15 +1,18 @@
 # Host overlay for Jerome-Soyers-Mac-mini-M4 — extras beyond the shared base.
 # Managed by breww. Do not edit manually.
+tap "can1357/tap"
 tap "docker/tap", trusted: true
 tap "wouterdebie/tap"
 brew "crit"
 brew "sdl2-compat"
+brew "herdr"
 brew "infisical"
 brew "mactop"
 brew "podcast-dl"
 brew "rclone"
 brew "tuicr"
 brew "vcs"
+brew "can1357/tap/omp", trusted: true
 brew "siderolabs/tap/omnictl", trusted: true
 cask "antigravity"
 cask "antigravity-cli"

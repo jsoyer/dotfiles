@@ -308,8 +308,8 @@ These units are deployed by chezmoi but **never enabled automatically**. The
 `run_onchange_reload-agent-units.sh.tmpl` script only runs `daemon-reload` when a
 unit file changes — it never calls `enable` or `start`. Activation is always an
 explicit command (`moshi-install`, `cursor-install`, `orca-setup`).
-herdr's binary is installed automatically on every Unix host; only the
-Linux update timer is enabled by `herdr-setup`.
+herdr's binary is Homebrew on macOS and the official installer on Linux;
+only the Linux update timer is enabled by `herdr-setup`.
 
 | Unit | Purpose | Enabled by |
 |------|---------|------------|

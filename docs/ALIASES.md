@@ -294,7 +294,7 @@ Updates:
 - Grok CLI via `~/.grok/bin/agent update`
 - cursor-agent via `update-cursor-agent`
 - pi via `pi update --all`
-- omp via `omp update` (official installer at https://omp.sh/install, not Homebrew)
+- omp via `omp update` (Linux / one-liner) or Homebrew `bup` on macOS
 
 ### `cup` — Complete Update
 

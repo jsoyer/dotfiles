@@ -715,12 +715,10 @@ function update-ai
         echo "  🤖 Updating pi (pi.dev) + extensions..."
         pi update --all 2>/dev/null; or true
     end
-    # omp (omp.sh): official one-liner, never the Homebrew tap.
+    # omp: macOS Homebrew is the channel (bup). Elsewhere official one-liner.
     if command -q omp
         if _ai_brew_owned omp
-            echo "  🤖 omp: Homebrew copy — migrating to https://omp.sh/install"
-            brew uninstall --force omp 2>/dev/null; or true
-            curl -fsSL https://omp.sh/install | sh 2>/dev/null; or true
+            echo "  🤖 omp: brew-managed — bup handles it"
         else
             echo "  🤖 Updating omp..."
             omp update 2>/dev/null; or curl -fsSL https://omp.sh/install | sh 2>/dev/null; or true
@@ -729,7 +727,12 @@ function update-ai
 end
 
 function _update_herdr_if_present
-    if command -q herdr; and command -q update-herdr
+    command -q herdr; or return
+    if _ai_brew_owned herdr
+        echo "📺 herdr: brew-managed — bup handles it"
+        return
+    end
+    if command -q update-herdr
         echo "📺 Updating herdr..."
         update-herdr; or true
     end

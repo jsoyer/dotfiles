@@ -580,13 +580,11 @@ update-ai() {
     echo "  🤖 Updating pi (pi.dev) + extensions..."
     pi update --all 2>/dev/null || true
   fi
-  # omp (omp.sh): official one-liner, never the Homebrew tap. A brew copy
-  # is uninstalled then replaced so sysup actually switches channels.
+  # omp: macOS Homebrew is the channel (bup). Elsewhere the official
+  # one-liner / `omp update`.
   if command -v omp &>/dev/null; then
     if _ai_brew_owned omp; then
-      echo "  🤖 omp: Homebrew copy — migrating to https://omp.sh/install"
-      brew uninstall --force omp 2>/dev/null || true
-      curl -fsSL https://omp.sh/install | sh 2>/dev/null || true
+      echo "  🤖 omp: brew-managed — bup handles it"
     else
       echo "  🤖 Updating omp..."
       omp update 2>/dev/null || curl -fsSL https://omp.sh/install | sh 2>/dev/null || true
@@ -595,7 +593,14 @@ update-ai() {
 }
 
 _update_herdr_if_present() {
-  if command -v herdr &>/dev/null && command -v update-herdr &>/dev/null; then
+  if ! command -v herdr &>/dev/null; then
+    return 0
+  fi
+  if _ai_brew_owned herdr; then
+    echo "📺 herdr: brew-managed — bup handles it"
+    return 0
+  fi
+  if command -v update-herdr &>/dev/null; then
     echo "📺 Updating herdr..."
     update-herdr || true
   fi

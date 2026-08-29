@@ -7,6 +7,7 @@ tap "teamookla/speedtest", trusted: true
 brew "crane"
 brew "depot"
 brew "sdl2-compat"
+brew "herdr"
 brew "infisical"
 brew "mactop"
 brew "models"
