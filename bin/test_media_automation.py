@@ -328,6 +328,45 @@ class AbsoluteShowRegistry(unittest.TestCase):
         self.assertEqual((season, episode), (3, 18))
         self.assertEqual(target, 'Season 03/One Piece - S03E18.mkv')
 
+    def test_remote_path_embeds_the_episode_title(self):
+        # Origin: S23E20 landed on Drive as a bare code while every neighbour
+        # already carried its TMDb title. Infuse then shows a number, not a name.
+        path = self.mod.remote_episode_path(
+            self.show, 23, 20, '.mp4',
+            "Elbaph s'enflamme ! Le jet d'épaule explosif de Jinbe")
+        self.assertEqual(
+            path,
+            "Season 23/One Piece - S23E20 - Elbaph s'enflamme ! "
+            "Le jet d'épaule explosif de Jinbe.mp4")
+
+    def test_remote_path_without_title_stays_bare(self):
+        self.assertEqual(
+            self.mod.remote_episode_path(self.show, 23, 20, '.mp4'),
+            'Season 23/One Piece - S23E20.mp4')
+
+    def test_group_title_is_taken_from_the_tvdb_slot(self):
+        detail = {
+            'groups': [{
+                'order': 23,
+                'episodes': [{'name': 'x'}] * 19 + [
+                    {'name': "Elbaph s'enflamme ! Le jet d'épaule explosif de Jinbe"},
+                ],
+            }],
+        }
+        self.assertEqual(
+            self.mod.title_from_episode_group(detail, 23, 20),
+            "Elbaph s'enflamme ! Le jet d'épaule explosif de Jinbe")
+
+    def test_placeholder_group_title_is_ignored(self):
+        # TMDb fills unreleased slots with "Épisode 1177". That is not a title.
+        detail = {
+            'groups': [{
+                'order': 23,
+                'episodes': [{'name': 'Épisode 1177'}] * 26,
+            }],
+        }
+        self.assertIsNone(self.mod.title_from_episode_group(detail, 23, 22))
+
     def test_jumping_past_the_library_is_refused_not_guessed(self):
         with self.assertRaises(ValueError) as caught:
             self.mod.plan_episode('One Piece - 0060.mkv', self.show, self.mapping)

@@ -36,6 +36,9 @@ RECENT_WINDOW = 60
 VIDEO_SUFFIXES = {'.mkv', '.mp4', '.avi', '.m4v', '.mov', '.wmv', '.ts', '.m2ts'}
 
 SEASON_DIR_RE = re.compile(r'^Season[\s._-]*(\d{1,3})$', re.I)
+# TMDb fills unreleased episode-group slots with this placeholder. It is not a
+# title: naming a file after it would just repeat the number we already have.
+PLACEHOLDER_TITLE_RE = re.compile(r'^(?:Épisode|Episode)\s+\d+$', re.I)
 # Code de saison et de rang tel que la bibliotheque les ecrit.
 EPISODE_CODE_RE = re.compile(r'[Ss](\d{1,3})[Ee](\d{1,4})(?!\d)')
 SEASON_EPISODE_TOKEN_RE = re.compile(
@@ -344,6 +347,55 @@ def refresh_mapping(show, rclone='rclone', timeout=300, api_key=None, language='
     return mapping
 
 
+def title_from_episode_group(detail, season, episode):
+    """Episode title at (season, episode) in a TMDb episode-group payload.
+
+    Returns None when the slot is missing or TMDb has only a placeholder name.
+    The group `order` is the season number; episodes are 1-indexed in list order.
+    """
+    group = next((item for item in detail.get('groups', [])
+                  if item.get('order') == season), None)
+    if group is None:
+        return None
+    episodes = group.get('episodes') or []
+    if not 1 <= episode <= len(episodes):
+        return None
+    name = (episodes[episode - 1].get('name') or '').strip()
+    if not name or PLACEHOLDER_TITLE_RE.match(name):
+        return None
+    return name
+
+
+def fetch_episode_title(show, season, episode, api_key, language='fr-FR', timeout=60):
+    """Title of one episode in the show's declared TMDb ordering, or None."""
+    if not (show.tmdb_id and api_key):
+        return None
+    import urllib.parse
+    import urllib.request
+
+    def fetch(path, **params):
+        params['api_key'] = api_key
+        url = f'https://api.themoviedb.org/3{path}?{urllib.parse.urlencode(params)}'
+        with urllib.request.urlopen(url, timeout=timeout) as response:
+            return json.loads(response.read().decode())
+
+    listing = fetch(f'/tv/{show.tmdb_id}/episode_groups')
+    match = next((group for group in listing.get('results', [])
+                  if group.get('name') == show.order_group), None)
+    if match is None:
+        return None
+    detail = fetch(f'/tv/episode_group/{match["id"]}', language=language)
+    return title_from_episode_group(detail, season, episode)
+
+
+def remote_episode_path(show, season, episode, suffix, episode_title=None):
+    """Season-relative destination, using the same naming rule as local imports."""
+    from media_automation import get_episode_target_name
+    name = get_episode_target_name(
+        Path(f'x{suffix}'), show.name, season, [episode], episode_title)
+    return f'Season {season:02d}/{name}'
+
+
 def plan_episode(filename, show, mapping):
     """Return (destination_relative_path, season, episode) or raise ValueError."""
     absolute = extract_absolute(filename)
@@ -365,8 +417,7 @@ def plan_episode(filename, show, mapping):
             raise ValueError('table de conversion vide')
         resolved = slot
     season, episode = resolved
-    suffix = Path(filename).suffix
-    target = f'Season {season:02d}/{show.name} - S{season:02d}E{episode:02d}{suffix}'
+    target = remote_episode_path(show, season, episode, Path(filename).suffix)
     return target, season, episode
 
 
