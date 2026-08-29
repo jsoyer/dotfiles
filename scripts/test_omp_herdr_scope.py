@@ -7,7 +7,7 @@ import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-IGNORE = ROOT / '.chezmoiignore'
+IGNORE = ROOT / '.chezmoiignore.tmpl'
 INSTALL_AI = ROOT / 'dot_local/bin/executable_install-ai'
 RUN12 = ROOT / '.chezmoiscripts/02-install/run_once_12-disable-macos-agent-stacks.sh.tmpl'
 RUN14 = ROOT / '.chezmoiscripts/02-install/run_once_after_14-install-herdr.sh.tmpl'

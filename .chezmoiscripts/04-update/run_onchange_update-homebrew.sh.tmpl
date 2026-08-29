@@ -15,7 +15,7 @@ echo "Updating Homebrew..."
 brew update
 
 echo "Upgrading packages..."
-{{- if eq .chezmoi.hostname "jsoyer-macOS" }}
+{{- if eq (index . "machine_profile") "mac-pro" }}
 brew upgrade
 {{- else }}
 brew upgrade --greedy

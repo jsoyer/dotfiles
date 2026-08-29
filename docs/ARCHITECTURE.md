@@ -9,7 +9,7 @@ graph TD
     A[Git Repository<br>~/.local/share/chezmoi] --> B[chezmoi engine]
     C[.chezmoi.toml.tmpl<br>Profile data & secrets] --> B
     D[.chezmoiexternal.toml.tmpl<br>External git repos] --> B
-    E[.chezmoiignore.tmpl<br>Platform exclusions] --> B
+    E[.chezmoiignore.tmpl<br>All exclusions] --> B
     B --> F{Template evaluation<br>Go text/template}
     F --> G[Target files<br>~/.*]
     F --> H[Lifecycle scripts<br>.chezmoiscripts/]
@@ -23,7 +23,7 @@ graph TD
 Key inputs:
 - **`.chezmoi.toml.tmpl`** -- profile detection, user data, encryption config
 - **`.chezmoiexternal.toml.tmpl`** -- Oh-My-Zsh, zsh plugins, TPM (weekly refresh)
-- **`.chezmoiignore.tmpl`** -- conditional file exclusion per platform
+- **`.chezmoiignore.tmpl`** -- the only ignore file: repo dirs, platform skips, NAS `bin/**`, Claude runtime, `.agents`
 
 ## Profile Detection
 
@@ -242,6 +242,6 @@ Wallpapers are only fetched on `mac-personal` and `ubuntu-desktop` profiles. Eve
 - **File permissions**: `private_` prefix in chezmoi sets 0600 on target files.
 - **SSH config**: generated from 1Password vault. Gracefully skips when 1Password is unavailable.
 - **MCP tokens**: environment variable references (`${ENV_VAR}`) resolved at runtime.
-- **`.chezmoiignore`**: excludes `secrets.zsh` and platform-inappropriate files.
+- **`.chezmoiignore.tmpl`**: excludes `secrets.zsh`, NAS `bin/**` off omv, Claude runtime, and `.agents` / `.skills`.
 
 See the [README Security section](../README.md#-security--secrets) for operational details.

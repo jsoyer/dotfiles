@@ -62,16 +62,17 @@ export IS_ARCH=false
 # Restore the historical non-interactive behaviour everywhere.
 export HOMEBREW_NO_ASK=1
 
+# Chezmoi is the source of truth (hostname detection lives in
+# .chezmoi.toml.tmpl). Do not re-derive MACHINE_PROFILE from hostname.
+export MACHINE_PROFILE="{{ .machine_profile }}"
+
 case "$OSTYPE" in
   darwin*)
     export IS_MACOS=true
     export PLATFORM="macos"
-    if [[ "$(hostname)" == "jsoyer-macOS" ]]; then
-      export MACHINE_PROFILE="mac-pro"
+    if [[ "${MACHINE_PROFILE}" == "mac-pro" ]]; then
       # Mac Pro: install casks in $HOME/Applications
       export HOMEBREW_CASK_OPTS="--appdir=${HOME}/Applications"
-    else
-      export MACHINE_PROFILE="mac-personal"
     fi
     ;;
   linux*)
@@ -80,65 +81,36 @@ case "$OSTYPE" in
 
     if [[ -n "${TOOLBOX_PATH:-}" ]] || [[ "${HOSTNAME:-}" == *toolbx* ]]; then
       export PLATFORM="toolbox"
-      export MACHINE_PROFILE="toolbox"
 
     elif _is_rpi; then
       export IS_RPI=true
       export PLATFORM="rpi"
-      export MACHINE_PROFILE="rpi"
       RPI_MODEL="$(tr -d '\0' < /proc/device-tree/model 2>/dev/null || true)"
       export RPI_MODEL
 
     elif [[ "${_DISTRO_ID}" == "ubuntu" ]]; then
       export IS_UBUNTU=true
       export PLATFORM="ubuntu"
-      _HOST="${HOSTNAME%%.*}"
-      if [[ "${_HOST}" == ubuntu-server* ]]; then
-        export MACHINE_PROFILE="ubuntu-server"
-      else
-        export MACHINE_PROFILE="ubuntu-desktop"
-      fi
-      unset _HOST
 
     elif [[ "${_DISTRO_ID}" == "debian" ]]; then
       export PLATFORM="debian"
-      export MACHINE_PROFILE="debian"
 
     elif [[ "${_DISTRO_ID}" == "omarchy" ]]; then
       export IS_ARCH=true
       export PLATFORM="omarchy"
-      export MACHINE_PROFILE="omarchy"
 
     elif [[ "${_DISTRO_ID}" == "arch" ]]; then
       export IS_ARCH=true
       export PLATFORM="arch"
-      _HOST="${HOSTNAME%%.*}"
-      if [[ "${_HOST}" == arch-server* ]]; then
-        export MACHINE_PROFILE="arch-server"
-      else
-        export MACHINE_PROFILE="arch-desktop"
-      fi
-      unset _HOST
 
     else
-      # Fedora — atomic by tool, then server/desktop by hostname
       export IS_FEDORA=true
-      _HOST="${HOSTNAME%%.*}"
-      if command -v rpm-ostree &>/dev/null 2>&1; then
-        export MACHINE_PROFILE="fedora-atomic"
-      elif [[ "${_HOST}" == fedora-server* ]]; then
-        export MACHINE_PROFILE="fedora-server"
-      else
-        export MACHINE_PROFILE="fedora-desktop"
-      fi
-      unset _HOST
     fi
 
     unset _DISTRO_ID
     ;;
   *)
     export PLATFORM="unknown"
-    export MACHINE_PROFILE="unknown"
     ;;
 esac
 

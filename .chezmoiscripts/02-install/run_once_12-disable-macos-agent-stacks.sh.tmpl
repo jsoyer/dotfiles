@@ -5,10 +5,11 @@
 # .chezmoiignore stops chezmoi from re-applying them, but does NOT remove
 # targets already written. This script is the removal side.
 #
-# herdr is NOT in this wipe: it is installed on every Unix machine (official
-# herdr.dev one-liner via herdr-setup / run_once_after_14-install-herdr).
-# Editing this script re-runs it; the wrapper wipe is mac-pro only so
-# mac-personal LaunchAgents keep their moshi shims.
+# herdr is NOT in this wipe: it is installed on every Unix machine
+# (Homebrew on macOS, herdr.dev one-liner on Linux via herdr-setup /
+# run_once_after_14-install-herdr). Editing this script re-runs it; the
+# wrapper wipe is mac-pro only so mac-personal LaunchAgents keep their
+# moshi shims.
 # =============================================================================
 set -euo pipefail
 

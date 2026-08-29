@@ -1,7 +1,4 @@
-# Cleanup: old resource directories replaced by ~/.aictx/
-{{- if stat (joinPath .chezmoi.homeDir ".skills") }}
-.skills
-{{- end }}
-{{- if stat (joinPath .chezmoi.homeDir ".agents") }}
-.agents
-{{- end }}
+# Leftovers are deleted by run_once scripts, not here.
+# chezmoiremove prompts on every interactive `ca` until the path is gone,
+# and used to fight .chezmoiignore over ~/.agents (agent tooling still
+# uses that directory). Keep this file empty of target paths.
