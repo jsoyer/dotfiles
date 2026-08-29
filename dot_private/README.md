@@ -48,7 +48,7 @@ Overlay filenames per manager: `Brewfile_<host>`, `Aptfile_<host>`, `Dnffile_<ho
 | `Brewfile_cu_skip_jsoyer-macOS` | Casks skipped on bulk upgrade (admin required; non-admin Mac Pro) | jsoyer-macOS |
 | `Brewfile_cu_skip_mac-pro` | Same skip list keyed by `MACHINE_PROFILE` (hostname-independent) | mac-pro |
 
-**Usage:** Installed via `brew bundle` in `run_after_brew-bundle.sh.tmpl`
+**Usage:** Installed via `brew bundle` in `run_onchange_03-brew-bundle.sh.tmpl`. On Homebrew Tier 3 (Intel macOS Sequoia+) formulae with no pourable bottle are skipped; see `brewfile-filter-bottled`.
 
 ---
 

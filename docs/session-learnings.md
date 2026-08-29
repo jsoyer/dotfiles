@@ -23,3 +23,10 @@
 - **Verify:** `python3 dot_local/bin/test_breww.py`
 - **LOGIC:** Hostname-only skip file missed the Mac Pro (`uname` case / `cmupgrade` calls raw `brew upgrade`). Load `Brewfile_cu_skip_<hostname>` case-insensitive AND `Brewfile_cu_skip_<MACHINE_PROFILE>`. Wrap `brew` on mac-pro. Pin skipped casks so unwrapped upgrades skip them too.
 
+## 2026-08-29 — Intel Homebrew Tier 3 brew bundle failures
+
+- **ENV:** MacMiniIntel is macOS 15.7.9 x86_64. Homebrew 6.0 marks this Tier 3: no Sequoia Intel bottles, and `brew install`/`upgrade` refuse source builds unless `--build-from-source` is passed.
+- **LOGIC:** `chezmoi update` → `brew bundle` does not pass that flag, so every unbottled formula (awscli, php, podman, oh-my-posh, …) and bottled formulae with an unbottled dep (gstreamer → orc, spice-gtk, podman-compose → podman) print `Installing/Upgrading X has failed!`.
+- **FIX:** `dot_local/bin/executable_brewfile-filter-bottled` drops those `brew` lines before bundle and lists only pourable outdated formulae for `run_onchange_update-homebrew.sh`. Keep installed kegs; compile by hand with `brew install --build-from-source <name>` if needed.
+- **Verify:** `python3 dot_local/bin/test_brewfile_filter_bottled.py`
+

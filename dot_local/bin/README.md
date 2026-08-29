@@ -27,6 +27,20 @@ Each wrapper:
 
 Chezmoi's broad `[git] autoAdd/autoCommit/autoPush` defaults are disabled unless `CHEZMOI_AUTO_GIT=1` is set while rendering `.chezmoi.toml.tmpl`. Package wrappers do not rely on those global settings.
 
+### brewfile-filter-bottled
+
+Homebrew 6 treats Intel macOS Sequoia as **Tier 3**: no bottles, and install/upgrade will not compile from source unless you pass `--build-from-source`. `brew bundle` does not pass that flag, so `chezmoi update` used to print `Installing X has failed!` for every unbottled formula.
+
+`run_onchange_03-brew-bundle.sh` pipes the Brewfile through this filter first. Formulae with no pourable bottle (or a required dep with no bottle that still needs installing/upgrading) are dropped. Already-installed copies stay. `run_onchange_update-homebrew.sh` uses `--mode=upgradeable` so `brew upgrade` only touches formulae it can pour.
+
+```bash
+python3 dot_local/bin/executable_brewfile-filter-bottled < Brewfile
+python3 dot_local/bin/executable_brewfile-filter-bottled --mode=upgradeable
+python3 dot_local/bin/test_brewfile_filter_bottled.py
+```
+
+To force a source build on this machine: `brew install --build-from-source <name>`.
+
 **Example workflow:**
 ```bash
 brew install ripgrep       # Command

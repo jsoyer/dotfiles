@@ -1,0 +1,300 @@
+#!/usr/bin/env python3
+"""Drop Brewfile formulae Homebrew cannot pour on this host.
+
+Intel macOS Sequoia+ is Homebrew Tier 3: no bottles, and `brew install` /
+`brew upgrade` refuse to compile unless you pass `--build-from-source`.
+`brew bundle` does not pass that flag, so chezmoi update prints
+"Installing X has failed!" / "Upgrading X has failed!" for every unbottled
+formula (and for bottled formulae whose required deps are unbottled).
+
+This filter removes those brew lines. Already-installed copies are kept.
+Force a source build by hand: `brew install --build-from-source <name>`.
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import re
+import subprocess
+import sys
+from pathlib import Path
+from typing import Iterable
+
+BREW_LINE = re.compile(r'^brew\s+["\']([^"\']+)["\']')
+
+
+def formula_name(line: str) -> str | None:
+    """Return the formula token from a Brewfile `brew "..."` line, or None."""
+    stripped = line.strip()
+    if stripped.startswith("#"):
+        return None
+    match = BREW_LINE.match(stripped)
+    return match.group(1) if match else None
+
+
+def identities(name: str, rec: dict | None) -> set[str]:
+    ids = {name, name.split("/")[-1]}
+    if rec:
+        ids.add(rec["name"])
+        ids.update(rec.get("aliases") or [])
+        ids.update(rec.get("oldnames") or [])
+    return {i for i in ids if i}
+
+
+def has_bottle(rec: dict) -> bool:
+    files = ((rec.get("bottle") or {}).get("stable") or {}).get("files") or {}
+    return bool(files)
+
+
+def index_info(formulae: Iterable[dict]) -> dict[str, dict]:
+    by_name: dict[str, dict] = {}
+    for rec in formulae:
+        for ident in identities(rec["name"], rec):
+            by_name[ident] = rec
+    return by_name
+
+
+def lookup(name: str, info: dict[str, dict]) -> dict | None:
+    return info.get(name) or info.get(name.split("/")[-1])
+
+
+def is_member(name: str, rec: dict | None, pool: set[str]) -> bool:
+    return bool(identities(name, rec) & pool)
+
+
+def needs_pour(name: str, rec: dict | None, installed: set[str], outdated: set[str]) -> bool:
+    if rec is None:
+        return True
+    if is_member(name, rec, outdated):
+        return True
+    return not is_member(name, rec, installed)
+
+
+def skip_reason(
+    name: str,
+    info: dict[str, dict],
+    installed: set[str],
+    outdated: set[str],
+    stack: frozenset[str] | None = None,
+    memo: dict[str, str | None] | None = None,
+) -> str | None:
+    """Why this formula cannot be poured, or None if brew bundle can handle it."""
+    if memo is None:
+        memo = {}
+    if name in memo:
+        return memo[name]
+    if stack is None:
+        stack = frozenset()
+    if name in stack:
+        return None
+
+    rec = lookup(name, info)
+    if rec is None:
+        memo[name] = None
+        return None
+    if not needs_pour(name, rec, installed, outdated):
+        memo[name] = None
+        return None
+    if not has_bottle(rec):
+        memo[name] = "no bottle"
+        return memo[name]
+
+    child_stack = stack | {name, rec["name"]}
+    for dep in rec.get("dependencies") or []:
+        reason = skip_reason(dep, info, installed, outdated, child_stack, memo)
+        if reason:
+            short = dep.split("/")[-1]
+            memo[name] = f"dep {short}: {reason}"
+            return memo[name]
+
+    memo[name] = None
+    return None
+
+
+def filter_brewfile(
+    text: str,
+    info: dict[str, dict],
+    installed: set[str],
+    outdated: set[str],
+) -> tuple[str, list[tuple[str, str]]]:
+    """Return (filtered brewfile, [(formula, reason), ...])."""
+    if not text:
+        return "", []
+    newline = "\n" if text.endswith("\n") else ""
+    lines = text.splitlines()
+    kept: list[str] = []
+    skipped: list[tuple[str, str]] = []
+    for line in lines:
+        name = formula_name(line)
+        if name is None:
+            kept.append(line)
+            continue
+        reason = skip_reason(name, info, installed, outdated)
+        if reason:
+            skipped.append((name, reason))
+            continue
+        kept.append(line)
+    body = "\n".join(kept)
+    if newline and body:
+        body += "\n"
+    elif newline and not body:
+        body = ""
+    return body, skipped
+
+
+def upgradeable_formulae(
+    info: dict[str, dict],
+    installed: set[str],
+    outdated: set[str],
+) -> list[str]:
+    """Outdated formulae brew upgrade can pour on this host."""
+    names: list[str] = []
+    seen: set[str] = set()
+    for name in sorted(outdated):
+        rec = lookup(name, info)
+        if rec is None:
+            continue
+        canonical = rec["name"]
+        if canonical in seen:
+            continue
+        if skip_reason(name, info, installed, outdated) is None:
+            seen.add(canonical)
+            names.append(canonical)
+    return names
+
+
+def _run_brew_json(args: list[str]) -> dict | list | None:
+    proc = subprocess.run(
+        ["brew", *args],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    stdout = (proc.stdout or "").strip()
+    if not stdout:
+        return None
+    try:
+        return json.loads(stdout)
+    except json.JSONDecodeError:
+        return None
+
+
+def fetch_formula_info(names: list[str]) -> list[dict]:
+    """Load `brew info --json=v2` for names, splitting the batch if needed."""
+    if not names:
+        return []
+    data = _run_brew_json(["info", "--json=v2", "--formula", *names])
+    if isinstance(data, dict) and data.get("formulae"):
+        return list(data["formulae"])
+    if len(names) == 1:
+        return []
+    mid = len(names) // 2
+    return fetch_formula_info(names[:mid]) + fetch_formula_info(names[mid:])
+
+
+def collect_info(seed_names: Iterable[str]) -> dict[str, dict]:
+    pending = {n for n in seed_names if n}
+    seen: set[str] = set()
+    formulae: list[dict] = []
+    while pending:
+        batch = sorted(pending)
+        pending = set()
+        seen.update(batch)
+        for rec in fetch_formula_info(batch):
+            formulae.append(rec)
+            for dep in rec.get("dependencies") or []:
+                if dep not in seen:
+                    pending.add(dep)
+    return index_info(formulae)
+
+
+def live_installed() -> set[str]:
+    proc = subprocess.run(
+        ["brew", "list", "--formula"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    return {line.strip() for line in (proc.stdout or "").splitlines() if line.strip()}
+
+
+def live_outdated() -> set[str]:
+    data = _run_brew_json(["outdated", "--formula", "--json=v2"])
+    if not isinstance(data, dict):
+        return set()
+    names: set[str] = set()
+    for rec in data.get("formulae") or []:
+        name = rec.get("name")
+        if name:
+            names.add(name)
+    return names
+
+
+def _print_skip_summary(skipped: list[tuple[str, str]]) -> None:
+    if not skipped:
+        return
+    print(
+        f"⚠️  Skipping {len(skipped)} formulae Homebrew cannot pour "
+        "(Tier 3 / no bottle on this machine):",
+        file=sys.stderr,
+    )
+    for name, reason in skipped:
+        print(f"   {name} ({reason})", file=sys.stderr)
+    print(
+        "   Already-installed copies are kept. "
+        "To compile anyway: brew install --build-from-source <name>",
+        file=sys.stderr,
+    )
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--mode",
+        choices=("filter", "upgradeable"),
+        default="filter",
+        help="filter a Brewfile (default) or list outdated formulae that can be poured",
+    )
+    parser.add_argument(
+        "brewfile",
+        nargs="?",
+        help="Brewfile path (filter mode). Reads stdin when omitted.",
+    )
+    args = parser.parse_args(argv)
+
+    if args.mode == "filter":
+        if args.brewfile:
+            text = Path(args.brewfile).read_text()
+        else:
+            text = sys.stdin.read()
+        seed = [name for name in (formula_name(line) for line in text.splitlines()) if name]
+        info = collect_info(seed)
+        installed = live_installed()
+        outdated = live_outdated()
+        filtered, skipped = filter_brewfile(text, info, installed, outdated)
+        _print_skip_summary(skipped)
+        sys.stdout.write(filtered)
+        return 0
+
+    outdated = live_outdated()
+    installed = live_installed()
+    info = collect_info(outdated)
+    names = upgradeable_formulae(info, installed, outdated)
+    skipped_upgrades = [
+        name
+        for name in sorted(outdated)
+        if name not in names and lookup(name, info) is not None
+    ]
+    if skipped_upgrades:
+        print(
+            f"⚠️  Skipping {len(skipped_upgrades)} unbottled formula upgrades: "
+            + " ".join(skipped_upgrades),
+            file=sys.stderr,
+        )
+    for name in names:
+        print(name)
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

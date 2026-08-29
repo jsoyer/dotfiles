@@ -2,7 +2,8 @@
 #!/usr/bin/env bash
 
 # Brewfile hashes -- chezmoi reruns this script when any Brewfile changes
-# script-version: 2 (2-pass install for npm/go/cargo runtime deps)
+# script-version: 3 (skip unbottled formulae on Homebrew Tier 3 / Intel)
+# filter: {{ include "dot_local/bin/executable_brewfile-filter-bottled" | sha256sum }}
 {{- if eq .chezmoi.os "darwin" }}
 # macos:    {{ include "dot_private/Brewfile_macos" | sha256sum }}
 # personal: {{ include "dot_private/Brewfile_personal" | sha256sum }}
@@ -21,6 +22,7 @@ set -uo pipefail  # no -e: brew bundle returns non-zero if some deps fail (non-f
 eval "$(brew shellenv)"
 
 BREWFILE_DIR="{{ .chezmoi.sourceDir }}/dot_private"
+FILTER_PY="{{ .chezmoi.sourceDir }}/dot_local/bin/executable_brewfile-filter-bottled"
 
 # Refresh PATH to include brew-installed runtimes (node, go, cargo)
 _refresh_brew_path() {
@@ -32,25 +34,40 @@ _refresh_brew_path() {
   hash -r 2>/dev/null || true
 }
 
+# Drop formulae Homebrew cannot pour (Tier 3 / no bottle). See brewfile-filter-bottled.
+_filter_unbottled() {
+  local input filtered
+  input="$(cat)"
+  if [[ -f "$FILTER_PY" ]] && command -v python3 >/dev/null; then
+    if filtered="$(printf '%s\n' "$input" | python3 "$FILTER_PY")"; then
+      printf '%s\n' "$filtered"
+      return 0
+    fi
+  fi
+  printf '%s\n' "$input"
+}
+
 # Helper: install brew packages first, then refresh PATH for npm/go/cargo
 brew_bundle_2pass() {
   local brewfile="$1"
+  local combined
+  combined="$(_filter_unbottled < "$brewfile")"
   # Pass 1: brew/tap/cask only (skip npm, go, cargo that need brew-installed runtimes)
-  grep -E '^(brew |tap |cask |mas )' "$brewfile" | brew bundle install --file=- || true
+  printf '%s\n' "$combined" | grep -E '^(brew |tap |cask |mas )' | brew bundle install --file=- || true
   _refresh_brew_path
   # Pass 2: full file (npm/go/cargo can now find their runtimes)
-  brew bundle install --file="$brewfile" || true
+  printf '%s\n' "$combined" | brew bundle install --file=- || true
 }
 
 # Same helper for piped input (cat file1 file2 |)
 brew_bundle_2pass_stdin() {
   local combined
-  combined="$(cat)"
+  combined="$(cat | _filter_unbottled)"
   # Pass 1: brew/tap/cask/mas only
-  echo "$combined" | grep -E '^(brew |tap |cask |mas )' | brew bundle install --file=- || true
+  printf '%s\n' "$combined" | grep -E '^(brew |tap |cask |mas )' | brew bundle install --file=- || true
   _refresh_brew_path
   # Pass 2: everything
-  echo "$combined" | brew bundle install --file=- || true
+  printf '%s\n' "$combined" | brew bundle install --file=- || true
 }
 
 {{- if eq .chezmoi.os "darwin" }}

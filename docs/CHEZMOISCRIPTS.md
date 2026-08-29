@@ -31,6 +31,7 @@ Handles manifests-based package installation and CLI tool setup, runs on manifes
 
 | Script | Trigger | OS/Profiles | Purpose |
 |--------|---------|-----|---------|
+| `run_onchange_03-brew-bundle.sh` | Brewfile hash change | macOS, Linuxbrew | `brew bundle` from the profile Brewfile + hostname overlay. Drops formulae Homebrew cannot pour (Tier 3 / no bottle, including bottled formulae with an unbottled required dep) so Intel Sequoia does not print `Installing X has failed!`. Already-installed copies are kept. |
 | `run_onchange_install-linux-packages.sh` | Manifest change | All Linux | Install packages from Aptfile/Dnffile/Pacfile manifests, GitHub CLI, 1Password CLI, uv |
 | `run_onchange_after_brew-bundle.sh` | Manifest change | macOS | Run post-Homebrew tasks (setup Python, Node via version managers) |
 | `run_once_install-linuxbrew.sh` | Once | Linux (non-standard) | Install Linuxbrew for systems without native package managers |
@@ -119,7 +120,7 @@ Runs on manifest changes or when triggered by chezmoi update flow.
 
 | Script | Trigger | OS | Purpose |
 |--------|---------|-----|---------|
-| `run_onchange_update-homebrew.sh` | Brewfile change | macOS | Run `brew bundle`, upgrade Homebrew and installed packages |
+| `run_onchange_update-homebrew.sh` | Script/filter hash change | macOS | `brew update`, then upgrade only formulae with a pourable bottle (Tier 3 unbottled upgrades are skipped), then casks (`--greedy` on mac-personal) |
 | `run_onchange_update-linux.sh` | Package manifest change | Linux (non-atomic) | Run `apt update && apt upgrade` or `dnf upgrade` or `pacman -Syu` |
 | `run_onchange_update-appstore.sh` | Once | macOS | Enable automatic app updates via Mac App Store CLI |
 | `run_onchange_update-windows.ps1` | Scoop manifest change | Windows | Run `scoop update` and upgrade installed packages |

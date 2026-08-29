@@ -1,6 +1,7 @@
 {{- if eq .chezmoi.os "darwin" -}}
 #!/usr/bin/env bash
 # Update Homebrew packages
+# filter: {{ include "dot_local/bin/executable_brewfile-filter-bottled" | sha256sum }}
 
 set -euo pipefail
 
@@ -15,10 +16,27 @@ echo "Updating Homebrew..."
 brew update
 
 echo "Upgrading packages..."
+FILTER_PY="{{ .chezmoi.sourceDir }}/dot_local/bin/executable_brewfile-filter-bottled"
+# Intel macOS Sequoia is Homebrew Tier 3: unbottled upgrades fail with
+# "no bottle available" and abort this script (set -e). Only pour what we can.
+if [[ -f "$FILTER_PY" ]] && command -v python3 >/dev/null; then
+    bottled="$(python3 "$FILTER_PY" --mode=upgradeable || true)"
+    if [[ -n "$bottled" ]]; then
+        echo "Upgrading bottled formulae:"
+        echo "$bottled"
+        # Names are one-per-line; no spaces. bash 3.2 has no mapfile.
+        # shellcheck disable=SC2086
+        brew upgrade --formula $bottled
+    else
+        echo "No bottled formulae to upgrade (unbottled Tier-3 upgrades skipped)."
+    fi
+else
+    brew upgrade --formula || true
+fi
 {{- if eq (index . "machine_profile") "mac-pro" }}
-brew upgrade
+brew upgrade --cask
 {{- else }}
-brew upgrade --greedy
+brew upgrade --greedy --cask
 {{- end }}
 
 echo "Cleaning up old versions..."
