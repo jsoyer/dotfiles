@@ -7,10 +7,11 @@
 # =============================================================================
 # THIS SCRIPT NEVER ENABLES OR STARTS ANYTHING.
 #
-# Installing the moshi / orca / cursor / herdr stacks is deliberately MANUAL
-# (moshi-install / orca-install / cursor-install). This script only runs
-# `daemon-reload` — without it, a unit modified by `chezmoi apply` stays
-# silently inactive until the next reboot while the old version keeps running.
+# herdr's *binary* is installed automatically (run_once_after_14-install-herdr).
+# Moshi / orca / cursor stay MANUAL (moshi-install / orca-install /
+# cursor-install). This script only runs `daemon-reload` — without it, a unit
+# modified by `chezmoi apply` stays silently inactive until the next reboot
+# while the old version keeps running.
 #
 # The `after_` prefix is REQUIRED: a bare `run_onchange_` can fire BEFORE
 # chezmoi has written the units, in which case the daemon-reload applies to the

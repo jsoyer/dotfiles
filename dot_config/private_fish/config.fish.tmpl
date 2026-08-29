@@ -596,6 +596,7 @@ function sysup
             update-omz
             # AI CLIs update on macOS too (was Linux-only by omission).
             update-ai
+            _update_herdr_if_present
         case linux
             set -l _mp "$MACHINE_PROFILE"
             switch $_mp
@@ -641,6 +642,7 @@ function sysup
             echo "🐚 Updating oh-my-zsh..."
             update-omz
             update-ai
+            _update_herdr_if_present
         case windows
             echo "🪣 Updating Scoop packages..."
             scoop update --all
@@ -712,6 +714,24 @@ function update-ai
     if command -q pi; and not _ai_brew_owned pi
         echo "  🤖 Updating pi (pi.dev) + extensions..."
         pi update --all 2>/dev/null; or true
+    end
+    # omp (omp.sh): official one-liner, never the Homebrew tap.
+    if command -q omp
+        if _ai_brew_owned omp
+            echo "  🤖 omp: Homebrew copy — migrating to https://omp.sh/install"
+            brew uninstall --force omp 2>/dev/null; or true
+            curl -fsSL https://omp.sh/install | sh 2>/dev/null; or true
+        else
+            echo "  🤖 Updating omp..."
+            omp update 2>/dev/null; or curl -fsSL https://omp.sh/install | sh 2>/dev/null; or true
+        end
+    end
+end
+
+function _update_herdr_if_present
+    if command -q herdr; and command -q update-herdr
+        echo "📺 Updating herdr..."
+        update-herdr; or true
     end
 end
 
@@ -1026,9 +1046,19 @@ end
 
 
 # ============================================================================
-# Self-hosted agent stacks (moshi / orca / cursor / herdr) — Linux only
+# herdr — every Unix machine (official installer, not Homebrew)
+# ============================================================================
+# No herdr-restart: the server holds your panes.
+alias herdr-install='herdr-setup'
+alias herdr-status='herdr-setup --status'
+alias herdr-update='update-herdr'
+
+# ============================================================================
+# Self-hosted agent stacks (moshi / orca / cursor) — Linux only
 # ============================================================================
 {{ if ne .chezmoi.os "darwin" -}}
+alias herdr-logs='journalctl --user -u herdr-update.service -f'
+
 alias asvc='agentsvc'
 alias asvcs='agentsvc status'
 alias asvcu='agentsvc update'
@@ -1038,11 +1068,6 @@ alias moshi-status='moshi-setup --status'
 alias moshi-update='update-moshi'
 alias moshi-logs='journalctl --user -u moshi-hook.service -f'
 alias moshi-restart='systemctl --user restart moshi-hook.service'
-
-alias herdr-install='herdr-setup'
-alias herdr-status='herdr-setup --status'
-alias herdr-update='update-herdr'
-alias herdr-logs='journalctl --user -u herdr-update.service -f'
 
 alias orca-install='orca-setup'
 alias orca-status='orca-setup --status'

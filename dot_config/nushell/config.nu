@@ -1244,6 +1244,7 @@ def sysup [] {
             update-omz
             # AI CLIs update on macOS too (was Linux-only by omission).
             update-ai
+            _update_herdr_if_present
         }
         "Linux" => {
             let mp = ($env.MACHINE_PROFILE? | default "")
@@ -1298,6 +1299,7 @@ def sysup [] {
             print "🐚 Updating oh-my-zsh..."
             update-omz
             update-ai
+            _update_herdr_if_present
         }
         _ => { }
     }
@@ -1374,6 +1376,26 @@ def update-ai [] {
         print "  🤖 Updating pi (pi.dev) + extensions..."
         try { ^pi update --all } catch {
         }
+    }
+    # omp (omp.sh): official one-liner, never the Homebrew tap.
+    if (which omp | is-not-empty) {
+        if (_ai_brew_owned omp) {
+            print "  🤖 omp: Homebrew copy — migrating to https://omp.sh/install"
+            try { ^brew uninstall --force omp } catch { }
+            try { curl -fsSL https://omp.sh/install | sh } catch { }
+        } else {
+            print "  🤖 Updating omp..."
+            try { ^omp update } catch {
+                try { curl -fsSL https://omp.sh/install | sh } catch { }
+            }
+        }
+    }
+}
+
+def _update_herdr_if_present [] {
+    if ((which herdr | is-not-empty) and (which update-herdr | is-not-empty)) {
+        print "📺 Updating herdr..."
+        try { ^update-herdr } catch { }
     }
 }
 
@@ -1645,11 +1667,21 @@ def snap [...args: string] {
 alias "rpm-ostree" = ostreew
 
 # ============================================================================
-# Self-hosted agent stacks (moshi / orca / cursor / herdr) — Linux only
+# herdr — every Unix machine (official installer, not Homebrew)
+# ============================================================================
+# No herdr-restart: the server holds your panes.
+alias "herdr-install" = herdr-setup
+alias "herdr-status" = herdr-setup --status
+alias "herdr-update" = update-herdr
+
+# ============================================================================
+# Self-hosted agent stacks (moshi / orca / cursor) — Linux only
 # ============================================================================
 # Hidden on macOS (especially mac-pro). config.nu is not a chezmoi template.
 
 if $nu.os-info.name != "macos" {
+    alias "herdr-logs" = journalctl --user -u herdr-update.service -f
+
     alias asvc = agentsvc
     alias asvcs = agentsvc status
     alias asvcu = agentsvc update
@@ -1659,11 +1691,6 @@ if $nu.os-info.name != "macos" {
     alias "moshi-update" = update-moshi
     def "moshi-logs" [] { ^journalctl --user -u moshi-hook.service -f }
     def "moshi-restart" [] { ^systemctl --user restart moshi-hook.service }
-
-    alias "herdr-install" = herdr-setup
-    alias "herdr-status" = herdr-setup --status
-    alias "herdr-update" = update-herdr
-    alias "herdr-logs" = journalctl --user -u herdr-update.service -f
 
     alias "orca-install" = orca-setup
     alias "orca-status" = orca-setup --status

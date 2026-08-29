@@ -281,7 +281,7 @@ sysup
 
 ### `update-ai` — Update CLI AI Tools
 
-Updates installed AI tools: Claude Code, Copilot CLI, Codex CLI.
+Updates installed AI tools: Claude Code, Copilot CLI, Codex, Grok, cursor-agent, pi (pi.dev), omp (omp.sh).
 
 ```bash
 update-ai
@@ -290,7 +290,11 @@ update-ai
 Updates:
 - `claude update` (Claude Code)
 - Copilot CLI via `https://gh.io/copilot-install`
-- Codex CLI via `npm update -g @openai/codex`
+- Codex CLI via `codex update`
+- Grok CLI via `~/.grok/bin/agent update`
+- cursor-agent via `update-cursor-agent`
+- pi via `pi update --all`
+- omp via `omp update` (official installer at https://omp.sh/install, not Homebrew)
 
 ### `cup` — Complete Update
 

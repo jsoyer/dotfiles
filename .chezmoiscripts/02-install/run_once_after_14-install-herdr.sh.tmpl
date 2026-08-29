@@ -1,0 +1,24 @@
+{{- if ne .chezmoi.os "windows" -}}
+#!/usr/bin/env bash
+# =============================================================================
+# Install herdr on every Unix machine via the official one-liner
+# (https://herdr.dev/install.sh). Never Homebrew — a brew copy fights the
+# official self-updater the same way brew pi fought pi.dev.
+#
+# `after_` so herdr-setup is already written. Always --no-service: enabling
+# the systemd timer calls `sudo loginctl enable-linger`, which would hang
+# an unattended chezmoi apply. Linux can still turn the timer on with
+# `herdr-install`; every host updates herdr through `sysup`.
+# =============================================================================
+set -euo pipefail
+
+SETUP="${HOME}/.local/bin/herdr-setup"
+if [[ ! -x "$SETUP" ]]; then
+    echo "herdr-setup missing at ${SETUP} — skip (chezmoi did not deploy it?)"
+    exit 0
+fi
+
+export PATH="${HOME}/.local/bin:${PATH}"
+echo "📺 Installing herdr (official installer, no service/timer)…"
+"$SETUP" --no-service || echo "herdr-setup failed (non-fatal)"
+{{- end -}}

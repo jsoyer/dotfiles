@@ -2,16 +2,17 @@
 #
 # install-ai — Install the mandatory AI CLIs, one official one-liner each.
 #
-# Mandatory set: claude, copilot-cli, codex, grok, cursor-agent, pi (pi.dev).
-# Idempotent: anything already present is left alone (update-ai handles
-# upgrades). Deliberately NOT in the Brewfiles: each of these ships its own
-# installer/self-updater, and a brew/npm copy fights it (pi ended up installed
-# twice, once per channel, before this script existed).
+# Mandatory set: claude, copilot-cli, codex, grok, cursor-agent, pi (pi.dev),
+# omp (omp.sh). Idempotent: anything already present is left alone (update-ai
+# handles upgrades). Deliberately NOT in the Brewfiles: each of these ships
+# its own installer/self-updater, and a brew/npm copy fights it (pi ended up
+# installed twice, once per channel, before this script existed). omp is a
+# seventh CLI, not a replacement for pi — different binary, different product.
 #
 # Usage:
 #   install-ai               install whatever is missing
 #   install-ai --status      presence + version of each CLI
-#   install-ai --only <cli>  install a single one (claude|copilot|codex|grok|cursor|pi)
+#   install-ai --only <cli>  install a single one (claude|copilot|codex|grok|cursor|pi|omp)
 #   install-ai --dry-run     print without executing
 #
 set -uo pipefail
@@ -112,6 +113,38 @@ migrate_pi() {
   fi
 }
 
+# omp (omp.sh / can1357/oh-my-pi). Binary is `omp`, never `pi` — the npm
+# package is @oh-my-pi/pi-coding-agent for historical reasons only.
+# A Homebrew copy (can1357/tap/omp) counts as missing so the official
+# installer runs after migrate_omp clears the brew prefix.
+has_omp() {
+  local tgt bp
+  command -v omp >/dev/null 2>&1 || return 1
+  tgt="$(readlink -f "$(command -v omp)" 2>/dev/null || true)"
+  bp="$(brew --prefix 2>/dev/null || true)"
+  [[ -n "$bp" && "$tgt" == "$bp"/* ]] && return 1
+  return 0
+}
+
+migrate_omp() {
+  if ! command -v brew >/dev/null 2>&1; then
+    return 0
+  fi
+  if brew list omp >/dev/null 2>&1 || brew list can1357/tap/omp >/dev/null 2>&1; then
+    log "omp: Homebrew copy found — uninstalling before the official installer…"
+    if [[ "$DRY_RUN" -ne 1 ]]; then
+      brew uninstall --force omp >/dev/null 2>&1 \
+        || brew uninstall --force can1357/tap/omp >/dev/null 2>&1 \
+        || true
+    fi
+  fi
+  local bp; bp="$(brew --prefix 2>/dev/null || true)"
+  if [[ -n "$bp" && ( -e "$bp/bin/omp" || -L "$bp/bin/omp" ) ]]; then
+    log "omp: removing Brewfile-era copy ${bp}/bin/omp"
+    [[ "$DRY_RUN" -eq 1 ]] || rm -f "$bp/bin/omp"
+  fi
+}
+
 ver() { "$@" 2>/dev/null | head -1 | tr -d '\r'; }
 
 do_status() {
@@ -122,6 +155,7 @@ do_status() {
   printf '  %-13s %s\n' "grok"         "$(has_grok    && ver "$HOME/.grok/bin/agent" --version || echo missing)"
   printf '  %-13s %s\n' "cursor-agent" "$(has_cursor  && ver cursor-agent --version      || echo missing)"
   printf '  %-13s %s\n' "pi"           "$(has_pi      && ver pi --version                || echo missing)"
+  printf '  %-13s %s\n' "omp"          "$(has_omp     && ver omp --version               || echo missing)"
 }
 
 [[ "$ACTION" == "status" ]] && { do_status; exit 0; }
@@ -153,6 +187,8 @@ step grok    "Grok CLI"     has_grok    'curl -fsSL https://x.ai/cli/install.sh 
 step cursor  "cursor-agent" has_cursor  'curl -fsS https://cursor.com/install | bash'
 want pi && ! has_pi && migrate_pi
 step pi      "pi (pi.dev)"  has_pi      'curl -fsSL https://pi.dev/install.sh | bash'
+want omp && ! has_omp && migrate_omp
+step omp     "omp (omp.sh)" has_omp     'curl -fsSL https://omp.sh/install | sh'
 
 echo
 if [[ "$missing" -gt 0 ]]; then

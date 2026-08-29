@@ -109,6 +109,15 @@ qwen-code
 # machine ended up with two pi installs, one per channel. Never re-add.
 pi-coding-agent
 @mariozechner/pi-coding-agent
+# omp (omp.sh) — seventh mandatory AI CLI, official curl|sh installer.
+# can1357/tap/omp was on the Mac Mini M4 overlay; never re-add.
+omp
+can1357/tap
+can1357/tap/omp
+@oh-my-pi/pi-coding-agent
+# herdr — official https://herdr.dev/install.sh on every Unix machine.
+# Hostname Brewfile overlays used to ship the brew formula. Never re-add.
+herdr
 @openai/codex
 updatest/tap,
 orla

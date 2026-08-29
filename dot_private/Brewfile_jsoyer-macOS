@@ -4,7 +4,6 @@ tap "siderolabs/tap", trusted: true
 brew "age"
 brew "awscli"
 brew "dust"
-brew "herdr"
 brew "jdupes"
 brew "mole"
 cask "claude"
