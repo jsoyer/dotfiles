@@ -60,7 +60,13 @@
 
 # ── media_automation : NAS uniquement (omv-nice / omv-dijon) ──
 # Ces scripts et leur config chiffree n'ont de sens que sur les deux NAS.
+# bin/** couvre les futurs siblings. Les noms explicites restent pour
+# que le test de regression voie chaque fichier.
+# Ignore = do not re-apply. Actual deletion of leftovers is
+# run_once_13-remove-nas-media-leftovers.sh (chezmoiremove would prompt
+# on every `ca` until the leftover is gone).
 {{ if not (or (eq .chezmoi.hostname "omv-nice") (eq .chezmoi.hostname "omv-dijon")) }}
+bin/**
 bin/media_automation.py
 bin/audit_seasonless.sh
 bin/test_media_automation.py

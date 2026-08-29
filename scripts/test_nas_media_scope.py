@@ -36,11 +36,17 @@ class MediaScriptsStayNasOnly(unittest.TestCase):
                 missing.append(target)
         self.assertEqual(missing, [], f'NAS ignore missing: {missing}')
 
-    def test_leaked_renamer_is_removed_off_nas(self):
+    def test_future_bin_siblings_are_covered_by_glob(self):
+        self.assertIn('bin/**', nas_ignore_block())
+
+    def test_leaked_renamer_is_deleted_once_not_prompted(self):
         remove = (ROOT / '.chezmoiremove.tmpl').read_text()
-        self.assertIn('bin/serie_renommer.py', remove)
-        self.assertIn('omv-nice', remove)
-        self.assertIn('omv-dijon', remove)
+        self.assertNotIn('bin/serie_renommer.py', remove)
+        script = (ROOT / '.chezmoiscripts/02-install'
+                  / 'run_once_13-remove-nas-media-leftovers.sh.tmpl').read_text()
+        self.assertIn('bin/serie_renommer.py', script)
+        self.assertIn('omv-nice', script)
+        self.assertIn('omv-dijon', script)
 
 
 if __name__ == '__main__':
