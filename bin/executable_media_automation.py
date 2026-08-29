@@ -2328,7 +2328,7 @@ def import_absolute_item(item, show, config, dry_run, summary):
         if 'depasse la bibliotheque' in str(exc):
             try:
                 mapping = abs_shows.refresh_mapping(
-                    show, api_key=config.tmdb_api_key, language=config.language)
+                    show, api_key=config.tmdb_api_key, language=config.tmdb_language)
                 relative, season_number, episode_number = abs_shows.plan_episode(
                     name, show, mapping)
                 log_message(f"[INFO] Table {show.name} rafraichie, {name} accepte")
@@ -2338,6 +2338,20 @@ def import_absolute_item(item, show, config, dry_run, summary):
         else:
             _ecarter_episode(name, exc, summary, show, config)
             return
+    episode_title = None
+    if show.tmdb_id and config.fetch_metadata and config.tmdb_api_key:
+        try:
+            episode_title = abs_shows.fetch_episode_title(
+                show, season_number, episode_number,
+                config.tmdb_api_key, config.tmdb_language)
+        except Exception as exc:  # noqa: BLE001 - a missing title never blocks an import
+            log_message(
+                f"[WARN] Titre TMDb introuvable pour {show.name} "
+                f"S{season_number:02d}E{episode_number:02d}: {exc}",
+                'warning',
+            )
+    relative = abs_shows.remote_episode_path(
+        show, season_number, episode_number, Path(name).suffix, episode_title)
     destination = f"{show.destination}/{relative}"
     log_message(f"[IMPORT:REMOTE] {name} -> {show.name} S{season_number:02d}E{episode_number:02d}")
 
