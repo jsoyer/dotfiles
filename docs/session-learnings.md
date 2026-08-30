@@ -37,3 +37,9 @@
 - **FIX:** `brew-untap-blacklisted` untaps blacklist taps (including `updatest/tap,` with a trailing comma). `update-homebrew.sh` runs that first and continues if `brew update` / cask upgrade still fail.
 - **Verify:** `python3 dot_local/bin/test_brew_untap_blacklisted.py`
 
+## 2026-08-30 — macOS orca-update is the stablyai GUI cask
+
+- **CONFIG:** `orca-update` was dropped on Darwin when agent stacks went Linux-only (`update-orca` AppImage). The GUI cask `stablyai/orca/orca` is still installed on personal Macs.
+- **LOGIC:** Restore a Darwin-only `orca-update` in aliases.sh / fish / nushell that taps `stablyai/orca` and upgrades that fully-qualified cask. Unqualified `orca` is plotly/orca. Keep the Linux alias as `update-orca`. Do not define the function in functions.sh (zsh alias/function parse error).
+- **Verify:** `python3 scripts/test_omp_herdr_scope.py`
+

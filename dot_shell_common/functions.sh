@@ -55,5 +55,6 @@ if command -v aerospace &>/dev/null; then
   }
 fi
 
-# NOTE: orca-update used to be a macOS cask upgrade here. Agent stacks are
-# Linux-only now (aliases.sh); do not reintroduce a function of that name.
+# NOTE: orca-update is defined in aliases.sh — Darwin upgrades the stablyai
+# cask, Linux aliases it to update-orca. Do not define it here (zsh parse
+# error if an alias of the same name is already set).

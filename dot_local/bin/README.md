@@ -577,6 +577,10 @@ orca-version                   # installed vs latest GitHub release
 orca-gui                       # stop headless → open GUI → restore headless
 ```
 
+On **macOS**, `orca-update` is a different command: it upgrades the GUI cask
+`stablyai/orca/orca` (`brew upgrade --cask`). Do not use the unqualified cask
+name `orca` — that is plotly/orca, deprecated and a different app.
+
 ### cursor-setup / update-cursor-agent
 
 Starts a private Cursor worker (`cursor-agent worker start`) that runs cloud

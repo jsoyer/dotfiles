@@ -1410,7 +1410,7 @@ def cup [...args: string] {
     print "✅ Update complete!"
 }
 
-# NOTE: orca-update lives in the Linux-only agent-stacks section below.
+# NOTE: orca-update is OS-split below (macOS cask vs Linux update-orca).
 
 # ============================================================================
 # Jujutsu (jj)
@@ -1681,6 +1681,13 @@ alias "herdr-update" = update-herdr
 # Self-hosted agent stacks (moshi / orca / cursor) — Linux only
 # ============================================================================
 # Hidden on macOS (especially mac-pro). config.nu is not a chezmoi template.
+
+if $nu.os-info.name == "macos" {
+    def "orca-update" [] {
+        try { ^brew tap stablyai/orca } catch { }
+        ^brew upgrade --cask stablyai/orca/orca
+    }
+}
 
 if $nu.os-info.name != "macos" {
     alias "herdr-logs" = journalctl --user -u herdr-update.service -f

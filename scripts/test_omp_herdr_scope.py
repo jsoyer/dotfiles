@@ -97,6 +97,19 @@ class HerdrIsEverywhere(unittest.TestCase):
                     offenders.append(f'{name}: {needle}')
         self.assertEqual(offenders, [], f'linux brewfile still has: {offenders}')
 
+    def test_orca_update_is_os_split(self):
+        text = _read(ALIASES)
+        darwin = text[
+            text.index('if [[ "$(uname -s)" == "Darwin" ]]; then') : text.index(
+                'if [[ "$(uname -s)" == "Linux" ]]; then'
+            )
+        ]
+        linux = text[text.index('if [[ "$(uname -s)" == "Linux" ]]; then') :]
+        self.assertIn('stablyai/orca/orca', darwin)
+        self.assertNotIn("alias orca-update='update-orca'", darwin)
+        self.assertIn("alias orca-update='update-orca'", linux)
+        self.assertNotIn('stablyai/orca/orca', linux)
+
     def test_herdr_aliases_are_not_linux_only(self):
         text = _read(ALIASES)
         install = text.index("alias herdr-install='herdr-setup'")

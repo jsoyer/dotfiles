@@ -96,7 +96,6 @@ reyamira/tap
 # Homebrew 6 errors hard on this tap (`depends_on macos: :sierra` disabled,
 # invalid `appcast`). Still-tapped copies abort `brew update` / chezmoi apply.
 sidneys/homebrew
-stablyai/orca
 varenc/ffmpeg
 vladimirvivien/oss-tools
 amazon-ecs-cli

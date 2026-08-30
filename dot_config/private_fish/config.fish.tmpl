@@ -1059,6 +1059,12 @@ alias herdr-update='update-herdr'
 # ============================================================================
 # Self-hosted agent stacks (moshi / orca / cursor) — Linux only
 # ============================================================================
+{{- if eq .chezmoi.os "darwin" }}
+function orca-update
+    brew tap stablyai/orca >/dev/null
+    brew upgrade --cask stablyai/orca/orca
+end
+{{- end }}
 {{ if ne .chezmoi.os "darwin" -}}
 alias herdr-logs='journalctl --user -u herdr-update.service -f'
 

@@ -745,6 +745,16 @@ alias herdr-install='herdr-setup'
 alias herdr-status='herdr-setup --status'
 alias herdr-update='update-herdr'
 
+# macOS GUI Orca (stablyai/orca cask). Must not share a name with the Linux
+# alias below: zsh expands aliases at parse time and errors if a function of
+# the same name is defined later (diabolo, 2026-08-23).
+if [[ "$(uname -s)" == "Darwin" ]]; then
+  orca-update() {
+    brew tap stablyai/orca >/dev/null
+    brew upgrade --cask stablyai/orca/orca
+  }
+fi
+
 # Self-hosted agent stacks (moshi / orca / cursor) — Linux only
 # ============================================================================
 # Hidden on macOS (especially mac-pro): chezmoi must not surface these names
