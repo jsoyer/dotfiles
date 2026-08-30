@@ -415,18 +415,65 @@ WantedBy=timers.target
 EOF
 ok "Update units written."
 
+# Recent Orca builds IGNORE `serve --port`. The runtime reads
+# ~/.config/orca/mobile-ws-fallback-port.json and may pick an ephemeral port
+# on first boot. Write 6768 before the first start (mkdir: the profile does
+# not exist until Orca has run once).
+enforce_port_file() {
+  local home dir file
+  home="$(getent passwd "$SVC_USER" | cut -d: -f6)"
+  dir="${home}/.config/orca"
+  file="${dir}/mobile-ws-fallback-port.json"
+  run mkdir -p "$dir"
+  run chown "$SVC_USER":"$SVC_USER" "$dir" 2>/dev/null || true
+  if [[ "$DRY_RUN" -eq 0 ]]; then
+    printf '{"port":%s}\n' "$PORT" > "$file"
+    chown "$SVC_USER":"$SVC_USER" "$file"
+    chmod 644 "$file"
+  fi
+  ok "Port ${PORT} written to ${file}"
+}
+
+port_listening() { ss -ltn 2>/dev/null | grep -qE ":${PORT}\b"; }
+
 # --- Apply --------------------------------------------------------------------
+enforce_port_file
 run systemctl daemon-reload
+# Re-read the port file: stop a running instance first.
+if systemctl is-active --quiet "$SERVICE" 2>/dev/null; then
+  run systemctl stop "$SERVICE" || true
+fi
 run systemctl enable --now "$SERVICE"
 [[ -n "$SRC_UPDATE" ]] && run systemctl enable --now orca-update.timer
 
 if [[ "$DRY_RUN" -eq 1 ]]; then exit 0; fi
 
-sleep 3
 if systemctl is-active --quiet "$SERVICE"; then
   ok "${SERVICE} active ✔"
 else
   warn "${SERVICE} is not active — see: journalctl -u ${SERVICE} -e"
+fi
+
+log "Waiting for port ${PORT} (Electron is slow on a Pi)…"
+ok_port=0
+for _ in $(seq 1 20); do
+  port_listening && { ok_port=1; break; }
+  sleep 2
+done
+if [[ "$ok_port" -eq 0 ]]; then
+  warn "Port ${PORT} not listening — rewriting the port file and restarting…"
+  enforce_port_file
+  run systemctl restart "$SERVICE" || true
+  for _ in $(seq 1 15); do
+    port_listening && { ok_port=1; break; }
+    sleep 2
+  done
+fi
+if [[ "$ok_port" -eq 1 ]]; then
+  ok "Headless server listening on ${PORT} ✔"
+else
+  warn "Still not on ${PORT}. Actual listeners: $(ss -ltnp 2>/dev/null | grep -iE 'orca|xvfb' | grep -oE ':[0-9]+' | sort -u | tr '\n' ' ')"
+  warn "journalctl -u ${SERVICE} -e"
 fi
 echo
 do_status

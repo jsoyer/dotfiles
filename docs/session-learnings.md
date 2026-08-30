@@ -73,3 +73,9 @@
 - **LOGIC:** The systemd unit is `<<EOF` (unquoted) so bash expanded `$DISPLAY` in a comment. `set -u` killed the script before enable --now. Do not put `$DISPLAY` in that heredoc.
 - **Verify:** `python3 scripts/test_orca_headless.py`
 
+## 2026-08-30 — Orca ignores serve --port until the json profile exists
+
+- **ENV:** diabolo: service active/enabled but `Port 6768 : not listening`. Orca reads `~/.config/orca/mobile-ws-fallback-port.json` and ignores `--port`.
+- **LOGIC:** `orca-setup` now mkdir + writes `{"port":6768}` as the service user BEFORE start, waits up to 40s, rewrites+restarts if needed. `update-orca` mkdir -p instead of skipping when the profile dir is missing.
+- **Verify:** `python3 scripts/test_orca_headless.py`
+

@@ -51,11 +51,12 @@ FALLBACK_PORT_FILE="${SVC_HOME:-/home/$SVC_USER}/.config/orca/mobile-ws-fallback
 # script runs as root but the file belongs to the user).
 enforce_port_file() {
   local dir; dir="$(dirname "$FALLBACK_PORT_FILE")"
-  [[ -d "$dir" ]] || { warn "Orca profile not found ($dir) — port not forced."; return 0; }
+  mkdir -p "$dir"
+  chown "$SVC_USER":"$SVC_USER" "$dir" 2>/dev/null || true
   printf '{"port":%s}' "$EXPECTED_PORT" > "$FALLBACK_PORT_FILE"
   chown "$SVC_USER":"$SVC_USER" "$FALLBACK_PORT_FILE" 2>/dev/null || true
   chmod 644 "$FALLBACK_PORT_FILE" 2>/dev/null || true
-  log "Port forced to ${EXPECTED_PORT} in $(basename "$FALLBACK_PORT_FILE")."
+  log "Port forced to ${EXPECTED_PORT} in ${FALLBACK_PORT_FILE}."
 }
 
 # True if something is listening on EXPECTED_PORT.

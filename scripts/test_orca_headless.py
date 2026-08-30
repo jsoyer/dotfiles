@@ -25,6 +25,13 @@ class FuseFallback(unittest.TestCase):
         self.assertIn("xvfb-run --auto-servernum", SETUP)
         self.assertIn("xvfb", APT_RPI)
 
+    def test_setup_writes_fallback_port_before_start(self):
+        self.assertIn("mobile-ws-fallback-port.json", SETUP)
+        self.assertIn('printf \'{"port":%s}\\n\' "$PORT"', SETUP)
+        self.assertIn("Waiting for port", SETUP)
+        update = (ROOT / "dot_local/bin/executable_update-orca").read_text()
+        self.assertIn("mkdir -p", update.split("enforce_port_file", 1)[1][:400])
+
     def test_unquoted_unit_heredoc_does_not_expand_display(self):
         # set -u: `$DISPLAY` in <<EOF aborted orca-setup on diabolo.
         unit = SETUP.split("write_file \"/etc/systemd/system/${SERVICE}\" <<EOF", 1)[1]
