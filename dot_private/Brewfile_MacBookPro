@@ -1,0 +1,57 @@
+# Host overlay for MacBookPro — extras beyond the shared base.
+# Managed by breww. Do not edit manually.
+tap "homebrew/cask"
+tap "homebrew/core"
+tap "rjyo/moshi", trusted: true
+tap "teamookla/speedtest", trusted: true
+brew "icu4c@77"
+brew "crane"
+brew "depot"
+brew "sdl2-compat"
+brew "icu4c@76"
+brew "herdr"
+brew "infisical"
+brew "kubelogin"
+brew "mactop"
+brew "mosh"
+brew "openspec"
+brew "ouch"
+brew "p7zip"
+brew "podcast-dl"
+brew "rclone"
+brew "redis"
+brew "semgrep"
+brew "signal-cli"
+brew "tuicr"
+brew "unar"
+brew "rjyo/moshi/moshi-hook", trusted: true
+brew "teamookla/speedtest/speedtest"
+cask "antigravity-cli"
+cask "bettercapture"
+cask "theboredteam/boring-notch/boring-notch", trusted: true
+cask "chatgpt"
+cask "elgato-camera-hub"
+cask "elgato-stream-deck"
+cask "fluidvoice"
+cask "granola"
+cask "grok-bot"
+cask "grok-build"
+cask "ledger-wallet"
+cask "linear"
+cask "logi-options+"
+cask "logitune"
+cask "plaud"
+cask "zoom"
+mas "Amphetamine", id: 937984704
+mas "FaceScreen", id: 6702028512
+mas "iMovie", id: 408981434
+mas "Keynote", id: 361285480
+mas "KeyScreen", id: 6753302381
+mas "Numbers", id: 361304891
+mas "Pages", id: 361309726
+mas "Parcel", id: 375589283
+mas "Presentify", id: 1507246666
+mas "Raycast Companion", id: 6738274497
+mas "Remote Desktop", id: 409907375
+mas "Save to Raindrop.io", id: 1549370672
+mas "Xcode", id: 497799835
