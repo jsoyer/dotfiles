@@ -264,6 +264,33 @@ ensure_libfuse2() {
 
 ensure_libfuse2
 
+# Electron/Chromium inside the AppImage links against GTK/ATK/NSS. A Pi Lite
+# image has none of those, so after FUSE is fixed the next crash is:
+#   libatk-1.0.so.0: cannot open shared object file
+ensure_electron_runtime() {
+  if [[ -e /usr/lib/aarch64-linux-gnu/libatk-1.0.so.0 || -e /usr/lib/x86_64-linux-gnu/libatk-1.0.so.0 ]] \
+     || ldconfig -p 2>/dev/null | grep -q 'libatk-1\.0\.so\.0'; then
+    ok "GTK/ATK runtime already present."
+    return 0
+  fi
+  log "Installing Electron/GTK runtime libraries (libatk / gtk / nss / gbm)…"
+  if command -v apt-get >/dev/null 2>&1; then
+    run apt-get install -y \
+      libgtk-3-0 libnss3 libgbm1 libasound2 libatk-bridge2.0-0 libxss1 \
+      || run apt-get install -y \
+        libgtk-3-0t64 libnss3 libgbm1 libasound2t64 libatk-bridge2.0-0t64 libxss1 \
+      || warn "Could not install GTK/Electron libs — orca-ide will fail to start."
+  elif command -v dnf >/dev/null 2>&1; then
+    run dnf install -y gtk3 nss mesa-libgbm alsa-lib at-spi2-atk libXScrnSaver || \
+      warn "Could not install GTK/Electron libs."
+  elif command -v pacman >/dev/null 2>&1; then
+    run pacman -S --needed --noconfirm gtk3 nss libxss alsa-lib at-spi2-core || \
+      warn "Could not install GTK/Electron libs."
+  fi
+}
+
+ensure_electron_runtime
+
 # --- Main unit ----------------------------------------------------------------
 # Generated in full so a fresh machine works without going through the CLI
 # registration from the Orca UI.

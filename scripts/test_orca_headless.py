@@ -31,6 +31,15 @@ class FuseFallback(unittest.TestCase):
     def test_rpi_aptfile_ships_libfuse2(self):
         self.assertRegex(APT_RPI, r"(?m)^libfuse2$")
 
+    def test_setup_installs_electron_gtk_runtime(self):
+        self.assertIn("ensure_electron_runtime", SETUP)
+        self.assertIn("libgtk-3-0", SETUP)
+        self.assertIn("libatk-1.0.so.0", SETUP)
+
+    def test_rpi_aptfile_ships_electron_gtk_runtime(self):
+        for pkg in ("libgtk-3-0", "libnss3", "libgbm1", "libasound2", "libatk-bridge2.0-0"):
+            self.assertRegex(APT_RPI, rf"(?m)^{pkg}$")
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -55,3 +55,9 @@
 - **LOGIC:** systemd unit + drop-in set `APPIMAGE_EXTRACT_AND_RUN=1` (no FUSE). `orca-setup` installs `libfuse2`/`libfuse2t64` when missing. Cap restarts (`StartLimitBurst=8` / 120s). `Aptfile_rpi` lists `libfuse2`.
 - **Verify:** `python3 scripts/test_orca_headless.py`
 
+## 2026-08-30 — Orca AppImage needs GTK/ATK on Pi Lite
+
+- **ENV:** After FUSE, looping failed with `libatk-1.0.so.0: cannot open shared object file` (Electron inside the AppImage).
+- **LOGIC:** `libgtk-3-0` pulls ATK. Also nss/gbm/asound/atk-bridge/xss. `orca-setup` installs them; `Aptfile_rpi` lists them.
+- **Verify:** `python3 scripts/test_orca_headless.py`
+
