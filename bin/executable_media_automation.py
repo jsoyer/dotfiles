@@ -176,6 +176,8 @@ class InboxConfig:
     path: Path
     stability_seconds: int = 300
     lock_file: Path | None = None
+    extract_archives: bool = True
+    extract_margin_bytes: int = 10 * 1024 * 1024 * 1024
 
 
 @dataclass(slots=True)
@@ -232,6 +234,8 @@ class ImportSummary:
     errors: int = 0
     skipped_details: list[str] = field(default_factory=list)
     imported_details: list[str] = field(default_factory=list)
+    extracted_archives: int = 0
+    extracted_details: list[str] = field(default_factory=list)
 
 
 def sanitize(name):
@@ -350,6 +354,9 @@ def load_automation_config(config_path):
             path=inbox_path,
             stability_seconds=int(inbox_raw.get('stability_seconds', 300)),
             lock_file=resolve_config_path(inbox_raw.get('lock_file')),
+            extract_archives=bool_from_config(inbox_raw.get('extract_archives'), True),
+            extract_margin_bytes=int(inbox_raw.get(
+                'extract_margin_bytes', 10 * 1024 * 1024 * 1024)),
         ),
         routes=RoutesConfig(
             movies=movies_root,
@@ -2214,6 +2221,7 @@ def format_import_summary(summary, inbox_dir, dry_run=False):
     lines = [
         f"{'DRY-RUN ' if dry_run else ''}Inbox summary for {inbox_dir}",
         f"- detected items: {summary.detected_items}",
+        f"- extracted archives: {summary.extracted_archives}",
         f"- imported items: {summary.imported_items}",
         f"- imported movies: {summary.imported_movies}",
         f"- imported series: {summary.imported_series}",
@@ -2226,6 +2234,10 @@ def format_import_summary(summary, inbox_dir, dry_run=False):
         lines.append('')
         lines.append('Skipped:')
         lines.extend(f"  {detail}" for detail in summary.skipped_details[:20])
+    if summary.extracted_details:
+        lines.append('')
+        lines.append('Extracted:')
+        lines.extend(f"  {detail}" for detail in summary.extracted_details[:20])
     if summary.imported_details:
         lines.append('')
         lines.append('Imported:')
@@ -2411,9 +2423,37 @@ def process_automation_inbox(config, dry_run=False):
             if not dry_run:
                 route_root.mkdir(parents=True, exist_ok=True)
 
+        if config.inbox.extract_archives:
+            from media_extract_archives import extract_pending_archives
+            for result in extract_pending_archives(
+                config.inbox.path,
+                stability_seconds=config.inbox.stability_seconds,
+                margin_bytes=config.inbox.extract_margin_bytes,
+                dry_run=dry_run,
+            ):
+                log_message(result.detail)
+                if result.extracted:
+                    summary.extracted_archives += 1
+                    summary.extracted_details.append(result.detail)
+                elif 'espace insuffisant' in result.detail:
+                    summary.skipped_items += 1
+                    summary.skipped_details.append(result.detail)
+                else:
+                    summary.errors += 1
+                    summary.skipped_details.append(result.detail)
+
         items = gather_incoming_items(config.inbox.path, config.inbox.stability_seconds)
         summary.detected_items = len(items)
         if not items:
+            if summary.extracted_archives:
+                message = (
+                    f"[SCAN] {summary.extracted_archives} archive(s) extraite(s) dans "
+                    f"{config.inbox.path} ; import des videos au prochain passage "
+                    f"(stabilite {config.inbox.stability_seconds}s)"
+                )
+                log_message(message)
+                notifier(config, message, 'media')
+                return summary
             log_message(f"[SCAN] No stable media detected in {config.inbox.path}")
             return summary
 
