@@ -23,10 +23,20 @@ locales
 libfuse2
 libgtk-3-0
 libnss3
+libnspr4
 libgbm1
 libasound2
 libatk-bridge2.0-0
 libxss1
+libcups2
+libdrm2
+libxcomposite1
+libxdamage1
+libxrandr2
+libxkbcommon0
+libatspi2.0-0
+libx11-xcb1
+libsecret-1-0
 
 # installed via custom apt repo in chezmoi scripts (not managed by aptw)
 # 1password-cli — run_once_install-1password.sh

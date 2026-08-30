@@ -34,10 +34,20 @@ class FuseFallback(unittest.TestCase):
     def test_setup_installs_electron_gtk_runtime(self):
         self.assertIn("ensure_electron_runtime", SETUP)
         self.assertIn("libgtk-3-0", SETUP)
-        self.assertIn("libatk-1.0.so.0", SETUP)
+        self.assertIn("libcups2", SETUP)
+        self.assertIn("ELECTRON_APT_PKGS", SETUP)
 
     def test_rpi_aptfile_ships_electron_gtk_runtime(self):
-        for pkg in ("libgtk-3-0", "libnss3", "libgbm1", "libasound2", "libatk-bridge2.0-0"):
+        for pkg in (
+            "libgtk-3-0",
+            "libnss3",
+            "libgbm1",
+            "libasound2",
+            "libatk-bridge2.0-0",
+            "libcups2",
+            "libdrm2",
+            "libnspr4",
+        ):
             self.assertRegex(APT_RPI, rf"(?m)^{pkg}$")
 
 
