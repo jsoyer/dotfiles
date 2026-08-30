@@ -49,3 +49,9 @@
 - **LOGIC:** Add the fully-qualified cask + tap to `Brewfile_personal` and `Brewfile_pro`. Never `cask "orca"` (plotly). Remove it from `run_once_09` purge lists so that script cannot uninstall it on re-run. `orca-update` on Darwin upgrades this cask.
 - **Verify:** `python3 scripts/test_omp_herdr_scope.py`
 
+## 2026-08-30 — Orca AppImage crash-loop without libfuse.so.2
+
+- **ENV:** looping (RPi) `orca-serve` hit 70+ restarts: `dlopen(): error loading libfuse.so.2`. Debian/Raspberry Pi OS provide fuse3 only.
+- **LOGIC:** systemd unit + drop-in set `APPIMAGE_EXTRACT_AND_RUN=1` (no FUSE). `orca-setup` installs `libfuse2`/`libfuse2t64` when missing. Cap restarts (`StartLimitBurst=8` / 120s). `Aptfile_rpi` lists `libfuse2`.
+- **Verify:** `python3 scripts/test_orca_headless.py`
+

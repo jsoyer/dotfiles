@@ -231,6 +231,39 @@ if [[ "$DO_SERVICE" -eq 0 ]]; then
   exit 0
 fi
 
+# AppImage type-2 runtime dlopens libfuse.so.2. Raspberry Pi OS / Debian ship
+# fuse3 (libfuse.so.3) by default, so the unit crash-loops with:
+#   dlopen(): error loading libfuse.so.2
+# APPIMAGE_EXTRACT_AND_RUN=1 skips FUSE entirely (extract to $TMPDIR and exec).
+# Also install libfuse2 when a package manager is there, so orca-gui / manual
+# runs without the env var still work.
+has_libfuse2() {
+  ldconfig -p 2>/dev/null | grep -q 'libfuse\.so\.2' && return 0
+  compgen -G '/usr/lib/*/libfuse.so.2' >/dev/null && return 0
+  compgen -G '/lib/*/libfuse.so.2' >/dev/null && return 0
+  [[ -e /usr/lib/libfuse.so.2 || -e /lib/libfuse.so.2 ]]
+}
+
+ensure_libfuse2() {
+  if has_libfuse2; then
+    ok "libfuse.so.2 already present."
+    return 0
+  fi
+  log "libfuse.so.2 missing — AppImages cannot mount without it (or extract-and-run)."
+  if command -v apt-get >/dev/null 2>&1; then
+    run apt-get install -y libfuse2 || run apt-get install -y libfuse2t64 || \
+      warn "Could not install libfuse2; systemd will use APPIMAGE_EXTRACT_AND_RUN=1."
+  elif command -v dnf >/dev/null 2>&1; then
+    run dnf install -y fuse-libs || warn "Could not install fuse-libs."
+  elif command -v pacman >/dev/null 2>&1; then
+    run pacman -S --needed --noconfirm fuse2 || warn "Could not install fuse2."
+  else
+    warn "No known package manager — relying on APPIMAGE_EXTRACT_AND_RUN=1."
+  fi
+}
+
+ensure_libfuse2
+
 # --- Main unit ----------------------------------------------------------------
 # Generated in full so a fresh machine works without going through the CLI
 # registration from the Orca UI.
@@ -243,13 +276,18 @@ Description=Orca runtime server
 Documentation=https://github.com/${REPO}
 After=network-online.target
 Wants=network-online.target
+# Cap crash-loops (missing FUSE used to hit 70+ restarts with no ceiling).
+StartLimitIntervalSec=120
+StartLimitBurst=8
 
 [Service]
 Type=simple
 User=${SVC_USER}
 WorkingDirectory=${DEST_DIR}
+# Type-2 AppImage needs libfuse.so.2; extract-and-run works without FUSE.
+Environment=APPIMAGE_EXTRACT_AND_RUN=1
 ExecStart=${DEST} serve --port ${PORT} --pairing-address ${PAIRING_ADDR}
-Restart=always
+Restart=on-failure
 RestartSec=5
 
 [Install]
@@ -278,6 +316,7 @@ TimeoutStopFailureMode=kill
 # --- Clean logs in headless mode ---
 # NB: quoted values — otherwise systemd splits on spaces.
 # GPU: no hardware acceleration on a virtio GPU.
+Environment="APPIMAGE_EXTRACT_AND_RUN=1"
 Environment="ELECTRON_EXTRA_LAUNCH_ARGS=--disable-gpu"
 # D-Bus: no session bus in headless mode. The socket is DELIBERATELY
 # nonexistent: Chromium then fails to connect without attempting a privileged

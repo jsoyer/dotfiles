@@ -564,6 +564,9 @@ chezmoi only writes inside `$HOME`.
 - Picks the release asset by architecture: `orca-linux.AppImage` (x86_64) vs
   `orca-linux-arm64.AppImage` (aarch64). **Required for RPi** — the previous
   version hardcoded the x86_64 asset.
+- AppImage type-2 needs `libfuse.so.2`. Raspberry Pi OS ships fuse3, so the
+  unit sets `APPIMAGE_EXTRACT_AND_RUN=1` and `orca-setup` installs `libfuse2`
+  when missing (looping crash-looped with `error loading libfuse.so.2`).
 - Derives `User=` from `$SUDO_USER` and the `--pairing-address` from Tailscale
   (fallback: the default route source IP) instead of hardcoding them.
 - Keeps the Electron drop-in (`SIGTERM`, `KillMode=mixed`, `LogFilterPatterns`)

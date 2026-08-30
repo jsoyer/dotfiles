@@ -45,4 +45,5 @@ trap restore EXIT INT TERM
 
 # 3) Run the GUI in the foreground; the script waits for the window to close
 note "Opening the graphical interface…"
-"$APPIMAGE" --no-sandbox "$@"
+# Type-2 AppImage needs libfuse.so.2; extract-and-run works without FUSE.
+APPIMAGE_EXTRACT_AND_RUN=1 "$APPIMAGE" --no-sandbox "$@"
