@@ -1,0 +1,28 @@
+[inbox]
+path = "/srv/downloads/incoming"
+stability_seconds = 300
+lock_file = "/srv/downloads/incoming/.reorganize_movies.lock"
+extract_archives = true
+extract_margin_bytes = 10737418240
+
+[routes]
+movies = "/srv/media/movies"
+series = "/srv/media/series"
+anime = "/srv/media/anime"
+
+[tmdb]
+api_key = "TMDB_API_KEY_HERE"
+language = "fr-FR"
+fetch_metadata = true
+
+[logging]
+file = "/srv/log/reorganize_movies.log"
+level = "INFO"
+max_bytes = 5242880
+backup_count = 5
+
+[telegram]
+enabled = true
+bot_token = "123456:telegram-token"
+chat_id = "123456789"
+timeout = 15

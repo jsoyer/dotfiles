@@ -9,9 +9,11 @@ parsed as a movie and 31 episodes were filed into the movie library. These
 tests pin the parsing contract so that regression cannot come back silently.
 """
 import contextlib
+import os
 import re
 import sys
 import tempfile
+import time
 import unittest
 from pathlib import Path
 from unittest import mock
@@ -1745,6 +1747,202 @@ class UnCaractereInvisibleNeSurvitPasAuNettoyage(unittest.TestCase):
     def test_le_nettoyage_ordinaire_ne_change_pas(self):
         self.assertEqual(ma.sanitize('Pokemon : Les horizons'),
                          'Pokemon Les horizons')
+
+
+class InboxExtractsArchivesBeforeImport(unittest.TestCase):
+    """Les archives de l'inbox doivent etre ouvertes avant le classement.
+
+    Origin: Elfen Lied est reste un .zip ignore par le scanner, qui ne voit
+    que les mkv. Le deballage manuel a ensuite ete pille par le cron en
+    cours d'extraction. On decompresse donc sous le verrou du scan, apres
+    un controle d'espace, et on ne supprime l'archive que si le contenu
+    extrait correspond au catalogue (nombre de fichiers et taille).
+    """
+
+    def setUp(self):
+        import media_extract_archives as mx
+        self.mx = mx
+        self.tmp = tempfile.TemporaryDirectory()
+        self.inbox = Path(self.tmp.name)
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def _write_zip(self, name, members):
+        path = self.inbox / name
+        import zipfile
+        with zipfile.ZipFile(path, 'w') as zf:
+            for inner, data in members.items():
+                zf.writestr(inner, data)
+        return path
+
+    def _write_7z(self, name, members):
+        import subprocess
+        src = self.inbox / '_payload'
+        src.mkdir(exist_ok=True)
+        for inner, data in members.items():
+            target = src / inner
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(data)
+        path = self.inbox / name
+        subprocess.run(
+            ['7z', 'a', '-bd', '-y', str(path), '.'],
+            cwd=src, check=True, capture_output=True, text=True)
+        for leftover in src.rglob('*'):
+            if leftover.is_file():
+                leftover.unlink()
+        return path
+
+    def test_zip_rar_and_7z_are_primary_archives(self):
+        for name in ('Show.S01.zip', 'Show.S01.rar', 'Show.S01.7z',
+                     'Show.part1.rar', 'Show.part01.rar', 'Show.7z.001'):
+            with self.subTest(name=name):
+                self.assertTrue(self.mx.is_primary_archive(Path(name)))
+
+    def test_volume_continuations_are_not_extracted_alone(self):
+        for name in ('Show.part2.rar', 'Show.part02.rar', 'Show.r00',
+                     'Show.r01', 'Show.7z.002', 'Show.z01'):
+            with self.subTest(name=name):
+                self.assertFalse(self.mx.is_primary_archive(Path(name)))
+
+    def test_listing_counts_files_not_directories(self):
+        slt = """
+----------
+Path = dir
+Folder = +
+Size = 0
+
+Path = dir/a.mkv
+Folder = -
+Size = 500
+Encrypted = -
+
+Path = b.mkv
+Folder = -
+Size = 1000
+Encrypted = -
+"""
+        catalog = self.mx.parse_7z_listing(slt)
+        self.assertEqual(catalog.file_count, 2)
+        self.assertEqual(catalog.uncompressed_bytes, 1500)
+        self.assertFalse(catalog.encrypted)
+
+    def test_7z_listing_without_folder_field_still_counts_files(self):
+        # 7-Zip 25's 7z format listing omits `Folder = -`.
+        slt = """
+----------
+Path = E01.mkv
+Size = 16
+Attributes = A -rw-r--r--
+Encrypted = -
+"""
+        catalog = self.mx.parse_7z_listing(slt)
+        self.assertEqual(catalog.file_count, 1)
+        self.assertEqual(catalog.uncompressed_bytes, 16)
+
+    def test_encrypted_archive_is_flagged(self):
+        slt = """
+----------
+Path = secret.mkv
+Folder = -
+Size = 100
+Encrypted = +
+"""
+        self.assertTrue(self.mx.parse_7z_listing(slt).encrypted)
+
+    def test_space_check_requires_payload_plus_margin(self):
+        margin = 10 * 1024 * 1024 * 1024
+        payload = 7 * 1024 * 1024 * 1024
+        self.assertFalse(self.mx.has_room(free=payload, uncompressed=payload, margin=margin))
+        self.assertTrue(self.mx.has_room(
+            free=payload + margin + 1, uncompressed=payload, margin=margin))
+
+    def test_hidden_and_partial_archives_are_ignored(self):
+        (self.inbox / '.hidden').mkdir()
+        (self.inbox / '.hidden' / 'x.zip').write_bytes(b'PK')
+        (self.inbox / 'downloading.zip.part').write_bytes(b'PK')
+        (self.inbox / 'ready.zip').write_bytes(b'PK')
+        found = [p.name for p in self.mx.gather_archives(self.inbox, stability_seconds=0)]
+        self.assertEqual(found, ['ready.zip'])
+
+    def test_zip_is_extracted_then_deleted_when_catalog_matches(self):
+        data = {'E01.mkv': b'episode-one-payload', 'E02.mkv': b'episode-two-payload'}
+        archive = self._write_zip('Elfen.Lied.S01.zip', data)
+        results = self.mx.extract_pending_archives(
+            self.inbox, stability_seconds=0, margin_bytes=0, dry_run=False)
+        dest = self.inbox / 'Elfen.Lied.S01'
+        self.assertTrue(results[0].extracted)
+        self.assertFalse(archive.exists())
+        self.assertTrue((dest / 'E01.mkv').is_file())
+        self.assertTrue((dest / 'E02.mkv').is_file())
+
+    def test_7z_is_extracted_then_deleted(self):
+        archive = self._write_7z('Show.S01.7z', {'E01.mkv': b'payload-sevenzip'})
+        results = self.mx.extract_pending_archives(
+            self.inbox, stability_seconds=0, margin_bytes=0, dry_run=False)
+        self.assertTrue(results[0].extracted)
+        self.assertFalse(archive.exists())
+        self.assertTrue((self.inbox / 'Show.S01' / 'E01.mkv').is_file())
+
+    def test_archive_is_kept_when_verification_fails(self):
+        archive = self._write_zip('Broken.S01.zip', {'E01.mkv': b'payload'})
+
+        def write_nothing(archive_path, dest):
+            dest.mkdir(parents=True, exist_ok=True)
+
+        with mock.patch.object(self.mx, 'extract_archive', side_effect=write_nothing):
+            results = self.mx.extract_pending_archives(
+                self.inbox, stability_seconds=0, margin_bytes=0, dry_run=False)
+        self.assertFalse(results[0].extracted)
+        self.assertTrue(archive.exists())
+        self.assertFalse((self.inbox / 'Broken.S01').exists())
+
+    def test_archive_is_kept_when_disk_is_too_small(self):
+        archive = self._write_zip('Huge.S01.zip', {'E01.mkv': b'payload'})
+        with mock.patch.object(self.mx, 'disk_free', return_value=1):
+            results = self.mx.extract_pending_archives(
+                self.inbox, stability_seconds=0,
+                margin_bytes=10 * 1024 * 1024 * 1024, dry_run=False)
+        self.assertFalse(results[0].extracted)
+        self.assertIn('espace insuffisant', results[0].detail)
+        self.assertTrue(archive.exists())
+
+    def test_dry_run_does_not_extract_or_delete(self):
+        archive = self._write_zip('Dry.S01.zip', {'E01.mkv': b'payload'})
+        results = self.mx.extract_pending_archives(
+            self.inbox, stability_seconds=0, margin_bytes=0, dry_run=True)
+        self.assertFalse(results[0].extracted)
+        self.assertIn('[DRY]', results[0].detail)
+        self.assertTrue(archive.exists())
+        self.assertFalse((self.inbox / 'Dry.S01').exists())
+
+    def test_multipart_siblings_are_removed_with_the_primary(self):
+        primary = self.inbox / 'Show.part1.rar'
+        sibling = self.inbox / 'Show.part2.rar'
+        primary.write_bytes(b'Rar!')
+        sibling.write_bytes(b'Rar!')
+        members = self.mx.archive_members(primary)
+        self.assertEqual({p.name for p in members}, {'Show.part1.rar', 'Show.part2.rar'})
+
+    def test_split_zip_volumes_are_members_of_the_primary(self):
+        primary = self.inbox / 'Show.zip'
+        vol = self.inbox / 'Show.z01'
+        primary.write_bytes(b'PK')
+        vol.write_bytes(b'PK')
+        members = self.mx.archive_members(primary)
+        self.assertEqual({p.name for p in members}, {'Show.zip', 'Show.z01'})
+
+    def test_unstable_volume_blocks_the_set(self):
+        primary = self.inbox / 'Show.part1.rar'
+        sibling = self.inbox / 'Show.part2.rar'
+        primary.write_bytes(b'Rar!')
+        sibling.write_bytes(b'Rar!')
+        now = time.time()
+        os.utime(primary, (now - 3600, now - 3600))
+        os.utime(sibling, (now, now))
+        found = self.mx.gather_archives(self.inbox, stability_seconds=300)
+        self.assertEqual(found, [])
+
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)
