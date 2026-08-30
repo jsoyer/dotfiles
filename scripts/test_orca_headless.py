@@ -35,6 +35,7 @@ class FuseFallback(unittest.TestCase):
         self.assertIn("ensure_electron_runtime", SETUP)
         self.assertIn("libgtk-3-0", SETUP)
         self.assertIn("libcups2", SETUP)
+        self.assertIn("libcairo2", SETUP)
         self.assertIn("ELECTRON_APT_PKGS", SETUP)
 
     def test_rpi_aptfile_ships_electron_gtk_runtime(self):
@@ -47,6 +48,9 @@ class FuseFallback(unittest.TestCase):
             "libcups2",
             "libdrm2",
             "libnspr4",
+            "libcups2",
+            "libcairo2",
+            "libpango-1.0-0",
         ):
             self.assertRegex(APT_RPI, rf"(?m)^{pkg}$")
 
