@@ -333,7 +333,7 @@ WorkingDirectory=${DEST_DIR}
 # Type-2 AppImage needs libfuse.so.2; extract-and-run works without FUSE.
 Environment=APPIMAGE_EXTRACT_AND_RUN=1
 # Electron/Orca still requires an X server. Without xvfb: Missing X server
-# or $DISPLAY then SIGSEGV. --auto-servernum picks a free display.
+# or DISPLAY then SIGSEGV. --auto-servernum picks a free display.
 ExecStart=/usr/bin/xvfb-run --auto-servernum ${DEST} serve --port ${PORT} --pairing-address ${PAIRING_ADDR}
 Restart=on-failure
 RestartSec=5

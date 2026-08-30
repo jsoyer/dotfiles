@@ -25,6 +25,12 @@ class FuseFallback(unittest.TestCase):
         self.assertIn("xvfb-run --auto-servernum", SETUP)
         self.assertIn("xvfb", APT_RPI)
 
+    def test_unquoted_unit_heredoc_does_not_expand_display(self):
+        # set -u: `$DISPLAY` in <<EOF aborted orca-setup on diabolo.
+        unit = SETUP.split("write_file \"/etc/systemd/system/${SERVICE}\" <<EOF", 1)[1]
+        unit = unit.split("EOF", 1)[0]
+        self.assertNotIn("$DISPLAY", unit)
+
     def test_crash_loop_is_capped(self):
         self.assertIn("StartLimitBurst=8", SETUP)
         self.assertIn("Restart=on-failure", SETUP)

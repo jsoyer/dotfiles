@@ -67,3 +67,9 @@
 - **LOGIC:** Install `xvfb`. systemd `ExecStart=/usr/bin/xvfb-run --auto-servernum <AppImage> serve …`.
 - **Verify:** `python3 scripts/test_orca_headless.py`
 
+## 2026-08-30 — orca-setup set -u aborted on $DISPLAY in unit heredoc
+
+- **ENV:** diabolo: `/home/pi/.local/bin/orca-setup: line 319: DISPLAY: unbound variable` after xvfb installed. Service stayed inactive.
+- **LOGIC:** The systemd unit is `<<EOF` (unquoted) so bash expanded `$DISPLAY` in a comment. `set -u` killed the script before enable --now. Do not put `$DISPLAY` in that heredoc.
+- **Verify:** `python3 scripts/test_orca_headless.py`
+
