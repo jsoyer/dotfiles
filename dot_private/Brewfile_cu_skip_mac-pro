@@ -6,6 +6,7 @@
 # These write under /Library or run a privileged installer.
 
 obs
+claude
 logitune
 logi-options+
 xquartz
