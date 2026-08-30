@@ -40,19 +40,34 @@ class FuseFallback(unittest.TestCase):
 
     def test_rpi_aptfile_ships_electron_gtk_runtime(self):
         for pkg in (
+            "libfuse2",
             "libgtk-3-0",
+            "libatk1.0-0",
+            "libatk-bridge2.0-0",
+            "libatspi2.0-0",
             "libnss3",
+            "libnspr4",
             "libgbm1",
             "libasound2",
-            "libatk-bridge2.0-0",
             "libcups2",
             "libdrm2",
-            "libnspr4",
-            "libcups2",
             "libcairo2",
             "libpango-1.0-0",
+            "libpangocairo-1.0-0",
+            "libgdk-pixbuf-2.0-0",
+            "libglib2.0-0",
+            "libxss1",
+            "libxtst6",
+            "libnotify4",
+            "libx11-6",
+            "libxcb1",
+            "libxext6",
+            "libxfixes3",
+            "libvulkan1",
+            "fonts-liberation",
         ):
             self.assertRegex(APT_RPI, rf"(?m)^{pkg}$")
+            self.assertIn(pkg, SETUP)
 
 
 if __name__ == "__main__":
