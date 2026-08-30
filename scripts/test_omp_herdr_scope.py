@@ -97,6 +97,25 @@ class HerdrIsEverywhere(unittest.TestCase):
                     offenders.append(f'{name}: {needle}')
         self.assertEqual(offenders, [], f'linux brewfile still has: {offenders}')
 
+    def test_macos_brewfiles_ship_stablyai_orca_gui(self):
+        for name in ('Brewfile_personal', 'Brewfile_pro'):
+            text = _read(ROOT / 'dot_private' / name)
+            self.assertIn('tap "stablyai/orca"', text, name)
+            self.assertIn('cask "stablyai/orca/orca"', text, name)
+            self.assertNotIn('cask "orca"', text, name)
+
+    def test_linux_brewfiles_do_not_ship_orca_cask(self):
+        offenders = []
+        for name in ('Brewfile_brew_only', 'Brewfile_rpi', 'Brewfile_fedora_atomic', 'Brewfile_macos'):
+            path = ROOT / 'dot_private' / name
+            if not path.exists():
+                continue
+            text = path.read_text()
+            for needle in ('stablyai/orca', 'cask "orca"'):
+                if needle in text:
+                    offenders.append(f'{name}: {needle}')
+        self.assertEqual(offenders, [], f'unexpected orca cask: {offenders}')
+
     def test_orca_update_is_os_split(self):
         text = _read(ALIASES)
         darwin = text[

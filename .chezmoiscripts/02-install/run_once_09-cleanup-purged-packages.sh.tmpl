@@ -27,13 +27,14 @@ PURGED_FORMULAE=(
     pokemonsay turso graphite virt-viewer coreml-cli
 )
 PURGED_CASKS=(
-    betterdiscord-installer rar orla orca
+    betterdiscord-installer rar orla
 )
 
 # orla's tap was renamed upstream, so both names have to go or brew follows the
-# redirect and taps it straight back.
+# redirect and taps it straight back. stablyai/orca stays: the macOS GUI cask
+# is in Brewfile_personal and Brewfile_pro (fully-qualified, not plotly/orca).
 PURGED_TAPS=(
-    harvard-cns/orla dorcha-inc/orla stablyai/orca
+    harvard-cns/orla dorcha-inc/orla
     jeffreywildman/virt-manager schappim/coreml-cli
 )
 

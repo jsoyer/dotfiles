@@ -43,3 +43,9 @@
 - **LOGIC:** Restore a Darwin-only `orca-update` in aliases.sh / fish / nushell that taps `stablyai/orca` and upgrades that fully-qualified cask. Unqualified `orca` is plotly/orca. Keep the Linux alias as `update-orca`. Do not define the function in functions.sh (zsh alias/function parse error).
 - **Verify:** `python3 scripts/test_omp_herdr_scope.py`
 
+## 2026-08-30 — Orca GUI cask on every Mac
+
+- **CONFIG:** Headless Orca stays Linux-only. The macOS GUI (`stablyai/orca/orca`) belongs on every Mac, including mac-pro.
+- **LOGIC:** Add the fully-qualified cask + tap to `Brewfile_personal` and `Brewfile_pro`. Never `cask "orca"` (plotly). Remove it from `run_once_09` purge lists so that script cannot uninstall it on re-run. `orca-update` on Darwin upgrades this cask.
+- **Verify:** `python3 scripts/test_omp_herdr_scope.py`
+
