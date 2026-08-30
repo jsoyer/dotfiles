@@ -567,6 +567,8 @@ chezmoi only writes inside `$HOME`.
 - AppImage type-2 needs `libfuse.so.2`. Raspberry Pi OS ships fuse3, so the
   unit sets `APPIMAGE_EXTRACT_AND_RUN=1` and `orca-setup` installs `libfuse2`
   when missing (looping crash-looped with `error loading libfuse.so.2`).
+- Headless Electron still needs X: `ExecStart` is `xvfb-run --auto-servernum …`
+  (looping SIGSEGV'd with `Missing X server or $DISPLAY` / `Xvfb not found`).
 - Derives `User=` from `$SUDO_USER` and the `--pairing-address` from Tailscale
   (fallback: the default route source IP) instead of hardcoding them.
 - Keeps the Electron drop-in (`SIGTERM`, `KillMode=mixed`, `LogFilterPatterns`)

@@ -276,7 +276,7 @@ ELECTRON_APT_PKGS=(
   libglib2.0-0 libdbus-1-3 libexpat1 libudev1 libsecret-1-0
   libxss1 libxtst6 libnotify4 libx11-6 libx11-xcb1 libxcb1
   libxcomposite1 libxdamage1 libxext6 libxfixes3 libxkbcommon0
-  libxrandr2 libvulkan1 fonts-liberation
+  libxrandr2 libvulkan1 fonts-liberation xvfb
 )
 ELECTRON_APT_PKGS_T64=(
   libfuse2t64
@@ -286,7 +286,7 @@ ELECTRON_APT_PKGS_T64=(
   libglib2.0-0t64 libdbus-1-3 libexpat1 libudev1 libsecret-1-0
   libxss1 libxtst6 libnotify4 libx11-6 libx11-xcb1 libxcb1
   libxcomposite1 libxdamage1 libxext6 libxfixes3 libxkbcommon0
-  libxrandr2 libvulkan1 fonts-liberation
+  libxrandr2 libvulkan1 fonts-liberation xvfb
 )
 
 ensure_electron_runtime() {
@@ -298,12 +298,12 @@ ensure_electron_runtime() {
   elif command -v dnf >/dev/null 2>&1; then
     run dnf install -y gtk3 nss nspr mesa-libgbm alsa-lib at-spi2-atk \
       libXScrnSaver cups-libs libdrm libXcomposite libXdamage libXrandr \
-      libxkbcommon at-spi2-core libX11-xcb libsecret || \
+      libxkbcommon at-spi2-core libX11-xcb libsecret xorg-x11-server-Xvfb || \
       warn "Could not install GTK/Electron libs."
   elif command -v pacman >/dev/null 2>&1; then
     run pacman -S --needed --noconfirm gtk3 nss nspr libxss alsa-lib \
       at-spi2-core libcups libdrm libxcomposite libxdamage libxrandr \
-      libxkbcommon libx11 libsecret || \
+      libxkbcommon libx11 libsecret xorg-server-xvfb || \
       warn "Could not install GTK/Electron libs."
   fi
 }
@@ -332,7 +332,9 @@ User=${SVC_USER}
 WorkingDirectory=${DEST_DIR}
 # Type-2 AppImage needs libfuse.so.2; extract-and-run works without FUSE.
 Environment=APPIMAGE_EXTRACT_AND_RUN=1
-ExecStart=${DEST} serve --port ${PORT} --pairing-address ${PAIRING_ADDR}
+# Electron/Orca still requires an X server. Without xvfb: Missing X server
+# or $DISPLAY then SIGSEGV. --auto-servernum picks a free display.
+ExecStart=/usr/bin/xvfb-run --auto-servernum ${DEST} serve --port ${PORT} --pairing-address ${PAIRING_ADDR}
 Restart=on-failure
 RestartSec=5
 

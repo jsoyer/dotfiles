@@ -21,6 +21,10 @@ class FuseFallback(unittest.TestCase):
         self.assertIn("ensure_libfuse2", SETUP)
         self.assertIn("libfuse2t64", SETUP)
 
+    def test_unit_wraps_exec_in_xvfb(self):
+        self.assertIn("xvfb-run --auto-servernum", SETUP)
+        self.assertIn("xvfb", APT_RPI)
+
     def test_crash_loop_is_capped(self):
         self.assertIn("StartLimitBurst=8", SETUP)
         self.assertIn("Restart=on-failure", SETUP)
@@ -65,6 +69,7 @@ class FuseFallback(unittest.TestCase):
             "libxfixes3",
             "libvulkan1",
             "fonts-liberation",
+            "xvfb",
         ):
             self.assertRegex(APT_RPI, rf"(?m)^{pkg}$")
             self.assertIn(pkg, SETUP)

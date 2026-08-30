@@ -61,3 +61,9 @@
 - **LOGIC:** `libgtk-3-0` pulls ATK. Also nss/gbm/asound/atk-bridge/xss. `orca-setup` installs them; `Aptfile_rpi` lists them.
 - **Verify:** `python3 scripts/test_orca_headless.py`
 
+## 2026-08-30 — Orca serve SIGSEGV without Xvfb
+
+- **ENV:** After GTK libs, looping logged `Xvfb not found` then `Missing X server or $DISPLAY` then SIGSEGV.
+- **LOGIC:** Install `xvfb`. systemd `ExecStart=/usr/bin/xvfb-run --auto-servernum <AppImage> serve …`.
+- **Verify:** `python3 scripts/test_orca_headless.py`
+

@@ -57,6 +57,7 @@ libxkbcommon0
 libxrandr2
 libvulkan1
 fonts-liberation
+xvfb
 
 # installed via custom apt repo in chezmoi scripts (not managed by aptw)
 # 1password-cli — run_once_install-1password.sh
