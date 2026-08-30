@@ -83,6 +83,8 @@ class FuseFallback(unittest.TestCase):
             "libvulkan1",
             "fonts-liberation",
             "xvfb",
+            "zlib1g",
+            "zlib1g-dev",
         ):
             self.assertRegex(APT_RPI, rf"(?m)^{pkg}$")
             self.assertIn(pkg, SETUP)
