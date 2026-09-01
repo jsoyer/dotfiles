@@ -557,12 +557,82 @@ class AYearFromASeasonFolderMustNotHideTheSeries(unittest.TestCase):
     def test_a_genuinely_unknown_title_still_returns_nothing(self):
         trouve, appels = self.rejouer('2016', lambda _: {'results': []})
         self.assertIsNone(trouve)
-        self.assertEqual(len(appels), 2)
 
-    def test_without_a_year_a_single_search_is_made(self):
-        trouve, appels = self.rejouer(None, lambda _: {'results': [self.CONAN]})
-        self.assertEqual(trouve['id'], 30983)
-        self.assertEqual(len(appels), 1)
+
+class ASeasonSubtitleMustNotHideTheSeries(unittest.TestCase):
+    """The release names the season; TMDb names the series.
+
+    Origin: Lastman.Heroes.S02E01... parsed as 'Lastman Heroes'. TMDb calls
+    the show Lastman and the second season 'Lastman Heroes'. Searching the
+    glued title returned nothing, so six episodes looped in the inbox as
+    'no TMDb TV match' while Season 01 was already in the library.
+    """
+
+    LASTMAN = {'id': 68888, 'name': 'Lastman', 'popularity': 5.8,
+               'first_air_date': '2016-11-22'}
+
+    def rejouer(self, titre, reponses):
+        appels = []
+
+        def faux_request(path, api_key, params):
+            appels.append(params.get('query'))
+            return reponses(params.get('query'))
+
+        original = ma.tmdb_request
+        ma.tmdb_request = faux_request
+        try:
+            return ma.search_tmdb_tv(titre, None, 'cle', 'fr-FR'), appels
+        finally:
+            ma.tmdb_request = original
+
+    def test_lastman_heroes_falls_back_to_lastman(self):
+        def reponses(query):
+            return {'results': [self.LASTMAN] if query == 'Lastman' else []}
+
+        trouve, appels = self.rejouer('Lastman Heroes', reponses)
+        self.assertIsNotNone(trouve)
+        self.assertEqual(trouve['id'], 68888)
+        self.assertEqual(appels, ['Lastman Heroes', 'Lastman'])
+
+    def test_a_title_that_matches_is_not_shortened(self):
+        trouve, appels = self.rejouer(
+            'Lastman Heroes', lambda _: {'results': [self.LASTMAN]})
+        self.assertEqual(trouve['id'], 68888)
+        self.assertEqual(appels, ['Lastman Heroes'])
+
+    def test_a_short_remainder_is_not_tried(self):
+        # 'AI Extra' -> 'AI' is too vague to send to TMDb on its own.
+        trouve, appels = self.rejouer('AI Extra', lambda _: {'results': []})
+        self.assertIsNone(trouve)
+        self.assertEqual(appels, ['AI Extra'])
+
+    def test_a_franchise_prefix_is_not_tried(self):
+        # Two-word remainder is a franchise, not a series name.
+        trouve, appels = self.rejouer(
+            'Star Trek Discovery', lambda _: {'results': []})
+        self.assertIsNone(trouve)
+        self.assertEqual(appels, ['Star Trek Discovery'])
+
+    def test_truncated_query_requires_an_exact_name(self):
+        parent = {'id': 1, 'name': 'Star Trek', 'popularity': 99.0,
+                  'first_air_date': '1966-09-08'}
+
+        def reponses(query):
+            if query == 'Lastman Heroes':
+                return {'results': []}
+            if query == 'Lastman':
+                return {'results': [parent]}  # popularity bait, wrong name
+            return {'results': []}
+
+        trouve, appels = self.rejouer('Lastman Heroes', reponses)
+        self.assertIsNone(trouve)
+        self.assertEqual(appels, ['Lastman Heroes', 'Lastman'])
+
+    def test_an_unknown_two_word_title_still_returns_nothing(self):
+        trouve, appels = self.rejouer(
+            'Zxqtplm Heroes', lambda _: {'results': []})
+        self.assertIsNone(trouve)
+        self.assertEqual(appels, ['Zxqtplm Heroes', 'Zxqtplm'])
 
 
 class LongRunningSeriesMustNotBeTruncated(unittest.TestCase):

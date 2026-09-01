@@ -1667,6 +1667,33 @@ def get_tmdb_movie_details(movie_id, api_key, language):
     )
 
 
+def titres_de_recherche_tv(title):
+    """Queries to send to TMDb, most specific first.
+
+    Releases often glue the season subtitle onto the series name
+    (`Lastman.Heroes.S02`): TMDb knows the series as Lastman and the season
+    as Lastman Heroes. Searching the glued string returns nothing. Dropping
+    the last token is a last resort, and only when what remains is long
+    enough not to be a generic particle.
+    """
+    queries = []
+    def add(candidate):
+        candidate = ' '.join((candidate or '').split())
+        if candidate and candidate not in queries:
+            queries.append(candidate)
+
+    add(title or '')
+    tokens = (title or '').split()
+    if len(tokens) >= 2:
+        raccourci = ' '.join(tokens[:-1])
+        # Un seul mot, assez long : « Lastman Heroes » -> « Lastman ».
+        # « Star Trek Discovery » -> « Star Trek » est un prefixe de franchise,
+        # trop large pour etre tente.
+        if ' ' not in raccourci and len(raccourci) >= 7:
+            add(raccourci)
+    return queries
+
+
 def search_tmdb_tv(title, year, api_key, language):
     """Search TMDb for a TV show candidate.
 
@@ -1675,25 +1702,42 @@ def search_tmdb_tv(title, year, api_key, language):
     of Detective Conan handed 2016 to a series that started in 1996, TMDb
     answered with an empty list, and every episode of the pack was rejected as
     unknown. So a year that finds nothing is dropped and the search retried.
+
+    The same applies to a season subtitle glued onto the series name: try the
+    full string first, then a shortened one, rather than skip the pack.
     """
-    params = {'query': title, 'language': language}
-    if year:
-        params['first_air_date_year'] = year
-    payload = tmdb_request('/search/tv', api_key, params)
-    results = payload.get('results', [])
-    if not results and year:
-        year = None
-        results = tmdb_request(
-            '/search/tv', api_key, {'query': title, 'language': language}
-        ).get('results', [])
-    if not results:
-        return None
-    if year:
-        millesime = [r for r in results
-                     if (r.get('first_air_date') or '').startswith(str(year))]
-        if millesime:
-            return _meilleur_candidat_tv(title, millesime)
-    return _meilleur_candidat_tv(title, results)
+    for query in titres_de_recherche_tv(title):
+        params = {'query': query, 'language': language}
+        if year:
+            params['first_air_date_year'] = year
+        results = tmdb_request('/search/tv', api_key, params).get('results', [])
+        if not results and year:
+            results = tmdb_request(
+                '/search/tv', api_key, {'query': query, 'language': language}
+            ).get('results', [])
+        if not results:
+            continue
+        if year:
+            millesime = [r for r in results
+                         if (r.get('first_air_date') or '').startswith(str(year))]
+            if millesime:
+                results = millesime
+        choisi = _meilleur_candidat_tv(query, results)
+        if query != title and not _titre_tv_exact(query, choisi):
+            continue
+        return choisi
+    return None
+
+
+def _titre_tv_exact(query, candidat):
+    """True when TMDb names this show exactly as `query`."""
+    if not candidat:
+        return False
+    cible = normalize(query)
+    return cible in {
+        normalize(candidat.get('name') or ''),
+        normalize(candidat.get('original_name') or ''),
+    }
 
 
 def _meilleur_candidat_tv(query, results):
