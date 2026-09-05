@@ -17,4 +17,5 @@ cask "grok-bot"
 cask "grok-build"
 cask "linear"
 cask "logi-options+"
+cask "openlogi"
 mas "Remote Desktop", id: 409907375
