@@ -16,4 +16,5 @@ cask "fluidvoice"
 cask "grok-bot"
 cask "grok-build"
 cask "linear"
+cask "logi-options+"
 mas "Remote Desktop", id: 409907375
