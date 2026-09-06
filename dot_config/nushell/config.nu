@@ -1716,3 +1716,31 @@ if $nu.os-info.name != "macos" {
 }
 
 source ~/.cache/atuin/init.nu
+
+# ============================================================================
+# TeX Live (tlmgr) - replaces TeX Live Utility.app
+# /usr/local/texlive is root-owned: write operations need sudo, reads do not.
+# ============================================================================
+
+# Bare `tlmgr` calls: add sudo for write subcommands, leave reads unprivileged.
+# `^tlmgr` forces the external binary, so this never recurses.
+def --wrapped tlmgr [...args: string] {
+    let write_ops = [install remove update restore backup uninstall init-usertree]
+    let read_flags = [--list --dry-run --help]
+    let sub = (if ($args | is-empty) { "" } else { $args | first })
+    if ($sub in $write_ops) and ($args | where {|a| $a in $read_flags} | is-empty) {
+        ^sudo tlmgr ...$args
+    } else {
+        ^tlmgr ...$args
+    }
+}
+
+alias tlck = ^tlmgr update --list --all
+alias tlif = ^tlmgr info
+alias tlsr = ^tlmgr search --global --file
+alias tlrepo = ^tlmgr option repository
+
+alias tlup = sudo tlmgr update --self --all
+alias tlin = sudo tlmgr install
+alias tlrm = sudo tlmgr remove
+alias tlmirror = sudo tlmgr option repository "https://mirror.ctan.org/systems/texlive/tlnet"

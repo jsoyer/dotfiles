@@ -785,3 +785,47 @@ if [[ "$(uname -s)" == "Linux" ]]; then
   alias cursor-logs='journalctl --user -u cursor-worker.service -f'
   alias cursor-restart='systemctl --user restart cursor-worker.service'
 fi
+
+# ============================================================================
+# TeX Live (tlmgr) - replaces TeX Live Utility.app
+# /usr/local/texlive is root-owned: write operations need sudo, reads do not.
+# The read-only aliases call `command tlmgr` to bypass the wrapper below, so
+# checking for updates never prompts for a password.
+# ============================================================================
+alias tlck='command tlmgr update --list --all'      # available updates (no sudo)
+alias tlif='command tlmgr info'                     # package details
+alias tlsr='command tlmgr search --global --file'   # which package ships this file?
+alias tlrepo='command tlmgr option repository'      # show the current mirror
+
+alias tlup='sudo tlmgr update --self --all'         # update tlmgr, then everything
+alias tlin='sudo tlmgr install'                     # install a package
+alias tlrm='sudo tlmgr remove'                      # remove a package
+alias tlmirror='sudo tlmgr option repository https://mirror.ctan.org/systems/texlive/tlnet'
+
+# Bare `tlmgr` calls: add sudo for write subcommands, leave reads unprivileged.
+# `sudo tlmgr` execs the binary (functions are not inherited by sudo), so this
+# never recurses. Do NOT write `sudo command tlmgr` - sudo would look for a
+# binary literally named `command`.
+# `option`/`paper`/`conf` are deliberately excluded: their read and write forms
+# differ only by argument count, so they stay unprivileged rather than prompting
+# for a password on a plain read.
+tlmgr() {
+    case "${1:-}" in
+        install|remove|update|restore|backup|uninstall|init-usertree)
+            # --list/--dry-run/--help are read-only even on a write subcommand.
+            local _tl_arg
+            for _tl_arg in "$@"; do
+                case "$_tl_arg" in
+                    --list|--dry-run|--help)
+                        command tlmgr "$@"
+                        return $?
+                        ;;
+                esac
+            done
+            sudo tlmgr "$@"
+            ;;
+        *)
+            command tlmgr "$@"
+            ;;
+    esac
+}
