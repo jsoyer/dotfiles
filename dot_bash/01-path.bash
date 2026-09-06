@@ -54,7 +54,6 @@ if [[ "${IS_MACOS}" == "true" ]]; then
   path_append "/opt/X11/bin"
   path_append "/Library/TeX/texbin"
   path_append "/usr/texbin"
-  path_append "/usr/local/texlive/2025basic/bin/universal-darwin"
 
   # Lazy load pyenv for faster startup
   if command -v pyenv >/dev/null 2>&1; then

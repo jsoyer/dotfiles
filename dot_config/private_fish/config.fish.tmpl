@@ -70,7 +70,6 @@ end
 fish_add_path -g /opt/X11/bin
 fish_add_path -g /Library/TeX/texbin
 fish_add_path -g /usr/texbin
-fish_add_path -g /usr/local/texlive/2025basic/bin/universal-darwin
 
 {{ end -}}
 # ============================================================================
@@ -1090,3 +1089,34 @@ alias cursor-update='update-cursor-agent'
 alias cursor-logs='journalctl --user -u cursor-worker.service -f'
 alias cursor-restart='systemctl --user restart cursor-worker.service'
 {{ end -}}
+
+# ============================================================================
+# TeX Live (tlmgr) - replaces TeX Live Utility.app
+# /usr/local/texlive is root-owned: write operations need sudo, reads do not.
+# The read-only aliases call `command tlmgr` to bypass the wrapper below.
+# ============================================================================
+alias tlck='command tlmgr update --list --all'
+alias tlif='command tlmgr info'
+alias tlsr='command tlmgr search --global --file'
+alias tlrepo='command tlmgr option repository'
+
+alias tlup='sudo tlmgr update --self --all'
+alias tlin='sudo tlmgr install'
+alias tlrm='sudo tlmgr remove'
+alias tlmirror='sudo tlmgr option repository https://mirror.ctan.org/systems/texlive/tlnet'
+
+# Bare `tlmgr` calls: add sudo for write subcommands, leave reads unprivileged.
+function tlmgr --wraps=tlmgr --description 'tlmgr, auto-sudo for write operations'
+    if test (count $argv) -gt 0
+        switch $argv[1]
+            case install remove update restore backup uninstall init-usertree
+                if contains -- --list $argv; or contains -- --dry-run $argv
+                    command tlmgr $argv
+                    return $status
+                end
+                sudo tlmgr $argv
+                return $status
+        end
+    end
+    command tlmgr $argv
+end

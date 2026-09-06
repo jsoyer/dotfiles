@@ -1,0 +1,86 @@
+#!/usr/bin/env bash
+# tldoctor - health check for the local TeX Live installation.
+#
+# Replaces the status view of TeX Live Utility.app. Strictly read-only: it never
+# writes to the installation, so it never needs sudo. Lives here rather than as a
+# shell alias so that zsh, bash, fish and nushell all share one implementation.
+
+set -uo pipefail
+
+if [ -t 1 ]; then
+    bold=$(tput bold 2>/dev/null || true)
+    red=$(tput setaf 1 2>/dev/null || true)
+    grn=$(tput setaf 2 2>/dev/null || true)
+    ylw=$(tput setaf 3 2>/dev/null || true)
+    rst=$(tput sgr0 2>/dev/null || true)
+else
+    bold= red= grn= ylw= rst=
+fi
+
+ok()   { printf '  %s+%s %s\n' "$grn" "$rst" "$1"; }
+warn() { printf '  %s!%s %s\n' "$ylw" "$rst" "$1"; }
+bad()  { printf '  %s-%s %s\n' "$red" "$rst" "$1"; }
+hdr()  { printf '\n%s%s%s\n' "$bold" "$1" "$rst"; }
+
+# ---------------------------------------------------------------- installation
+hdr "Installation"
+
+# `command tlmgr` bypasses the auto-sudo shell wrapper, keeping this read-only.
+if ! command -v tlmgr >/dev/null 2>&1; then
+    bad "tlmgr not found in PATH"
+    printf '\n    Is MacTeX/TeX Live installed? Expected /Library/TeX/texbin in PATH.\n\n'
+    exit 1
+fi
+
+version_out=$(command tlmgr --version 2>/dev/null)
+install_dir=$(printf '%s\n' "$version_out" | sed -n 's/^tlmgr using installation: //p')
+revision=$(printf '%s\n' "$version_out" | sed -n 's/^tlmgr revision \([0-9]*\).*/\1/p')
+
+ok "binary    $(command -v tlmgr)"
+[ -n "$revision" ]    && ok "revision  r$revision"
+[ -n "$install_dir" ] && ok "root      $install_dir"
+
+# ----------------------------------------------------------------- permissions
+hdr "Permissions"
+
+if [ -n "$install_dir" ] && [ -w "$install_dir/tlpkg" ]; then
+    ok "writable without sudo"
+else
+    warn "root-owned - write operations need sudo (this is normal on macOS)"
+    printf '        tlup / tlin / tlrm handle it; tlck / tlif / tlsr do not need it.\n'
+fi
+
+# ------------------------------------------------------------------ repository
+hdr "Repository"
+
+repo=$(command tlmgr option repository 2>/dev/null | sed -n 's/.*(repository): //p')
+if [ -z "$repo" ]; then
+    bad "could not read the configured repository"
+else
+    ok "$repo"
+    if curl -sfI --max-time 15 "$repo/tlpkg/texlive.tlpdb" >/dev/null 2>&1; then
+        ok "reachable"
+    else
+        bad "unreachable or missing texlive.tlpdb"
+        printf '        Switch to the auto-redirecting CTAN mirror with:  tlmirror\n'
+    fi
+fi
+
+# --------------------------------------------------------------------- updates
+hdr "Updates"
+
+updates=$(command tlmgr update --list --all 2>&1)
+if printf '%s\n' "$updates" | grep -q 'tlmgr itself needs to be updated'; then
+    warn "tlmgr itself is out of date - run 'tlup' (it passes --self first)"
+fi
+
+count=$(printf '%s\n' "$updates" | grep -c '^update:' || true)
+if printf '%s\n' "$updates" | grep -q 'could not get texlive.tlpdb'; then
+    bad "cannot read the package database from the repository"
+elif [ "$count" -eq 0 ]; then
+    ok "everything up to date"
+else
+    warn "$count package(s) pending - run 'tlup'"
+fi
+
+printf '\n'

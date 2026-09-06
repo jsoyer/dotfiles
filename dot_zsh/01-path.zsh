@@ -53,7 +53,6 @@ if [[ "${IS_MACOS}" == "true" ]]; then
     /opt/X11/bin
     /Library/TeX/texbin
     /usr/texbin
-    /usr/local/texlive/2025basic/bin/universal-darwin
   )
 
   # Lazy load pyenv for faster startup (macOS only)
