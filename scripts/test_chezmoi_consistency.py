@@ -6,7 +6,6 @@ OmArchy target paths, no chezmoiremove fight over ~/.agents, machine_profile
 instead of a hardcoded hostname in apply scripts, and mac-pro-only leftover
 wipes.
 """
-import re
 import unittest
 from pathlib import Path
 
@@ -15,6 +14,9 @@ IGNORE = ROOT / '.chezmoiignore.tmpl'
 REMOVE = ROOT / '.chezmoiremove.tmpl'
 RUN12 = ROOT / '.chezmoiscripts/02-install/run_once_12-disable-macos-agent-stacks.sh.tmpl'
 NUSHELL = ROOT / 'dot_config/nushell/env.nu.tmpl'
+FISH = ROOT / 'dot_config/private_fish/config.fish.tmpl'
+ZSH_PATH = ROOT / 'dot_zsh/01-path.zsh'
+BASH_PATH = ROOT / 'dot_bash/01-path.bash'
 
 # Hostname stays only where it *defines* the profile, or names a Brewfile overlay.
 HOSTNAME_ALLOWED = {
@@ -102,9 +104,20 @@ class MacProOnlyLeftoverWipe(unittest.TestCase):
 class NushellPath(unittest.TestCase):
     def test_texlive_is_darwin_only(self):
         text = _read(NUSHELL)
-        tex = text.index('texlive/2025basic')
+        # /Library/TeX/texbin is the version-independent symlink the MacTeX
+        # installer keeps pointed at the current distribution. A versioned path
+        # such as texlive/2025basic silently goes dead on every yearly upgrade,
+        # which is exactly what happened before this was switched over.
+        tex = text.index('/Library/TeX/texbin')
         window = text[text.rfind('{{- if', 0, tex):tex]
         self.assertIn('darwin', window)
+
+    def test_no_versioned_texlive_path(self):
+        # Guard against reintroducing a year-stamped TeX Live path anywhere in
+        # the shell PATH configuration.
+        for path in (NUSHELL, FISH, BASH_PATH, ZSH_PATH):
+            with self.subTest(path=path.name):
+                self.assertNotIn('texlive/20', _read(path))
 
 
 if __name__ == '__main__':
