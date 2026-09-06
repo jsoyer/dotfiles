@@ -54,7 +54,6 @@ This repository is the source of truth for chezmoi-managed dotfiles. Keep it foc
 
 ## Follow-up Work Items
 
-- Fix local `bd` runtime dependency so Beads can track this cleanup work again.
 - Add tests around `aictx apply` symlink behavior and cleanup ownership.
 - Add a safe mode to `chezmoi-autoupdate` and make it the default.
 - Keep `.chezmoi.toml.tmpl` Git automation opt-in and wrapper-owned manifest sync explicit.
