@@ -1,11 +1,11 @@
 memory/
 .rtk/
 
-# Beads / Dolt files (added by bd init)
+# Beads / Dolt files (bd removed from this project; local DB kept out of git)
 .dolt/
 *.db
 .beads-credential-key
-.beads/config.yaml
+.beads/
 AGENTS.md
 .claude/
 .omc/
