@@ -1,7 +1,9 @@
 # Host overlay for Jerome-Soyers-MacBook-Pro-14 — extras beyond the shared base.
 # Managed by breww. Do not edit manually.
+tap "douglasdemoura/tap"
 tap "homebrew/cask"
 tap "homebrew/core"
+tap "iamrohithrnair/tap"
 tap "rjyo/moshi", trusted: true
 tap "teamookla/speedtest", trusted: true
 brew "icu4c@77"
@@ -24,12 +26,14 @@ brew "semgrep"
 brew "signal-cli"
 brew "tuicr"
 brew "unar"
+brew "iamrohithrnair/tap/emeraldian", trusted: true
 brew "rjyo/moshi/moshi-hook", trusted: true
 brew "teamookla/speedtest/speedtest"
 cask "antigravity-cli"
 cask "bettercapture"
 cask "theboredteam/boring-notch/boring-notch", trusted: true
 cask "chatgpt"
+cask "douglasdemoura/tap/chroncal", trusted: true
 cask "elgato-camera-hub"
 cask "elgato-stream-deck"
 cask "fluidvoice"
