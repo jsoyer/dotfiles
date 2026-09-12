@@ -63,6 +63,12 @@ if command -v jq &>/dev/null && [ -f "$SETTINGS" ]; then
     expanded="${expanded//\$HOME/$HOME}"
     # Strip any arguments (first token only)
     script="${expanded%% *}"
+    # settings.json stores quoted paths verbatim (agents like moshi-hook write
+    # '/usr/local/opt/.../moshi-hook' claude-hook). Without stripping the quotes
+    # the token is neither an absolute path nor a PATH name, and a perfectly
+    # healthy hook is reported as missing.
+    script="${script%\'}"; script="${script#\'}"
+    script="${script%\"}"; script="${script#\"}"
     if [[ "$script" == /* ]]; then
       # Absolute path → must be an executable file on disk
       if [ -f "$script" ]; then
