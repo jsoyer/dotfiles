@@ -224,10 +224,33 @@ jobs:
               -not -path './.git/*' -not -path './dot_claude/*' -not -path './dot_aictx/skills/*' -not -path './dot_aictx/agents/*' 2>/dev/null
             # Only the first-line shebang counts — not a bash snippet embedded
             # in e.g. a Python script that emits a bash file (avoids SC1071).
-            for f in $(find dot_local/bin -type f 2>/dev/null); do
+            for f in $(find dot_local/bin -type f -not -name '*.tmpl' 2>/dev/null); do
               head -n1 "$f" | grep -q '#!/.*bash' && printf '%s\n' "$f"
             done
           )
+          # Templates carry Go template syntax shellcheck cannot parse, so lint
+          # the rendered script instead. Render once per profile, otherwise a
+          # branch gated on .machine_profile never gets linted (the mock config
+          # written by "Template lint" above resolves to ubuntu-server).
+          RENDER_DIR=$(mktemp -d)
+          sed -E 's|^([[:space:]]*machine_profile[[:space:]]*=).*|\1 "mac-pro"|' \
+            ~/.config/chezmoi/chezmoi.toml > "$RENDER_DIR/mac-pro.toml"
+          while IFS= read -r f; do
+            head -n1 "$f" | grep -q '#!/.*bash' || continue
+            for profile in default mac-pro; do
+              out="$RENDER_DIR/$(basename "${f%.tmpl}").$profile"
+              if [[ "$profile" == "default" ]]; then
+                chezmoi execute-template --source="$(pwd)" < "$f" > "$out"
+              else
+                chezmoi execute-template --source="$(pwd)" \
+                  --config "$RENDER_DIR/$profile.toml" < "$f" > "$out"
+              fi
+              if ! shellcheck --severity=error "$out"; then
+                echo "  (from $f, profile=$profile)"
+                ERRORS=$(( ERRORS + 1 ))
+              fi
+            done
+          done < <(find dot_local/bin -name '*.tmpl' 2>/dev/null)
           if [[ "$ERRORS" -gt 0 ]]; then
             echo "ShellCheck: FAIL ($ERRORS files with issues)"
             exit 1
