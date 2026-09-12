@@ -6,7 +6,7 @@
 #                     statusLine, env, et nos propres hooks ~/.claude/hooks/*)
 #   - nos hooks     → session-start.sh et set-compact.sh réécrivent
 #                     env.CLAUDE_AUTOCOMPACT_PCT_OVERRIDE pour coller à la
-#                     fenêtre de contexte du modèle (128K→62, 200K→40, 1M→8).
+#                     fenêtre de contexte du modèle (128K→78, 200K→62, 1M→15).
 #                     Machine- ET modèle-dépendant : jamais versionné, sinon
 #                     chezmoi le remet à sa valeur figée toutes les heures et
 #                     dérègle le budget de contexte sans rien signaler.
@@ -54,19 +54,29 @@ if live_pct is not None:
     result.setdefault("env", {})["CLAUDE_AUTOCOMPACT_PCT_OVERRIDE"] = live_pct
 
 # ── hooks : réinjecter ceux des tiers, en respectant leur matcher ──
+#
+# Les hooks tiers vont TOUJOURS dans un groupe à eux, jamais dans un groupe de
+# la baseline — même quand les matchers coïncident. moshi-hook (et les autres
+# agents) comparent le groupe qu'ils possèdent à la sortie de leur installeur :
+# y glisser un de nos hooks le fait déclarer « stale » à chaque apply, et l'outil
+# réclame une réinstallation en boucle. Les événements sans matcher (SessionStart,
+# Stop, UserPromptSubmit) sont les seuls concernés, mais la règle vaut partout.
+# Claude Code exécute tous les groupes d'un événement : séparer ne change rien
+# au comportement.
+foreign_slots = {}                      # (event, matcher) -> groupe créé pour les tiers
 for event, groups in (live.get("hooks") or {}).items():
     for group in groups:
         foreign = [h for h in group.get("hooks", []) if not ours(h.get("command", ""))]
         if not foreign:
             continue
         matcher = group.get("matcher")
-        target = result.setdefault("hooks", {}).setdefault(event, [])
-        slot = next((g for g in target if g.get("matcher") == matcher), None)
+        slot = foreign_slots.get((event, matcher))
         if slot is None:
             slot = {k: v for k, v in group.items() if k != "hooks"}
             slot["hooks"] = []
-            target.append(slot)
-        have = {h.get("command") for h in slot.setdefault("hooks", [])}
+            result.setdefault("hooks", {}).setdefault(event, []).append(slot)
+            foreign_slots[(event, matcher)] = slot
+        have = {h.get("command") for h in slot["hooks"]}
         slot["hooks"].extend(h for h in foreign if h.get("command") not in have)
 
 # ── clés de premier niveau inconnues : Claude Code en ajoute au fil des
