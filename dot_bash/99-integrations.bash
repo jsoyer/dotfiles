@@ -72,6 +72,14 @@ if command -v atuin >/dev/null 2>&1; then
 fi
 
 # ============================================================================
+# mise - Polyglot version manager (cached init)
+# ============================================================================
+# Activated before direnv so direnv's hook runs after mise's.
+if command -v mise >/dev/null 2>&1; then
+  _cache_eval mise 'mise activate bash'
+fi
+
+# ============================================================================
 # Direnv - Environment switcher (cached)
 # ============================================================================
 if command -v direnv >/dev/null 2>&1; then

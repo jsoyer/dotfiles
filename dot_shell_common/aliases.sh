@@ -410,6 +410,19 @@ activate() {
 }
 
 # ============================================================================
+# mise (polyglot version manager)
+# ============================================================================
+alias mi='mise'
+alias mii='mise install'
+alias miu='mise use'
+alias mil='mise ls'
+alias mic='mise current'
+alias mie='mise exec'
+alias mir='mise run'
+alias mio='mise outdated'
+alias miup='mise upgrade'
+
+# ============================================================================
 # Misc
 # ============================================================================
 mkd() {

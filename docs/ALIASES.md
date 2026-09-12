@@ -435,6 +435,37 @@ Optimized ripgrep and fd shortcuts.
 
 ---
 
+## mise (Version Manager)
+
+Polyglot version manager (node, python, go, ...). Activated in zsh, bash and
+nushell; see "Activation" below.
+
+| Alias | Command | Purpose |
+|-------|---------|---------|
+| `mi` | `mise` | mise CLI |
+| `mii` | `mise install` | Install tool versions |
+| `miu` | `mise use` | Pin a version in the current project |
+| `mil` | `mise ls` | List installed versions |
+| `mic` | `mise current` | Show versions active here |
+| `mie` | `mise exec` | Run a command with mise versions |
+| `mir` | `mise run` | Run a task from `mise.toml` |
+| `mio` | `mise outdated` | Show outdated tools |
+| `miup` | `mise upgrade` | Upgrade tools |
+
+### Activation
+
+Two mechanisms, on purpose:
+
+| Mechanism | Where | Purpose |
+|-----------|-------|---------|
+| `mise activate` | `dot_zsh/99-integrations.zsh`, `dot_bash/99-integrations.bash`, `dot_config/nushell/env.nu.tmpl` | Interactive shells — PATH re-evaluated on each directory change |
+| Shims | `dot_zsh/01-path.zsh`, `dot_bash/01-path.bash` | Non-interactive contexts (IDEs, cron, scripts) where the hook never runs |
+
+Shims are **appended** to PATH, never prepended, so `mise activate` keeps
+priority in interactive shells. Activation runs before the direnv hook.
+
+---
+
 ## Tailscale
 
 Conditional on `tailscale` command being available.

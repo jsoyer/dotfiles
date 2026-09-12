@@ -41,6 +41,11 @@ path_prepend "${HOME}/.local/bin"
 path_prepend "${HOME}/.npm-global/bin"
 path_prepend "${HOME}/.opencode/bin"
 
+# mise shims — appended (lowest priority) on purpose: `mise activate` owns the
+# PATH in interactive shells, the shims are only a fallback for non-interactive
+# contexts (IDEs, cron, scripts) where the activation hook never runs.
+path_append "${XDG_DATA_HOME:-$HOME/.local/share}/mise/shims"
+
 # ============================================================================
 # macOS-specific paths
 # ============================================================================
