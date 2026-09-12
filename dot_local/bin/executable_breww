@@ -437,14 +437,28 @@ def promote_entry(name: str, base_brewfile: Path | None):
     base_brewfile.write_text(base_content + line_to_promote + "\n")
     print(f"{GREEN}Added '{name}' to {base_brewfile.name}{NC}")
 
-    sync_to_git()
+    sync_to_git([host_file, base_brewfile])
 
 
-def sync_to_git():
-    """Commit and push changes in the chezmoi repository."""
+def sync_to_git(paths):
+    """
+    Commit and push the manifests breww just rewrote.
+
+    Only <paths> are staged. Staging the whole source tree swept anything else
+    pending there into a commit labelled "update brewfiles via breww" and pushed
+    it unreviewed — one such commit carried 224 files, exactly one of which was
+    a Brewfile.
+    """
+    existing = [p for p in paths if Path(p).exists()]
+    if not existing:
+        return
     print(f"\n{BLUE}Syncing with Git...{NC}")
     try:
-        subprocess.run(["git", "add", "."], cwd=CHEZMOI_SOURCE_PATH, check=True)
+        subprocess.run(
+            ["git", "add", "--", *[str(p) for p in existing]],
+            cwd=CHEZMOI_SOURCE_PATH,
+            check=True,
+        )
         result = subprocess.run(
             ["git", "commit", "--no-gpg-sign", "-m", "style(brew): update brewfiles via breww"],
             cwd=CHEZMOI_SOURCE_PATH,
@@ -474,7 +488,6 @@ def main():
         entry_name = sys.argv[idx + 1]
         base_brewfile = get_target_brewfile()
         promote_entry(entry_name, base_brewfile)
-        sync_to_git()
         return
 
     if not shutil.which("brew"):
@@ -561,7 +574,7 @@ def main():
         if cmd in ("uninstall", "untap") and positionals:
             remove_from_base(positionals, base_brewfile)
         dump_host_overlay(base_brewfile)
-        sync_to_git()
+        sync_to_git([get_host_brewfile(), base_brewfile])
 
     sys.exit(returncode)
 

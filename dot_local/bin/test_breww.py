@@ -331,5 +331,69 @@ class UninstallWiring(unittest.TestCase):
         self.assertEqual(calls["remove"], [])
 
 
+class SyncToGitStaging(unittest.TestCase):
+    """sync_to_git must stage only the manifests breww itself rewrote.
+
+    Origin: it ran `git add .` over the whole chezmoi source, so anything else
+    pending there was swept into a commit labelled "update brewfiles via breww"
+    and pushed unreviewed. One such commit carried 224 files, of which exactly
+    one was a Brewfile.
+    """
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.tmp = Path(self._tmp.name)
+        self.host = self.tmp / "dot_private" / "Brewfile_host"
+        self.base = self.tmp / "dot_private" / "Brewfile_personal"
+        self.host.parent.mkdir(parents=True, exist_ok=True)
+        self.host.write_text('cask "chatgpt"\n')
+        self.base.write_text('brew "git"\n')
+        self.stray = self.tmp / "dot_aictx" / "skills" / "unrelated.md"
+        self.stray.parent.mkdir(parents=True, exist_ok=True)
+        self.stray.write_text("pending work by something else\n")
+
+    def tearDown(self):
+        self._tmp.cleanup()
+
+    def _run(self, paths):
+        """Call sync_to_git and return the argv of every git call it made."""
+        with (
+            unittest.mock.patch.object(breww, "CHEZMOI_SOURCE_PATH", self.tmp),
+            unittest.mock.patch.object(breww, "subprocess") as sub,
+        ):
+            sub.run.return_value = unittest.mock.Mock(returncode=0)
+            sub.CalledProcessError = Exception
+            breww.sync_to_git(paths)
+            return [c.args[0] for c in sub.run.call_args_list if c.args]
+
+    def _add_argv(self, calls):
+        return next((c for c in calls if len(c) > 1 and c[1] == "add"), None)
+
+    def test_stages_only_the_given_paths(self):
+        add = self._add_argv(self._run([self.host, self.base]))
+        self.assertIsNotNone(add, "sync_to_git never staged anything")
+        staged = [a for a in add[2:] if a != "--"]
+        self.assertCountEqual(staged, [str(self.host), str(self.base)])
+
+    def test_never_stages_the_whole_tree(self):
+        add = self._add_argv(self._run([self.host]))
+        self.assertNotIn(".", add[2:], "sync_to_git still stages the whole tree")
+        self.assertNotIn("-A", add[2:])
+        self.assertNotIn("--all", add[2:])
+
+    def test_unrelated_pending_file_is_not_staged(self):
+        add = self._add_argv(self._run([self.host]))
+        self.assertNotIn(str(self.stray), add[2:])
+
+    def test_missing_path_is_skipped(self):
+        absent = self.tmp / "dot_private" / "Brewfile_nope"
+        add = self._add_argv(self._run([self.host, absent]))
+        staged = [a for a in add[2:] if a != "--"]
+        self.assertEqual(staged, [str(self.host)])
+
+    def test_no_paths_means_no_git_calls_at_all(self):
+        self.assertEqual(self._run([]), [])
+
+
 if __name__ == "__main__":
     unittest.main()
