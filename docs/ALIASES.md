@@ -464,6 +464,19 @@ Two mechanisms, on purpose:
 Shims are **appended** to PATH, never prepended, so `mise activate` keeps
 priority in interactive shells. Activation runs before the direnv hook.
 
+`sysup` runs `mise upgrade` on macOS and Linux (guarded on mise being present),
+so toolchains owned by mise stay current the same way Homebrew packages do.
+
+### Toolchains mise owns on Tier 3 hosts
+
+Intel macOS is Homebrew Tier 3: no bottles, so a formula like `rust` means an
+hour of source build per version bump. On such a host the toolchain is installed
+with `mise use -g <tool>@stable` and removed from Homebrew — `brewfile-filter-bottled`
+then strips the line from the bundle automatically (reason: `no bottle`), so the
+shared Brewfile stays untouched and hosts that *do* get a bottle keep using it.
+This is deliberately per-host state: `~/.config/mise/config.toml` is not tracked
+by chezmoi, so the choice does not leak to the rest of the fleet.
+
 ---
 
 ## Tailscale
