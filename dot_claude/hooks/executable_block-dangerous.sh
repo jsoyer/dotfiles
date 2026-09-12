@@ -150,25 +150,38 @@ GIT_PUSH_RE='git[[:space:]]+(-[^[:space:]]+[[:space:]]+([^-[:space:]][^[:space:]
 # Protected branch as a standalone token, also after a ':' refspec (e.g. HEAD:main)
 GIT_PROT_BRANCH_RE='[[:space:]:](main|master)([[:space:]]|$)'
 
-if [[ "$COMMAND" =~ ${GIT_PUSH_RE}.*(-f[[:space:]]|-f$|--force[[:space:]]|--force$|--force-with-lease) ]]; then
-  ask "SOFT BLOCK: git force push detected — may overwrite remote history. Re-approve if intentional."
-fi
+# These guards must judge the push invocation itself, not the whole command
+# line. Matching anywhere in a compound command made a branch push chained with
+# `gh pr create --base main` read as a push to main, and any PR body mentioning
+# the force flag read as a force push — a soft block on essentially every PR,
+# which only teaches you to approve without reading. Split the command on shell
+# separators and judge each segment on its own.
+while IFS= read -r _seg; do
+  _seg="$_seg "                     # GIT_PUSH_RE expects a trailing token break
+  [[ "$_seg" =~ $GIT_PUSH_RE ]] || continue
 
-# Force push via + refspec prefix (e.g., git push origin +main)
-if [[ "$COMMAND" =~ $GIT_PUSH_RE ]] && [[ "$COMMAND" =~ [[:space:]]\+[a-zA-Z] ]]; then
-  ask "SOFT BLOCK: git push with + refspec (force push) detected. Re-approve if intentional."
-fi
+  if [[ "$_seg" =~ (-f[[:space:]]|--force[[:space:]]|--force-with-lease) ]]; then
+    ask "SOFT BLOCK: git force push detected — may overwrite remote history. Re-approve if intentional."
+  fi
 
-# Obsidian vault is main-only (Noxys agent governance) — allow direct push to main/master
-if [[ "$COMMAND" =~ $GIT_PUSH_RE ]] && [[ "$COMMAND" =~ obsidian-vault ]] && [[ "$COMMAND" =~ $GIT_PROT_BRANCH_RE ]]; then
-  exit 0
-fi
+  # Force push via a '+' refspec prefix
+  if [[ "$_seg" =~ [[:space:]]\+[a-zA-Z] ]]; then
+    ask "SOFT BLOCK: git push with + refspec (force push) detected. Re-approve if intentional."
+  fi
 
-# Match "git push ... main/master" with any number of flags/options before the branch name
-# Catches: git push origin main, git push -u origin main, git -C <dir> push origin main
-if [[ "$COMMAND" =~ $GIT_PUSH_RE ]] && [[ "$COMMAND" =~ $GIT_PROT_BRANCH_RE ]]; then
-  ask "SOFT BLOCK: git push to main/master — use a PR instead. Re-approve if intentional."
-fi
+  # Obsidian vault is main-only (Noxys agent governance) — allow direct push
+  # there. Matched on the whole command, not the segment: the marker normally
+  # sits in a preceding `cd ...` segment, not in the push itself.
+  if [[ "$COMMAND" =~ obsidian-vault ]] && [[ "$_seg" =~ $GIT_PROT_BRANCH_RE ]]; then
+    continue
+  fi
+
+  # Protected branch as a standalone token, with any flags before it.
+  # Catches the plain form, the -u form, and git -C <dir> push.
+  if [[ "$_seg" =~ $GIT_PROT_BRANCH_RE ]]; then
+    ask "SOFT BLOCK: git push to main/master — use a PR instead. Re-approve if intentional."
+  fi
+done < <(printf '%s\n' "$COMMAND" | sed -E 's/(&&|\|\||;|\|)/\n/g')
 
 if [[ "$COMMAND" =~ git[[:space:]]+reset[[:space:]]+--hard ]]; then
   ask "SOFT BLOCK: git reset --hard — may discard uncommitted work. Re-approve if intentional."

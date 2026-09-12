@@ -5,7 +5,9 @@ set -euo pipefail
 # Test suite for block-dangerous.sh hook and approve.sh approval mechanism
 # =============================================================================
 
-HOOK="$HOME/.claude/hooks/block-dangerous.sh"
+# Overridable so the suite can be run against the chezmoi source before a
+# deploy (and in CI, where nothing is deployed at all).
+HOOK="${HOOK:-$HOME/.claude/hooks/block-dangerous.sh}"
 APPROVE="$HOME/.claude/hooks/approve.sh"
 APPROVAL_DIR="$HOME/.claude/hooks/.approvals"
 PENDING_DIR="$HOME/.claude/hooks/.pending"
@@ -226,6 +228,40 @@ cleanup
 run_hook "git -C /r log --oneline main"
 assert_exit 0 "git -C log (not push) exits 0"
 assert_stdout_empty "git log with a 'main' arg produces no block"
+
+section "Regression — push checks must not match other parts of a compound command"
+
+# A branch push chained with `gh pr create --base main`: the word "main" belongs
+# to the gh invocation, not to the push. This cried wolf on every PR.
+cleanup
+run_hook "git push -u origin feat/x && gh pr create --base main --head feat/x"
+assert_exit 0 "branch push chained with gh pr create --base main exits 0"
+assert_stdout_empty "gh pr create --base main does not trigger the main/master guard"
+
+# A PR body that merely mentions --force must not read as a force push.
+cleanup
+run_hook "git push -u origin feat/x && gh pr create --body 'we ran brew uninstall --force rust'"
+assert_exit 0 "branch push chained with a body mentioning --force exits 0"
+assert_stdout_empty "the word --force elsewhere does not trigger the force-push guard"
+
+# Same shape with a pipe and a semicolon rather than &&.
+cleanup
+run_hook "git push -u origin feat/x | tail -2; gh pr create --base main"
+assert_exit 0 "pipe/semicolon compound exits 0"
+assert_stdout_empty "pipe/semicolon compound produces no soft block"
+
+# The real cases must still be caught, including inside a compound command.
+cleanup
+run_hook "echo hello && git push origin main"
+assert_json_field "permissionDecision" "deny" "push to main still blocked inside a compound command"
+
+cleanup
+run_hook "git push --force origin feat/x && echo done"
+assert_json_field "permissionDecision" "deny" "force push still blocked inside a compound command"
+
+cleanup
+run_hook "git push origin +feat/x"
+assert_json_field "permissionDecision" "deny" "+refspec force push still blocked"
 
 section "Output Format — Valid JSON"
 
