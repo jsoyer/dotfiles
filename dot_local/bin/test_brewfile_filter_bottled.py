@@ -10,7 +10,11 @@ import importlib.util
 import unittest
 from pathlib import Path
 
+# chezmoi strips the "executable_" prefix on apply, so the script sits next to
+# this test under its bare name once deployed to ~/.local/bin.
 _PATH = Path(__file__).resolve().parent / "executable_brewfile-filter-bottled"
+if not _PATH.exists():
+    _PATH = _PATH.with_name(_PATH.name.removeprefix("executable_"))
 _LOADER = importlib.machinery.SourceFileLoader("brewfile_filter_bottled", str(_PATH))
 _SPEC = importlib.util.spec_from_loader("brewfile_filter_bottled", _LOADER)
 assert _SPEC is not None
