@@ -62,6 +62,21 @@ other machines run:       # chezmoi apply detects change
   brew bundle install     # Install ripgrep on other machines
 ```
 
+**Uninstall is symmetric** — and has to be. `brew bundle` never uninstalls, and a
+dump only ever rewrites the host overlay, so an entry left in the base Brewfile
+gets reinstalled on the next `chezmoi apply`:
+
+```bash
+breww uninstall firefox    # Actual uninstall
+Brewfile_personal updated  # Drop firefox from the profile base
+Brewfile_<host> updated    # Overlay re-dumped (installed − base − blacklist)
+git commit + push          # Auto-sync to Git
+```
+
+Entries that also live in `Brewfile_macos` (shared by mac-pro **and**
+mac-personal) are reported but never edited — removing them is a decision about
+the other profile too, so do it by hand.
+
 ## AI Agent & Skill Tools
 
 ### update-claude-agents

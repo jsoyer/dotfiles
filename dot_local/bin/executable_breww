@@ -351,6 +351,57 @@ def dump_host_overlay(base_brewfile: Path | None):
         tmp_path.unlink(missing_ok=True)
 
 
+def remove_from_base(
+    names: list[str],
+    base_brewfile: Path | None,
+    shared_files: list[Path] | None = None,
+) -> list[str]:
+    """
+    Drop <names> from the profile base Brewfile so an uninstall actually sticks.
+
+    brew bundle never uninstalls, and a dump only ever rewrites the host
+    overlay, so an entry left in the base gets reinstalled on the next
+    `chezmoi apply` — the remove/resurrect loop.
+
+    Files shared beyond the current profile (Brewfile_macos feeds both mac-pro
+    and mac-personal) are reported, never edited: dropping an entry there is a
+    decision about the *other* machine too.
+
+    Returns the names actually removed.
+    """
+    if shared_files is None:
+        shared_files = [BREWFILE_DIR / "Brewfile_macos"]
+
+    for shared in shared_files:
+        shared_entries = parse_brewfile_entries(shared)
+        for name in names:
+            if name in shared_entries:
+                print(
+                    f"{YELLOW}'{name}' also lives in {shared.name}, shared with "
+                    f"other profiles — left untouched, remove it by hand if you "
+                    f"want it gone everywhere.{NC}"
+                )
+
+    if base_brewfile is None or not base_brewfile.exists():
+        return []
+
+    targets = set(names)
+    kept, removed = [], []
+    for line in base_brewfile.read_text().splitlines():
+        identity = _extract_identity(line)
+        if identity is not None and identity in targets:
+            removed.append(identity)
+            continue
+        kept.append(line)
+
+    if removed:
+        base_brewfile.write_text("\n".join(kept) + "\n")
+        for name in removed:
+            print(f"{GREEN}Removed '{name}' from {base_brewfile.name}{NC}")
+
+    return removed
+
+
 def promote_entry(name: str, base_brewfile: Path | None):
     """
     Move a single entry identified by <name> from the host overlay into the base file.
@@ -439,7 +490,7 @@ def main():
             f"breww — Homebrew wrapper with per-host overlay manifest sync\n\n"
             f"Usage:\n"
             f"  breww install <pkg>         Install + update host overlay\n"
-            f"  breww uninstall <pkg>       Uninstall + update host overlay\n"
+            f"  breww uninstall <pkg>       Uninstall + drop from base + update host overlay\n"
             f"  breww tap <repo>            Tap + update host overlay\n"
             f"  breww untap <repo>          Untap + update host overlay\n"
             f"  breww --promote <name>      Move entry from host overlay to base\n"
@@ -505,6 +556,10 @@ def main():
     if returncode == 0 and any(
         cmd in args for cmd in ["install", "uninstall", "tap", "untap"]
     ):
+        # An uninstall must also leave the base Brewfile, otherwise the entry
+        # survives there and the next `chezmoi apply` reinstalls it.
+        if cmd in ("uninstall", "untap") and positionals:
+            remove_from_base(positionals, base_brewfile)
         dump_host_overlay(base_brewfile)
         sync_to_git()
 
