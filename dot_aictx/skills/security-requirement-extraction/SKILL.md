@@ -57,6 +57,7 @@ from enum import Enum
 from typing import List, Dict, Optional, Set
 from datetime import datetime
 
+
 class RequirementType(Enum):
     FUNCTIONAL = "functional"
     NON_FUNCTIONAL = "non_functional"
@@ -121,11 +122,11 @@ I need to {self.description.lower()},
 So that {self.rationale.lower()}.
 
 **Acceptance Criteria:**
-{chr(10).join(f'- [ ] {ac}' for ac in self.acceptance_criteria)}
+{chr(10).join(f"- [ ] {ac}" for ac in self.acceptance_criteria)}
 
 **Priority:** {self.priority.name}
 **Domain:** {self.domain.value}
-**Threat References:** {', '.join(self.threat_refs)}
+**Threat References:** {", ".join(self.threat_refs)}
 """
 
     def to_test_spec(self) -> str:
@@ -137,10 +138,10 @@ So that {self.rationale.lower()}.
 {self.description}
 
 ### Test Cases
-{chr(10).join(f'{i+1}. {tc}' for i, tc in enumerate(self.test_cases))}
+{chr(10).join(f"{i + 1}. {tc}" for i, tc in enumerate(self.test_cases))}
 
 ### Acceptance Criteria Verification
-{chr(10).join(f'- {ac}' for ac in self.acceptance_criteria)}
+{chr(10).join(f"- {ac}" for ac in self.acceptance_criteria)}
 """
 
 
@@ -196,6 +197,7 @@ class RequirementSet:
 from dataclasses import dataclass
 from typing import List, Dict, Tuple
 
+
 @dataclass
 class ThreatInput:
     id: str
@@ -213,82 +215,121 @@ class RequirementExtractor:
     # Mapping of STRIDE categories to security domains and requirement patterns
     STRIDE_MAPPINGS = {
         "SPOOFING": {
-            "domains": [SecurityDomain.AUTHENTICATION, SecurityDomain.SESSION_MANAGEMENT],
+            "domains": [
+                SecurityDomain.AUTHENTICATION,
+                SecurityDomain.SESSION_MANAGEMENT,
+            ],
             "patterns": [
-                ("Implement strong authentication for {target}",
-                 "Ensure {target} authenticates all users before granting access"),
-                ("Validate identity tokens for {target}",
-                 "All authentication tokens must be cryptographically verified"),
-                ("Implement session management for {target}",
-                 "Sessions must be securely managed with proper expiration"),
-            ]
+                (
+                    "Implement strong authentication for {target}",
+                    "Ensure {target} authenticates all users before granting access",
+                ),
+                (
+                    "Validate identity tokens for {target}",
+                    "All authentication tokens must be cryptographically verified",
+                ),
+                (
+                    "Implement session management for {target}",
+                    "Sessions must be securely managed with proper expiration",
+                ),
+            ],
         },
         "TAMPERING": {
-            "domains": [SecurityDomain.INPUT_VALIDATION, SecurityDomain.DATA_PROTECTION],
+            "domains": [
+                SecurityDomain.INPUT_VALIDATION,
+                SecurityDomain.DATA_PROTECTION,
+            ],
             "patterns": [
-                ("Validate all input to {target}",
-                 "All input must be validated against expected formats"),
-                ("Implement integrity checks for {target}",
-                 "Data integrity must be verified using cryptographic signatures"),
-                ("Protect {target} from modification",
-                 "Implement controls to prevent unauthorized data modification"),
-            ]
+                (
+                    "Validate all input to {target}",
+                    "All input must be validated against expected formats",
+                ),
+                (
+                    "Implement integrity checks for {target}",
+                    "Data integrity must be verified using cryptographic signatures",
+                ),
+                (
+                    "Protect {target} from modification",
+                    "Implement controls to prevent unauthorized data modification",
+                ),
+            ],
         },
         "REPUDIATION": {
             "domains": [SecurityDomain.AUDIT_LOGGING],
             "patterns": [
-                ("Log all security events for {target}",
-                 "Security-relevant events must be logged for audit purposes"),
-                ("Implement non-repudiation for {target}",
-                 "Critical actions must have cryptographic proof of origin"),
-                ("Protect audit logs for {target}",
-                 "Audit logs must be tamper-evident and protected"),
-            ]
+                (
+                    "Log all security events for {target}",
+                    "Security-relevant events must be logged for audit purposes",
+                ),
+                (
+                    "Implement non-repudiation for {target}",
+                    "Critical actions must have cryptographic proof of origin",
+                ),
+                (
+                    "Protect audit logs for {target}",
+                    "Audit logs must be tamper-evident and protected",
+                ),
+            ],
         },
         "INFORMATION_DISCLOSURE": {
             "domains": [SecurityDomain.DATA_PROTECTION, SecurityDomain.CRYPTOGRAPHY],
             "patterns": [
-                ("Encrypt sensitive data in {target}",
-                 "Sensitive data must be encrypted at rest and in transit"),
-                ("Implement access controls for {target}",
-                 "Data access must be restricted based on need-to-know"),
-                ("Prevent information leakage from {target}",
-                 "Error messages and logs must not expose sensitive information"),
-            ]
+                (
+                    "Encrypt sensitive data in {target}",
+                    "Sensitive data must be encrypted at rest and in transit",
+                ),
+                (
+                    "Implement access controls for {target}",
+                    "Data access must be restricted based on need-to-know",
+                ),
+                (
+                    "Prevent information leakage from {target}",
+                    "Error messages and logs must not expose sensitive information",
+                ),
+            ],
         },
         "DENIAL_OF_SERVICE": {
             "domains": [SecurityDomain.AVAILABILITY, SecurityDomain.INPUT_VALIDATION],
             "patterns": [
-                ("Implement rate limiting for {target}",
-                 "Requests must be rate-limited to prevent resource exhaustion"),
-                ("Ensure availability of {target}",
-                 "System must remain available under high load conditions"),
-                ("Implement resource quotas for {target}",
-                 "Resource consumption must be bounded and monitored"),
-            ]
+                (
+                    "Implement rate limiting for {target}",
+                    "Requests must be rate-limited to prevent resource exhaustion",
+                ),
+                (
+                    "Ensure availability of {target}",
+                    "System must remain available under high load conditions",
+                ),
+                (
+                    "Implement resource quotas for {target}",
+                    "Resource consumption must be bounded and monitored",
+                ),
+            ],
         },
         "ELEVATION_OF_PRIVILEGE": {
             "domains": [SecurityDomain.AUTHORIZATION],
             "patterns": [
-                ("Enforce authorization for {target}",
-                 "All actions must be authorized based on user permissions"),
-                ("Implement least privilege for {target}",
-                 "Users must only have minimum necessary permissions"),
-                ("Validate permissions for {target}",
-                 "Permission checks must be performed server-side"),
-            ]
+                (
+                    "Enforce authorization for {target}",
+                    "All actions must be authorized based on user permissions",
+                ),
+                (
+                    "Implement least privilege for {target}",
+                    "Users must only have minimum necessary permissions",
+                ),
+                (
+                    "Validate permissions for {target}",
+                    "Permission checks must be performed server-side",
+                ),
+            ],
         },
     }
 
     def extract_requirements(
-        self,
-        threats: List[ThreatInput],
-        project_name: str
+        self, threats: List[ThreatInput], project_name: str
     ) -> RequirementSet:
         """Extract security requirements from threats."""
         req_set = RequirementSet(
-            name=f"{project_name} Security Requirements",
-            version="1.0"
+            name=f"{project_name} Security Requirements", version="1.0"
         )
 
         req_counter = 1
@@ -301,9 +342,7 @@ class RequirementExtractor:
         return req_set
 
     def _threat_to_requirements(
-        self,
-        threat: ThreatInput,
-        start_id: int
+        self, threat: ThreatInput, start_id: int
     ) -> List[SecurityRequirement]:
         """Convert a single threat to requirements."""
         requirements = []
@@ -319,16 +358,16 @@ class RequirementExtractor:
                 title=title_pattern.format(target=threat.target),
                 description=desc_pattern.format(target=threat.target),
                 req_type=RequirementType.FUNCTIONAL,
-                domain=domains[i % len(domains)] if domains else SecurityDomain.DATA_PROTECTION,
+                domain=domains[i % len(domains)]
+                if domains
+                else SecurityDomain.DATA_PROTECTION,
                 priority=priority,
                 rationale=f"Mitigates threat: {threat.title}",
                 threat_refs=[threat.id],
                 acceptance_criteria=self._generate_acceptance_criteria(
                     threat.category, threat.target
                 ),
-                test_cases=self._generate_test_cases(
-                    threat.category, threat.target
-                )
+                test_cases=self._generate_test_cases(threat.category, threat.target),
             )
             requirements.append(req)
 
@@ -350,11 +389,7 @@ class RequirementExtractor:
             return Priority.MEDIUM
         return Priority.LOW
 
-    def _generate_acceptance_criteria(
-        self,
-        category: str,
-        target: str
-    ) -> List[str]:
+    def _generate_acceptance_criteria(self, category: str, target: str) -> List[str]:
         """Generate acceptance criteria for requirement."""
         criteria_templates = {
             "SPOOFING": [
@@ -390,11 +425,7 @@ class RequirementExtractor:
         }
         return criteria_templates.get(category, [])
 
-    def _generate_test_cases(
-        self,
-        category: str,
-        target: str
-    ) -> List[str]:
+    def _generate_test_cases(self, category: str, target: str) -> List[str]:
         """Generate test cases for requirement."""
         test_templates = {
             "SPOOFING": [
@@ -436,6 +467,7 @@ class RequirementExtractor:
 ```python
 from typing import Dict, List, Set
 
+
 class ComplianceMapper:
     """Map security requirements to compliance frameworks."""
 
@@ -471,9 +503,7 @@ class ComplianceMapper:
     }
 
     def map_requirement_to_compliance(
-        self,
-        requirement: SecurityRequirement,
-        frameworks: List[ComplianceFramework]
+        self, requirement: SecurityRequirement, frameworks: List[ComplianceFramework]
     ) -> Dict[str, List[str]]:
         """Map a requirement to compliance controls."""
         mapping = {}
@@ -488,7 +518,7 @@ class ComplianceMapper:
         self,
         requirement_set: RequirementSet,
         framework: ComplianceFramework,
-        control_id: str
+        control_id: str,
     ) -> List[SecurityRequirement]:
         """Find requirements that satisfy a compliance control."""
         matching = []
@@ -501,9 +531,7 @@ class ComplianceMapper:
         return matching
 
     def generate_compliance_matrix(
-        self,
-        requirement_set: RequirementSet,
-        frameworks: List[ComplianceFramework]
+        self, requirement_set: RequirementSet, frameworks: List[ComplianceFramework]
     ) -> Dict[str, Dict[str, List[str]]]:
         """Generate compliance traceability matrix."""
         matrix = {}
@@ -523,9 +551,7 @@ class ComplianceMapper:
         return matrix
 
     def gap_analysis(
-        self,
-        requirement_set: RequirementSet,
-        framework: ComplianceFramework
+        self, requirement_set: RequirementSet, framework: ComplianceFramework
     ) -> Dict[str, List[str]]:
         """Identify compliance gaps."""
         gaps = {"missing_controls": [], "weak_coverage": []}
@@ -577,17 +603,16 @@ class SecurityUserStoryGenerator:
     def generate_story(self, requirement: SecurityRequirement) -> str:
         """Generate a user story from requirement."""
         template = self.STORY_TEMPLATES.get(
-            requirement.domain,
-            {"as_a": "user", "so_that": "the system is secure"}
+            requirement.domain, {"as_a": "user", "so_that": "the system is secure"}
         )
 
         story = f"""
 ## {requirement.id}: {requirement.title}
 
 **User Story:**
-As a {template['as_a']},
+As a {template["as_a"]},
 I want the system to {requirement.description.lower()},
-So that {template['so_that']}.
+So that {template["so_that"]}.
 
 **Priority:** {requirement.priority.name}
 **Type:** {requirement.req_type.value}
@@ -607,8 +632,8 @@ So that {template['so_that']}.
 {self._format_test_cases(requirement.test_cases)}
 
 **Traceability:**
-- Threats: {', '.join(requirement.threat_refs) or 'N/A'}
-- Compliance: {', '.join(requirement.compliance_refs) or 'N/A'}
+- Threats: {", ".join(requirement.threat_refs) or "N/A"}
+- Compliance: {", ".join(requirement.compliance_refs) or "N/A"}
 """
         return story
 
@@ -619,26 +644,24 @@ So that {template['so_that']}.
         return "\n".join(f"- {t}" for t in tests) if tests else "- TBD"
 
     def generate_epic(
-        self,
-        requirement_set: RequirementSet,
-        domain: SecurityDomain
+        self, requirement_set: RequirementSet, domain: SecurityDomain
     ) -> str:
         """Generate an epic for a security domain."""
         reqs = requirement_set.get_by_domain(domain)
 
         epic = f"""
-# Security Epic: {domain.value.replace('_', ' ').title()}
+# Security Epic: {domain.value.replace("_", " ").title()}
 
 ## Overview
-This epic covers all security requirements related to {domain.value.replace('_', ' ')}.
+This epic covers all security requirements related to {domain.value.replace("_", " ")}.
 
 ## Business Value
-- Protect against {domain.value.replace('_', ' ')} related threats
+- Protect against {domain.value.replace("_", " ")} related threats
 - Meet compliance requirements
 - Reduce security risk
 
 ## Stories in this Epic
-{chr(10).join(f'- [{r.id}] {r.title}' for r in reqs)}
+{chr(10).join(f"- [{r.id}] {r.title}" for r in reqs)}
 
 ## Acceptance Criteria
 - All stories complete
@@ -647,12 +670,12 @@ This epic covers all security requirements related to {domain.value.replace('_',
 - Compliance requirements met
 
 ## Risk if Not Implemented
-- Vulnerability to {domain.value.replace('_', ' ')} attacks
+- Vulnerability to {domain.value.replace("_", " ")} attacks
 - Compliance violations
 - Potential data breach
 
 ## Dependencies
-{chr(10).join(f'- {d}' for r in reqs for d in r.dependencies) or '- None identified'}
+{chr(10).join(f"- {d}" for r in reqs for d in r.dependencies) or "- None identified"}
 """
         return epic
 ```

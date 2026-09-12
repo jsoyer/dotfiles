@@ -238,14 +238,15 @@ export const handler = async (event: any) => {
 ```python
 import multiprocessing as mp
 
+
 def handler(event, context):
-    items = event['items']
+    items = event["items"]
 
     # Use multiple cores for CPU-bound work
     with mp.Pool(mp.cpu_count()) as pool:
         results = pool.map(process_item, items)
 
-    return {'results': results}
+    return {"results": results}
 ```
 
 ## Initialization Optimization

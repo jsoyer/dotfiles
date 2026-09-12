@@ -67,13 +67,17 @@ from azure.core.credentials import AzureKeyCredential
 
 client = EventGridPublisherClient(
     os.environ["EVENTGRID_TOPIC_ENDPOINT"],
-    AzureKeyCredential(os.environ["EVENTGRID_TOPIC_KEY"])
+    AzureKeyCredential(os.environ["EVENTGRID_TOPIC_KEY"]),
 )
 
-client.send([EventGridEvent(
-    event_type="Order.Created",
-    subject="/orders/12345",
-    data={"orderId": "12345"},
-    data_version="1.0"
-)])
+client.send(
+    [
+        EventGridEvent(
+            event_type="Order.Created",
+            subject="/orders/12345",
+            data={"orderId": "12345"},
+            data_version="1.0",
+        )
+    ]
+)
 ```

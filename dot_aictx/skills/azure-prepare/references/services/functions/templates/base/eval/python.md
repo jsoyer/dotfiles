@@ -14,7 +14,8 @@
 ```python
 # Validated syntax and structure
 import ast
-with open('function_app.py') as f:
+
+with open("function_app.py") as f:
     ast.parse(f.read())
 # ✅ Code syntax valid
 ```

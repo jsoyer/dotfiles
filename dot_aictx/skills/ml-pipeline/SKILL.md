@@ -73,8 +73,9 @@ with mlflow.start_run():
     mlflow.log_metric("f1", f1_score(y_test, preds, average="weighted"))
 
     # Log and register the model artifact
-    mlflow.sklearn.log_model(model, artifact_path="model",
-                             registered_model_name="my-classifier")
+    mlflow.sklearn.log_model(
+        model, artifact_path="model", registered_model_name="my-classifier"
+    )
 ```
 
 ### Kubeflow Pipeline Component (single-step template)
@@ -82,6 +83,7 @@ with mlflow.start_run():
 ```python
 from kfp.v2 import dsl
 from kfp.v2.dsl import component, Input, Output, Dataset, Model, Metrics
+
 
 @component(base_image="python:3.10", packages_to_install=["scikit-learn", "mlflow"])
 def train_model(
@@ -98,8 +100,9 @@ def train_model(
     df = pd.read_csv(train_data.path)
     X, y = df.drop("label", axis=1), df["label"]
 
-    model = RandomForestClassifier(n_estimators=n_estimators,
-                                   max_depth=max_depth, random_state=42)
+    model = RandomForestClassifier(
+        n_estimators=n_estimators, max_depth=max_depth, random_state=42
+    )
     model.fit(X, y)
 
     with open(model_output.path, "wb") as f:
@@ -118,6 +121,7 @@ def training_pipeline(data_path: str, n_estimators: int = 100):
 
 ```python
 import great_expectations as ge
+
 
 def validate_training_data(df):
     """Run schema and distribution checks. Raise on failure — never skip."""

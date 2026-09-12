@@ -53,11 +53,13 @@ client.Zones.New(ctx, cloudflare.ZoneNewParams{
 ```python
 # ❌ WRONG - Can't await sync client
 from cloudflare import Cloudflare
+
 client = Cloudflare()
 await client.zones.list()  # TypeError
 
 # ✅ CORRECT - Use AsyncCloudflare
 from cloudflare import AsyncCloudflare
+
 client = AsyncCloudflare()
 await client.zones.list()
 ```

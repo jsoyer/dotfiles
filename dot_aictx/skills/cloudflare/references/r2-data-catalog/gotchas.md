@@ -153,6 +153,7 @@ When things go wrong, check in order:
 
 ```python
 import logging
+
 logging.basicConfig(level=logging.DEBUG)
 # Now operations show HTTP requests/responses
 ```

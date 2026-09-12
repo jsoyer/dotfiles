@@ -41,14 +41,17 @@ from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.graph import StateGraph, START, END
 from typing_extensions import TypedDict
 
+
 class State(TypedDict):
     approved: bool
+
 
 def approval_node(state: State):
     # Pause and ask for approval
     approved = interrupt("Do you approve this action?")
     # When resumed, Command(resume=...) returns that value here
     return {"approved": approved}
+
 
 checkpointer = InMemorySaver()
 graph = (
@@ -124,28 +127,36 @@ from langgraph.graph import StateGraph, START, END
 from typing import Literal
 from typing_extensions import TypedDict
 
+
 class EmailAgentState(TypedDict):
     email_content: str
     draft_response: str
     classification: dict
+
 
 def human_review(state: EmailAgentState) -> Command[Literal["send_reply", "__end__"]]:
     """Pause for human review using interrupt and route based on decision."""
     classification = state.get("classification", {})
 
     # interrupt() must come first — any code before it will re-run on resume
-    human_decision = interrupt({
-        "email_id": state.get("email_content", ""),
-        "draft_response": state.get("draft_response", ""),
-        "urgency": classification.get("urgency"),
-        "action": "Please review and approve/edit this response"
-    })
+    human_decision = interrupt(
+        {
+            "email_id": state.get("email_content", ""),
+            "draft_response": state.get("draft_response", ""),
+            "urgency": classification.get("urgency"),
+            "action": "Please review and approve/edit this response",
+        }
+    )
 
     # Process the human's decision
     if human_decision.get("approved"):
         return Command(
-            update={"draft_response": human_decision.get("edited_response", state.get("draft_response", ""))},
-            goto="send_reply"
+            update={
+                "draft_response": human_decision.get(
+                    "edited_response", state.get("draft_response", "")
+                )
+            },
+            goto="send_reply",
         )
     else:
         # Rejection — human will handle directly
@@ -193,6 +204,7 @@ Use `interrupt()` in a loop to validate human input and re-prompt if invalid.
 Validate human input in a loop, re-prompting until valid.
 ```python
 from langgraph.types import interrupt
+
 
 def get_age_node(state):
     prompt = "What is your age?"
@@ -263,16 +275,20 @@ from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.graph import START, END, StateGraph
 from langgraph.types import Command, interrupt
 
+
 class State(TypedDict):
     vals: Annotated[list[str], operator.add]
+
 
 def node_a(state):
     answer = interrupt("question_a")
     return {"vals": [f"a:{answer}"]}
 
+
 def node_b(state):
     answer = interrupt("question_b")
     return {"vals": [f"b:{answer}"]}
+
 
 graph = (
     StateGraph(State)
@@ -292,10 +308,7 @@ result = graph.invoke({"vals": []}, config)
 # result["__interrupt__"] contains both Interrupt objects with IDs
 
 # Resume all pending interrupts at once using a map of id -> value
-resume_map = {
-    i.id: f"answer for {i.value}"
-    for i in result["__interrupt__"]
-}
+resume_map = {i.id: f"answer for {i.value}" for i in result["__interrupt__"]}
 result = graph.invoke(Command(resume=resume_map), config)
 # result["vals"] = ["a:answer for question_a", "b:answer for question_b"]
 ```
@@ -382,6 +395,7 @@ def node_a(state: State):
     approved = interrupt("Approve this change?")
     return {"approved": approved}
 
+
 # GOOD: Side effect AFTER interrupt — only runs once
 def node_a(state: State):
     approved = interrupt("Approve this change?")
@@ -389,12 +403,15 @@ def node_a(state: State):
         db.create_audit_log(user_id=state["user_id"], action="approved")
     return {"approved": approved}
 
+
 # BAD: Insert creates duplicates on each resume!
 def node_a(state: State):
-    audit_id = db.create_audit_log({  # Runs again on resume!
-        "user_id": state["user_id"],
-        "action": "pending_approval",
-    })
+    audit_id = db.create_audit_log(
+        {  # Runs again on resume!
+            "user_id": state["user_id"],
+            "action": "pending_approval",
+        }
+    )
     approved = interrupt("Approve this change?")
     return {"approved": approved}
 ```
@@ -443,6 +460,7 @@ def node_in_parent_graph(state: State):
     some_code()  # <-- Re-executes on resume
     subgraph_result = subgraph.invoke(some_input)
     # ...
+
 
 def node_in_subgraph(state: State):
     some_other_code()  # <-- Also re-executes on resume

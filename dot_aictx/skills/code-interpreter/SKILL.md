@@ -278,12 +278,14 @@ workspace_list("code-interpreter/")
 import pandas as pd
 import numpy as np
 
-df = pd.DataFrame({
-    'date': pd.date_range('2024-01-01', periods=100),
-    'revenue': np.random.normal(1000, 200, 100),
-    'costs': np.random.normal(700, 150, 100),
-})
-df['profit'] = df['revenue'] - df['costs']
+df = pd.DataFrame(
+    {
+        "date": pd.date_range("2024-01-01", periods=100),
+        "revenue": np.random.normal(1000, 200, 100),
+        "costs": np.random.normal(700, 150, 100),
+    }
+)
+df["profit"] = df["revenue"] - df["costs"]
 
 print("=== Summary Statistics ===")
 print(df.describe())
@@ -295,33 +297,34 @@ print(f"Profit Margin: {df['profit'].mean() / df['revenue'].mean() * 100:.1f}%")
 
 ```python
 import matplotlib
-matplotlib.use('Agg')
+
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 
 fig, axes = plt.subplots(2, 2, figsize=(14, 10))
 
-categories = ['Q1', 'Q2', 'Q3', 'Q4']
+categories = ["Q1", "Q2", "Q3", "Q4"]
 values = [120, 150, 180, 210]
-axes[0,0].bar(categories, values, color='#2196F3')
-axes[0,0].set_title('Quarterly Revenue')
+axes[0, 0].bar(categories, values, color="#2196F3")
+axes[0, 0].set_title("Quarterly Revenue")
 
 x = np.linspace(0, 10, 50)
-axes[0,1].plot(x, np.sin(x), 'b-', linewidth=2)
-axes[0,1].set_title('Trend')
+axes[0, 1].plot(x, np.sin(x), "b-", linewidth=2)
+axes[0, 1].set_title("Trend")
 
 sizes = [35, 30, 20, 15]
-axes[1,0].pie(sizes, labels=['A','B','C','D'], autopct='%1.1f%%')
-axes[1,0].set_title('Market Share')
+axes[1, 0].pie(sizes, labels=["A", "B", "C", "D"], autopct="%1.1f%%")
+axes[1, 0].set_title("Market Share")
 
 x = np.random.normal(50, 10, 200)
 y = x * 1.5 + np.random.normal(0, 15, 200)
-axes[1,1].scatter(x, y, alpha=0.5, c='#FF5722')
-axes[1,1].set_title('Correlation')
+axes[1, 1].scatter(x, y, alpha=0.5, c="#FF5722")
+axes[1, 1].set_title("Correlation")
 
 plt.tight_layout()
-plt.savefig('dashboard.png', dpi=300, bbox_inches='tight')
-print('Dashboard saved')
+plt.savefig("dashboard.png", dpi=300, bbox_inches="tight")
+print("Dashboard saved")
 ```
 
 ### Pattern 3: Machine Learning
@@ -350,11 +353,13 @@ print(classification_report(y_test, y_pred, target_names=iris.target_names))
 import duckdb
 import pandas as pd
 
-orders = pd.DataFrame({
-    'order_id': range(1, 101),
-    'customer': [f'Customer_{i%20}' for i in range(100)],
-    'amount': [round(50 + i * 3.5, 2) for i in range(100)],
-})
+orders = pd.DataFrame(
+    {
+        "order_id": range(1, 101),
+        "customer": [f"Customer_{i % 20}" for i in range(100)],
+        "amount": [round(50 + i * 3.5, 2) for i in range(100)],
+    }
+)
 
 result = duckdb.sql("""
     SELECT customer, COUNT(*) as cnt, ROUND(SUM(amount), 2) as total

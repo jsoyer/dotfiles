@@ -31,7 +31,7 @@ import pandas as pd
 import numpy as np
 
 # Load CSV
-df = pd.read_csv('data.csv')
+df = pd.read_csv("data.csv")
 
 # Basic info
 print(df.info())
@@ -67,46 +67,42 @@ FROM table_name;
 
 ```python
 # Handle missing values
-df['column'].fillna(df['column'].mean(), inplace=True)
-df.dropna(subset=['required_column'], inplace=True)
+df["column"].fillna(df["column"].mean(), inplace=True)
+df.dropna(subset=["required_column"], inplace=True)
 
 # Remove duplicates
 df.drop_duplicates(inplace=True)
 
 # Type conversions
-df['date'] = pd.to_datetime(df['date'])
-df['category'] = df['category'].astype('category')
+df["date"] = pd.to_datetime(df["date"])
+df["category"] = df["category"].astype("category")
 
 # Remove outliers (IQR method)
-Q1 = df['value'].quantile(0.25)
-Q3 = df['value'].quantile(0.75)
+Q1 = df["value"].quantile(0.25)
+Q3 = df["value"].quantile(0.75)
 IQR = Q3 - Q1
-df = df[(df['value'] >= Q1 - 1.5*IQR) & (df['value'] <= Q3 + 1.5*IQR)]
+df = df[(df["value"] >= Q1 - 1.5 * IQR) & (df["value"] <= Q3 + 1.5 * IQR)]
 ```
 
 ### Step 3: Statistical analysis
 
 ```python
 # Descriptive statistics
-print(df['numeric_column'].describe())
+print(df["numeric_column"].describe())
 
 # Grouped analysis
-grouped = df.groupby('category').agg({
-    'value': ['mean', 'sum', 'count'],
-    'other': 'nunique'
-})
+grouped = df.groupby("category").agg(
+    {"value": ["mean", "sum", "count"], "other": "nunique"}
+)
 print(grouped)
 
 # Correlation
-correlation = df[['col1', 'col2', 'col3']].corr()
+correlation = df[["col1", "col2", "col3"]].corr()
 print(correlation)
 
 # Pivot table
-pivot = pd.pivot_table(df,
-    values='sales',
-    index='region',
-    columns='month',
-    aggfunc='sum'
+pivot = pd.pivot_table(
+    df, values="sales", index="region", columns="month", aggfunc="sum"
 )
 ```
 
@@ -118,48 +114,46 @@ import seaborn as sns
 
 # Histogram
 plt.figure(figsize=(10, 6))
-df['value'].hist(bins=30)
-plt.title('Distribution of Values')
-plt.savefig('histogram.png')
+df["value"].hist(bins=30)
+plt.title("Distribution of Values")
+plt.savefig("histogram.png")
 
 # Boxplot
 plt.figure(figsize=(10, 6))
-sns.boxplot(x='category', y='value', data=df)
-plt.title('Value by Category')
-plt.savefig('boxplot.png')
+sns.boxplot(x="category", y="value", data=df)
+plt.title("Value by Category")
+plt.savefig("boxplot.png")
 
 # Heatmap (correlation)
 plt.figure(figsize=(10, 8))
-sns.heatmap(correlation, annot=True, cmap='coolwarm')
-plt.title('Correlation Matrix')
-plt.savefig('heatmap.png')
+sns.heatmap(correlation, annot=True, cmap="coolwarm")
+plt.title("Correlation Matrix")
+plt.savefig("heatmap.png")
 
 # Time series
 plt.figure(figsize=(12, 6))
-df.groupby('date')['value'].sum().plot()
-plt.title('Time Series of Values')
-plt.savefig('timeseries.png')
+df.groupby("date")["value"].sum().plot()
+plt.title("Time Series of Values")
+plt.savefig("timeseries.png")
 ```
 
 ### Step 5: Derive insights
 
 ```python
 # Top/bottom analysis
-top_10 = df.nlargest(10, 'value')
-bottom_10 = df.nsmallest(10, 'value')
+top_10 = df.nlargest(10, "value")
+bottom_10 = df.nsmallest(10, "value")
 
 # Trend analysis
-df['month'] = df['date'].dt.to_period('M')
-monthly_trend = df.groupby('month')['value'].sum()
+df["month"] = df["date"].dt.to_period("M")
+monthly_trend = df.groupby("month")["value"].sum()
 growth = monthly_trend.pct_change() * 100
 
 # Segment analysis
-segments = df.groupby('segment').agg({
-    'revenue': 'sum',
-    'customers': 'nunique',
-    'orders': 'count'
-})
-segments['avg_order_value'] = segments['revenue'] / segments['orders']
+segments = df.groupby("segment").agg(
+    {"revenue": "sum", "customers": "nunique", "orders": "count"}
+)
+segments["avg_order_value"] = segments["revenue"] / segments["orders"]
 ```
 
 ## Output format

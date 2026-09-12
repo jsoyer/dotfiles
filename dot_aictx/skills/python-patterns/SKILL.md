@@ -45,12 +45,12 @@ Avoid magic; be clear about what your code does.
 import logging
 
 logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 
 # Bad: Hidden side effects
 import some_module
+
 some_module.setup()  # What does this do?
 ```
 
@@ -65,6 +65,7 @@ def get_value(dictionary: dict, key: str) -> Any:
         return dictionary[key]
     except KeyError:
         return default_value
+
 
 # Bad: LBYL (Look Before You Leap) style
 def get_value(dictionary: dict, key: str) -> Any:
@@ -81,10 +82,9 @@ def get_value(dictionary: dict, key: str) -> Any:
 ```python
 from typing import Optional, List, Dict, Any
 
+
 def process_user(
-    user_id: str,
-    data: Dict[str, Any],
-    active: bool = True
+    user_id: str, data: Dict[str, Any], active: bool = True
 ) -> Optional[User]:
     """Process a user and return the updated User or None."""
     if not active:
@@ -99,8 +99,10 @@ def process_user(
 def process_items(items: list[str]) -> dict[str, int]:
     return {item: len(item) for item in items}
 
+
 # Python 3.8 and earlier - Use typing module
 from typing import List, Dict
+
 
 def process_items(items: List[str]) -> Dict[str, int]:
     return {item: len(item) for item in items}
@@ -114,11 +116,14 @@ from typing import TypeVar, Union
 # Type alias for complex types
 JSON = Union[dict[str, Any], list[Any], str, int, float, bool, None]
 
+
 def parse_json(data: str) -> JSON:
     return json.loads(data)
 
+
 # Generic types
-T = TypeVar('T')
+T = TypeVar("T")
+
 
 def first(items: list[T]) -> T | None:
     """Return the first item or None if list is empty."""
@@ -130,9 +135,11 @@ def first(items: list[T]) -> T | None:
 ```python
 from typing import Protocol
 
+
 class Renderable(Protocol):
     def render(self) -> str:
         """Render the object to a string."""
+
 
 def render_all(items: list[Renderable]) -> str:
     """Render all items that implement the Renderable protocol."""
@@ -153,6 +160,7 @@ def load_config(path: str) -> Config:
         raise ConfigError(f"Config file not found: {path}") from e
     except json.JSONDecodeError as e:
         raise ConfigError(f"Invalid JSON in config: {path}") from e
+
 
 # Bad: Bare except
 def load_config(path: str) -> Config:
@@ -179,15 +187,21 @@ def process_data(data: str) -> Result:
 ```python
 class AppError(Exception):
     """Base exception for all application errors."""
+
     pass
+
 
 class ValidationError(AppError):
     """Raised when input validation fails."""
+
     pass
+
 
 class NotFoundError(AppError):
     """Raised when a requested resource is not found."""
+
     pass
+
 
 # Usage
 def get_user(user_id: str) -> User:
@@ -204,12 +218,13 @@ def get_user(user_id: str) -> User:
 ```python
 # Good: Using context managers
 def process_file(path: str) -> str:
-    with open(path, 'r') as f:
+    with open(path, "r") as f:
         return f.read()
+
 
 # Bad: Manual resource management
 def process_file(path: str) -> str:
-    f = open(path, 'r')
+    f = open(path, "r")
     try:
         return f.read()
     finally:
@@ -221,6 +236,7 @@ def process_file(path: str) -> str:
 ```python
 from contextlib import contextmanager
 
+
 @contextmanager
 def timer(name: str):
     """Context manager to time a block of code."""
@@ -228,6 +244,7 @@ def timer(name: str):
     yield
     elapsed = time.perf_counter() - start
     print(f"{name} took {elapsed:.4f} seconds")
+
 
 # Usage
 with timer("data processing"):
@@ -252,6 +269,7 @@ class DatabaseTransaction:
             self.connection.rollback()
         return False  # Don't suppress exceptions
 
+
 # Usage
 with DatabaseTransaction(conn):
     user = conn.create_user(user_data)
@@ -275,6 +293,7 @@ for user in users:
 # Complex comprehensions should be expanded
 # Bad: Too complex
 result = [x * 2 for x in items if x > 0 if x % 2 == 0]
+
 
 # Good: Use a generator function
 def filter_and_transform(items: Iterable[int]) -> list[int]:
@@ -304,6 +323,7 @@ def read_large_file(path: str) -> Iterator[str]:
         for line in f:
             yield line.strip()
 
+
 # Usage
 for line in read_large_file("huge.txt"):
     process(line)
@@ -317,21 +337,20 @@ for line in read_large_file("huge.txt"):
 from dataclasses import dataclass, field
 from datetime import datetime
 
+
 @dataclass
 class User:
     """User entity with automatic __init__, __repr__, and __eq__."""
+
     id: str
     name: str
     email: str
     created_at: datetime = field(default_factory=datetime.now)
     is_active: bool = True
 
+
 # Usage
-user = User(
-    id="123",
-    name="Alice",
-    email="alice@example.com"
-)
+user = User(id="123", name="Alice", email="alice@example.com")
 ```
 
 ### Data Classes with Validation
@@ -356,13 +375,16 @@ class User:
 ```python
 from typing import NamedTuple
 
+
 class Point(NamedTuple):
     """Immutable 2D point."""
+
     x: float
     y: float
 
-    def distance(self, other: 'Point') -> float:
+    def distance(self, other: "Point") -> float:
         return ((self.x - other.x) ** 2 + (self.y - other.y) ** 2) ** 0.5
+
 
 # Usage
 p1 = Point(0, 0)
@@ -378,8 +400,10 @@ print(p1.distance(p2))  # 5.0
 import functools
 import time
 
+
 def timer(func: Callable) -> Callable:
     """Decorator to time function execution."""
+
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
         start = time.perf_counter()
@@ -387,11 +411,14 @@ def timer(func: Callable) -> Callable:
         elapsed = time.perf_counter() - start
         print(f"{func.__name__} took {elapsed:.4f}s")
         return result
+
     return wrapper
+
 
 @timer
 def slow_function():
     time.sleep(1)
+
 
 # slow_function() prints: slow_function took 1.0012s
 ```
@@ -401,6 +428,7 @@ def slow_function():
 ```python
 def repeat(times: int):
     """Decorator to repeat a function multiple times."""
+
     def decorator(func: Callable) -> Callable:
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
@@ -408,12 +436,16 @@ def repeat(times: int):
             for _ in range(times):
                 results.append(func(*args, **kwargs))
             return results
+
         return wrapper
+
     return decorator
+
 
 @repeat(times=3)
 def greet(name: str) -> str:
     return f"Hello, {name}!"
+
 
 # greet("Alice") returns ["Hello, Alice!", "Hello, Alice!", "Hello, Alice!"]
 ```
@@ -423,6 +455,7 @@ def greet(name: str) -> str:
 ```python
 class CountCalls:
     """Decorator that counts how many times a function is called."""
+
     def __init__(self, func: Callable):
         functools.update_wrapper(self, func)
         self.func = func
@@ -433,9 +466,11 @@ class CountCalls:
         print(f"{self.func.__name__} has been called {self.count} times")
         return self.func(*args, **kwargs)
 
+
 @CountCalls
 def process():
     pass
+
 
 # Each call to process() prints the call count
 ```
@@ -448,11 +483,14 @@ def process():
 import concurrent.futures
 import threading
 
+
 def fetch_url(url: str) -> str:
     """Fetch a URL (I/O-bound operation)."""
     import urllib.request
+
     with urllib.request.urlopen(url) as response:
         return response.read().decode()
+
 
 def fetch_all_urls(urls: list[str]) -> dict[str, str]:
     """Fetch multiple URLs concurrently using threads."""
@@ -473,7 +511,8 @@ def fetch_all_urls(urls: list[str]) -> dict[str, str]:
 ```python
 def process_data(data: list[int]) -> int:
     """CPU-intensive computation."""
-    return sum(x ** 2 for x in data)
+    return sum(x**2 for x in data)
+
 
 def process_all(datasets: list[list[int]]) -> list[int]:
     """Process multiple datasets using multiple processes."""
@@ -487,12 +526,15 @@ def process_all(datasets: list[list[int]]) -> list[int]:
 ```python
 import asyncio
 
+
 async def fetch_async(url: str) -> str:
     """Fetch a URL asynchronously."""
     import aiohttp
+
     async with aiohttp.ClientSession() as session:
         async with session.get(url) as response:
             return await response.text()
+
 
 async def fetch_all(urls: list[str]) -> dict[str, str]:
     """Fetch multiple URLs concurrently."""
@@ -574,9 +616,10 @@ class Point:
         self.x = x
         self.y = y
 
+
 # Good: __slots__ reduces memory usage
 class Point:
-    __slots__ = ['x', 'y']
+    __slots__ = ["x", "y"]
 
     def __init__(self, x: float, y: float):
         self.x = x
@@ -590,6 +633,7 @@ class Point:
 def read_lines(path: str) -> list[str]:
     with open(path) as f:
         return [line.strip() for line in f]
+
 
 # Good: Yields lines one at a time
 def read_lines(path: str) -> Iterator[str]:
@@ -708,12 +752,14 @@ def append_to(item, items=[]):
     items.append(item)
     return items
 
+
 # Good: Use None and create new list
 def append_to(item, items=None):
     if items is None:
         items = []
     items.append(item)
     return items
+
 
 # Bad: Checking type with type()
 if type(obj) == list:

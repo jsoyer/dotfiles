@@ -30,10 +30,10 @@ rtstream = coll.connect_rtstream(
     url="rtmp://your-stream-server/live/stream-key",
     name="My Live Stream",
     media_types=["video"],  # or ["audio", "video"]
-    sample_rate=30,         # optional
-    store=True,             # enable recording storage for export
-    enable_transcript=True, # optional
-    ws_connection_id=ws_id, # optional, for real-time events
+    sample_rate=30,  # optional
+    store=True,  # enable recording storage for export
+    enable_transcript=True,  # optional
+    ws_connection_id=ws_id,  # optional, for real-time events
 )
 ```
 
@@ -50,7 +50,7 @@ rtstreams = coll.list_rtstreams(
     limit=10,
     offset=0,
     status="connected",  # optional filter
-    name="meeting",      # optional filter
+    name="meeting",  # optional filter
     ordering="-created_at",
 )
 
@@ -179,7 +179,7 @@ Generate LLM summaries of audio content at intervals:
 audio_index = rtstream.index_audio(
     prompt="Summarize what is being discussed",
     batch_config={"type": "word", "value": 50},
-    model_name=None,       # optional
+    model_name=None,  # optional
     name="meeting_audio",  # optional
     ws_connection_id=ws_id,
 )
@@ -195,9 +195,9 @@ audio_index = rtstream.index_audio(
 
 Examples:
 ```python
-{"type": "word", "value": 50}      # every 50 words
-{"type": "sentence", "value": 5}   # every 5 sentences
-{"type": "time", "value": 30}      # every 30 seconds
+{"type": "word", "value": 50}  # every 50 words
+{"type": "sentence", "value": 5}  # every 5 sentences
+{"type": "time", "value": 30}  # every 30 seconds
 ```
 
 Results arrive on the `audio_index` WebSocket channel.
@@ -273,7 +273,7 @@ Examples:
 # Audio: every 50 words
 {"type": "word", "value": 50}
 
-# Audio: every 30 seconds  
+# Audio: every 30 seconds
 {"type": "time", "value": 30}
 
 # Visual: 5 frames every 2 seconds
@@ -297,9 +297,9 @@ rtstream.start_transcript(
 transcript = rtstream.get_transcript(
     page=1,
     page_size=100,
-    start=None,   # optional: start timestamp filter
-    end=None,     # optional: end timestamp filter
-    since=None,   # optional: for polling, get transcripts after this timestamp
+    start=None,  # optional: start timestamp filter
+    end=None,  # optional: end timestamp filter
+    since=None,  # optional: for polling, get transcripts after this timestamp
     engine=None,
 )
 
@@ -359,8 +359,8 @@ Poll indexed scenes from the index:
 
 ```python
 result = scene_index.get_scenes(
-    start=None,      # optional: start timestamp
-    end=None,        # optional: end timestamp
+    start=None,  # optional: start timestamp
+    end=None,  # optional: end timestamp
     page=1,
     page_size=100,
 )

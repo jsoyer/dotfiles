@@ -18,21 +18,17 @@ MCP_TOOLS = {
         "description": "Get current weather for a city",
         "parameters": {
             "type": "object",
-            "properties": {
-                "city": {"type": "string", "description": "City name"}
-            },
-            "required": ["city"]
-        }
+            "properties": {"city": {"type": "string", "description": "City name"}},
+            "required": ["city"],
+        },
     },
     "search_docs": {
         "description": "Search documentation for a query",
         "parameters": {
-            "type": "object", 
-            "properties": {
-                "query": {"type": "string", "description": "Search query"}
-            },
-            "required": ["query"]
-        }
+            "type": "object",
+            "properties": {"query": {"type": "string", "description": "Search query"}},
+            "required": ["query"],
+        },
     },
     "run_query": {
         "description": "Execute a database query",
@@ -41,9 +37,9 @@ MCP_TOOLS = {
             "properties": {
                 "sql": {"type": "string", "description": "SQL query to execute"}
             },
-            "required": ["sql"]
-        }
-    }
+            "required": ["sql"],
+        },
+    },
 }
 
 
@@ -53,17 +49,17 @@ def handle_tool_call(tool_name: str, arguments: dict) -> Any:
         city = arguments.get("city", "Unknown")
         # Demo implementation - replace with actual weather API
         return {"city": city, "temperature": 72, "conditions": "Sunny"}
-    
+
     elif tool_name == "search_docs":
         query = arguments.get("query", "")
         # Demo implementation - replace with actual search
         return {"results": [f"Doc 1 about {query}", f"Doc 2 about {query}"]}
-    
+
     elif tool_name == "run_query":
         sql = arguments.get("sql", "")
         # Demo implementation - replace with actual database query
         return {"rows": [], "message": f"Executed: {sql[:50]}..."}
-    
+
     else:
         raise ValueError(f"Unknown tool: {tool_name}")
 
@@ -79,51 +75,51 @@ def mcp_handler(req: func.HttpRequest) -> func.HttpResponse:
         method = body.get("method")
         params = body.get("params", {})
         request_id = body.get("id")
-        
+
         if method == "tools/list":
             # Return list of available tools
-            tools = [
-                {"name": name, **spec} 
-                for name, spec in MCP_TOOLS.items()
-            ]
+            tools = [{"name": name, **spec} for name, spec in MCP_TOOLS.items()]
             result = {"tools": tools}
-        
+
         elif method == "tools/call":
             # Execute a tool
             tool_name = params.get("name")
             arguments = params.get("arguments", {})
             result = handle_tool_call(tool_name, arguments)
-        
+
         else:
             return func.HttpResponse(
-                json.dumps({
-                    "jsonrpc": "2.0",
-                    "error": {"code": -32601, "message": f"Method not found: {method}"},
-                    "id": request_id
-                }),
+                json.dumps(
+                    {
+                        "jsonrpc": "2.0",
+                        "error": {
+                            "code": -32601,
+                            "message": f"Method not found: {method}",
+                        },
+                        "id": request_id,
+                    }
+                ),
                 mimetype="application/json",
-                status_code=400
+                status_code=400,
             )
-        
+
         return func.HttpResponse(
-            json.dumps({
-                "jsonrpc": "2.0",
-                "result": result,
-                "id": request_id
-            }),
-            mimetype="application/json"
+            json.dumps({"jsonrpc": "2.0", "result": result, "id": request_id}),
+            mimetype="application/json",
         )
-    
+
     except Exception as e:
         logging.error(f"MCP error: {e}")
         return func.HttpResponse(
-            json.dumps({
-                "jsonrpc": "2.0",
-                "error": {"code": -32603, "message": str(e)},
-                "id": None
-            }),
+            json.dumps(
+                {
+                    "jsonrpc": "2.0",
+                    "error": {"code": -32603, "message": str(e)},
+                    "id": None,
+                }
+            ),
             mimetype="application/json",
-            status_code=500
+            status_code=500,
         )
 
 
@@ -131,12 +127,10 @@ def mcp_handler(req: func.HttpRequest) -> func.HttpResponse:
 def health_check(req: func.HttpRequest) -> func.HttpResponse:
     """Health check endpoint."""
     return func.HttpResponse(
-        json.dumps({
-            "status": "healthy",
-            "type": "mcp",
-            "tools": list(MCP_TOOLS.keys())
-        }),
-        mimetype="application/json"
+        json.dumps(
+            {"status": "healthy", "type": "mcp", "tools": list(MCP_TOOLS.keys())}
+        ),
+        mimetype="application/json",
     )
 ```
 

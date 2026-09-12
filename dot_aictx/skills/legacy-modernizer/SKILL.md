@@ -56,6 +56,7 @@ import os
 from legacy_service import LegacyOrderService
 from new_service import NewOrderService
 
+
 class OrderServiceFacade:
     def __init__(self):
         self._legacy = LegacyOrderService()
@@ -72,9 +73,11 @@ class OrderServiceFacade:
 # feature_flags.py — thin wrapper around an environment or config-based flag store
 import os
 
+
 def flag_enabled(flag_name: str, default: bool = False) -> bool:
     """Check whether a migration feature flag is active."""
     return os.getenv(flag_name, str(default)).lower() == "true"
+
 
 # Usage
 if flag_enabled("USE_NEW_PAYMENT_GATEWAY"):
@@ -92,11 +95,15 @@ from legacy_service import LegacyOrderService
 
 service = LegacyOrderService()
 
-@pytest.mark.parametrize("order_id,expected_status", [
-    ("ORD-001", "SHIPPED"),
-    ("ORD-002", "PENDING"),
-    ("ORD-003", "CANCELLED"),
-])
+
+@pytest.mark.parametrize(
+    "order_id,expected_status",
+    [
+        ("ORD-001", "SHIPPED"),
+        ("ORD-002", "PENDING"),
+        ("ORD-003", "CANCELLED"),
+    ],
+)
 def test_order_status_golden_master(order_id, expected_status):
     """Fail loudly if legacy behavior changes unexpectedly."""
     result = service.get(order_id)

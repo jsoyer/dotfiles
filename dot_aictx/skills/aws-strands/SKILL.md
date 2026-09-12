@@ -25,16 +25,15 @@ npm install @strands-agents/sdk
 from strands import Agent
 from strands.tools import tool
 
+
 @tool
 def get_weather(city: str) -> str:
     """Get current weather for a city."""
     # Implementation
     return f"Weather in {city}: 72°F, Sunny"
 
-agent = Agent(
-    model="anthropic.claude-3-sonnet",
-    tools=[get_weather]
-)
+
+agent = Agent(model="anthropic.claude-3-sonnet", tools=[get_weather])
 
 response = agent("What's the weather in Seattle?")
 print(response)
@@ -81,11 +80,7 @@ agent = Agent(model="openai.gpt-4o")
 agent = Agent(model="amazon.titan-text-premier")
 
 # Custom endpoint
-agent = Agent(
-    model="custom",
-    endpoint="https://your-model-endpoint.com",
-    api_key="..."
-)
+agent = Agent(model="custom", endpoint="https://your-model-endpoint.com", api_key="...")
 ```
 
 ## Tool Definition Patterns
@@ -94,10 +89,11 @@ agent = Agent(
 ```python
 from strands.tools import tool
 
+
 @tool
 def search_database(query: str, limit: int = 10) -> list[dict]:
     """Search the product database.
-    
+
     Args:
         query: Search query string
         limit: Maximum results to return
@@ -110,16 +106,17 @@ def search_database(query: str, limit: int = 10) -> list[dict]:
 ```python
 from strands.tools import Tool
 
+
 class DatabaseSearchTool(Tool):
     name = "search_database"
     description = "Search the product database"
-    
+
     def parameters(self):
         return {
             "query": {"type": "string", "description": "Search query"},
-            "limit": {"type": "integer", "default": 10}
+            "limit": {"type": "integer", "default": 10},
         }
-    
+
     def run(self, query: str, limit: int = 10):
         return self.db.search(query, limit)
 ```
@@ -134,10 +131,7 @@ from strands import Agent, ReActStrategy
 agent = Agent(
     model="anthropic.claude-3-sonnet",
     tools=[search_tool, calculate_tool],
-    strategy=ReActStrategy(
-        max_iterations=10,
-        verbose=True
-    )
+    strategy=ReActStrategy(max_iterations=10, verbose=True),
 )
 
 # Agent will reason through complex multi-step tasks
@@ -158,32 +152,30 @@ researcher = Agent(
     name="researcher",
     model="anthropic.claude-3-sonnet",
     tools=[web_search, document_reader],
-    system_prompt="You are a research specialist."
+    system_prompt="You are a research specialist.",
 )
 
 analyst = Agent(
     name="analyst",
     model="anthropic.claude-3-sonnet",
     tools=[data_analyzer, chart_generator],
-    system_prompt="You are a data analyst."
+    system_prompt="You are a data analyst.",
 )
 
 writer = Agent(
     name="writer",
     model="anthropic.claude-3-sonnet",
     tools=[document_writer],
-    system_prompt="You are a technical writer."
+    system_prompt="You are a technical writer.",
 )
 
 # Orchestrator
 orchestrator = MultiAgentOrchestrator(
     agents=[researcher, analyst, writer],
-    routing="supervisor"  # or "round_robin", "intent"
+    routing="supervisor",  # or "round_robin", "intent"
 )
 
-response = orchestrator.run(
-    "Research AI trends, analyze the data, and write a report"
-)
+response = orchestrator.run("Research AI trends, analyze the data, and write a report")
 ```
 
 ## Streaming Responses
@@ -208,8 +200,8 @@ agent = Agent(
     model="anthropic.claude-3-sonnet",
     memory=[
         ConversationMemory(max_turns=10),
-        SemanticMemory(embedding_model="text-embedding-3-small")
-    ]
+        SemanticMemory(embedding_model="text-embedding-3-small"),
+    ],
 )
 
 # Memory persists across calls
@@ -226,20 +218,19 @@ from strands import Agent
 from strands.tools import tool
 import boto3
 
-agentcore_client = boto3.client('bedrock-agentcore')
+agentcore_client = boto3.client("bedrock-agentcore")
+
 
 @tool
 def query_cloudwatch(metric_name: str, namespace: str) -> dict:
     """Query CloudWatch metrics via AgentCore Gateway."""
     return agentcore_client.invoke_tool(
         tool_name="cloudwatch_query",
-        parameters={"metric": metric_name, "namespace": namespace}
+        parameters={"metric": metric_name, "namespace": namespace},
     )
 
-agent = Agent(
-    model="anthropic.claude-3-sonnet",
-    tools=[query_cloudwatch]
-)
+
+agent = Agent(model="anthropic.claude-3-sonnet", tools=[query_cloudwatch])
 ```
 
 ## Official Use Cases

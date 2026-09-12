@@ -29,7 +29,8 @@ MODEL_SONNET = "claude-sonnet-4-6"
 MODEL_HAIKU = "claude-haiku-4-5-20251001"
 
 _SONNET_TEXT_THRESHOLD = 10_000  # chars
-_SONNET_ITEM_THRESHOLD = 30     # items
+_SONNET_ITEM_THRESHOLD = 30  # items
+
 
 def select_model(
     text_length: int,
@@ -51,12 +52,14 @@ Track cumulative spend with frozen dataclasses. Each API call returns a new trac
 ```python
 from dataclasses import dataclass
 
+
 @dataclass(frozen=True, slots=True)
 class CostRecord:
     model: str
     input_tokens: int
     output_tokens: int
     cost_usd: float
+
 
 @dataclass(frozen=True, slots=True)
 class CostTracker:
@@ -93,6 +96,7 @@ from anthropic import (
 _RETRYABLE_ERRORS = (APIConnectionError, RateLimitError, InternalServerError)
 _MAX_RETRIES = 3
 
+
 def call_with_retry(func, *, max_retries: int = _MAX_RETRIES):
     """Retry only on transient errors, fail fast on others."""
     for attempt in range(max_retries):
@@ -101,7 +105,7 @@ def call_with_retry(func, *, max_retries: int = _MAX_RETRIES):
         except _RETRYABLE_ERRORS:
             if attempt == max_retries - 1:
                 raise
-            time.sleep(2 ** attempt)  # Exponential backoff
+            time.sleep(2**attempt)  # Exponential backoff
     # AuthenticationError, BadRequestError etc. → raise immediately
 ```
 
@@ -133,7 +137,9 @@ messages = [
 Combine all four techniques in a single pipeline function:
 
 ```python
-def process(text: str, config: Config, tracker: CostTracker) -> tuple[Result, CostTracker]:
+def process(
+    text: str, config: Config, tracker: CostTracker
+) -> tuple[Result, CostTracker]:
     # 1. Route model
     model = select_model(len(text), estimated_items, config.force_model)
 
@@ -142,10 +148,12 @@ def process(text: str, config: Config, tracker: CostTracker) -> tuple[Result, Co
         raise BudgetExceededError(tracker.total_cost, tracker.budget_limit)
 
     # 3. Call with retry + caching
-    response = call_with_retry(lambda: client.messages.create(
-        model=model,
-        messages=build_cached_messages(system_prompt, text),
-    ))
+    response = call_with_retry(
+        lambda: client.messages.create(
+            model=model,
+            messages=build_cached_messages(system_prompt, text),
+        )
+    )
 
     # 4. Track cost (immutable)
     record = CostRecord(model=model, input_tokens=..., output_tokens=..., cost_usd=...)

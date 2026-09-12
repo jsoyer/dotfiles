@@ -11,9 +11,9 @@ from pyiceberg.exceptions import NamespaceAlreadyExistsError
 
 catalog = RestCatalog(
     name="r2_catalog",
-    warehouse=os.getenv("R2_WAREHOUSE"),      # bucket name
-    uri=os.getenv("R2_CATALOG_URI"),          # catalog endpoint
-    token=os.getenv("R2_TOKEN"),              # API token
+    warehouse=os.getenv("R2_WAREHOUSE"),  # bucket name
+    uri=os.getenv("R2_CATALOG_URI"),  # catalog endpoint
+    token=os.getenv("R2_TOKEN"),  # API token
 )
 
 # Create namespace (idempotent)
@@ -48,15 +48,19 @@ partition_spec = PartitionSpec(
 )
 
 catalog.create_namespace("logs")
-table = catalog.create_table(("logs", "app_logs"), schema=schema, partition_spec=partition_spec)
+table = catalog.create_table(
+    ("logs", "app_logs"), schema=schema, partition_spec=partition_spec
+)
 
 # Append logs (incremental)
-data = pa.table({
-    "timestamp": [datetime(2026, 1, 27, 10, 30, 0)],
-    "level": ["ERROR"],
-    "service": ["auth-service"],
-    "message": ["Failed login"],
-})
+data = pa.table(
+    {
+        "timestamp": [datetime(2026, 1, 27, 10, 30, 0)],
+        "level": ["ERROR"],
+        "service": ["auth-service"],
+        "message": ["Failed login"],
+    }
+)
 table.append(data)
 
 # Query by time + level (leverages partitioning)
@@ -102,9 +106,13 @@ from pyiceberg.transforms import DayTransform, IdentityTransform
 # Partition by day + country
 partition_spec = PartitionSpec(
     PartitionField(source_id=1, field_id=1000, transform=DayTransform(), name="day"),
-    PartitionField(source_id=2, field_id=1001, transform=IdentityTransform(), name="country"),
+    PartitionField(
+        source_id=2, field_id=1001, transform=IdentityTransform(), name="country"
+    ),
 )
-table = catalog.create_table(("events", "user_events"), schema=schema, partition_spec=partition_spec)
+table = catalog.create_table(
+    ("events", "user_events"), schema=schema, partition_spec=partition_spec
+)
 
 # Queries prune partitions automatically
 scan = table.scan(row_filter="country = 'US' AND day = '2026-01-27'")
@@ -133,6 +141,7 @@ See [api.md](api.md#table-maintenance) for detailed parameters.
 from pyiceberg.exceptions import CommitFailedException
 import time
 
+
 def append_with_retry(table, data, max_retries=3):
     for attempt in range(max_retries):
         try:
@@ -141,7 +150,7 @@ def append_with_retry(table, data, max_retries=3):
         except CommitFailedException:
             if attempt == max_retries - 1:
                 raise
-            time.sleep(2 ** attempt)
+            time.sleep(2**attempt)
 ```
 
 ## Pattern 7: Upsert Simulation

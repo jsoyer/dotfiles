@@ -12,6 +12,7 @@ pip install azure-ai-translation-text
 ```python
 from azure.ai.translation.text import TextTranslationClient
 from azure.core.credentials import AzureKeyCredential
+
 client = TextTranslationClient(credential=AzureKeyCredential(key), region=region)
 ```
 

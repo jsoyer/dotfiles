@@ -62,10 +62,13 @@ When shapes are unclear, inject diagnostic prints:
 
 ```python
 # Add before the failing line:
-print(f"tensor.shape = {tensor.shape}, dtype = {tensor.dtype}, device = {tensor.device}")
+print(
+    f"tensor.shape = {tensor.shape}, dtype = {tensor.dtype}, device = {tensor.device}"
+)
 
 # For full model shape tracing:
 from torchsummary import summary
+
 summary(model, input_size=(C, H, W))
 ```
 

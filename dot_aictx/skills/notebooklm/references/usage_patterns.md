@@ -163,6 +163,7 @@ done
 #!/usr/bin/env python
 import subprocess
 
+
 def research_topic(topic, notebook_id):
     # Comprehensive question
     question = f"""
@@ -174,11 +175,19 @@ def research_topic(topic, notebook_id):
     5. Examples
     """
 
-    result = subprocess.run([
-        "python", "scripts/run.py", "ask_question.py",
-        "--question", question,
-        "--notebook-id", notebook_id
-    ], capture_output=True, text=True)
+    result = subprocess.run(
+        [
+            "python",
+            "scripts/run.py",
+            "ask_question.py",
+            "--question",
+            question,
+            "--notebook-id",
+            notebook_id,
+        ],
+        capture_output=True,
+        text=True,
+    )
 
     return result.stdout
 ```
@@ -207,20 +216,36 @@ python scripts/run.py notebook_manager.py search --query "frontend"
 ```python
 # Query documentation during development
 def check_api_usage(api_endpoint):
-    result = subprocess.run([
-        "python", "scripts/run.py", "ask_question.py",
-        "--question", f"Parameters and response format for {api_endpoint}",
-        "--notebook-id", "api-docs"
-    ], capture_output=True, text=True)
+    result = subprocess.run(
+        [
+            "python",
+            "scripts/run.py",
+            "ask_question.py",
+            "--question",
+            f"Parameters and response format for {api_endpoint}",
+            "--notebook-id",
+            "api-docs",
+        ],
+        capture_output=True,
+        text=True,
+    )
 
     # If follow-up needed
     if "Is that ALL you need" in result.stdout:
         # Ask for examples
-        follow_up = subprocess.run([
-            "python", "scripts/run.py", "ask_question.py",
-            "--question", f"Show code examples for {api_endpoint}",
-            "--notebook-id", "api-docs"
-        ], capture_output=True, text=True)
+        follow_up = subprocess.run(
+            [
+                "python",
+                "scripts/run.py",
+                "ask_question.py",
+                "--question",
+                f"Show code examples for {api_endpoint}",
+                "--notebook-id",
+                "api-docs",
+            ],
+            capture_output=True,
+            text=True,
+        )
 
     return combine_answers(result.stdout, follow_up.stdout)
 ```
@@ -276,7 +301,9 @@ if "notebooklm.google.com" in user_message:
         topics = ask_user("What topics does it cover?")
 
         # 4. Add with user-provided info
-        run(f"notebook_manager.py add --url {url} --name '{name}' --description '{description}' --topics '{topics}'")
+        run(
+            f"notebook_manager.py add --url {url} --name '{name}' --description '{description}' --topics '{topics}'"
+        )
 
     # 5. Use the notebook
     answer = run(f"ask_question.py --question '{user_question}'")
@@ -292,7 +319,7 @@ task = "Implement feature X"
 questions = [
     "Complete implementation guide for X",
     "Error handling for X",
-    "Performance considerations for X"
+    "Performance considerations for X",
 ]
 
 # 3. Query with follow-ups

@@ -62,6 +62,7 @@ Define state schema with reducers for accumulating lists and summing integers.
 from typing_extensions import TypedDict, Annotated
 import operator
 
+
 class State(TypedDict):
     name: str  # Default: overwrites on update
     messages: Annotated[list, operator.add]  # Appends to list
@@ -94,6 +95,7 @@ Without a reducer, returning a list overwrites previous values.
 class State(TypedDict):
     messages: list  # No reducer!
 
+
 # Node 1 returns: {"messages": ["A"]}
 # Node 2 returns: {"messages": ["B"]}
 # Final: {"messages": ["B"]}  # "A" is LOST!
@@ -102,8 +104,11 @@ class State(TypedDict):
 from typing import Annotated
 import operator
 
+
 class State(TypedDict):
     messages: Annotated[list, operator.add]
+
+
 # Final: {"messages": ["A", "B"]}
 ```
 </python>
@@ -137,6 +142,7 @@ Nodes must return partial updates, not mutate and return full state.
 def my_node(state: State) -> State:
     state["field"] = "updated"
     return state  # Don't mutate and return!
+
 
 # CORRECT: Return dict with only the updates
 def my_node(state: State) -> dict:
@@ -180,12 +186,15 @@ Node functions accept these arguments:
 from langchain_core.runnables import RunnableConfig
 from langgraph.runtime import Runtime
 
+
 def plain_node(state: State):
     return {"results": "done"}
+
 
 def node_with_config(state: State, config: RunnableConfig):
     thread_id = config["configurable"]["thread_id"]
     return {"results": f"Thread: {thread_id}"}
+
 
 def node_with_runtime(state: State, runtime: Runtime[Context]):
     user_id = runtime.context.user_id
@@ -237,15 +246,19 @@ Simple two-node graph with linear edges.
 from langgraph.graph import StateGraph, START, END
 from typing_extensions import TypedDict
 
+
 class State(TypedDict):
     input: str
     output: str
 
+
 def process_input(state: State) -> dict:
     return {"output": f"Processed: {state['input']}"}
 
+
 def finalize(state: State) -> dict:
     return {"output": state["output"].upper()}
+
 
 graph = (
     StateGraph(State)
@@ -301,18 +314,22 @@ Route to different nodes based on state with conditional edges.
 from typing import Literal
 from langgraph.graph import StateGraph, START, END
 
+
 class State(TypedDict):
     query: str
     route: str
     result: str
+
 
 def classify(state: State) -> dict:
     if "weather" in state["query"].lower():
         return {"route": "weather"}
     return {"route": "general"}
 
+
 def route_query(state: State) -> Literal["weather", "general"]:
     return state["route"]
+
 
 graph = (
     StateGraph(State)
@@ -377,9 +394,11 @@ Command lets you update state AND choose next node in one return.
 from langgraph.types import Command
 from typing import Literal
 
+
 class State(TypedDict):
     count: int
     result: str
+
 
 def node_a(state: State) -> Command[Literal["node_b", "node_c"]]:
     """Update state AND decide next node in one return."""
@@ -387,6 +406,7 @@ def node_a(state: State) -> Command[Literal["node_b", "node_c"]]:
     if new_count > 5:
         return Command(update={"count": new_count}, goto="node_c")
     return Command(update={"count": new_count}, goto="node_b")
+
 
 graph = (
     StateGraph(State)
@@ -459,20 +479,25 @@ from langgraph.types import Send
 from typing import Annotated
 import operator
 
+
 class OrchestratorState(TypedDict):
     tasks: list[str]
     results: Annotated[list, operator.add]
     summary: str
 
+
 def orchestrator(state: OrchestratorState):
     """Fan out tasks to workers."""
     return [Send("worker", {"task": task}) for task in state["tasks"]]
 
+
 def worker(state: dict) -> dict:
     return {"results": [f"Completed: {state['task']}"]}
 
+
 def synthesize(state: OrchestratorState) -> dict:
     return {"summary": f"Processed {len(state['results'])} tasks"}
+
 
 graph = (
     StateGraph(OrchestratorState)
@@ -532,6 +557,7 @@ Use a reducer to accumulate parallel worker results (otherwise last worker overw
 # WRONG: No reducer - last worker overwrites
 class State(TypedDict):
     results: list
+
 
 # CORRECT
 class State(TypedDict):
@@ -593,8 +619,7 @@ const result = await graph.invoke({ input: "hello" }, { configurable: { thread_i
 Stream LLM tokens in real-time for chat UI display.
 ```python
 for chunk in graph.stream(
-    {"messages": [HumanMessage("Hello")]},
-    stream_mode="messages"
+    {"messages": [HumanMessage("Hello")]}, stream_mode="messages"
 ):
     token, metadata = chunk
     if hasattr(token, "content"):
@@ -623,12 +648,14 @@ Emit custom progress updates from within nodes using the stream writer.
 ```python
 from langgraph.config import get_stream_writer
 
+
 def my_node(state):
     writer = get_stream_writer()
     writer("Processing step 1...")
     # Do work
     writer("Complete!")
     return {"result": "done"}
+
 
 for chunk in graph.stream({"data": "test"}, stream_mode="custom"):
     print(chunk)
@@ -680,7 +707,7 @@ from langgraph.types import RetryPolicy
 workflow.add_node(
     "search_documentation",
     search_documentation,
-    retry_policy=RetryPolicy(max_attempts=3, initial_interval=1.0)
+    retry_policy=RetryPolicy(max_attempts=3, initial_interval=1.0),
 )
 ```
 </python>
@@ -758,9 +785,12 @@ Provide conditional path to END to avoid infinite loops.
 builder.add_edge("node_a", "node_b")
 builder.add_edge("node_b", "node_a")
 
+
 # CORRECT
 def should_continue(state):
     return END if state["count"] > 10 else "node_b"
+
+
 builder.add_conditional_edges("node_a", should_continue)
 ```
 </python>
@@ -783,9 +813,11 @@ Other common mistakes:
 builder.add_node("my_node", func)  # Add node BEFORE referencing in edges
 builder.add_conditional_edges("node_a", router, ["my_node"])
 
+
 # Command return type needs Literal for routing destinations (Python)
 def node_a(state) -> Command[Literal["node_b", "node_c"]]:
     return Command(goto="node_b")
+
 
 # START is entry-only - cannot route back to it
 builder.add_edge("node_a", START)  # WRONG!

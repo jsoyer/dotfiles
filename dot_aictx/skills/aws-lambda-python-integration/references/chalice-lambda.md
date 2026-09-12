@@ -50,11 +50,12 @@ my-chalice-project/
 # app.py
 from chalice import Chalice
 
-app = Chalice(app_name='hello-world')
+app = Chalice(app_name="hello-world")
 
-@app.route('/')
+
+@app.route("/")
 def index():
-    return {'hello': 'world'}
+    return {"hello": "world"}
 ```
 
 ## Routing
@@ -64,40 +65,42 @@ def index():
 ```python
 from chalice import Chalice
 
-app = Chalice(app_name='my-api')
+app = Chalice(app_name="my-api")
 
-@app.route('/users', methods=['GET'])
+
+@app.route("/users", methods=["GET"])
 def list_users():
-    return {'users': []}
+    return {"users": []}
 
-@app.route('/users', methods=['POST'])
+
+@app.route("/users", methods=["POST"])
 def create_user():
     user = app.current_request.json_body
-    return {'user': user, 'created': True}
+    return {"user": user, "created": True}
 
-@app.route('/users/{user_id}', methods=['GET'])
+
+@app.route("/users/{user_id}", methods=["GET"])
 def get_user(user_id):
-    return {'user_id': user_id}
+    return {"user_id": user_id}
 
-@app.route('/users/{user_id}', methods=['PUT'])
+
+@app.route("/users/{user_id}", methods=["PUT"])
 def update_user(user_id):
     updates = app.current_request.json_body
-    return {'user_id': user_id, 'updated': updates}
+    return {"user_id": user_id, "updated": updates}
 
-@app.route('/users/{user_id}', methods=['DELETE'])
+
+@app.route("/users/{user_id}", methods=["DELETE"])
 def delete_user(user_id):
-    return {'user_id': user_id, 'deleted': True}
+    return {"user_id": user_id, "deleted": True}
 ```
 
 ### Path Parameters
 
 ```python
-@app.route('/orders/{order_id}/items/{item_id}')
+@app.route("/orders/{order_id}/items/{item_id}")
 def get_order_item(order_id, item_id):
-    return {
-        'order_id': order_id,
-        'item_id': item_id
-    }
+    return {"order_id": order_id, "item_id": item_id}
 ```
 
 ### Query Parameters
@@ -105,20 +108,17 @@ def get_order_item(order_id, item_id):
 ```python
 from urllib.parse import parse_qs
 
-@app.route('/search')
+
+@app.route("/search")
 def search():
     # Access query parameters
     query_params = app.current_request.query_params or {}
 
-    search_term = query_params.get('q')
-    page = int(query_params.get('page', 1))
-    limit = int(query_params.get('limit', 10))
+    search_term = query_params.get("q")
+    page = int(query_params.get("page", 1))
+    limit = int(query_params.get("limit", 10))
 
-    return {
-        'search_term': search_term,
-        'page': page,
-        'limit': limit
-    }
+    return {"search_term": search_term, "page": page, "limit": limit}
 ```
 
 ## Request Handling
@@ -126,20 +126,20 @@ def search():
 ### Accessing Request Data
 
 ```python
-@app.route('/data', methods=['POST'])
+@app.route("/data", methods=["POST"])
 def process_data():
     request = app.current_request
 
     # Request properties
     return {
-        'method': request.method,           # POST
-        'path': request.path,               # /data
-        'query_params': request.query_params,
-        'headers': dict(request.headers),
-        'json_body': request.json_body,     # Parsed JSON body
-        'raw_body': request.raw_body,       # Raw bytes
-        'context': request.context,         # Lambda context
-        'stage_vars': request.stage_vars,   # API Gateway stage variables
+        "method": request.method,  # POST
+        "path": request.path,  # /data
+        "query_params": request.query_params,
+        "headers": dict(request.headers),
+        "json_body": request.json_body,  # Parsed JSON body
+        "raw_body": request.raw_body,  # Raw bytes
+        "context": request.context,  # Lambda context
+        "stage_vars": request.stage_vars,  # API Gateway stage variables
     }
 ```
 
@@ -149,23 +149,22 @@ def process_data():
 from chalice import Response
 import json
 
-@app.route('/custom-response')
+
+@app.route("/custom-response")
 def custom_response():
     return Response(
-        body=json.dumps({'message': 'Custom response'}),
+        body=json.dumps({"message": "Custom response"}),
         status_code=201,
-        headers={
-            'Content-Type': 'application/json',
-            'X-Custom-Header': 'value'
-        }
+        headers={"Content-Type": "application/json", "X-Custom-Header": "value"},
     )
 
-@app.route('/binary-data')
+
+@app.route("/binary-data")
 def binary_data():
     return Response(
-        body=b'binary content',
+        body=b"binary content",
         status_code=200,
-        headers={'Content-Type': 'application/octet-stream'}
+        headers={"Content-Type": "application/octet-stream"},
     )
 ```
 
@@ -178,13 +177,13 @@ from chalice import Chalice, CORSConfig
 
 # Global CORS configuration
 cors_config = CORSConfig(
-    allow_origin='https://example.com',
-    allow_headers=['Content-Type', 'Authorization'],
+    allow_origin="https://example.com",
+    allow_headers=["Content-Type", "Authorization"],
     allow_credentials=True,
-    max_age=600
+    max_age=600,
 )
 
-app = Chalice(app_name='my-api')
+app = Chalice(app_name="my-api")
 app.api.cors_config = cors_config
 ```
 
@@ -193,20 +192,22 @@ app.api.cors_config = cors_config
 ```python
 from chalice import CORSConfig
 
+
 # Simple CORS
-@app.route('/public', cors=True)
+@app.route("/public", cors=True)
 def public_endpoint():
-    return {'data': 'public'}
+    return {"data": "public"}
+
 
 # Custom CORS per route
 custom_cors = CORSConfig(
-    allow_origin='https://specific-domain.com',
-    allow_headers=['X-Custom-Header']
+    allow_origin="https://specific-domain.com", allow_headers=["X-Custom-Header"]
 )
 
-@app.route('/restricted', cors=custom_cors)
+
+@app.route("/restricted", cors=custom_cors)
 def restricted_endpoint():
-    return {'data': 'restricted'}
+    return {"data": "restricted"}
 ```
 
 ## Error Handling
@@ -223,27 +224,29 @@ from chalice import (
     ConflictError,
     UnprocessableEntityError,
     TooManyRequestsError,
-    ChaliceViewError
+    ChaliceViewError,
 )
 
-app = Chalice(app_name='my-api')
+app = Chalice(app_name="my-api")
 
-@app.route('/users/{user_id}')
+
+@app.route("/users/{user_id}")
 def get_user(user_id):
     user = find_user(user_id)
     if user is None:
-        raise NotFoundError(f'User {user_id} not found')
+        raise NotFoundError(f"User {user_id} not found")
     return user
 
-@app.route('/users', methods=['POST'])
+
+@app.route("/users", methods=["POST"])
 def create_user():
     data = app.current_request.json_body
 
-    if not data or 'email' not in data:
-        raise BadRequestError('Email is required')
+    if not data or "email" not in data:
+        raise BadRequestError("Email is required")
 
-    if user_exists(data['email']):
-        raise ConflictError('User already exists')
+    if user_exists(data["email"]):
+        raise ConflictError("User already exists")
 
     return create_new_user(data)
 ```
@@ -253,15 +256,13 @@ def create_user():
 ```python
 from chalice import ChaliceViewError
 
+
 @app.errorhandler(ChaliceViewError)
 def handle_errors(error):
     return Response(
-        body=json.dumps({
-            'error': error.__class__.__name__,
-            'message': str(error)
-        }),
-        status_code=error.STATUS_CODE if hasattr(error, 'STATUS_CODE') else 500,
-        headers={'Content-Type': 'application/json'}
+        body=json.dumps({"error": error.__class__.__name__, "message": str(error)}),
+        status_code=error.STATUS_CODE if hasattr(error, "STATUS_CODE") else 500,
+        headers={"Content-Type": "application/json"},
     )
 ```
 
@@ -274,24 +275,26 @@ import boto3
 from botocore.exceptions import ClientError
 
 # Initialize at module level for connection reuse
-dynamodb = boto3.resource('dynamodb')
-table = dynamodb.Table('my-table')
+dynamodb = boto3.resource("dynamodb")
+table = dynamodb.Table("my-table")
 
-@app.route('/items/{item_id}')
+
+@app.route("/items/{item_id}")
 def get_item(item_id):
     try:
-        response = table.get_item(Key={'id': item_id})
-        item = response.get('Item')
+        response = table.get_item(Key={"id": item_id})
+        item = response.get("Item")
 
         if not item:
-            raise NotFoundError(f'Item {item_id} not found')
+            raise NotFoundError(f"Item {item_id} not found")
 
         return item
     except ClientError as e:
         app.log.error(f"DynamoDB error: {e}")
-        raise ChaliceViewError('Database error')
+        raise ChaliceViewError("Database error")
 
-@app.route('/items', methods=['POST'])
+
+@app.route("/items", methods=["POST"])
 def create_item():
     item = app.current_request.json_body
 
@@ -300,7 +303,7 @@ def create_item():
         return item
     except ClientError as e:
         app.log.error(f"DynamoDB error: {e}")
-        raise ChaliceViewError('Failed to create item')
+        raise ChaliceViewError("Failed to create item")
 ```
 
 ### S3
@@ -309,38 +312,40 @@ def create_item():
 import boto3
 import json
 
-s3 = boto3.client('s3')
-BUCKET_NAME = 'my-bucket'
+s3 = boto3.client("s3")
+BUCKET_NAME = "my-bucket"
 
-@app.route('/files/{key}')
+
+@app.route("/files/{key}")
 def get_file(key):
     try:
         response = s3.get_object(Bucket=BUCKET_NAME, Key=key)
-        content = response['Body'].read()
+        content = response["Body"].read()
         return Response(
             body=content,
             status_code=200,
-            headers={'Content-Type': response['ContentType']}
+            headers={"Content-Type": response["ContentType"]},
         )
     except s3.exceptions.NoSuchKey:
-        raise NotFoundError(f'File {key} not found')
+        raise NotFoundError(f"File {key} not found")
 
-@app.route('/files', methods=['POST'])
+
+@app.route("/files", methods=["POST"])
 def upload_file():
     request = app.current_request
-    key = request.query_params.get('key')
+    key = request.query_params.get("key")
 
     if not key:
-        raise BadRequestError('Key parameter required')
+        raise BadRequestError("Key parameter required")
 
     s3.put_object(
         Bucket=BUCKET_NAME,
         Key=key,
         Body=request.raw_body,
-        ContentType=request.headers.get('content-type', 'application/octet-stream')
+        ContentType=request.headers.get("content-type", "application/octet-stream"),
     )
 
-    return {'key': key, 'uploaded': True}
+    return {"key": key, "uploaded": True}
 ```
 
 ### SQS
@@ -349,10 +354,11 @@ def upload_file():
 import boto3
 import json
 
-sqs = boto3.client('sqs')
-QUEUE_URL = 'https://sqs.us-east-1.amazonaws.com/123456789/my-queue'
+sqs = boto3.client("sqs")
+QUEUE_URL = "https://sqs.us-east-1.amazonaws.com/123456789/my-queue"
 
-@app.route('/messages', methods=['POST'])
+
+@app.route("/messages", methods=["POST"])
 def enqueue_message():
     message = app.current_request.json_body
 
@@ -360,17 +366,14 @@ def enqueue_message():
         QueueUrl=QUEUE_URL,
         MessageBody=json.dumps(message),
         MessageAttributes={
-            'Type': {
-                'StringValue': message.get('type', 'default'),
-                'DataType': 'String'
+            "Type": {
+                "StringValue": message.get("type", "default"),
+                "DataType": "String",
             }
-        }
+        },
     )
 
-    return {
-        'message_id': response['MessageId'],
-        'status': 'queued'
-    }
+    return {"message_id": response["MessageId"], "status": "queued"}
 ```
 
 ## Configuration
@@ -427,16 +430,17 @@ def enqueue_message():
 import os
 
 # Access environment variables
-DEBUG = os.environ.get('DEBUG', 'false').lower() == 'true'
-TABLE_NAME = os.environ.get('TABLE_NAME', 'default-table')
-SECRET_KEY = os.environ.get('SECRET_KEY')
+DEBUG = os.environ.get("DEBUG", "false").lower() == "true"
+TABLE_NAME = os.environ.get("TABLE_NAME", "default-table")
+SECRET_KEY = os.environ.get("SECRET_KEY")
 
-@app.route('/config')
+
+@app.route("/config")
 def get_config():
     return {
-        'debug': DEBUG,
-        'table_name': TABLE_NAME,
-        'has_secret': SECRET_KEY is not None
+        "debug": DEBUG,
+        "table_name": TABLE_NAME,
+        "has_secret": SECRET_KEY is not None,
     }
 ```
 
@@ -499,24 +503,22 @@ chalice package --stage prod ./out
 ```python
 from chalice import Chalice
 
-app = Chalice(app_name='my-api')
+app = Chalice(app_name="my-api")
 
-@app.middleware('http')
+
+@app.middleware("http")
 def auth_middleware(event, get_response):
     # Run before handler
-    auth_header = event.headers.get('Authorization')
+    auth_header = event.headers.get("Authorization")
 
-    if not auth_header and event.path != '/':
-        return Response(
-            body=json.dumps({'error': 'Unauthorized'}),
-            status_code=401
-        )
+    if not auth_header and event.path != "/":
+        return Response(body=json.dumps({"error": "Unauthorized"}), status_code=401)
 
     # Call the actual handler
     response = get_response(event)
 
     # Run after handler
-    response.headers['X-Request-ID'] = event.request_context['requestId']
+    response.headers["X-Request-ID"] = event.request_context["requestId"]
 
     return response
 ```
@@ -526,53 +528,55 @@ def auth_middleware(event, get_response):
 ```python
 from chalice import Chalice, Cron
 
-app = Chalice(app_name='scheduled-tasks')
+app = Chalice(app_name="scheduled-tasks")
 
-@app.schedule(Cron(0, 12, '*', '*', '?', '*'))
+
+@app.schedule(Cron(0, 12, "*", "*", "?", "*"))
 def daily_report(event):
     """Run every day at 12:00 PM UTC"""
     app.log.info("Running daily report")
     generate_daily_report()
-    return {'status': 'completed'}
+    return {"status": "completed"}
 
-@app.schedule('rate(1 hour)')
+
+@app.schedule("rate(1 hour)")
 def hourly_cleanup(event):
     """Run every hour"""
     app.log.info("Running hourly cleanup")
     cleanup_old_data()
-    return {'status': 'completed'}
+    return {"status": "completed"}
 ```
 
 ### S3 Event Handlers
 
 ```python
-@app.on_s3_event(bucket='my-bucket', events=['s3:ObjectCreated:*'])
+@app.on_s3_event(bucket="my-bucket", events=["s3:ObjectCreated:*"])
 def handle_s3_upload(event):
     app.log.info(f"File uploaded: {event.key}")
     process_file(event.bucket, event.key)
-    return {'status': 'processed'}
+    return {"status": "processed"}
 ```
 
 ### SNS Event Handlers
 
 ```python
-@app.on_sns_message(topic='my-topic')
+@app.on_sns_message(topic="my-topic")
 def handle_sns_message(event):
     app.log.info(f"Received SNS message: {event.subject}")
     app.log.info(f"Message body: {event.message}")
     process_notification(event.message)
-    return {'status': 'processed'}
+    return {"status": "processed"}
 ```
 
 ### SQS Event Handlers
 
 ```python
-@app.on_sqs_message(queue='my-queue', batch_size=10)
+@app.on_sqs_message(queue="my-queue", batch_size=10)
 def handle_sqs_message(event):
     for record in event:
         app.log.info(f"Processing message: {record.body}")
         process_message(record.body)
-    return {'status': 'processed'}
+    return {"status": "processed"}
 ```
 
 ## Best Practices
@@ -596,33 +600,37 @@ import boto3
 from botocore.exceptions import ClientError
 from chalice import NotFoundError, BadRequestError
 
+
 class UsersService:
     def __init__(self, table_name):
-        self.table = boto3.resource('dynamodb').Table(table_name)
+        self.table = boto3.resource("dynamodb").Table(table_name)
 
     def get_user(self, user_id):
-        response = self.table.get_item(Key={'id': user_id})
-        user = response.get('Item')
+        response = self.table.get_item(Key={"id": user_id})
+        user = response.get("Item")
         if not user:
-            raise NotFoundError(f'User {user_id} not found')
+            raise NotFoundError(f"User {user_id} not found")
         return user
 
     def create_user(self, user_data):
-        if 'id' not in user_data:
-            raise BadRequestError('id is required')
+        if "id" not in user_data:
+            raise BadRequestError("id is required")
         self.table.put_item(Item=user_data)
         return user_data
+
 
 # app.py
 from chalicelib.users_service import UsersService
 
-users_service = UsersService(os.environ.get('TABLE_NAME'))
+users_service = UsersService(os.environ.get("TABLE_NAME"))
 
-@app.route('/users/{user_id}')
+
+@app.route("/users/{user_id}")
 def get_user(user_id):
     return users_service.get_user(user_id)
 
-@app.route('/users', methods=['POST'])
+
+@app.route("/users", methods=["POST"])
 def create_user():
     return users_service.create_user(app.current_request.json_body)
 ```
@@ -630,26 +638,23 @@ def create_user():
 ### Pagination Pattern
 
 ```python
-@app.route('/users')
+@app.route("/users")
 def list_users():
     query_params = app.current_request.query_params or {}
 
-    limit = int(query_params.get('limit', 20))
-    cursor = query_params.get('cursor')
+    limit = int(query_params.get("limit", 20))
+    cursor = query_params.get("cursor")
 
-    kwargs = {'Limit': limit}
+    kwargs = {"Limit": limit}
     if cursor:
-        kwargs['ExclusiveStartKey'] = {'id': cursor}
+        kwargs["ExclusiveStartKey"] = {"id": cursor}
 
     response = table.scan(**kwargs)
 
-    result = {
-        'users': response.get('Items', []),
-        'count': response.get('Count', 0)
-    }
+    result = {"users": response.get("Items", []), "count": response.get("Count", 0)}
 
-    if 'LastEvaluatedKey' in response:
-        result['next_cursor'] = response['LastEvaluatedKey']['id']
+    if "LastEvaluatedKey" in response:
+        result["next_cursor"] = response["LastEvaluatedKey"]["id"]
 
     return result
 ```

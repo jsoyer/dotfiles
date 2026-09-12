@@ -70,11 +70,13 @@ import pybreaker
 # Opens after 5 failures; resets after 30 s in half-open state
 breaker = pybreaker.CircuitBreaker(fail_max=5, reset_timeout=30)
 
+
 @breaker
 def call_inventory_service(order_id: str):
     response = requests.get(f"{INVENTORY_URL}/stock/{order_id}", timeout=2)
     response.raise_for_status()
     return response.json()
+
 
 def get_inventory(order_id: str):
     try:

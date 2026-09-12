@@ -30,7 +30,7 @@ container = database.get_container_client("items")
 # Query example
 items = container.query_items(
     query="SELECT * FROM c WHERE c.userId = @userId",
-    parameters=[{"name": "@userId", "value": user_id}]
+    parameters=[{"name": "@userId", "value": user_id}],
 )
 ```
 

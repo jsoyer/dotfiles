@@ -38,18 +38,20 @@ print(f"Size: {uploaded.size_bytes} bytes")
 response = client.beta.messages.create(
     model="claude-opus-4-6",
     max_tokens=1024,
-    messages=[{
-        "role": "user",
-        "content": [
-            {"type": "text", "text": "Summarize the key findings in this report."},
-            {
-                "type": "document",
-                "source": {"type": "file", "file_id": uploaded.id},
-                "title": "Q4 Report",           # optional
-                "citations": {"enabled": True}   # optional, enables citations
-            }
-        ]
-    }],
+    messages=[
+        {
+            "role": "user",
+            "content": [
+                {"type": "text", "text": "Summarize the key findings in this report."},
+                {
+                    "type": "document",
+                    "source": {"type": "file", "file_id": uploaded.id},
+                    "title": "Q4 Report",  # optional
+                    "citations": {"enabled": True},  # optional, enables citations
+                },
+            ],
+        }
+    ],
     betas=["files-api-2025-04-14"],
 )
 print(response.content[0].text)
@@ -65,16 +67,15 @@ image_file = client.beta.files.upload(
 response = client.beta.messages.create(
     model="claude-opus-4-6",
     max_tokens=1024,
-    messages=[{
-        "role": "user",
-        "content": [
-            {"type": "text", "text": "What's in this image?"},
-            {
-                "type": "image",
-                "source": {"type": "file", "file_id": image_file.id}
-            }
-        ]
-    }],
+    messages=[
+        {
+            "role": "user",
+            "content": [
+                {"type": "text", "text": "What's in this image?"},
+                {"type": "image", "source": {"type": "file", "file_id": image_file.id}},
+            ],
+        }
+    ],
     betas=["files-api-2025-04-14"],
 )
 ```
@@ -142,16 +143,18 @@ for question in questions:
     response = client.beta.messages.create(
         model="claude-opus-4-6",
         max_tokens=1024,
-        messages=[{
-            "role": "user",
-            "content": [
-                {"type": "text", "text": question},
-                {
-                    "type": "document",
-                    "source": {"type": "file", "file_id": uploaded.id}
-                }
-            ]
-        }],
+        messages=[
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": question},
+                    {
+                        "type": "document",
+                        "source": {"type": "file", "file_id": uploaded.id},
+                    },
+                ],
+            }
+        ],
         betas=["files-api-2025-04-14"],
     )
     print(f"\nQ: {question}")

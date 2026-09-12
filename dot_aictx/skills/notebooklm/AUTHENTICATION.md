@@ -41,7 +41,7 @@ But **Python's Playwright API doesn't support this** ([#14949](https://github.co
 context = playwright.chromium.launch_persistent_context(
     user_data_dir=profile_dir,
     storage_state="state.json",  # ← Parameter not available in Python!
-    channel="chrome"
+    channel="chrome",
 )
 ```
 
@@ -59,8 +59,7 @@ We use a **two-phase authentication system**:
 
 ```python
 context = playwright.chromium.launch_persistent_context(
-    user_data_dir="browser_profile/",
-    channel="chrome"
+    user_data_dir="browser_profile/", channel="chrome"
 )
 # User logs in...
 context.storage_state(path="state.json")  # Save all cookies
@@ -74,14 +73,13 @@ context.storage_state(path="state.json")  # Save all cookies
 ```python
 # Step 1: Launch with browser profile
 context = playwright.chromium.launch_persistent_context(
-    user_data_dir="browser_profile/",
-    channel="chrome"
+    user_data_dir="browser_profile/", channel="chrome"
 )
 
 # Step 2: Manually inject cookies from state.json
-with open("state.json", 'r') as f:
+with open("state.json", "r") as f:
     state = json.load(f)
-    context.add_cookies(state['cookies'])  # ← Workaround for session cookies!
+    context.add_cookies(state["cookies"])  # ← Workaround for session cookies!
 ```
 
 ## Benefits
@@ -147,7 +145,7 @@ If Playwright adds support for `storage_state` parameter in Python's `launch_per
 context = playwright.chromium.launch_persistent_context(
     user_data_dir="browser_profile/",
     storage_state="state.json",  # ← Would handle everything automatically!
-    channel="chrome"
+    channel="chrome",
 )
 ```
 

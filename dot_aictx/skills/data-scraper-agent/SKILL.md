@@ -145,6 +145,7 @@ Template for any data source:
 [Source Name] — scrapes [what] from [where].
 Method: [REST API / HTML scraping / RSS feed]
 """
+
 import requests
 from bs4 import BeautifulSoup
 from datetime import datetime, timezone
@@ -197,6 +198,7 @@ for card in soup.select("[class*='listing']"):
 **RSS feed pattern:**
 ```python
 import xml.etree.ElementTree as ET
+
 root = ET.fromstring(resp.text)
 for item in root.findall(".//item"):
     title = item.findtext("title", "")
@@ -233,7 +235,9 @@ def generate(prompt: str, model: str = "", rate_limit: float = 7.0) -> dict:
     if elapsed < rate_limit:
         time.sleep(rate_limit - elapsed)
 
-    models = [model] + [m for m in MODEL_FALLBACK if m != model] if model else MODEL_FALLBACK
+    models = (
+        [model] + [m for m in MODEL_FALLBACK if m != model] if model else MODEL_FALLBACK
+    )
     _last_call = time.time()
 
     for m in models:
@@ -288,7 +292,10 @@ import yaml
 from pathlib import Path
 from ai.client import generate
 
-def analyse_batch(items: list[dict], context: str = "", preference_prompt: str = "") -> list[dict]:
+
+def analyse_batch(
+    items: list[dict], context: str = "", preference_prompt: str = ""
+) -> list[dict]:
     """Analyse items in batches. Returns items enriched with AI fields."""
     config = yaml.safe_load((Path(__file__).parent.parent / "config.yaml").read_text())
     model = config.get("ai", {}).get("model", "gemini-2.5-flash")
@@ -296,7 +303,7 @@ def analyse_batch(items: list[dict], context: str = "", preference_prompt: str =
     min_score = config.get("ai", {}).get("min_score", 0)
     batch_size = config.get("ai", {}).get("batch_size", 5)
 
-    batches = [items[i:i + batch_size] for i in range(0, len(items), batch_size)]
+    batches = [items[i : i + batch_size] for i in range(0, len(items), batch_size)]
     print(f"  [AI] {len(items)} items → {len(batches)} API calls")
 
     enriched = []
@@ -312,7 +319,14 @@ def analyse_batch(items: list[dict], context: str = "", preference_prompt: str =
                 score = max(0, min(100, int(ai.get("score", 0))))
                 if min_score and score < min_score:
                     continue
-                enriched.append({**item, "ai_score": score, "ai_summary": ai.get("summary", ""), "ai_notes": ai.get("notes", "")})
+                enriched.append(
+                    {
+                        **item,
+                        "ai_score": score,
+                        "ai_summary": ai.get("summary", ""),
+                        "ai_notes": ai.get("notes", ""),
+                    }
+                )
             else:
                 enriched.append(item)
 
@@ -322,7 +336,7 @@ def analyse_batch(items: list[dict], context: str = "", preference_prompt: str =
 def _build_prompt(batch, context, preference_prompt, config):
     priorities = config.get("priorities", [])
     items_text = "\n\n".join(
-        f"Item {i+1}: {json.dumps({k: v for k, v in item.items() if not k.startswith('_')})}"
+        f"Item {i + 1}: {json.dumps({k: v for k, v in item.items() if not k.startswith('_')})}"
         for i, item in enumerate(batch)
     )
 
@@ -351,6 +365,7 @@ Be concise. Score 90+=excellent match, 70-89=good, 50-69=ok, <50=weak."""
 ```python
 # ai/memory.py
 """Learn from user decisions to improve future scoring."""
+
 import json
 from pathlib import Path
 
@@ -401,23 +416,32 @@ from notion_client.errors import APIResponseError
 
 _client = None
 
+
 def get_client():
     global _client
     if _client is None:
         _client = Client(auth=os.environ["NOTION_TOKEN"])
     return _client
 
+
 def get_existing_urls(db_id: str) -> set[str]:
     """Fetch all URLs already stored — used for deduplication."""
     client, seen, cursor = get_client(), set(), None
     while True:
-        resp = client.databases.query(database_id=db_id, page_size=100, **{"start_cursor": cursor} if cursor else {})
+        resp = client.databases.query(
+            database_id=db_id,
+            page_size=100,
+            **{"start_cursor": cursor} if cursor else {},
+        )
         for page in resp["results"]:
             url = page["properties"].get("URL", {}).get("url", "")
-            if url: seen.add(url)
-        if not resp["has_more"]: break
+            if url:
+                seen.add(url)
+        if not resp["has_more"]:
+            break
         cursor = resp["next_cursor"]
     return seen
+
 
 def push_item(db_id: str, item: dict) -> bool:
     """Push one item to Notion. Returns True on success."""
@@ -432,7 +456,9 @@ def push_item(db_id: str, item: dict) -> bool:
     if item.get("ai_score") is not None:
         props["AI Score"] = {"number": item["ai_score"]}
     if item.get("ai_summary"):
-        props["Summary"] = {"rich_text": [{"text": {"content": item["ai_summary"][:2000]}}]}
+        props["Summary"] = {
+            "rich_text": [{"text": {"content": item["ai_summary"][:2000]}}]
+        }
     if item.get("ai_notes"):
         props["Notes"] = {"rich_text": [{"text": {"content": item["ai_notes"][:2000]}}]}
 
@@ -443,14 +469,17 @@ def push_item(db_id: str, item: dict) -> bool:
         print(f"[notion] Push failed: {e}")
         return False
 
+
 def sync(db_id: str, items: list[dict]) -> tuple[int, int]:
     existing = get_existing_urls(db_id)
     added = skipped = 0
     for item in items:
         if item.get("url") in existing:
-            skipped += 1; continue
+            skipped += 1
+            continue
         if push_item(db_id, item):
-            added += 1; existing.add(item["url"])
+            added += 1
+            existing.add(item["url"])
         else:
             skipped += 1
     return added, skipped
@@ -468,7 +497,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-from scraper.sources import my_source          # add your sources
+from scraper.sources import my_source  # add your sources
 
 # NOTE: This example uses Notion. If storage.provider is "sheets" or "supabase",
 # replace this import with storage.sheets_sync or storage.supabase_sync and update
@@ -479,8 +508,10 @@ SOURCES = [
     ("My Source", my_source.fetch),
 ]
 
+
 def ai_enabled():
     return bool(os.environ.get("GEMINI_API_KEY"))
+
 
 def main():
     config = yaml.safe_load((Path(__file__).parent.parent / "config.yaml").read_text())
@@ -490,10 +521,12 @@ def main():
     if provider == "notion":
         db_id = os.environ.get("NOTION_DATABASE_ID")
         if not db_id:
-            print("ERROR: NOTION_DATABASE_ID not set"); sys.exit(1)
+            print("ERROR: NOTION_DATABASE_ID not set")
+            sys.exit(1)
     else:
         # Extend here for sheets (SHEET_ID) or supabase (SUPABASE_TABLE) etc.
-        print(f"ERROR: provider '{provider}' not yet wired in main.py"); sys.exit(1)
+        print(f"ERROR: provider '{provider}' not yet wired in main.py")
+        sys.exit(1)
 
     config = yaml.safe_load((Path(__file__).parent.parent / "config.yaml").read_text())
     all_items = []
@@ -510,7 +543,8 @@ def main():
     seen, deduped = set(), []
     for item in all_items:
         if (url := item.get("url", "")) and url not in seen:
-            seen.add(url); deduped.append(item)
+            seen.add(url)
+            deduped.append(item)
 
     print(f"Unique items: {len(deduped)}")
 
@@ -531,6 +565,7 @@ def main():
 
     added, skipped = sync(db_id, deduped)
     print(f"Done — {added} new, {skipped} existing")
+
 
 if __name__ == "__main__":
     main()
@@ -643,6 +678,7 @@ for card in soup.select(".listing-card"):
 ### Pattern 3: RSS Feed
 ```python
 import xml.etree.ElementTree as ET
+
 root = ET.fromstring(resp.text)
 for item in root.findall(".//item"):
     title = item.findtext("title", "")

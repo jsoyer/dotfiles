@@ -82,10 +82,12 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from typing import TypedDict, Annotated
 
+
 class RAGState(TypedDict):
     question: str
     context: list[Document]
     answer: str
+
 
 # Initialize components
 llm = ChatAnthropic(model="claude-sonnet-4-6")
@@ -105,20 +107,22 @@ rag_prompt = ChatPromptTemplate.from_template(
     Answer:"""
 )
 
+
 async def retrieve(state: RAGState) -> RAGState:
     """Retrieve relevant documents."""
     docs = await retriever.ainvoke(state["question"])
     return {"context": docs}
 
+
 async def generate(state: RAGState) -> RAGState:
     """Generate answer from context."""
     context_text = "\n\n".join(doc.page_content for doc in state["context"])
     messages = rag_prompt.format_messages(
-        context=context_text,
-        question=state["question"]
+        context=context_text, question=state["question"]
     )
     response = await llm.ainvoke(messages)
     return {"answer": response.content}
+
 
 # Build RAG graph
 builder = StateGraph(RAGState)
@@ -153,7 +157,7 @@ dense_retriever = vectorstore.as_retriever(search_kwargs={"k": 10})
 # Combine with Reciprocal Rank Fusion weights
 ensemble_retriever = EnsembleRetriever(
     retrievers=[bm25_retriever, dense_retriever],
-    weights=[0.3, 0.7]  # 30% keyword, 70% semantic
+    weights=[0.3, 0.7],  # 30% keyword, 70% semantic
 )
 ```
 
@@ -164,8 +168,7 @@ from langchain.retrievers.multi_query import MultiQueryRetriever
 
 # Generate multiple query perspectives for better recall
 multi_query_retriever = MultiQueryRetriever.from_llm(
-    retriever=vectorstore.as_retriever(search_kwargs={"k": 5}),
-    llm=llm
+    retriever=vectorstore.as_retriever(search_kwargs={"k": 5}), llm=llm
 )
 
 # Single query → multiple variations → combined results
@@ -183,7 +186,7 @@ compressor = LLMChainExtractor.from_llm(llm)
 
 compression_retriever = ContextualCompressionRetriever(
     base_compressor=compressor,
-    base_retriever=vectorstore.as_retriever(search_kwargs={"k": 10})
+    base_retriever=vectorstore.as_retriever(search_kwargs={"k": 10}),
 )
 
 # Returns only relevant parts of documents
@@ -208,7 +211,7 @@ parent_retriever = ParentDocumentRetriever(
     vectorstore=vectorstore,
     docstore=docstore,
     child_splitter=child_splitter,
-    parent_splitter=parent_splitter
+    parent_splitter=parent_splitter,
 )
 
 # Add documents (splits children, stores parents)
@@ -223,11 +226,13 @@ results = await parent_retriever.ainvoke("query")
 ```python
 from langchain_core.prompts import ChatPromptTemplate
 
+
 class HyDEState(TypedDict):
     question: str
     hypothetical_doc: str
     context: list[Document]
     answer: str
+
 
 hyde_prompt = ChatPromptTemplate.from_template(
     """Write a detailed passage that would answer this question:
@@ -237,17 +242,20 @@ hyde_prompt = ChatPromptTemplate.from_template(
     Passage:"""
 )
 
+
 async def generate_hypothetical(state: HyDEState) -> HyDEState:
     """Generate hypothetical document for better retrieval."""
     messages = hyde_prompt.format_messages(question=state["question"])
     response = await llm.ainvoke(messages)
     return {"hypothetical_doc": response.content}
 
+
 async def retrieve_with_hyde(state: HyDEState) -> HyDEState:
     """Retrieve using hypothetical document."""
     # Use hypothetical doc for retrieval instead of original query
     docs = await retriever.ainvoke(state["hypothetical_doc"])
     return {"context": docs}
+
 
 # Build HyDE RAG graph
 builder = StateGraph(HyDEState)
@@ -273,7 +281,7 @@ splitter = RecursiveCharacterTextSplitter(
     chunk_size=1000,
     chunk_overlap=200,
     length_function=len,
-    separators=["\n\n", "\n", ". ", " ", ""]  # Try in order
+    separators=["\n\n", "\n", ". ", " ", ""],  # Try in order
 )
 
 chunks = splitter.split_documents(documents)
@@ -287,7 +295,7 @@ from langchain_text_splitters import TokenTextSplitter
 splitter = TokenTextSplitter(
     chunk_size=512,
     chunk_overlap=50,
-    encoding_name="cl100k_base"  # OpenAI tiktoken encoding
+    encoding_name="cl100k_base",  # OpenAI tiktoken encoding
 )
 ```
 
@@ -299,7 +307,7 @@ from langchain_experimental.text_splitter import SemanticChunker
 splitter = SemanticChunker(
     embeddings=embeddings,
     breakpoint_threshold_type="percentile",
-    breakpoint_threshold_amount=95
+    breakpoint_threshold_amount=95,
 )
 ```
 
@@ -315,8 +323,7 @@ headers_to_split_on = [
 ]
 
 splitter = MarkdownHeaderTextSplitter(
-    headers_to_split_on=headers_to_split_on,
-    strip_headers=False
+    headers_to_split_on=headers_to_split_on, strip_headers=False
 )
 ```
 
@@ -337,7 +344,7 @@ if "my-index" not in pc.list_indexes().names():
         name="my-index",
         dimension=1024,  # voyage-3-large dimensions
         metric="cosine",
-        spec=ServerlessSpec(cloud="aws", region="us-east-1")
+        spec=ServerlessSpec(cloud="aws", region="us-east-1"),
     )
 
 # Create vector store
@@ -354,10 +361,7 @@ from langchain_weaviate import WeaviateVectorStore
 client = weaviate.connect_to_local()  # or connect_to_weaviate_cloud()
 
 vectorstore = WeaviateVectorStore(
-    client=client,
-    index_name="Documents",
-    text_key="content",
-    embedding=embeddings
+    client=client, index_name="Documents", text_key="content", embedding=embeddings
 )
 ```
 
@@ -369,7 +373,7 @@ from langchain_chroma import Chroma
 vectorstore = Chroma(
     collection_name="my_collection",
     embedding_function=embeddings,
-    persist_directory="./chroma_db"
+    persist_directory="./chroma_db",
 )
 ```
 
@@ -397,18 +401,18 @@ from langchain_core.documents import Document
 # Add metadata during indexing
 docs_with_metadata = []
 for doc in documents:
-    doc.metadata.update({
-        "source": doc.metadata.get("source", "unknown"),
-        "category": determine_category(doc.page_content),
-        "date": datetime.now().isoformat()
-    })
+    doc.metadata.update(
+        {
+            "source": doc.metadata.get("source", "unknown"),
+            "category": determine_category(doc.page_content),
+            "date": datetime.now().isoformat(),
+        }
+    )
     docs_with_metadata.append(doc)
 
 # Filter during retrieval
 results = await vectorstore.asimilarity_search(
-    "query",
-    filter={"category": "technical"},
-    k=5
+    "query", filter={"category": "technical"}, k=5
 )
 ```
 
@@ -420,7 +424,7 @@ results = await vectorstore.amax_marginal_relevance_search(
     "query",
     k=5,
     fetch_k=20,  # Fetch 20, return top 5 diverse
-    lambda_mult=0.5  # 0=max diversity, 1=max relevance
+    lambda_mult=0.5,  # 0=max diversity, 1=max relevance
 )
 ```
 
@@ -429,7 +433,8 @@ results = await vectorstore.amax_marginal_relevance_search(
 ```python
 from sentence_transformers import CrossEncoder
 
-reranker = CrossEncoder('cross-encoder/ms-marco-MiniLM-L-6-v2')
+reranker = CrossEncoder("cross-encoder/ms-marco-MiniLM-L-6-v2")
+
 
 async def retrieve_and_rerank(query: str, k: int = 5) -> list[Document]:
     # Get initial results
@@ -455,7 +460,7 @@ reranker = CohereRerank(model="rerank-english-v3.0", top_n=5)
 # Wrap retriever with reranking
 reranked_retriever = ContextualCompressionRetriever(
     base_compressor=reranker,
-    base_retriever=vectorstore.as_retriever(search_kwargs={"k": 20})
+    base_retriever=vectorstore.as_retriever(search_kwargs={"k": 20}),
 )
 ```
 
@@ -488,11 +493,13 @@ rag_prompt = ChatPromptTemplate.from_template(
 ```python
 from pydantic import BaseModel, Field
 
+
 class RAGResponse(BaseModel):
     answer: str = Field(description="The answer based on context")
     confidence: float = Field(description="Confidence score 0-1")
     sources: list[str] = Field(description="Source document IDs used")
     reasoning: str = Field(description="Brief reasoning for the answer")
+
 
 # Use with structured output
 structured_llm = llm.with_structured_output(RAGResponse)
@@ -503,17 +510,16 @@ structured_llm = llm.with_structured_output(RAGResponse)
 ```python
 from typing import TypedDict
 
+
 class RAGEvalMetrics(TypedDict):
     retrieval_precision: float  # Relevant docs / retrieved docs
-    retrieval_recall: float     # Retrieved relevant / total relevant
-    answer_relevance: float     # Answer addresses question
-    faithfulness: float         # Answer grounded in context
-    context_relevance: float    # Context relevant to question
+    retrieval_recall: float  # Retrieved relevant / total relevant
+    answer_relevance: float  # Answer addresses question
+    faithfulness: float  # Answer grounded in context
+    context_relevance: float  # Context relevant to question
 
-async def evaluate_rag_system(
-    rag_chain,
-    test_cases: list[dict]
-) -> RAGEvalMetrics:
+
+async def evaluate_rag_system(rag_chain, test_cases: list[dict]) -> RAGEvalMetrics:
     """Evaluate RAG system on test cases."""
     metrics = {k: [] for k in RAGEvalMetrics.__annotations__}
 
@@ -535,7 +541,7 @@ async def evaluate_rag_system(
             question=test["question"],
             answer=result["answer"],
             context=result["context"],
-            expected=test.get("expected_answer")
+            expected=test.get("expected_answer"),
         )
         metrics["answer_relevance"].append(quality["relevance"])
         metrics["faithfulness"].append(quality["faithfulness"])

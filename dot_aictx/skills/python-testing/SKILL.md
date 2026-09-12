@@ -34,9 +34,11 @@ def test_add_numbers():
     result = add(2, 3)
     assert result == 5
 
+
 # Step 2: Write minimal implementation (GREEN)
 def add(a, b):
     return a + b
+
 
 # Step 3: Refactor if needed (REFACTOR)
 ```
@@ -58,14 +60,17 @@ pytest --cov=mypackage --cov-report=term-missing --cov-report=html
 ```python
 import pytest
 
+
 def test_addition():
     """Test basic addition."""
     assert 2 + 2 == 4
+
 
 def test_string_uppercase():
     """Test string uppercasing."""
     text = "hello"
     assert text.upper() == "HELLO"
+
 
 def test_list_append():
     """Test list append."""
@@ -123,10 +128,12 @@ assert str(exc_info.value) == "error message"
 ```python
 import pytest
 
+
 @pytest.fixture
 def sample_data():
     """Fixture providing sample data."""
     return {"name": "Alice", "age": 30}
+
 
 def test_sample_data(sample_data):
     """Test using the fixture."""
@@ -150,6 +157,7 @@ def database():
     # Teardown
     db.close()
 
+
 def test_database_query(database):
     """Test database operations."""
     result = database.query("SELECT * FROM users")
@@ -166,6 +174,7 @@ def temp_file():
         yield f
     os.remove("temp.txt")
 
+
 # Module scope - runs once per module
 @pytest.fixture(scope="module")
 def module_db():
@@ -173,6 +182,7 @@ def module_db():
     db.create_tables()
     yield db
     db.close()
+
 
 # Session scope - runs once per test session
 @pytest.fixture(scope="session")
@@ -190,6 +200,7 @@ def number(request):
     """Parameterized fixture."""
     return request.param
 
+
 def test_numbers(number):
     """Test runs 3 times, once for each parameter."""
     assert number > 0
@@ -202,9 +213,11 @@ def test_numbers(number):
 def user():
     return User(id=1, name="Alice")
 
+
 @pytest.fixture
 def admin():
     return User(id=2, name="Admin", role="admin")
+
 
 def test_user_admin_interaction(user, admin):
     """Test using multiple fixtures."""
@@ -221,6 +234,7 @@ def reset_config():
     yield
     Config.cleanup()
 
+
 def test_without_fixture_call():
     # reset_config runs automatically
     assert Config.get_setting("debug") is False
@@ -232,6 +246,7 @@ def test_without_fixture_call():
 # tests/conftest.py
 import pytest
 
+
 @pytest.fixture
 def client():
     """Shared fixture for all tests."""
@@ -239,13 +254,11 @@ def client():
     with app.test_client() as client:
         yield client
 
+
 @pytest.fixture
 def auth_headers(client):
     """Generate auth headers for API testing."""
-    response = client.post("/api/login", json={
-        "username": "test",
-        "password": "test"
-    })
+    response = client.post("/api/login", json={"username": "test", "password": "test"})
     token = response.json["token"]
     return {"Authorization": f"Bearer {token}"}
 ```
@@ -255,11 +268,14 @@ def auth_headers(client):
 ### Basic Parametrization
 
 ```python
-@pytest.mark.parametrize("input,expected", [
-    ("hello", "HELLO"),
-    ("world", "WORLD"),
-    ("PyThOn", "PYTHON"),
-])
+@pytest.mark.parametrize(
+    "input,expected",
+    [
+        ("hello", "HELLO"),
+        ("world", "WORLD"),
+        ("PyThOn", "PYTHON"),
+    ],
+)
 def test_uppercase(input, expected):
     """Test runs 3 times with different inputs."""
     assert input.upper() == expected
@@ -268,12 +284,15 @@ def test_uppercase(input, expected):
 ### Multiple Parameters
 
 ```python
-@pytest.mark.parametrize("a,b,expected", [
-    (2, 3, 5),
-    (0, 0, 0),
-    (-1, 1, 0),
-    (100, 200, 300),
-])
+@pytest.mark.parametrize(
+    "a,b,expected",
+    [
+        (2, 3, 5),
+        (0, 0, 0),
+        (-1, 1, 0),
+        (100, 200, 300),
+    ],
+)
 def test_add(a, b, expected):
     """Test addition with multiple inputs."""
     assert add(a, b) == expected
@@ -282,11 +301,15 @@ def test_add(a, b, expected):
 ### Parametrize with IDs
 
 ```python
-@pytest.mark.parametrize("input,expected", [
-    ("valid@email.com", True),
-    ("invalid", False),
-    ("@no-domain.com", False),
-], ids=["valid-email", "missing-at", "missing-domain"])
+@pytest.mark.parametrize(
+    "input,expected",
+    [
+        ("valid@email.com", True),
+        ("invalid", False),
+        ("@no-domain.com", False),
+    ],
+    ids=["valid-email", "missing-at", "missing-domain"],
+)
 def test_email_validation(input, expected):
     """Test email validation with readable test IDs."""
     assert is_valid_email(input) is expected
@@ -305,6 +328,7 @@ def db(request):
     elif request.param == "mysql":
         return Database("mysql://localhost/test")
 
+
 def test_database_operations(db):
     """Test runs 3 times, once for each database."""
     result = db.query("SELECT 1")
@@ -321,11 +345,13 @@ def test_database_operations(db):
 def test_slow_operation():
     time.sleep(5)
 
+
 # Mark integration tests
 @pytest.mark.integration
 def test_api_integration():
     response = requests.get("https://api.example.com")
     assert response.status_code == 200
+
 
 # Mark unit tests
 @pytest.mark.unit
@@ -366,6 +392,7 @@ markers =
 
 ```python
 from unittest.mock import patch, Mock
+
 
 @patch("mypackage.external_api_call")
 def test_with_mock(api_call_mock):
@@ -460,6 +487,7 @@ def mock_config():
     type(config).api_key = PropertyMock(return_value="test-key")
     return config
 
+
 def test_with_mock_config(mock_config):
     """Test with mocked config properties."""
     assert mock_config.debug is True
@@ -473,11 +501,13 @@ def test_with_mock_config(mock_config):
 ```python
 import pytest
 
+
 @pytest.mark.asyncio
 async def test_async_function():
     """Test async function."""
     result = await async_add(2, 3)
     assert result == 5
+
 
 @pytest.mark.asyncio
 async def test_async_with_fixture(async_client):
@@ -495,6 +525,7 @@ async def async_client():
     app = create_app()
     async with app.test_client() as client:
         yield client
+
 
 @pytest.mark.asyncio
 async def test_api_endpoint(async_client):
@@ -528,6 +559,7 @@ def test_divide_by_zero():
     with pytest.raises(ZeroDivisionError):
         divide(10, 0)
 
+
 def test_custom_exception():
     """Test custom exception with message."""
     with pytest.raises(ValueError, match="invalid input"):
@@ -554,9 +586,10 @@ def test_exception_with_details():
 import tempfile
 import os
 
+
 def test_file_processing():
     """Test file processing with temp file."""
-    with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.txt') as f:
+    with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".txt") as f:
         f.write("test content")
         temp_path = f.name
 
@@ -671,16 +704,17 @@ def client():
     app = create_app(testing=True)
     return app.test_client()
 
+
 def test_get_user(client):
     response = client.get("/api/users/1")
     assert response.status_code == 200
     assert response.json["id"] == 1
 
+
 def test_create_user(client):
-    response = client.post("/api/users", json={
-        "name": "Alice",
-        "email": "alice@example.com"
-    })
+    response = client.post(
+        "/api/users", json={"name": "Alice", "email": "alice@example.com"}
+    )
     assert response.status_code == 201
     assert response.json["name"] == "Alice"
 ```
@@ -696,6 +730,7 @@ def db_session():
     yield session
     session.rollback()
     session.close()
+
 
 def test_create_user(db_session):
     user = User(name="Alice", email="alice@example.com")

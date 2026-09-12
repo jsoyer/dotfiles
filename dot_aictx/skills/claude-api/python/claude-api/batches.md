@@ -28,16 +28,20 @@ message_batch = client.messages.batches.create(
             params=MessageCreateParamsNonStreaming(
                 model="claude-opus-4-6",
                 max_tokens=1024,
-                messages=[{"role": "user", "content": "Summarize climate change impacts"}]
-            )
+                messages=[
+                    {"role": "user", "content": "Summarize climate change impacts"}
+                ],
+            ),
         ),
         Request(
             custom_id="request-2",
             params=MessageCreateParamsNonStreaming(
                 model="claude-opus-4-6",
                 max_tokens=1024,
-                messages=[{"role": "user", "content": "Explain quantum computing basics"}]
-            )
+                messages=[
+                    {"role": "user", "content": "Explain quantum computing basics"}
+                ],
+            ),
         ),
     ]
 )
@@ -57,7 +61,9 @@ while True:
     batch = client.messages.batches.retrieve(message_batch.id)
     if batch.processing_status == "ended":
         break
-    print(f"Status: {batch.processing_status}, processing: {batch.request_counts.processing}")
+    print(
+        f"Status: {batch.processing_status}, processing: {batch.request_counts.processing}"
+    )
     time.sleep(60)
 
 print("Batch complete!")
@@ -106,8 +112,8 @@ shared_system = [
     {
         "type": "text",
         "text": large_document_text,  # Shared across all requests
-        "cache_control": {"type": "ephemeral"}
-    }
+        "cache_control": {"type": "ephemeral"},
+    },
 ]
 
 message_batch = client.messages.batches.create(
@@ -118,8 +124,8 @@ message_batch = client.messages.batches.create(
                 model="claude-opus-4-6",
                 max_tokens=1024,
                 system=shared_system,
-                messages=[{"role": "user", "content": question}]
-            )
+                messages=[{"role": "user", "content": question}],
+            ),
         )
         for i, question in enumerate(questions)
     ]
@@ -151,11 +157,13 @@ requests = [
         params=MessageCreateParamsNonStreaming(
             model="claude-haiku-4-5",
             max_tokens=50,
-            messages=[{
-                "role": "user",
-                "content": f"Classify as positive/negative/neutral (one word): {text}"
-            }]
-        )
+            messages=[
+                {
+                    "role": "user",
+                    "content": f"Classify as positive/negative/neutral (one word): {text}",
+                }
+            ],
+        ),
     )
     for i, text in enumerate(items_to_classify)
 ]

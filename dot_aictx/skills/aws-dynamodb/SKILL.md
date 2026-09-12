@@ -541,65 +541,60 @@ from datetime import datetime
 from typing import Optional, List
 from decimal import Decimal
 
+
 def create_user(user_id: str, email: str, name: str) -> dict:
     now = datetime.utcnow().isoformat()
     item = {
-        'PK': f'USER#{user_id}',
-        'SK': 'PROFILE',
-        'EntityType': 'User',
-        'userId': user_id,
-        'email': email,
-        'name': name,
-        'createdAt': now,
-        'updatedAt': now
+        "PK": f"USER#{user_id}",
+        "SK": "PROFILE",
+        "EntityType": "User",
+        "userId": user_id,
+        "email": email,
+        "name": name,
+        "createdAt": now,
+        "updatedAt": now,
     }
 
-    table.put_item(
-        Item=item,
-        ConditionExpression='attribute_not_exists(PK)'
-    )
+    table.put_item(Item=item, ConditionExpression="attribute_not_exists(PK)")
     return item
 
 
 def get_user(user_id: str) -> Optional[dict]:
-    response = table.get_item(
-        Key={'PK': f'USER#{user_id}', 'SK': 'PROFILE'}
-    )
-    return response.get('Item')
+    response = table.get_item(Key={"PK": f"USER#{user_id}", "SK": "PROFILE"})
+    return response.get("Item")
 
 
 def get_user_orders(user_id: str) -> List[dict]:
     response = table.query(
-        KeyConditionExpression=Key('PK').eq(f'USER#{user_id}') & Key('SK').begins_with('ORDER#'),
-        ScanIndexForward=False
+        KeyConditionExpression=Key("PK").eq(f"USER#{user_id}")
+        & Key("SK").begins_with("ORDER#"),
+        ScanIndexForward=False,
     )
-    return response.get('Items', [])
+    return response.get("Items", [])
 
 
 def update_user(user_id: str, **updates) -> dict:
-    update_parts = ['#updatedAt = :updatedAt']
-    names = {'#updatedAt': 'updatedAt'}
-    values = {':updatedAt': datetime.utcnow().isoformat()}
+    update_parts = ["#updatedAt = :updatedAt"]
+    names = {"#updatedAt": "updatedAt"}
+    values = {":updatedAt": datetime.utcnow().isoformat()}
 
     for key, value in updates.items():
-        update_parts.append(f'#{key} = :{key}')
-        names[f'#{key}'] = key
-        values[f':{key}'] = value
+        update_parts.append(f"#{key} = :{key}")
+        names[f"#{key}"] = key
+        values[f":{key}"] = value
 
     response = table.update_item(
-        Key={'PK': f'USER#{user_id}', 'SK': 'PROFILE'},
-        UpdateExpression=f'SET {", ".join(update_parts)}',
+        Key={"PK": f"USER#{user_id}", "SK": "PROFILE"},
+        UpdateExpression=f"SET {', '.join(update_parts)}",
         ExpressionAttributeNames=names,
         ExpressionAttributeValues=values,
-        ReturnValues='ALL_NEW'
+        ReturnValues="ALL_NEW",
     )
-    return response['Attributes']
+    return response["Attributes"]
 
 
 def delete_user(user_id: str) -> None:
-    table.delete_item(
-        Key={'PK': f'USER#{user_id}', 'SK': 'PROFILE'}
-    )
+    table.delete_item(Key={"PK": f"USER#{user_id}", "SK": "PROFILE"})
 ```
 
 ---

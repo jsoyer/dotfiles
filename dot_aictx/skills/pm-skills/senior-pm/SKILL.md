@@ -68,14 +68,22 @@ python3 scripts/risk_matrix_analyzer.py assets/sample_project_data.json
 ```python
 # EMV and risk-adjusted budget calculation
 def calculate_emv(risks):
-    category_weights = {"Technical": 1.2, "Resource": 1.1, "Financial": 1.4, "Schedule": 1.0}
+    category_weights = {
+        "Technical": 1.2,
+        "Resource": 1.1,
+        "Financial": 1.4,
+        "Schedule": 1.0,
+    }
     total_emv = 0
     for risk in risks:
-        score = risk["probability"] * risk["impact"] * category_weights[risk["category"]]
+        score = (
+            risk["probability"] * risk["impact"] * category_weights[risk["category"]]
+        )
         emv = risk["probability"] * risk["financial_impact"]
         total_emv += emv
         risk["score"] = score
     return total_emv
+
 
 def risk_adjusted_budget(base_budget, portfolio_risk_score, risk_tolerance_factor):
     risk_premium = portfolio_risk_score * risk_tolerance_factor
@@ -162,12 +170,14 @@ def three_point_estimate(optimistic, most_likely, pessimistic):
 ```python
 import math
 
+
 def portfolio_risk(individual_risks, correlations):
     # individual_risks: list of risk EMV values
     # correlations: list of (i, j, corr_coefficient) tuples
     sum_sq = sum(r**2 for r in individual_risks)
-    sum_corr = sum(2 * c * individual_risks[i] * individual_risks[j]
-                   for i, j, c in correlations)
+    sum_corr = sum(
+        2 * c * individual_risks[i] * individual_risks[j] for i, j, c in correlations
+    )
     return math.sqrt(sum_sq + sum_corr)
 ```
 

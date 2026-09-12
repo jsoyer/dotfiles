@@ -233,7 +233,9 @@ ws_id = ws.connection_id
 ```python
 from pathlib import Path
 
-ws_id = (Path.home() / ".local" / "state" / "videodb" / "videodb_ws_id").read_text().strip()
+ws_id = (
+    (Path.home() / ".local" / "state" / "videodb" / "videodb_ws_id").read_text().strip()
+)
 
 session = conn.create_capture_session(
     end_user_id="user-123",  # required

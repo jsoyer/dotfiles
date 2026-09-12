@@ -5,6 +5,7 @@ The importer only sees video files. Archives must therefore be unpacked under
 the same lock, after a disk-space check, and deleted only when the extracted
 tree matches the archive catalogue (file count and uncompressed size).
 """
+
 from __future__ import annotations
 
 import logging
@@ -17,17 +18,17 @@ from pathlib import Path
 
 LOGGER = logging.getLogger(__name__)
 
-PARTIAL_EXTENSIONS = {'.part', '.tmp', '.crdownload', '.download'}
+PARTIAL_EXTENSIONS = {".part", ".tmp", ".crdownload", ".download"}
 DEFAULT_MARGIN_BYTES = 10 * 1024 * 1024 * 1024
 EXTRACT_TIMEOUT_SECONDS = 7200
 LIST_TIMEOUT_SECONDS = 180
 
-PART1_RE = re.compile(r'^(?P<stem>.+)\.part0*1\.(?P<ext>rar|zip)$', re.I)
-PARTN_RE = re.compile(r'^(?P<stem>.+)\.part(?P<n>\d+)\.(?P<ext>rar|zip)$', re.I)
-SEVENZ_VOL1_RE = re.compile(r'^(?P<stem>.+)\.7z\.001$', re.I)
-SEVENZ_VOL_RE = re.compile(r'^(?P<stem>.+)\.7z\.(?P<n>\d+)$', re.I)
-OLD_RAR_VOL_RE = re.compile(r'^(?P<stem>.+)\.r\d{2}$', re.I)
-SPLIT_ZIP_RE = re.compile(r'^(?P<stem>.+)\.z\d{2}$', re.I)
+PART1_RE = re.compile(r"^(?P<stem>.+)\.part0*1\.(?P<ext>rar|zip)$", re.I)
+PARTN_RE = re.compile(r"^(?P<stem>.+)\.part(?P<n>\d+)\.(?P<ext>rar|zip)$", re.I)
+SEVENZ_VOL1_RE = re.compile(r"^(?P<stem>.+)\.7z\.001$", re.I)
+SEVENZ_VOL_RE = re.compile(r"^(?P<stem>.+)\.7z\.(?P<n>\d+)$", re.I)
+OLD_RAR_VOL_RE = re.compile(r"^(?P<stem>.+)\.r\d{2}$", re.I)
+SPLIT_ZIP_RE = re.compile(r"^(?P<stem>.+)\.z\d{2}$", re.I)
 
 
 @dataclass(frozen=True)
@@ -52,7 +53,7 @@ class ExtractResult:
 
 def is_partial_file(path):
     """Return True when a file still looks incomplete."""
-    return path.suffix.lower() in PARTIAL_EXTENSIONS or path.name.endswith('.partial')
+    return path.suffix.lower() in PARTIAL_EXTENSIONS or path.name.endswith(".partial")
 
 
 def is_stable_file(path, stability_seconds):
@@ -73,7 +74,7 @@ def is_primary_archive(path):
         return bool(SEVENZ_VOL1_RE.match(name))
     if OLD_RAR_VOL_RE.match(name) or SPLIT_ZIP_RE.match(name):
         return False
-    return path.suffix.lower() in {'.zip', '.rar', '.7z'}
+    return path.suffix.lower() in {".zip", ".rar", ".7z"}
 
 
 def archive_members(primary):
@@ -82,26 +83,30 @@ def archive_members(primary):
     name = primary.name
     match = PART1_RE.match(name)
     if match:
-        stem, ext = match.group('stem'), match.group('ext')
-        pattern = re.compile(rf'^{re.escape(stem)}\.part\d+\.{re.escape(ext)}$', re.I)
-        return sorted(p for p in parent.iterdir() if p.is_file() and pattern.match(p.name))
+        stem, ext = match.group("stem"), match.group("ext")
+        pattern = re.compile(rf"^{re.escape(stem)}\.part\d+\.{re.escape(ext)}$", re.I)
+        return sorted(
+            p for p in parent.iterdir() if p.is_file() and pattern.match(p.name)
+        )
 
     match = SEVENZ_VOL1_RE.match(name)
     if match:
-        stem = match.group('stem')
-        pattern = re.compile(rf'^{re.escape(stem)}\.7z\.\d+$', re.I)
-        return sorted(p for p in parent.iterdir() if p.is_file() and pattern.match(p.name))
+        stem = match.group("stem")
+        pattern = re.compile(rf"^{re.escape(stem)}\.7z\.\d+$", re.I)
+        return sorted(
+            p for p in parent.iterdir() if p.is_file() and pattern.match(p.name)
+        )
 
-    if primary.suffix.lower() == '.rar':
+    if primary.suffix.lower() == ".rar":
         stem = primary.stem
         members = [primary]
-        vol = re.compile(rf'^{re.escape(stem)}\.r\d{{2}}$', re.I)
+        vol = re.compile(rf"^{re.escape(stem)}\.r\d{{2}}$", re.I)
         members.extend(p for p in parent.iterdir() if p.is_file() and vol.match(p.name))
         return sorted(set(members), key=lambda p: p.name.lower())
 
-    if primary.suffix.lower() == '.zip':
+    if primary.suffix.lower() == ".zip":
         stem = primary.stem
-        vol = re.compile(rf'^{re.escape(stem)}\.z\d{{2}}$', re.I)
+        vol = re.compile(rf"^{re.escape(stem)}\.z\d{{2}}$", re.I)
         members = [primary]
         members.extend(p for p in parent.iterdir() if p.is_file() and vol.match(p.name))
         return sorted(set(members), key=lambda p: p.name.lower())
@@ -112,9 +117,9 @@ def archive_members(primary):
 def extract_dir_for(archive):
     """Sibling folder that receives the payload, named after the release."""
     name = archive.name
-    name = PART1_RE.sub(r'\g<stem>', name)
-    name = SEVENZ_VOL1_RE.sub(r'\g<stem>', name)
-    name = re.sub(r'\.(zip|rar|7z)$', '', name, flags=re.I)
+    name = PART1_RE.sub(r"\g<stem>", name)
+    name = SEVENZ_VOL1_RE.sub(r"\g<stem>", name)
+    name = re.sub(r"\.(zip|rar|7z)$", "", name, flags=re.I)
     return archive.parent / name
 
 
@@ -124,15 +129,15 @@ def _is_payload_file(item):
     Zip listings set `Folder = -`. 7z listings often omit `Folder` and only
     mark directories via `Attributes`. Either shape must count as a file.
     """
-    if not item.get('Path'):
+    if not item.get("Path"):
         return False
-    if item.get('Folder') == '+':
+    if item.get("Folder") == "+":
         return False
-    if item.get('Folder') == '-':
+    if item.get("Folder") == "-":
         return True
-    attributes = item.get('Attributes') or ''
-    tokens = attributes.replace('_', ' ').split()
-    return 'D' not in tokens and not attributes.startswith('D')
+    attributes = item.get("Attributes") or ""
+    tokens = attributes.replace("_", " ").split()
+    return "D" not in tokens and not attributes.startswith("D")
 
 
 def parse_7z_listing(text):
@@ -142,7 +147,7 @@ def parse_7z_listing(text):
     in_files = False
     for raw in text.splitlines():
         line = raw.rstrip()
-        if line.strip() == '----------':
+        if line.strip() == "----------":
             in_files = True
             if current:
                 records.append(current)
@@ -155,33 +160,40 @@ def parse_7z_listing(text):
                 records.append(current)
                 current = {}
             continue
-        if ' = ' in line:
-            key, value = line.split(' = ', 1)
+        if " = " in line:
+            key, value = line.split(" = ", 1)
             current[key] = value
     if current:
         records.append(current)
 
     files = [item for item in records if _is_payload_file(item)]
-    encrypted = any(item.get('Encrypted') == '+' for item in records)
-    total = sum(int(item.get('Size') or 0) for item in files)
-    names = tuple(item['Path'] for item in files)
-    sizes = tuple(int(item.get('Size') or 0) for item in files)
-    return ArchiveCatalog(file_count=len(files), uncompressed_bytes=total,
-                          encrypted=encrypted, names=names, sizes=sizes)
+    encrypted = any(item.get("Encrypted") == "+" for item in records)
+    total = sum(int(item.get("Size") or 0) for item in files)
+    names = tuple(item["Path"] for item in files)
+    sizes = tuple(int(item.get("Size") or 0) for item in files)
+    return ArchiveCatalog(
+        file_count=len(files),
+        uncompressed_bytes=total,
+        encrypted=encrypted,
+        names=names,
+        sizes=sizes,
+    )
 
 
 def catalog_archive(path):
     """Ask 7-Zip for the uncompressed catalogue of one archive."""
     result = subprocess.run(
-        ['7z', 'l', '-slt', str(path)],
-        capture_output=True, text=True, timeout=LIST_TIMEOUT_SECONDS,
+        ["7z", "l", "-slt", str(path)],
+        capture_output=True,
+        text=True,
+        timeout=LIST_TIMEOUT_SECONDS,
     )
     if result.returncode != 0:
-        detail = (result.stderr or result.stdout or '7z listing failed').strip()
-        raise RuntimeError(detail.splitlines()[-1] if detail else '7z listing failed')
+        detail = (result.stderr or result.stdout or "7z listing failed").strip()
+        raise RuntimeError(detail.splitlines()[-1] if detail else "7z listing failed")
     catalog = parse_7z_listing(result.stdout)
     if catalog.file_count == 0:
-        raise RuntimeError('archive vide')
+        raise RuntimeError("archive vide")
     return catalog
 
 
@@ -197,7 +209,7 @@ def has_room(free, uncompressed, margin):
 
 def verify_extract(dest, catalog):
     """Compare extracted files to the catalogue, path by path and size by size."""
-    files = [item for item in dest.rglob('*') if item.is_file()]
+    files = [item for item in dest.rglob("*") if item.is_file()]
     if len(files) != catalog.file_count:
         return False
     for name, size in zip(catalog.names, catalog.sizes):
@@ -211,12 +223,14 @@ def extract_archive(archive, dest):
     """Unpack `archive` into a fresh `dest` (overwrite inside that folder)."""
     dest.mkdir(parents=True, exist_ok=True)
     result = subprocess.run(
-        ['7z', 'x', '-y', '-aoa', f'-o{dest}', str(archive)],
-        capture_output=True, text=True, timeout=EXTRACT_TIMEOUT_SECONDS,
+        ["7z", "x", "-y", "-aoa", f"-o{dest}", str(archive)],
+        capture_output=True,
+        text=True,
+        timeout=EXTRACT_TIMEOUT_SECONDS,
     )
     if result.returncode != 0:
-        detail = (result.stderr or result.stdout or '7z extract failed').strip()
-        raise RuntimeError(detail.splitlines()[-1] if detail else '7z extract failed')
+        detail = (result.stderr or result.stdout or "7z extract failed").strip()
+        raise RuntimeError(detail.splitlines()[-1] if detail else "7z extract failed")
 
 
 def _members_ready(primary, stability_seconds):
@@ -235,11 +249,11 @@ def _members_ready(primary, stability_seconds):
 def gather_archives(inbox, stability_seconds):
     """Stable primary archives under `inbox`, smallest first."""
     found = []
-    for path in inbox.rglob('*'):
+    for path in inbox.rglob("*"):
         if not path.is_file():
             continue
         relative = path.relative_to(inbox)
-        if any(part.startswith('.') for part in relative.parts):
+        if any(part.startswith(".") for part in relative.parts):
             continue
         if is_partial_file(path) or not is_stable_file(path, stability_seconds):
             continue
@@ -253,15 +267,15 @@ def gather_archives(inbox, stability_seconds):
 
 
 def _human(nbytes):
-    units = ('B', 'KiB', 'MiB', 'GiB', 'TiB')
+    units = ("B", "KiB", "MiB", "GiB", "TiB")
     value = float(nbytes)
     for unit in units:
         if value < 1024 or unit == units[-1]:
-            if unit == 'B':
-                return f'{int(value)}{unit}'
-            return f'{value:.1f}{unit}'
+            if unit == "B":
+                return f"{int(value)}{unit}"
+            return f"{value:.1f}{unit}"
         value /= 1024
-    return f'{nbytes}B'
+    return f"{nbytes}B"
 
 
 def _extract_one(archive, margin_bytes, dry_run):
@@ -269,30 +283,33 @@ def _extract_one(archive, margin_bytes, dry_run):
     try:
         catalog = catalog_archive(archive)
     except Exception as exc:  # noqa: BLE001 - keep the archive, move on
-        return ExtractResult(archive, False, f"[EXTRACT] {name}: catalogue illisible ({exc})")
+        return ExtractResult(
+            archive, False, f"[EXTRACT] {name}: catalogue illisible ({exc})"
+        )
 
     if catalog.encrypted:
         return ExtractResult(
-            archive, False,
-            f"[EXTRACT] {name}: archive chiffree — conservee")
+            archive, False, f"[EXTRACT] {name}: archive chiffree — conservee"
+        )
 
     free = disk_free(archive.parent)
     if not has_room(free, catalog.uncompressed_bytes, margin_bytes):
         need = catalog.uncompressed_bytes + margin_bytes
         return ExtractResult(
-            archive, False,
+            archive,
+            False,
             f"[EXTRACT] {name}: espace insuffisant "
-            f"({_human(free)} libre, {_human(need)} requis)")
+            f"({_human(free)} libre, {_human(need)} requis)",
+        )
 
     dest = extract_dir_for(archive)
-    expected = (f"{catalog.file_count} fichier(s), "
-                f"{_human(catalog.uncompressed_bytes)}")
+    expected = f"{catalog.file_count} fichier(s), {_human(catalog.uncompressed_bytes)}"
     if dry_run:
         return ExtractResult(
-            archive, False,
-            f"[DRY] EXTRACT {name} -> {dest.name}/ ({expected})")
+            archive, False, f"[DRY] EXTRACT {name} -> {dest.name}/ ({expected})"
+        )
 
-    staging = dest.with_name(dest.name + '.__extracting__')
+    staging = dest.with_name(dest.name + ".__extracting__")
     if staging.exists():
         shutil.rmtree(staging)
     try:
@@ -300,18 +317,20 @@ def _extract_one(archive, margin_bytes, dry_run):
     except Exception as exc:  # noqa: BLE001
         shutil.rmtree(staging, ignore_errors=True)
         return ExtractResult(
-            archive, False,
-            f"[EXTRACT] {name}: echec 7z ({exc}) — archive conservee")
+            archive, False, f"[EXTRACT] {name}: echec 7z ({exc}) — archive conservee"
+        )
 
     if not verify_extract(staging, catalog):
-        actual_files = [item for item in staging.rglob('*') if item.is_file()]
+        actual_files = [item for item in staging.rglob("*") if item.is_file()]
         actual_bytes = sum(item.stat().st_size for item in actual_files)
         shutil.rmtree(staging, ignore_errors=True)
         return ExtractResult(
-            archive, False,
+            archive,
+            False,
             f"[EXTRACT] {name}: verif KO — "
             f"{len(actual_files)} fichier(s) / {_human(actual_bytes)} "
-            f"(attendu {expected}) — archive conservee")
+            f"(attendu {expected}) — archive conservee",
+        )
 
     if dest.exists():
         shutil.rmtree(dest)
@@ -322,19 +341,24 @@ def _extract_one(archive, margin_bytes, dry_run):
         try:
             member.unlink()
         except OSError as exc:
-            leftover.append(f'{member.name} ({exc})')
+            leftover.append(f"{member.name} ({exc})")
     if leftover:
         return ExtractResult(
-            archive, False,
+            archive,
+            False,
             f"[EXTRACT] {name} -> {dest.name}/ ({expected}) — "
-            f"contenu OK mais archive non supprimee: {', '.join(leftover)}")
+            f"contenu OK mais archive non supprimee: {', '.join(leftover)}",
+        )
     return ExtractResult(
-        archive, True,
-        f"[EXTRACT] {name} -> {dest.name}/ ({expected}) — archive supprimee")
+        archive,
+        True,
+        f"[EXTRACT] {name} -> {dest.name}/ ({expected}) — archive supprimee",
+    )
 
 
-def extract_pending_archives(inbox, stability_seconds=300,
-                             margin_bytes=DEFAULT_MARGIN_BYTES, dry_run=False):
+def extract_pending_archives(
+    inbox, stability_seconds=300, margin_bytes=DEFAULT_MARGIN_BYTES, dry_run=False
+):
     """Unpack every stable archive in `inbox`. Never deletes on a failed check."""
     results = []
     for archive in gather_archives(inbox, stability_seconds):

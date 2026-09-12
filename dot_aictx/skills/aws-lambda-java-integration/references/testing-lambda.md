@@ -609,9 +609,10 @@ public class HandlerBenchmark {
 import boto3
 import json
 
+
 def run_power_tuning():
-    lambda_client = boto3.client('lambda')
-    stepfunctions = boto3.client('stepfunctions')
+    lambda_client = boto3.client("lambda")
+    stepfunctions = boto3.client("stepfunctions")
 
     # Power tuning configuration
     payload = {
@@ -620,13 +621,13 @@ def run_power_tuning():
         "num": 50,
         "payload": "{}",
         "parallelInvocation": True,
-        "strategy": "speed"
+        "strategy": "speed",
     }
 
     # Start power tuning state machine
     response = stepfunctions.start_execution(
         stateMachineArn="arn:aws:states:us-east-1:123456789:stateMachine:powerTuningStateMachine",
-        input=json.dumps(payload)
+        input=json.dumps(payload),
     )
 
     print(f"Power tuning started: {response['executionArn']}")

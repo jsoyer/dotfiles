@@ -50,21 +50,24 @@ Create a basic deep agent with a custom tool and invoke it with a user message.
 from deepagents import create_deep_agent
 from langchain.tools import tool
 
+
 @tool
 def get_weather(city: str) -> str:
     """Get the weather for a given city."""
     return f"It is always sunny in {city}"
 
+
 agent = create_deep_agent(
     model="claude-sonnet-4-5-20250929",
     tools=[get_weather],
-    system_prompt="You are a helpful assistant"
+    system_prompt="You are a helpful assistant",
 )
 
 config = {"configurable": {"thread_id": "user-123"}}
-result = agent.invoke({
-    "messages": [{"role": "user", "content": "What's the weather in Tokyo?"}]
-}, config=config)
+result = agent.invoke(
+    {"messages": [{"role": "user", "content": "What's the weather in Tokyo?"}]},
+    config=config,
+)
 ```
 </python>
 <typescript>
@@ -112,7 +115,7 @@ agent = create_deep_agent(
     interrupt_on={"write_file": True},
     skills=["./skills/"],
     checkpointer=MemorySaver(),
-    store=InMemoryStore()
+    store=InMemoryStore(),
 )
 ```
 </python>
@@ -204,12 +207,13 @@ from langgraph.checkpoint.memory import MemorySaver
 agent = create_deep_agent(
     backend=FilesystemBackend(root_dir=".", virtual_mode=True),
     skills=["./skills/"],
-    checkpointer=MemorySaver()
+    checkpointer=MemorySaver(),
 )
 
-result = agent.invoke({
-    "messages": [{"role": "user", "content": "Use the python-testing skill"}]
-}, config={"configurable": {"thread_id": "session-1"}})
+result = agent.invoke(
+    {"messages": [{"role": "user", "content": "Use the python-testing skill"}]},
+    config={"configurable": {"thread_id": "session-1"}},
+)
 ```
 </python>
 <typescript>
@@ -253,13 +257,11 @@ description: Best practices for Python testing with pytest
 store.put(
     namespace=("filesystem",),
     key="/skills/python-testing/SKILL.md",
-    value=create_file_data(skill_content)
+    value=create_file_data(skill_content),
 )
 
 agent = create_deep_agent(
-    backend=lambda rt: StoreBackend(rt),
-    store=store,
-    skills=["/skills/"]
+    backend=lambda rt: StoreBackend(rt), store=store, skills=["/skills/"]
 )
 ```
 </python>
@@ -382,8 +384,7 @@ agent = create_deep_agent(skills=["./skills/"])
 
 # CORRECT: Use FilesystemBackend for local skills
 agent = create_deep_agent(
-    backend=FilesystemBackend(root_dir=".", virtual_mode=True),
-    skills=["./skills/"]
+    backend=FilesystemBackend(root_dir=".", virtual_mode=True), skills=["./skills/"]
 )
 ```
 </python>

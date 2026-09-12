@@ -14,7 +14,10 @@ pip install azure-mgmt-apimanagement azure-identity
 import os
 from azure.mgmt.apimanagement import ApiManagementClient
 from azure.identity import DefaultAzureCredential
-client = ApiManagementClient(DefaultAzureCredential(), os.environ["AZURE_SUBSCRIPTION_ID"])
+
+client = ApiManagementClient(
+    DefaultAzureCredential(), os.environ["AZURE_SUBSCRIPTION_ID"]
+)
 ```
 
 ## Best Practices

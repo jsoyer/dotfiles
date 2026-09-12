@@ -60,9 +60,11 @@ Before running any VideoDB code, change to the project directory and load enviro
 
 ```python
 from dotenv import load_dotenv
+
 load_dotenv(".env")
 
 import videodb
+
 conn = videodb.connect()
 ```
 
@@ -211,7 +213,9 @@ from videodb.asset import VideoAsset, TextAsset, TextStyle
 
 timeline = Timeline(conn)
 timeline.add_inline(VideoAsset(asset_id=video.id, start=10, end=30))
-timeline.add_overlay(0, TextAsset(text="The End", duration=3, style=TextStyle(fontsize=36)))
+timeline.add_overlay(
+    0, TextAsset(text="The End", duration=3, style=TextStyle(fontsize=36))
+)
 stream_url = timeline.generate_stream()
 ```
 
@@ -322,7 +326,9 @@ import os
 import time
 from pathlib import Path
 
-events_dir = Path(os.environ.get("VIDEODB_EVENTS_DIR", Path.home() / ".local" / "state" / "videodb"))
+events_dir = Path(
+    os.environ.get("VIDEODB_EVENTS_DIR", Path.home() / ".local" / "state" / "videodb")
+)
 events_file = events_dir / "videodb_events.jsonl"
 events = []
 
@@ -337,8 +343,7 @@ if events_file.exists():
 transcripts = [e["data"]["text"] for e in events if e.get("channel") == "transcript"]
 cutoff = time.time() - 300
 recent_visual = [
-    e for e in events
-    if e.get("channel") == "visual_index" and e["unix_ts"] > cutoff
+    e for e in events if e.get("channel") == "visual_index" and e["unix_ts"] > cutoff
 ]
 ```
 

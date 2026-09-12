@@ -8,6 +8,7 @@ prompted for sudo on casks that write to /Library (obs virtualcam, logitune).
 The skip file must apply on bulk upgrades and stay out of the way when a
 cask is named explicitly.
 """
+
 import importlib.machinery
 import importlib.util
 import tempfile
@@ -192,20 +193,28 @@ class LoadCuSkip(unittest.TestCase):
 
     def test_profile_file_is_loaded_when_hostname_does_not_match(self):
         (self.tmp / "Brewfile_cu_skip_mac-pro").write_text("obs\nlogitune\n")
-        with unittest.mock.patch.object(breww, "get_hostname", return_value="other-host"):
+        with unittest.mock.patch.object(
+            breww, "get_hostname", return_value="other-host"
+        ):
             with unittest.mock.patch.dict("os.environ", {"MACHINE_PROFILE": "mac-pro"}):
                 self.assertEqual(breww.load_cu_skip(), ["obs", "logitune"])
 
     def test_hostname_match_is_case_insensitive(self):
         (self.tmp / "Brewfile_cu_skip_jsoyer-macOS").write_text("obs\n")
-        with unittest.mock.patch.object(breww, "get_hostname", return_value="jsoyer-macos"):
-            with unittest.mock.patch.dict("os.environ", {"MACHINE_PROFILE": "mac-personal"}):
+        with unittest.mock.patch.object(
+            breww, "get_hostname", return_value="jsoyer-macos"
+        ):
+            with unittest.mock.patch.dict(
+                "os.environ", {"MACHINE_PROFILE": "mac-personal"}
+            ):
                 self.assertEqual(breww.load_cu_skip(), ["obs"])
 
     def test_profile_and_hostname_lists_are_merged(self):
         (self.tmp / "Brewfile_cu_skip_mac-pro").write_text("obs\nlogitune\n")
         (self.tmp / "Brewfile_cu_skip_jsoyer-macOS").write_text("obs\nxquartz\n")
-        with unittest.mock.patch.object(breww, "get_hostname", return_value="jsoyer-macOS"):
+        with unittest.mock.patch.object(
+            breww, "get_hostname", return_value="jsoyer-macOS"
+        ):
             with unittest.mock.patch.dict("os.environ", {"MACHINE_PROFILE": "mac-pro"}):
                 self.assertEqual(breww.load_cu_skip(), ["obs", "xquartz", "logitune"])
 
@@ -229,10 +238,10 @@ class RemoveFromBase(unittest.TestCase):
 
     def test_removes_cask_and_leaves_every_other_line_untouched(self):
         self.base.write_text(
-            '# Personal casks\n'
+            "# Personal casks\n"
             'cask "firefox"\n'
             'cask "visual-studio-code"\n'
-            '\n'
+            "\n"
             'brew "git"\n'
         )
         removed = breww.remove_from_base(["visual-studio-code"], self.base, [])
@@ -277,9 +286,7 @@ class RemoveFromBase(unittest.TestCase):
         self.base.write_text(
             'brew "infisical/get-cli/infisical", trusted: true\nbrew "git"\n'
         )
-        removed = breww.remove_from_base(
-            ["infisical/get-cli/infisical"], self.base, []
-        )
+        removed = breww.remove_from_base(["infisical/get-cli/infisical"], self.base, [])
         self.assertEqual(removed, ["infisical/get-cli/infisical"])
         self.assertEqual(self.base.read_text(), 'brew "git"\n')
 
@@ -289,15 +296,21 @@ class UninstallWiring(unittest.TestCase):
 
     def _run(self, argv):
         calls = {}
-        with unittest.mock.patch.object(breww.sys, "argv", ["breww", *argv]), \
-             unittest.mock.patch("shutil.which", return_value="/usr/bin/brew"), \
-             unittest.mock.patch.object(breww, "get_target_brewfile", return_value=Path("/tmp/Brewfile_personal")), \
-             unittest.mock.patch.object(breww, "run_brew_command", return_value=0), \
-             unittest.mock.patch.object(breww, "load_cu_skip", return_value=[]), \
-             unittest.mock.patch.object(breww, "check_native_available"), \
-             unittest.mock.patch.object(breww, "dump_host_overlay"), \
-             unittest.mock.patch.object(breww, "sync_to_git"), \
-             unittest.mock.patch.object(breww, "remove_from_base") as remove:
+        with (
+            unittest.mock.patch.object(breww.sys, "argv", ["breww", *argv]),
+            unittest.mock.patch("shutil.which", return_value="/usr/bin/brew"),
+            unittest.mock.patch.object(
+                breww,
+                "get_target_brewfile",
+                return_value=Path("/tmp/Brewfile_personal"),
+            ),
+            unittest.mock.patch.object(breww, "run_brew_command", return_value=0),
+            unittest.mock.patch.object(breww, "load_cu_skip", return_value=[]),
+            unittest.mock.patch.object(breww, "check_native_available"),
+            unittest.mock.patch.object(breww, "dump_host_overlay"),
+            unittest.mock.patch.object(breww, "sync_to_git"),
+            unittest.mock.patch.object(breww, "remove_from_base") as remove,
+        ):
             remove.return_value = []
             with self.assertRaises(SystemExit):
                 breww.main()

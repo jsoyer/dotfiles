@@ -32,6 +32,7 @@ const client = new Cloudflare({
 ```python
 # Python
 from dotenv import load_dotenv
+
 load_dotenv()
 
 client = Cloudflare(api_token=os.environ["CLOUDFLARE_API_TOKEN"])
@@ -61,8 +62,8 @@ await client.zones.get(
 ```python
 client = Cloudflare(
     api_token=os.environ["CLOUDFLARE_API_TOKEN"],
-    timeout=120,         # seconds (default 60)
-    max_retries=5,       # default 2
+    timeout=120,  # seconds (default 60)
+    max_retries=5,  # default 2
     base_url="https://...",  # proxy (rare)
 )
 

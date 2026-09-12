@@ -16,13 +16,15 @@ pip install claude-agent-sdk
 import anyio
 from claude_agent_sdk import query, ClaudeAgentOptions, ResultMessage
 
+
 async def main():
     async for message in query(
         prompt="Explain this codebase",
-        options=ClaudeAgentOptions(allowed_tools=["Read", "Glob", "Grep"])
+        options=ClaudeAgentOptions(allowed_tools=["Read", "Glob", "Grep"]),
     ):
         if isinstance(message, ResultMessage):
             print(message.result)
+
 
 anyio.run(main)
 ```
@@ -57,7 +59,7 @@ from claude_agent_sdk import query, ClaudeAgentOptions, ResultMessage
 
 async for message in query(
     prompt="Explain this codebase",
-    options=ClaudeAgentOptions(allowed_tools=["Read", "Glob", "Grep"])
+    options=ClaudeAgentOptions(allowed_tools=["Read", "Glob", "Grep"]),
 ):
     if isinstance(message, ResultMessage):
         print(message.result)
@@ -69,7 +71,13 @@ async for message in query(
 
 ```python
 import anyio
-from claude_agent_sdk import ClaudeSDKClient, ClaudeAgentOptions, AssistantMessage, TextBlock
+from claude_agent_sdk import (
+    ClaudeSDKClient,
+    ClaudeAgentOptions,
+    AssistantMessage,
+    TextBlock,
+)
+
 
 async def main():
     options = ClaudeAgentOptions(allowed_tools=["Read", "Glob", "Grep"])
@@ -80,6 +88,7 @@ async def main():
                 for block in message.content:
                     if isinstance(block, TextBlock):
                         print(block.text)
+
 
 anyio.run(main)
 ```
@@ -103,8 +112,8 @@ async for message in query(
     prompt="Refactor the authentication module",
     options=ClaudeAgentOptions(
         allowed_tools=["Read", "Edit", "Write"],
-        permission_mode="acceptEdits"  # Auto-accept file edits
-    )
+        permission_mode="acceptEdits",  # Auto-accept file edits
+    ),
 ):
     if isinstance(message, ResultMessage):
         print(message.result)
@@ -131,7 +140,7 @@ async for message in query(
         mcp_servers={
             "playwright": {"command": "npx", "args": ["@playwright/mcp@latest"]}
         }
-    )
+    ),
 ):
     if isinstance(message, ResultMessage):
         print(message.result)
@@ -146,10 +155,12 @@ Customize agent behavior with hooks using callback functions:
 ```python
 from claude_agent_sdk import query, ClaudeAgentOptions, HookMatcher, ResultMessage
 
+
 async def log_file_change(input_data, tool_use_id, context):
-    file_path = input_data.get('tool_input', {}).get('file_path', 'unknown')
+    file_path = input_data.get("tool_input", {}).get("file_path", "unknown")
     print(f"Modified: {file_path}")
     return {}
+
 
 async for message in query(
     prompt="Refactor utils.py",
@@ -157,8 +168,8 @@ async for message in query(
         permission_mode="acceptEdits",
         hooks={
             "PostToolUse": [HookMatcher(matcher="Edit|Write", hooks=[log_file_change])]
-        }
-    )
+        },
+    ),
 ):
     if isinstance(message, ResultMessage):
         print(message.result)
@@ -206,7 +217,7 @@ from claude_agent_sdk import query, ClaudeAgentOptions, ResultMessage, SystemMes
 
 async for message in query(
     prompt="Find TODO comments",
-    options=ClaudeAgentOptions(allowed_tools=["Read", "Glob", "Grep"])
+    options=ClaudeAgentOptions(allowed_tools=["Read", "Glob", "Grep"]),
 ):
     if isinstance(message, ResultMessage):
         print(message.result)
@@ -229,10 +240,10 @@ async for message in query(
             "code-reviewer": AgentDefinition(
                 description="Expert code reviewer for quality and security reviews.",
                 prompt="Analyze code quality and suggest improvements.",
-                tools=["Read", "Glob", "Grep"]
+                tools=["Read", "Glob", "Grep"],
             )
-        }
-    )
+        },
+    ),
 ):
     if isinstance(message, ResultMessage):
         print(message.result)
@@ -243,12 +254,17 @@ async for message in query(
 ## Error Handling
 
 ```python
-from claude_agent_sdk import query, ClaudeAgentOptions, CLINotFoundError, CLIConnectionError, ResultMessage
+from claude_agent_sdk import (
+    query,
+    ClaudeAgentOptions,
+    CLINotFoundError,
+    CLIConnectionError,
+    ResultMessage,
+)
 
 try:
     async for message in query(
-        prompt="...",
-        options=ClaudeAgentOptions(allowed_tools=["Read"])
+        prompt="...", options=ClaudeAgentOptions(allowed_tools=["Read"])
     ):
         if isinstance(message, ResultMessage):
             print(message.result)

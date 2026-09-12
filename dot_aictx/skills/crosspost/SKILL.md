@@ -162,8 +162,8 @@ resp = requests.post(
         "content": {
             "twitter": {"text": x_version},
             "linkedin": {"text": linkedin_version},
-            "threads": {"text": threads_version}
-        }
+            "threads": {"text": threads_version},
+        },
     },
     timeout=30,
 )

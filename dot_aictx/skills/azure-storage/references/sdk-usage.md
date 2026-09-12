@@ -33,7 +33,10 @@ All examples use `DefaultAzureCredential` for authentication, which is recommend
 from azure.identity import DefaultAzureCredential
 from azure.storage.blob import BlobServiceClient
 
-service = BlobServiceClient(account_url="https://ACCOUNT.blob.core.windows.net/", credential=DefaultAzureCredential())
+service = BlobServiceClient(
+    account_url="https://ACCOUNT.blob.core.windows.net/",
+    credential=DefaultAzureCredential(),
+)
 container = service.get_container_client("my-container")
 blob = container.get_blob_client("my-blob.txt")
 blob.upload_blob(b"Hello, Azure Storage!", overwrite=True)

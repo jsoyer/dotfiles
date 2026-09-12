@@ -60,9 +60,9 @@ console.log(`Argo status: ${status.value}, editable: ${status.editable}`);
 ```python
 from cloudflare import Cloudflare
 
-client = Cloudflare(api_token=os.environ.get('CLOUDFLARE_API_TOKEN'))
+client = Cloudflare(api_token=os.environ.get("CLOUDFLARE_API_TOKEN"))
 
-status = client.argo.smart_routing.get(zone_id='your-zone-id')
+status = client.argo.smart_routing.get(zone_id="your-zone-id")
 print(f"Argo status: {status.value}, editable: {status.editable}")
 ```
 
@@ -98,10 +98,7 @@ console.log(`Updated: ${result.value} at ${result.modified_on}`);
 
 **Python SDK Example:**
 ```python
-result = client.argo.smart_routing.edit(
-    zone_id='your-zone-id',
-    value='on'
-)
+result = client.argo.smart_routing.edit(zone_id="your-zone-id", value="on")
 print(f"Updated: {result.value} at {result.modified_on}")
 ```
 
@@ -134,17 +131,17 @@ async function safelyEnableArgo(client: Cloudflare, zoneId: string): Promise<boo
 ```python
 def safely_enable_argo(client: Cloudflare, zone_id: str) -> bool:
     status = client.argo.smart_routing.get(zone_id=zone_id)
-    
+
     if not status.editable:
-        print('Cannot modify Argo: editable=false (check billing/permissions)')
+        print("Cannot modify Argo: editable=false (check billing/permissions)")
         return False
-    
-    if status.value == 'on':
-        print('Argo already enabled')
+
+    if status.value == "on":
+        print("Argo already enabled")
         return True
-    
-    client.argo.smart_routing.edit(zone_id=zone_id, value='on')
-    print('Argo enabled successfully')
+
+    client.argo.smart_routing.edit(zone_id=zone_id, value="on")
+    print("Argo enabled successfully")
     return True
 ```
 
@@ -189,9 +186,10 @@ async function enableArgoWithErrorHandling(client: Cloudflare, zoneId: string) {
 ```python
 from cloudflare import Cloudflare, APIError, RateLimitError
 
+
 def enable_argo_with_error_handling(client: Cloudflare, zone_id: str):
     try:
-        result = client.argo.smart_routing.edit(zone_id=zone_id, value='on')
+        result = client.argo.smart_routing.edit(zone_id=zone_id, value="on")
         return result
     except RateLimitError as e:
         print(f"Rate limited. Retry after: {e.response.headers.get('retry-after')}")
@@ -199,9 +197,9 @@ def enable_argo_with_error_handling(client: Cloudflare, zone_id: str):
     except APIError as e:
         print(f"API error: {e.status} - {e.message}")
         if e.status == 403:
-            print('Permission denied - check API token scopes')
+            print("Permission denied - check API token scopes")
         elif e.status == 400:
-            print('Bad request - verify zone_id and payload')
+            print("Bad request - verify zone_id and payload")
         raise
     except Exception as e:
         print(f"Unexpected error: {e}")

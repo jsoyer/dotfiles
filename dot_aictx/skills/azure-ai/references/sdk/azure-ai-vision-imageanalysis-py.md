@@ -12,6 +12,7 @@ pip install azure-ai-vision-imageanalysis
 ```python
 from azure.ai.vision.imageanalysis import ImageAnalysisClient
 from azure.ai.vision.imageanalysis.models import VisualFeatures
+
 client = ImageAnalysisClient(endpoint=endpoint, credential=credential)
 ```
 

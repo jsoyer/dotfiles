@@ -80,6 +80,7 @@ Load detailed guidance based on context:
 ```python
 from pathlib import Path
 
+
 def read_config(path: Path) -> dict[str, str]:
     """Read configuration from a file.
 
@@ -107,6 +108,7 @@ def read_config(path: Path) -> dict[str, str]:
 ```python
 from dataclasses import dataclass, field
 
+
 @dataclass
 class AppConfig:
     host: str
@@ -123,6 +125,7 @@ class AppConfig:
 ```python
 import asyncio
 import httpx
+
 
 async def fetch_all(urls: list[str]) -> list[bytes]:
     """Fetch multiple URLs concurrently."""

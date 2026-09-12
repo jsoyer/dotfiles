@@ -8,9 +8,7 @@
 @app.route(route="health", methods=["GET"], auth_level=func.AuthLevel.ANONYMOUS)
 def health(req: func.HttpRequest) -> func.HttpResponse:
     return func.HttpResponse(
-        '{"status":"healthy"}',
-        mimetype="application/json",
-        status_code=200
+        '{"status":"healthy"}', mimetype="application/json", status_code=200
     )
 ```
 

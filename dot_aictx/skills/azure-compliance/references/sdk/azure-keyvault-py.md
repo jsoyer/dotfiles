@@ -11,7 +11,10 @@ pip install azure-keyvault-secrets azure-keyvault-keys azure-keyvault-certificat
 ```python
 from azure.identity import DefaultAzureCredential
 from azure.keyvault.secrets import SecretClient
-client = SecretClient(vault_url="https://<vault>.vault.azure.net/", credential=DefaultAzureCredential())
+
+client = SecretClient(
+    vault_url="https://<vault>.vault.azure.net/", credential=DefaultAzureCredential()
+)
 ```
 
 ## Best Practices

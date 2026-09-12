@@ -54,7 +54,9 @@ from azure.servicebus import ServiceBusClient, ServiceBusMessage
 from azure.identity import DefaultAzureCredential
 
 credential = DefaultAzureCredential()
-fully_qualified_namespace = f"{os.environ['SERVICEBUS_NAMESPACE']}.servicebus.windows.net"
+fully_qualified_namespace = (
+    f"{os.environ['SERVICEBUS_NAMESPACE']}.servicebus.windows.net"
+)
 client = ServiceBusClient(fully_qualified_namespace, credential)
 
 # Send

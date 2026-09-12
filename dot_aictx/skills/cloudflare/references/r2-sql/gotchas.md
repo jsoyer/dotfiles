@@ -170,7 +170,9 @@ GROUP BY status;
 from pyiceberg.partitioning import PartitionSpec, PartitionField
 from pyiceberg.transforms import DayTransform
 
-PartitionSpec(PartitionField(source_id=1, field_id=1000, transform=DayTransform(), name="day"))
+PartitionSpec(
+    PartitionField(source_id=1, field_id=1000, transform=DayTransform(), name="day")
+)
 ```
 
 ### Query Writing

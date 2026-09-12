@@ -26,7 +26,7 @@ client = EventHubProducerClient(
     retry_total=3,
     retry_backoff_factor=0.8,
     retry_backoff_max=120,
-    retry_mode='exponential'
+    retry_mode="exponential",
 )
 ```
 
@@ -36,8 +36,12 @@ client = EventHubProducerClient(
 import logging, sys
 
 handler = logging.StreamHandler(stream=sys.stdout)
-handler.setFormatter(logging.Formatter("%(asctime)s | %(threadName)s | %(levelname)s | %(name)s | %(message)s"))
-logger = logging.getLogger('azure.eventhub')
+handler.setFormatter(
+    logging.Formatter(
+        "%(asctime)s | %(threadName)s | %(levelname)s | %(name)s | %(message)s"
+    )
+)
+logger = logging.getLogger("azure.eventhub")
 logger.setLevel(logging.DEBUG)
 logger.addHandler(handler)
 
@@ -68,14 +72,14 @@ credential = DefaultAzureCredential()
 checkpoint_store = BlobCheckpointStore(
     blob_account_url="https://<storage-account>.blob.core.windows.net",
     container_name="<checkpoint-container>",
-    credential=credential
+    credential=credential,
 )
 client = EventHubConsumerClient(
     fully_qualified_namespace="<your-namespace>.servicebus.windows.net",
     eventhub_name="<your-eventhub>",
     consumer_group="$Default",
     credential=credential,
-    checkpoint_store=checkpoint_store
+    checkpoint_store=checkpoint_store,
 )
 ```
 

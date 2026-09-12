@@ -6,7 +6,7 @@
 with client.messages.stream(
     model="claude-opus-4-6",
     max_tokens=1024,
-    messages=[{"role": "user", "content": "Write a story"}]
+    messages=[{"role": "user", "content": "Write a story"}],
 ) as stream:
     for text in stream.text_stream:
         print(text, end="", flush=True)
@@ -18,7 +18,7 @@ with client.messages.stream(
 async with async_client.messages.stream(
     model="claude-opus-4-6",
     max_tokens=1024,
-    messages=[{"role": "user", "content": "Write a story"}]
+    messages=[{"role": "user", "content": "Write a story"}],
 ) as stream:
     async for text in stream.text_stream:
         print(text, end="", flush=True)
@@ -37,7 +37,7 @@ with client.messages.stream(
     model="claude-opus-4-6",
     max_tokens=16000,
     thinking={"type": "adaptive"},
-    messages=[{"role": "user", "content": "Analyze this problem"}]
+    messages=[{"role": "user", "content": "Analyze this problem"}],
 ) as stream:
     for event in stream:
         if event.type == "content_block_start":
@@ -61,10 +61,7 @@ The Python tool runner currently returns complete messages. Use streaming for in
 
 ```python
 with client.messages.stream(
-    model="claude-opus-4-6",
-    max_tokens=4096,
-    tools=tools,
-    messages=messages
+    model="claude-opus-4-6", max_tokens=4096, tools=tools, messages=messages
 ) as stream:
     for text in stream.text_stream:
         print(text, end="", flush=True)
@@ -81,7 +78,7 @@ with client.messages.stream(
 with client.messages.stream(
     model="claude-opus-4-6",
     max_tokens=1024,
-    messages=[{"role": "user", "content": "Hello"}]
+    messages=[{"role": "user", "content": "Hello"}],
 ) as stream:
     for text in stream.text_stream:
         print(text, end="", flush=True)
@@ -128,7 +125,7 @@ try:
     with client.messages.stream(
         model="claude-opus-4-6",
         max_tokens=1024,
-        messages=[{"role": "user", "content": "Write a story"}]
+        messages=[{"role": "user", "content": "Write a story"}],
     ) as stream:
         for text in stream.text_stream:
             print(text, end="", flush=True)

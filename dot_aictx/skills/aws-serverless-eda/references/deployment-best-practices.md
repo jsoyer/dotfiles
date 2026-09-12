@@ -541,40 +541,41 @@ new codedeploy.LambdaDeploymentGroup(this, 'DeploymentGroup', {
 # hooks.py
 import boto3
 
-lambda_client = boto3.client('lambda')
-codedeploy = boto3.client('codedeploy')
+lambda_client = boto3.client("lambda")
+codedeploy = boto3.client("codedeploy")
+
 
 def pre_traffic(event, context):
     """
     Validate new version before traffic shift
     """
-    function_name = event['DeploymentId']
-    version = event['NewVersion']
+    function_name = event["DeploymentId"]
+    version = event["NewVersion"]
 
     try:
         # Invoke new version with test payload
         response = lambda_client.invoke(
             FunctionName=f"{function_name}:{version}",
-            InvocationType='RequestResponse',
-            Payload=json.dumps({'test': True})
+            InvocationType="RequestResponse",
+            Payload=json.dumps({"test": True}),
         )
 
         # Validate response
-        if response['StatusCode'] == 200:
+        if response["StatusCode"] == 200:
             codedeploy.put_lifecycle_event_hook_execution_status(
-                deploymentId=event['DeploymentId'],
-                lifecycleEventHookExecutionId=event['LifecycleEventHookExecutionId'],
-                status='Succeeded'
+                deploymentId=event["DeploymentId"],
+                lifecycleEventHookExecutionId=event["LifecycleEventHookExecutionId"],
+                status="Succeeded",
             )
         else:
-            raise Exception('Validation failed')
+            raise Exception("Validation failed")
 
     except Exception as e:
-        print(f'Pre-traffic validation failed: {e}')
+        print(f"Pre-traffic validation failed: {e}")
         codedeploy.put_lifecycle_event_hook_execution_status(
-            deploymentId=event['DeploymentId'],
-            lifecycleEventHookExecutionId=event['LifecycleEventHookExecutionId'],
-            status='Failed'
+            deploymentId=event["DeploymentId"],
+            lifecycleEventHookExecutionId=event["LifecycleEventHookExecutionId"],
+            status="Failed",
         )
 ```
 
@@ -587,36 +588,36 @@ def post_traffic(event, context):
     """
     try:
         # Check CloudWatch metrics
-        cloudwatch = boto3.client('cloudwatch')
+        cloudwatch = boto3.client("cloudwatch")
 
         metrics = cloudwatch.get_metric_statistics(
-            Namespace='AWS/Lambda',
-            MetricName='Errors',
-            Dimensions=[{'Name': 'FunctionName', 'Value': function_name}],
+            Namespace="AWS/Lambda",
+            MetricName="Errors",
+            Dimensions=[{"Name": "FunctionName", "Value": function_name}],
             StartTime=deployment_start_time,
             EndTime=datetime.utcnow(),
             Period=300,
-            Statistics=['Sum']
+            Statistics=["Sum"],
         )
 
         # Validate no errors
-        total_errors = sum(point['Sum'] for point in metrics['Datapoints'])
+        total_errors = sum(point["Sum"] for point in metrics["Datapoints"])
 
         if total_errors == 0:
             codedeploy.put_lifecycle_event_hook_execution_status(
-                deploymentId=event['DeploymentId'],
-                lifecycleEventHookExecutionId=event['LifecycleEventHookExecutionId'],
-                status='Succeeded'
+                deploymentId=event["DeploymentId"],
+                lifecycleEventHookExecutionId=event["LifecycleEventHookExecutionId"],
+                status="Succeeded",
             )
         else:
-            raise Exception(f'{total_errors} errors detected')
+            raise Exception(f"{total_errors} errors detected")
 
     except Exception as e:
-        print(f'Post-traffic verification failed: {e}')
+        print(f"Post-traffic verification failed: {e}")
         codedeploy.put_lifecycle_event_hook_execution_status(
-            deploymentId=event['DeploymentId'],
-            lifecycleEventHookExecutionId=event['LifecycleEventHookExecutionId'],
-            status='Failed'
+            deploymentId=event["DeploymentId"],
+            lifecycleEventHookExecutionId=event["LifecycleEventHookExecutionId"],
+            status="Failed",
         )
 ```
 

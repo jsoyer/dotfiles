@@ -94,19 +94,25 @@ catalog = RestCatalog(
 catalog.create_namespace_if_not_exists("analytics")
 
 # Create table
-schema = pa.schema([
-    pa.field("user_id", pa.string(), nullable=False),
-    pa.field("event_time", pa.timestamp("us", tz="UTC"), nullable=False),
-    pa.field("page_views", pa.int64(), nullable=False),
-])
+schema = pa.schema(
+    [
+        pa.field("user_id", pa.string(), nullable=False),
+        pa.field("event_time", pa.timestamp("us", tz="UTC"), nullable=False),
+        pa.field("page_views", pa.int64(), nullable=False),
+    ]
+)
 table = catalog.create_table(("analytics", "user_metrics"), schema=schema)
 
 # Append data
-df = pd.DataFrame({
-    "user_id": ["user_1", "user_2"],
-    "event_time": pd.to_datetime(["2025-01-15 10:00:00", "2025-01-15 11:00:00"], utc=True),
-    "page_views": [10, 25],
-})
+df = pd.DataFrame(
+    {
+        "user_id": ["user_1", "user_2"],
+        "event_time": pd.to_datetime(
+            ["2025-01-15 10:00:00", "2025-01-15 11:00:00"], utc=True
+        ),
+        "page_views": [10, 25],
+    }
+)
 table.append(pa.Table.from_pandas(df, schema=schema))
 ```
 
@@ -196,7 +202,9 @@ See [r2-data-catalog/patterns.md](../r2-data-catalog/patterns.md) for more engin
 from pyiceberg.partitioning import PartitionSpec, PartitionField
 from pyiceberg.transforms import DayTransform
 
-PartitionSpec(PartitionField(source_id=1, field_id=1000, transform=DayTransform(), name="day"))
+PartitionSpec(
+    PartitionField(source_id=1, field_id=1000, transform=DayTransform(), name="day")
+)
 ```
 
 ### Query Optimization

@@ -14,7 +14,10 @@ pip install azure-appconfiguration azure-identity
 ```python
 from azure.appconfiguration import AzureAppConfigurationClient
 from azure.identity import DefaultAzureCredential
-client = AzureAppConfigurationClient(base_url="https://<name>.azconfig.io", credential=DefaultAzureCredential())
+
+client = AzureAppConfigurationClient(
+    base_url="https://<name>.azconfig.io", credential=DefaultAzureCredential()
+)
 ```
 
 ## Best Practices

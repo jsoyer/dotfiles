@@ -203,12 +203,14 @@ video.index_spoken_words(force=True)
 stream_url = video.add_subtitle()
 
 # Or customise the subtitle style
-stream_url = video.add_subtitle(style=SubtitleStyle(
-    font_name="Arial",
-    font_size=22,
-    primary_colour="&H00FFFFFF",
-    bold=True,
-))
+stream_url = video.add_subtitle(
+    style=SubtitleStyle(
+        font_name="Arial",
+        font_size=22,
+        primary_colour="&H00FFFFFF",
+        bold=True,
+    )
+)
 ```
 
 ### Method 2: Editor API (advanced)

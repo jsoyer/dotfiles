@@ -21,6 +21,7 @@ client = Cloudflare(api_token=os.environ.get("CLOUDFLARE_API_TOKEN"))
 
 # For async:
 from cloudflare import AsyncCloudflare
+
 client = AsyncCloudflare(api_token=os.environ["CLOUDFLARE_API_TOKEN"])
 ```
 

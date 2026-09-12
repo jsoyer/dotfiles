@@ -297,14 +297,16 @@ import json
 from datetime import datetime
 from pathlib import Path
 
+
 def run_infsh(app_id: str, input_data: dict) -> dict:
     """Run inference.sh app and return result."""
     result = subprocess.run(
         ["infsh", "app", "run", app_id, "--input", json.dumps(input_data)],
         capture_output=True,
-        text=True
+        text=True,
     )
     return json.loads(result.stdout) if result.returncode == 0 else None
+
 
 def daily_content_pipeline():
     """Generate daily content."""
@@ -313,18 +315,23 @@ def daily_content_pipeline():
     output_dir.mkdir(parents=True, exist_ok=True)
 
     # Generate image
-    image = run_infsh("falai/flux-dev", {
-        "prompt": f"Daily inspiration for {date_str}, beautiful, uplifting"
-    })
+    image = run_infsh(
+        "falai/flux-dev",
+        {"prompt": f"Daily inspiration for {date_str}, beautiful, uplifting"},
+    )
     (output_dir / "image.json").write_text(json.dumps(image))
 
     # Generate caption
-    caption = run_infsh("openrouter/claude-haiku-45", {
-        "prompt": "Write an inspiring caption for a daily motivation post. 2-3 sentences."
-    })
+    caption = run_infsh(
+        "openrouter/claude-haiku-45",
+        {
+            "prompt": "Write an inspiring caption for a daily motivation post. 2-3 sentences."
+        },
+    )
     (output_dir / "caption.json").write_text(json.dumps(caption))
 
     print(f"Generated content for {date_str}")
+
 
 if __name__ == "__main__":
     daily_content_pipeline()

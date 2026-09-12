@@ -29,6 +29,7 @@ from pathlib import Path
 
 _HASH_CHUNK_SIZE = 65536  # 64KB chunks for large files
 
+
 def compute_file_hash(path: Path) -> str:
     """SHA-256 of file contents (chunked for large files)."""
     if not path.is_file():
@@ -50,6 +51,7 @@ def compute_file_hash(path: Path) -> str:
 ```python
 from dataclasses import dataclass
 
+
 @dataclass(frozen=True, slots=True)
 class CacheEntry:
     file_hash: str
@@ -65,11 +67,13 @@ Each cache entry is stored as `{hash}.json` — O(1) lookup by hash, no index fi
 import json
 from typing import Any
 
+
 def write_cache(cache_dir: Path, entry: CacheEntry) -> None:
     cache_dir.mkdir(parents=True, exist_ok=True)
     cache_file = cache_dir / f"{entry.file_hash}.json"
     data = serialize_entry(entry)
     cache_file.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+
 
 def read_cache(cache_dir: Path, file_hash: str) -> CacheEntry | None:
     cache_file = cache_dir / f"{file_hash}.json"
@@ -139,10 +143,12 @@ def extract_with_cache(
 # BAD: Path-based caching (breaks on file move/rename)
 cache = {"/path/to/file.pdf": result}
 
+
 # BAD: Adding cache logic inside the processing function (SRP violation)
 def extract_text(path, *, cache_enabled=False, cache_dir=None):
     if cache_enabled:  # Now this function has two responsibilities
         ...
+
 
 # BAD: Using dataclasses.asdict() with nested frozen dataclasses
 # (can cause issues with complex nested types)

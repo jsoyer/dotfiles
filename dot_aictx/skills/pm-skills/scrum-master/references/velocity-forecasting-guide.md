@@ -159,11 +159,11 @@ def bootstrap_forecast(velocities, sprints_ahead, iterations=10000):
 def calculate_confidence_intervals(results, confidence_levels=[0.5, 0.7, 0.85, 0.95]):
     sorted_results = sorted(results)
     intervals = {}
-    
+
     for confidence in confidence_levels:
         percentile_index = int(confidence * len(sorted_results))
-        intervals[f"{int(confidence*100)}%"] = sorted_results[percentile_index]
-    
+        intervals[f"{int(confidence * 100)}%"] = sorted_results[percentile_index]
+
     return intervals
 ```
 
@@ -253,9 +253,9 @@ Incorporate team capacity changes:
 ```python
 def capacity_adjusted_forecast(velocities, historical_capacity, future_capacity):
     # Calculate velocity per capacity unit
-    velocity_per_capacity = [v/c for v, c in zip(velocities, historical_capacity)]
+    velocity_per_capacity = [v / c for v, c in zip(velocities, historical_capacity)]
     baseline_efficiency = statistics.mean(velocity_per_capacity)
-    
+
     # Forecast based on future capacity
     future_velocities = [capacity * baseline_efficiency for capacity in future_capacity]
     return monte_carlo_forecast(future_velocities)

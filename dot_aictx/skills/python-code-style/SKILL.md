@@ -141,8 +141,10 @@ http_cli.py
 class UserRepository:
     pass
 
+
 class HTTPClientFactory:  # Acronyms stay uppercase
     pass
+
 
 # Functions and variables: snake_case
 def get_user_by_email(email: str) -> User | None:
@@ -276,8 +278,8 @@ def create_user(
     name: str,
     role: UserRole = UserRole.MEMBER,
     notify: bool = True,
-) -> User:
-    ...
+) -> User: ...
+
 
 # Good: Chain method calls clearly
 result = (

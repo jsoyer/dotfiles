@@ -62,13 +62,15 @@ import azure.durable_functions as df
 
 my_app = df.DFApp(http_auth_level=func.AuthLevel.FUNCTION)
 
+
 # HTTP Starter
 @my_app.route(route="orchestrators/{function_name}", methods=["POST"])
 @my_app.durable_client_input(client_name="client")
 async def http_start(req: func.HttpRequest, client):
-    function_name = req.route_params.get('function_name')
+    function_name = req.route_params.get("function_name")
     instance_id = await client.start_new(function_name)
     return client.create_check_status_response(req, instance_id)
+
 
 # Orchestrator
 @my_app.orchestration_trigger(context_name="context")
@@ -76,6 +78,7 @@ def my_orchestration(context: df.DurableOrchestrationContext):
     result1 = yield context.call_activity("say_hello", "Tokyo")
     result2 = yield context.call_activity("say_hello", "Seattle")
     return f"{result1}, {result2}"
+
 
 # Activity
 @my_app.activity_trigger(input_name="name")
@@ -108,17 +111,18 @@ def fan_out_fan_in(context: df.DurableOrchestrationContext):
 ```python
 import datetime
 
+
 @my_app.orchestration_trigger(context_name="context")
 def approval_workflow(context: df.DurableOrchestrationContext):
     yield context.call_activity("send_approval_request", context.get_input())
-    
+
     # Wait for approval event with timeout
     timeout = context.current_utc_datetime + datetime.timedelta(days=3)
     approval_task = context.wait_for_external_event("ApprovalEvent")
     timeout_task = context.create_timer(timeout)
-    
+
     winner = yield context.task_any([approval_task, timeout_task])
-    
+
     if winner == approval_task:
         approved = approval_task.result
         return "Approved" if approved else "Rejected"
@@ -140,6 +144,7 @@ def approval_workflow(context: df.DurableOrchestrationContext):
 ```python
 import logging
 
+
 @my_app.orchestration_trigger(context_name="context")
 def my_orchestration(context: df.DurableOrchestrationContext):
     # Check if replaying to avoid duplicate logs
@@ -156,16 +161,15 @@ retry_options = df.RetryOptions(
     first_retry_interval_in_milliseconds=5000,
     max_number_of_attempts=3,
     backoff_coefficient=2.0,
-    max_retry_interval_in_milliseconds=60000
+    max_retry_interval_in_milliseconds=60000,
 )
+
 
 @my_app.orchestration_trigger(context_name="context")
 def workflow_with_retry(context: df.DurableOrchestrationContext):
     try:
         result = yield context.call_activity_with_retry(
-            "unreliable_service", 
-            retry_options, 
-            context.get_input()
+            "unreliable_service", retry_options, context.get_input()
         )
         return result
     except Exception as ex:
@@ -182,20 +186,21 @@ For applications running outside Azure Functions (containers, VMs, Azure Contain
 import asyncio
 from durabletask.azuremanaged.worker import DurableTaskSchedulerWorker
 
+
 # Activity function
 def say_hello(ctx, name: str) -> str:
     return f"Hello {name}!"
 
+
 # Orchestrator function
 def my_orchestration(ctx, name: str) -> str:
-    result = yield ctx.call_activity('say_hello', input=name)
+    result = yield ctx.call_activity("say_hello", input=name)
     return result
+
 
 async def main():
     with DurableTaskSchedulerWorker(
-        host_address="http://localhost:8080",
-        secure_channel=False,
-        taskhub="default"
+        host_address="http://localhost:8080", secure_channel=False, taskhub="default"
     ) as worker:
         worker.add_activity(say_hello)
         worker.add_orchestrator(my_orchestration)
@@ -203,15 +208,19 @@ async def main():
 
         # Client
         from durabletask.azuremanaged.client import DurableTaskSchedulerClient
+
         client = DurableTaskSchedulerClient(
             host_address="http://localhost:8080",
             taskhub="default",
             token_credential=None,
-            secure_channel=False
+            secure_channel=False,
         )
-        instance_id = client.schedule_new_orchestration("my_orchestration", input="World")
+        instance_id = client.schedule_new_orchestration(
+            "my_orchestration", input="World"
+        )
         result = client.wait_for_orchestration_completion(instance_id, timeout=30)
         print(f"Output: {result.serialized_output}")
+
 
 if __name__ == "__main__":
     asyncio.run(main())

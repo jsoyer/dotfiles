@@ -127,7 +127,9 @@ from pyiceberg.types import TimestampType
 partition_spec = PartitionSpec(
     PartitionField(source_id=1, field_id=1000, transform=DayTransform(), name="day")
 )
-table = catalog.create_table(("events", "actions"), schema=schema, partition_spec=partition_spec)
+table = catalog.create_table(
+    ("events", "actions"), schema=schema, partition_spec=partition_spec
+)
 scan = table.scan(row_filter="day = '2026-01-27'")  # Prunes partitions
 ```
 

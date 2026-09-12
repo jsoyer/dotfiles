@@ -178,7 +178,9 @@ for scene in scenes:
     if isinstance(scene, dict):
         description = scene.get("description") or scene.get("summary")
     else:
-        description = getattr(scene, "description", None) or getattr(scene, "summary", None)
+        description = getattr(scene, "description", None) or getattr(
+            scene, "summary", None
+        )
     scene_descriptions.append(description or str(scene))
 
 scenes_text = "\n".join(scene_descriptions)

@@ -107,9 +107,9 @@ from pyiceberg.catalog.rest import RestCatalog
 
 catalog = RestCatalog(
     name="my_catalog",
-    warehouse="<bucket-name>",           # Same as bucket name
-    uri="<catalog-uri>",                 # From enable command
-    token="<api-token>",                 # From token creation
+    warehouse="<bucket-name>",  # Same as bucket name
+    uri="<catalog-uri>",  # From enable command
+    token="<api-token>",  # From token creation
 )
 ```
 
@@ -119,9 +119,11 @@ import os
 from pyiceberg.catalog.rest import RestCatalog
 
 # Store credentials in environment variables
-WAREHOUSE = os.getenv("R2_WAREHOUSE")      # e.g., "my-bucket"
-CATALOG_URI = os.getenv("R2_CATALOG_URI")  # e.g., "https://abc123.r2.cloudflarestorage.com/iceberg/my-bucket"
-TOKEN = os.getenv("R2_TOKEN")              # API token
+WAREHOUSE = os.getenv("R2_WAREHOUSE")  # e.g., "my-bucket"
+CATALOG_URI = os.getenv(
+    "R2_CATALOG_URI"
+)  # e.g., "https://abc123.r2.cloudflarestorage.com/iceberg/my-bucket"
+TOKEN = os.getenv("R2_TOKEN")  # API token
 
 catalog = RestCatalog(
     name="r2_catalog",

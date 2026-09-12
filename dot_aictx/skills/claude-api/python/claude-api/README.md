@@ -29,9 +29,7 @@ async_client = anthropic.AsyncAnthropic()
 response = client.messages.create(
     model="claude-opus-4-6",
     max_tokens=1024,
-    messages=[
-        {"role": "user", "content": "What is the capital of France?"}
-    ]
+    messages=[{"role": "user", "content": "What is the capital of France?"}],
 )
 print(response.content[0].text)
 ```
@@ -45,7 +43,7 @@ response = client.messages.create(
     model="claude-opus-4-6",
     max_tokens=1024,
     system="You are a helpful coding assistant. Always provide examples in Python.",
-    messages=[{"role": "user", "content": "How do I read a JSON file?"}]
+    messages=[{"role": "user", "content": "How do I read a JSON file?"}],
 )
 ```
 
@@ -64,20 +62,22 @@ with open("image.png", "rb") as f:
 response = client.messages.create(
     model="claude-opus-4-6",
     max_tokens=1024,
-    messages=[{
-        "role": "user",
-        "content": [
-            {
-                "type": "image",
-                "source": {
-                    "type": "base64",
-                    "media_type": "image/png",
-                    "data": image_data
-                }
-            },
-            {"type": "text", "text": "What's in this image?"}
-        ]
-    }]
+    messages=[
+        {
+            "role": "user",
+            "content": [
+                {
+                    "type": "image",
+                    "source": {
+                        "type": "base64",
+                        "media_type": "image/png",
+                        "data": image_data,
+                    },
+                },
+                {"type": "text", "text": "What's in this image?"},
+            ],
+        }
+    ],
 )
 ```
 
@@ -87,19 +87,18 @@ response = client.messages.create(
 response = client.messages.create(
     model="claude-opus-4-6",
     max_tokens=1024,
-    messages=[{
-        "role": "user",
-        "content": [
-            {
-                "type": "image",
-                "source": {
-                    "type": "url",
-                    "url": "https://example.com/image.png"
-                }
-            },
-            {"type": "text", "text": "Describe this image"}
-        ]
-    }]
+    messages=[
+        {
+            "role": "user",
+            "content": [
+                {
+                    "type": "image",
+                    "source": {"type": "url", "url": "https://example.com/image.png"},
+                },
+                {"type": "text", "text": "Describe this image"},
+            ],
+        }
+    ],
 )
 ```
 
@@ -119,7 +118,7 @@ response = client.messages.create(
     max_tokens=1024,
     cache_control={"type": "ephemeral"},  # auto-caches the last cacheable block
     system="You are an expert on this large document...",
-    messages=[{"role": "user", "content": "Summarize the key points"}]
+    messages=[{"role": "user", "content": "Summarize the key points"}],
 )
 ```
 
@@ -131,24 +130,28 @@ For fine-grained control, add `cache_control` to specific content blocks:
 response = client.messages.create(
     model="claude-opus-4-6",
     max_tokens=1024,
-    system=[{
-        "type": "text",
-        "text": "You are an expert on this large document...",
-        "cache_control": {"type": "ephemeral"}  # default TTL is 5 minutes
-    }],
-    messages=[{"role": "user", "content": "Summarize the key points"}]
+    system=[
+        {
+            "type": "text",
+            "text": "You are an expert on this large document...",
+            "cache_control": {"type": "ephemeral"},  # default TTL is 5 minutes
+        }
+    ],
+    messages=[{"role": "user", "content": "Summarize the key points"}],
 )
 
 # With explicit TTL (time-to-live)
 response = client.messages.create(
     model="claude-opus-4-6",
     max_tokens=1024,
-    system=[{
-        "type": "text",
-        "text": "You are an expert on this large document...",
-        "cache_control": {"type": "ephemeral", "ttl": "1h"}  # 1 hour TTL
-    }],
-    messages=[{"role": "user", "content": "Summarize the key points"}]
+    system=[
+        {
+            "type": "text",
+            "text": "You are an expert on this large document...",
+            "cache_control": {"type": "ephemeral", "ttl": "1h"},  # 1 hour TTL
+        }
+    ],
+    messages=[{"role": "user", "content": "Summarize the key points"}],
 )
 ```
 
@@ -166,7 +169,7 @@ response = client.messages.create(
     max_tokens=16000,
     thinking={"type": "adaptive"},
     output_config={"effort": "high"},  # low | medium | high | max
-    messages=[{"role": "user", "content": "Solve this step by step..."}]
+    messages=[{"role": "user", "content": "Solve this step by step..."}],
 )
 
 # Access thinking and response
@@ -231,7 +234,7 @@ class ConversationManager:
             max_tokens=kwargs.get("max_tokens", 1024),
             system=self.system,
             messages=self.messages,
-            **kwargs
+            **kwargs,
         )
 
         assistant_message = response.content[0].text
@@ -239,11 +242,12 @@ class ConversationManager:
 
         return assistant_message
 
+
 # Usage
 conversation = ConversationManager(
     client=anthropic.Anthropic(),
     model="claude-opus-4-6",
-    system="You are a helpful assistant."
+    system="You are a helpful assistant.",
 )
 
 response1 = conversation.send("My name is Alice.")
@@ -267,6 +271,7 @@ import anthropic
 client = anthropic.Anthropic()
 messages = []
 
+
 def chat(user_message: str) -> str:
     messages.append({"role": "user", "content": user_message})
 
@@ -275,15 +280,14 @@ def chat(user_message: str) -> str:
         model="claude-opus-4-6",
         max_tokens=4096,
         messages=messages,
-        context_management={
-            "edits": [{"type": "compact_20260112"}]
-        }
+        context_management={"edits": [{"type": "compact_20260112"}]},
     )
 
     # Append full content — compaction blocks must be preserved
     messages.append({"role": "assistant", "content": response.content})
 
     return next(block.text for block in response.content if block.type == "text")
+
 
 # Compaction triggers automatically when context grows large
 print(chat("Help me build a Python web scraper"))
@@ -319,7 +323,7 @@ response = client.messages.create(
     max_tokens=1024,
     cache_control={"type": "ephemeral"},
     system=large_document_text,  # e.g., 50KB of context
-    messages=[{"role": "user", "content": "Summarize the key points"}]
+    messages=[{"role": "user", "content": "Summarize the key points"}],
 )
 
 # First request: full cost
@@ -333,21 +337,21 @@ response = client.messages.create(
 response = client.messages.create(
     model="claude-opus-4-6",  # $5.00/$25.00 per 1M tokens
     max_tokens=1024,
-    messages=[{"role": "user", "content": "Explain quantum computing"}]
+    messages=[{"role": "user", "content": "Explain quantum computing"}],
 )
 
 # Use Sonnet for high-volume production workloads
 standard_response = client.messages.create(
     model="claude-sonnet-4-6",  # $3.00/$15.00 per 1M tokens
     max_tokens=1024,
-    messages=[{"role": "user", "content": "Summarize this document"}]
+    messages=[{"role": "user", "content": "Summarize this document"}],
 )
 
 # Use Haiku only for simple, speed-critical tasks
 simple_response = client.messages.create(
     model="claude-haiku-4-5",  # $1.00/$5.00 per 1M tokens
     max_tokens=256,
-    messages=[{"role": "user", "content": "Classify this as positive or negative"}]
+    messages=[{"role": "user", "content": "Classify this as positive or negative"}],
 )
 ```
 
@@ -355,9 +359,7 @@ simple_response = client.messages.create(
 
 ```python
 count_response = client.messages.count_tokens(
-    model="claude-opus-4-6",
-    messages=messages,
-    system=system
+    model="claude-opus-4-6", messages=messages, system=system
 )
 
 estimated_input_cost = count_response.input_tokens * 0.000005  # $5/1M tokens
@@ -375,12 +377,13 @@ import time
 import random
 import anthropic
 
+
 def call_with_retry(
     client: anthropic.Anthropic,
     max_retries: int = 5,
     base_delay: float = 1.0,
     max_delay: float = 60.0,
-    **kwargs
+    **kwargs,
 ):
     """Call the API with exponential backoff retry."""
     last_exception = None
@@ -396,7 +399,7 @@ def call_with_retry(
             else:
                 raise  # Client errors (4xx except 429) should not be retried
 
-        delay = min(base_delay * (2 ** attempt) + random.uniform(0, 1), max_delay)
+        delay = min(base_delay * (2**attempt) + random.uniform(0, 1), max_delay)
         print(f"Retry {attempt + 1}/{max_retries} after {delay:.1f}s")
         time.sleep(delay)
 

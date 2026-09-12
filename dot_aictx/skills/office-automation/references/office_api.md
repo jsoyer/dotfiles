@@ -17,22 +17,22 @@ from docx.shared import Inches, Pt
 
 # 创建文档
 doc = Document()
-doc.add_heading('标题', 0)
-doc.add_paragraph('正文内容')
-doc.save('output.docx')
+doc.add_heading("标题", 0)
+doc.add_paragraph("正文内容")
+doc.save("output.docx")
 
 # 读取文档
-doc = Document('input.docx')
+doc = Document("input.docx")
 for para in doc.paragraphs:
     print(para.text)
 
 # 添加表格
 table = doc.add_table(rows=3, cols=3)
-table.cell(0, 0).text = '单元格内容'
+table.cell(0, 0).text = "单元格内容"
 
 # 设置格式
 paragraph = doc.add_paragraph()
-run = paragraph.add_run('加粗文本')
+run = paragraph.add_run("加粗文本")
 run.bold = True
 run.font.size = Pt(12)
 ```
@@ -56,20 +56,21 @@ from openpyxl import Workbook, load_workbook
 # 创建工作簿
 wb = Workbook()
 ws = wb.active
-ws['A1'] = '数据'
+ws["A1"] = "数据"
 ws.append([1, 2, 3])
-wb.save('output.xlsx')
+wb.save("output.xlsx")
 
 # 读取工作簿
-wb = load_workbook('input.xlsx', data_only=True)
-ws = wb['Sheet1']
+wb = load_workbook("input.xlsx", data_only=True)
+ws = wb["Sheet1"]
 for row in ws.iter_rows(values_only=True):
     print(row)
 
 # 设置样式
 from openpyxl.styles import Font, Alignment
-ws['A1'].font = Font(bold=True)
-ws['A1'].alignment = Alignment(horizontal='center')
+
+ws["A1"].font = Font(bold=True)
+ws["A1"].alignment = Alignment(horizontal="center")
 ```
 
 **文档：** https://openpyxl.readthedocs.io/
@@ -89,20 +90,20 @@ pip install pandas
 import pandas as pd
 
 # 读取 Excel
-df = pd.read_excel('data.xlsx', sheet_name='Sheet1')
+df = pd.read_excel("data.xlsx", sheet_name="Sheet1")
 
 # 数据筛选
-filtered = df[df['column'] > 100]
+filtered = df[df["column"] > 100]
 
 # 数据统计
 stats = df.describe()
 
 # 数据透视
-pivot = df.pivot_table(values='value', index='row', columns='col', aggfunc='sum')
+pivot = df.pivot_table(values="value", index="row", columns="col", aggfunc="sum")
 
 # 导出
-df.to_excel('output.xlsx', index=False)
-df.to_csv('output.csv', index=False, encoding='utf-8-sig')
+df.to_excel("output.xlsx", index=False)
+df.to_csv("output.csv", index=False, encoding="utf-8-sig")
 ```
 
 **文档：** https://pandas.pydata.org/docs/

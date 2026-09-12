@@ -162,17 +162,19 @@ Use this skill when:
 # Show complete, working examples
 # Include expected output
 
+
 def example_function(param: str) -> str:
     """
     Brief description of what this does.
-    
+
     Args:
         param: What this parameter is for
-        
+
     Returns:
         What gets returned
     """
     return f"Result: {param}"
+
 
 # Example usage
 result = example_function("test")

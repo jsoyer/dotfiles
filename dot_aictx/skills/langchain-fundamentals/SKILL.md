@@ -32,6 +32,7 @@ Build production agents using `create_agent()`, middleware patterns, and the `@t
 from langchain.agents import create_agent
 from langchain_core.tools import tool
 
+
 @tool
 def get_weather(location: str) -> str:
     """Get current weather for a location.
@@ -41,15 +42,16 @@ def get_weather(location: str) -> str:
     """
     return f"Weather in {location}: Sunny, 72F"
 
+
 agent = create_agent(
     model="anthropic:claude-sonnet-4-5",
     tools=[get_weather],
-    system_prompt="You are a helpful assistant."
+    system_prompt="You are a helpful assistant.",
 )
 
-result = agent.invoke({
-    "messages": [{"role": "user", "content": "What's the weather in Paris?"}]
-})
+result = agent.invoke(
+    {"messages": [{"role": "user", "content": "What's the weather in Paris?"}]}
+)
 print(result["messages"][-1].content)
 ```
 </python>
@@ -98,8 +100,12 @@ agent = create_agent(
 )
 
 config = {"configurable": {"thread_id": "user-123"}}
-agent.invoke({"messages": [{"role": "user", "content": "My name is Alice"}]}, config=config)
-result = agent.invoke({"messages": [{"role": "user", "content": "What's my name?"}]}, config=config)
+agent.invoke(
+    {"messages": [{"role": "user", "content": "My name is Alice"}]}, config=config
+)
+result = agent.invoke(
+    {"messages": [{"role": "user", "content": "What's my name?"}]}, config=config
+)
 # Agent remembers: "Your name is Alice"
 ```
 </python>
@@ -135,6 +141,7 @@ Tools are functions that agents can call. Use the `@tool` decorator (Python) or 
 <python>
 ```python
 from langchain_core.tools import tool
+
 
 @tool
 def add(a: float, b: float) -> float:
@@ -196,18 +203,23 @@ Get typed, validated responses from agents using `response_format` or `with_stru
 from langchain.agents import create_agent
 from pydantic import BaseModel, Field
 
+
 class ContactInfo(BaseModel):
     name: str
     email: str
     phone: str = Field(description="Phone number with area code")
 
+
 # Option 1: Agent with structured output
 agent = create_agent(model="gpt-4.1", tools=[search], response_format=ContactInfo)
-result = agent.invoke({"messages": [{"role": "user", "content": "Find contact for John"}]})
+result = agent.invoke(
+    {"messages": [{"role": "user", "content": "Find contact for John"}]}
+)
 print(result["structured_response"])  # ContactInfo(name='John', ...)
 
 # Option 2: Model-level structured output (no agent needed)
 from langchain_openai import ChatOpenAI
+
 model = ChatOpenAI(model="gpt-4.1")
 structured_model = model.with_structured_output(ContactInfo)
 response = structured_model.invoke("Extract: John, john@example.com, 555-1234")
@@ -241,7 +253,10 @@ const response = await structuredModel.invoke("Extract: John, john@example.com, 
 
 ```python
 from langchain_anthropic import ChatAnthropic
-agent = create_agent(model=ChatAnthropic(model="claude-sonnet-4-5", temperature=0), tools=[...])
+
+agent = create_agent(
+    model=ChatAnthropic(model="claude-sonnet-4-5", temperature=0), tools=[...]
+)
 ```
 </model_config>
 
@@ -255,6 +270,7 @@ Clear descriptions help the agent know when to use each tool.
 def bad_tool(input: str) -> str:
     """Does stuff."""
     return "result"
+
 
 # CORRECT: Clear, specific description with Args
 @tool
@@ -311,7 +327,9 @@ agent = create_agent(
 )
 config = {"configurable": {"thread_id": "session-1"}}
 agent.invoke({"messages": [{"role": "user", "content": "I'm Bob"}]}, config=config)
-agent.invoke({"messages": [{"role": "user", "content": "What's my name?"}]}, config=config)
+agent.invoke(
+    {"messages": [{"role": "user", "content": "What's my name?"}]}, config=config
+)
 # Agent remembers: "Your name is Bob"
 ```
 </python>

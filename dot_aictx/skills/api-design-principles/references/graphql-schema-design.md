@@ -492,11 +492,13 @@ enum ErrorCode {
 ```python
 from aiodataloader import DataLoader
 
+
 class PostLoader(DataLoader):
     async def batch_load_fn(self, post_ids):
         posts = await db.posts.find({"id": {"$in": post_ids}})
         post_map = {post["id"]: post for post in posts}
         return [post_map.get(pid) for pid in post_ids]
+
 
 # Resolver
 @user_type.field("posts")
@@ -510,13 +512,13 @@ async def resolve_posts(user, info):
 ```python
 from graphql import GraphQLError
 
+
 def depth_limit_validator(max_depth: int):
     def validate(context, node, ancestors):
         depth = len(ancestors)
         if depth > max_depth:
-            raise GraphQLError(
-                f"Query depth {depth} exceeds maximum {max_depth}"
-            )
+            raise GraphQLError(f"Query depth {depth} exceeds maximum {max_depth}")
+
     return validate
 ```
 

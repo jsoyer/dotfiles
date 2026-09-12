@@ -157,11 +157,19 @@ import subprocess
 import json
 
 # Always use run.py wrapper
-result = subprocess.run([
-    "python", "scripts/run.py", "ask_question.py",
-    "--question", "Your question",
-    "--notebook-id", "notebook-id"
-], capture_output=True, text=True)
+result = subprocess.run(
+    [
+        "python",
+        "scripts/run.py",
+        "ask_question.py",
+        "--question",
+        "Your question",
+        "--notebook-id",
+        "notebook-id",
+    ],
+    capture_output=True,
+    text=True,
+)
 
 answer = result.stdout
 ```
@@ -213,10 +221,11 @@ Common patterns:
 
 ```python
 # Using run.py prevents most errors
-result = subprocess.run([
-    "python", "scripts/run.py", "ask_question.py",
-    "--question", "Question"
-], capture_output=True, text=True)
+result = subprocess.run(
+    ["python", "scripts/run.py", "ask_question.py", "--question", "Question"],
+    capture_output=True,
+    text=True,
+)
 
 if result.returncode != 0:
     error = result.stderr
@@ -245,20 +254,27 @@ Solutions:
 import concurrent.futures
 import subprocess
 
+
 def query(question, notebook_id):
-    result = subprocess.run([
-        "python", "scripts/run.py", "ask_question.py",
-        "--question", question,
-        "--notebook-id", notebook_id
-    ], capture_output=True, text=True)
+    result = subprocess.run(
+        [
+            "python",
+            "scripts/run.py",
+            "ask_question.py",
+            "--question",
+            question,
+            "--notebook-id",
+            notebook_id,
+        ],
+        capture_output=True,
+        text=True,
+    )
     return result.stdout
+
 
 # Run multiple queries simultaneously
 with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
-    futures = [
-        executor.submit(query, q, nb)
-        for q, nb in zip(questions, notebooks)
-    ]
+    futures = [executor.submit(query, q, nb) for q, nb in zip(questions, notebooks)]
     results = [f.result() for f in futures]
 ```
 
@@ -268,11 +284,19 @@ with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
 def batch_research(questions, notebook_id):
     results = []
     for question in questions:
-        result = subprocess.run([
-            "python", "scripts/run.py", "ask_question.py",
-            "--question", question,
-            "--notebook-id", notebook_id
-        ], capture_output=True, text=True)
+        result = subprocess.run(
+            [
+                "python",
+                "scripts/run.py",
+                "ask_question.py",
+                "--question",
+                question,
+                "--notebook-id",
+                notebook_id,
+            ],
+            capture_output=True,
+            text=True,
+        )
         results.append(result.stdout)
         time.sleep(2)  # Avoid rate limits
     return results

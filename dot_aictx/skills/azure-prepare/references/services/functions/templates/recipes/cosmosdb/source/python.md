@@ -12,13 +12,14 @@ import logging
 
 app = func.FunctionApp()
 
+
 @app.cosmos_db_trigger(
     arg_name="documents",
     container_name="%COSMOS_CONTAINER_NAME%",
     database_name="%COSMOS_DATABASE_NAME%",
     connection="COSMOS_CONNECTION",
     lease_container_name="leases",
-    create_lease_container_if_not_exists=True
+    create_lease_container_if_not_exists=True,
 )
 def cosmos_trigger(documents: func.DocumentList):
     logging.info(f"Cosmos DB trigger function processed {len(documents)} document(s)")

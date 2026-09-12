@@ -12,6 +12,7 @@ pip install azure-monitor-opentelemetry
 ## Quick Start
 ```python
 from azure.monitor.opentelemetry import configure_azure_monitor
+
 configure_azure_monitor()
 ```
 

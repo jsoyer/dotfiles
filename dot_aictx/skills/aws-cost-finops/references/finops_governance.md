@@ -260,10 +260,11 @@ Alerts:
 ```python
 # Lambda function triggered by Budget alert SNS topic
 
+
 def lambda_handler(event, context):
     # Parse budget alert
-    budget_name = event['budgetName']
-    threshold = event['threshold']
+    budget_name = event["budgetName"]
+    threshold = event["threshold"]
 
     if threshold >= 100:
         # Stop non-production instances

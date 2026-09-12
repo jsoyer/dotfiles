@@ -6,7 +6,7 @@
 - **Problem**: The AI report stated "OpenAI Revenue... 1h ago", but the actual event was ~12h ago.
 - **My Code**:
   ```python
-  time_str = datetime.fromtimestamp(ts).strftime('%H:%M') if ts else ""
+  time_str = datetime.fromtimestamp(ts).strftime("%H:%M") if ts else ""
   # Output: "09:35"
   ```
 - **The Result**: The AI received "Time: 09:35" at 21:30. Lacking the date, it possibly interpreted it as "09:35 PM" (Future?) or just "21:35" (Recent?), or generalized incorrectly. It calculated "1h ago" erroneously.
@@ -18,7 +18,7 @@
 ### 3. The Fix (修复方案)
 - **Absolute Time**: ALWAYS use full date-time format for machine processing.
   ```python
-  time_str = datetime.fromtimestamp(ts).strftime('%Y-%m-%d %H:%M')
+  time_str = datetime.fromtimestamp(ts).strftime("%Y-%m-%d %H:%M")
   # Output: "2026-01-24 09:35"
   ```
 - **Lesson**: Don't format for "Human Readability" in the raw data layer. Let the UI/Presentation layer (Markdown generation) decide how to display it ("1h ago"). The data layer must remain precise.
@@ -44,7 +44,7 @@ I attempted to construct a search query for the Algolia HN API by simply joining
 ### 3. The Fix (修复方案)
 - **Quoted Phrases**: Explicitly wrap multi-word terms in quotes.
   ```python
-  passed_keywords = [f'"{k}"' if ' ' in k else k for k in keywords]
+  passed_keywords = [f'"{k}"' if " " in k else k for k in keywords]
   query_str = " OR ".join(passed_keywords)
   # Result: "AI OR LLM OR \"Github Copilot\" OR OpenAI"
   ```

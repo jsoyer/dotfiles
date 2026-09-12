@@ -5,6 +5,7 @@ Origin: Homebrew 6 aborts brew update on sidneys/homebrew
 (`depends_on macos: :sierra` is disabled). That tap was already in
 Brewfile_blacklist but still tapped, so chezmoi update-homebrew.sh exited 1.
 """
+
 import importlib.machinery
 import importlib.util
 import unittest

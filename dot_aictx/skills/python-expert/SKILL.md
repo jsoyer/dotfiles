@@ -114,32 +114,33 @@ When writing Python code, always include:
 ```python
 from typing import List, Dict, Optional, TypeVar
 
-T = TypeVar('T')
+T = TypeVar("T")
+
 
 def function_name(param1: str, param2: int) -> Optional[Dict[str, Any]]:
     """Brief description of function purpose.
-    
+
     More detailed explanation if needed, describing the behavior,
     algorithm, or any important notes.
-    
+
     Args:
         param1: Description of first parameter
         param2: Description of second parameter
-        
+
     Returns:
         Description of return value, including None case
-        
+
     Raises:
         ValueError: When param2 is negative
-        
+
     Example:
         >>> function_name("test", 42)
         {'result': 'test-42'}
     """
     if param2 < 0:
         raise ValueError("param2 must be non-negative")
-    
-    return {'result': f'{param1}-{param2}'}
+
+    return {"result": f"{param1}-{param2}"}
 ```
 
 ## Example
@@ -151,17 +152,18 @@ def function_name(param1: str, param2: int) -> Optional[Dict[str, Any]]:
 from collections import Counter
 from typing import List, TypeVar
 
-T = TypeVar('T')
+T = TypeVar("T")
+
 
 def find_duplicates(items: List[T]) -> List[T]:
     """Find all duplicate items in a list.
-    
+
     Args:
         items: List of items to check for duplicates.
-        
+
     Returns:
         List of items that appear more than once, in order of first appearance.
-        
+
     Example:
         >>> find_duplicates([1, 2, 2, 3, 3, 3])
         [2, 3]

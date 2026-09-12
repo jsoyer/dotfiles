@@ -283,25 +283,36 @@ Always prioritize regulatory compliance, data protection, and maintaining audit-
 GDPR_CONFIG = {
     "data_protection_officer": {
         "contact": "dpo@company.com",
-        "notification_channels": ["email", "slack"]
+        "notification_channels": ["email", "slack"],
     },
-    "legal_basis": ["consent", "contract", "legal_obligation", "vital_interests", "public_task", "legitimate_interests"],
+    "legal_basis": [
+        "consent",
+        "contract",
+        "legal_obligation",
+        "vital_interests",
+        "public_task",
+        "legitimate_interests",
+    ],
     "data_subject_rights": {
         "access": {"endpoint": "/api/v1/subject/access", "sla_days": 30},
         "rectification": {"endpoint": "/api/v1/subject/rectify", "sla_days": 30},
         "erasure": {"endpoint": "/api/v1/subject/erase", "sla_days": 30},
-        "portability": {"endpoint": "/api/v1/subject/export", "format": "JSON/CSV", "sla_days": 30},
-        "objection": {"endpoint": "/api/v1/subject/object", "sla_days": 30}
+        "portability": {
+            "endpoint": "/api/v1/subject/export",
+            "format": "JSON/CSV",
+            "sla_days": 30,
+        },
+        "objection": {"endpoint": "/api/v1/subject/object", "sla_days": 30},
     },
     "breach_response": {
         "notification_deadline_hours": 72,
         "authority_contact": "supervisory-authority@example.eu",
-        "internal_escalation": ["security-team", "legal", "dpo", "executive"]
+        "internal_escalation": ["security-team", "legal", "dpo", "executive"],
     },
     "cross_border_transfers": {
         "mechanisms": ["SCCs", "BCRs", "adequacy_decisions"],
-        "transfer_impact_assessment": True
-    }
+        "transfer_impact_assessment": True,
+    },
 }
 ```
 
@@ -331,9 +342,13 @@ class PrivacyPolicyGenerator:
     def validate_compliance(self) -> dict:
         """Validate policy against applicable regulatory requirements."""
         checks = {
-            "gdpr": self._validate_gdpr() if self.jurisdiction in ["EU", "EEA", "UK"] else None,
+            "gdpr": self._validate_gdpr()
+            if self.jurisdiction in ["EU", "EEA", "UK"]
+            else None,
             "ccpa": self._validate_ccpa() if self.jurisdiction == "US-CA" else None,
-            "hipaa": self._validate_hipaa() if "health" in self.data_categories else None,
+            "hipaa": self._validate_hipaa()
+            if "health" in self.data_categories
+            else None,
         }
         return {k: v for k, v in checks.items() if v is not None}
 
@@ -358,7 +373,12 @@ class PrivacyPolicyGenerator:
 class ContractReviewAutomation:
     """Automated contract review scanning for compliance risks and regulatory alignment."""
 
-    HIGH_RISK_TERMS = ["unlimited liability", "indemnification", "waiver of rights", "perpetual license"]
+    HIGH_RISK_TERMS = [
+        "unlimited liability",
+        "indemnification",
+        "waiver of rights",
+        "perpetual license",
+    ]
     MEDIUM_RISK_TERMS = ["auto-renewal", "unilateral amendment", "governing law change"]
 
     def __init__(self, contract_text: str, applicable_frameworks: list[str]):
@@ -375,10 +395,22 @@ class ContractReviewAutomation:
     def _scan_risk_terms(self):
         for term in self.HIGH_RISK_TERMS:
             if term.lower() in self.contract_text.lower():
-                self.findings.append({"term": term, "severity": "HIGH", "action": "Legal review required"})
+                self.findings.append(
+                    {
+                        "term": term,
+                        "severity": "HIGH",
+                        "action": "Legal review required",
+                    }
+                )
         for term in self.MEDIUM_RISK_TERMS:
             if term.lower() in self.contract_text.lower():
-                self.findings.append({"term": term, "severity": "MEDIUM", "action": "Risk assessment recommended"})
+                self.findings.append(
+                    {
+                        "term": term,
+                        "severity": "MEDIUM",
+                        "action": "Risk assessment recommended",
+                    }
+                )
 
     def _analyze_compliance_obligations(self): ...
     def _check_data_processing_terms(self): ...

@@ -90,6 +90,7 @@ For Python (click/typer) and Go (cobra) quick-start examples, see `references/py
   ```python
   # Python
   import sys
+
   use_color = sys.stdout.isatty()
   ```
   ```go

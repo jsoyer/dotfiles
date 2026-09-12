@@ -87,11 +87,14 @@ timeline.add_inline(VideoAsset(asset_id=video.id))
 timeline.add_overlay(0, AudioAsset(asset_id=music.id))
 
 # Text overlay at the beginning
-timeline.add_overlay(0, TextAsset(
-    text="Live Demo",
-    duration=3,
-    style=TextStyle(fontsize=48, fontcolor="white", boxcolor="#000000"),
-))
+timeline.add_overlay(
+    0,
+    TextAsset(
+        text="Live Demo",
+        duration=3,
+        style=TextStyle(fontsize=48, fontcolor="white", boxcolor="#000000"),
+    ),
+)
 
 # Generate the composed stream
 stream_url = timeline.generate_stream()
@@ -136,7 +139,7 @@ try:
     results = video.search("product demo", search_type=SearchType.semantic)
     for i, shot in enumerate(results.get_shots()):
         stream_url = shot.generate_stream()
-        print(f"Hit {i+1} [{shot.start:.1f}s-{shot.end:.1f}s]: {stream_url}")
+        print(f"Hit {i + 1} [{shot.start:.1f}s-{shot.end:.1f}s]: {stream_url}")
 except InvalidRequestError as exc:
     if "No results found" in str(exc):
         print("No product demo segments matched the query.")
@@ -192,11 +195,14 @@ for query in queries:
         continue
 
     # Add the section label where this batch starts in the compiled timeline
-    timeline.add_overlay(timeline_offset, TextAsset(
-        text=query.title(),
-        duration=2,
-        style=TextStyle(fontsize=36, fontcolor="white", boxcolor="#222222"),
-    ))
+    timeline.add_overlay(
+        timeline_offset,
+        TextAsset(
+            text=query.title(),
+            duration=2,
+            style=TextStyle(fontsize=36, fontcolor="white", boxcolor="#222222"),
+        ),
+    )
 
     for shot in shots:
         timeline.add_inline(
@@ -272,11 +278,14 @@ for topic in topics:
 
     if shots:
         found_any = True
-        timeline.add_overlay(timeline_offset, TextAsset(
-            text=topic.title(),
-            duration=2,
-            style=TextStyle(fontsize=32, fontcolor="white", boxcolor="#1a1a2e"),
-        ))
+        timeline.add_overlay(
+            timeline_offset,
+            TextAsset(
+                text=topic.title(),
+                duration=2,
+                style=TextStyle(fontsize=32, fontcolor="white", boxcolor="#1a1a2e"),
+            ),
+        )
         for shot in shots:
             timeline.add_inline(
                 VideoAsset(asset_id=shot.video_id, start=shot.start, end=shot.end)
@@ -364,28 +373,32 @@ else:
     demo_start = None
 
 # Overlay title card image
-timeline.add_overlay(0, ImageAsset(
-    asset_id=title_img.id, width=100, height=100, x=80, y=20, duration=5
-))
+timeline.add_overlay(
+    0, ImageAsset(asset_id=title_img.id, width=100, height=100, x=80, y=20, duration=5)
+)
 
 # Overlay section labels at the correct timeline offsets
 if keynote_start is not None:
-    timeline.add_overlay(max(5, keynote_start), TextAsset(
-        text="Keynote Highlights",
-        duration=3,
-        style=TextStyle(fontsize=40, fontcolor="white", boxcolor="#0d1117"),
-    ))
+    timeline.add_overlay(
+        max(5, keynote_start),
+        TextAsset(
+            text="Keynote Highlights",
+            duration=3,
+            style=TextStyle(fontsize=40, fontcolor="white", boxcolor="#0d1117"),
+        ),
+    )
 if demo_start is not None:
-    timeline.add_overlay(max(5, demo_start), TextAsset(
-        text="Demo Highlights",
-        duration=3,
-        style=TextStyle(fontsize=36, fontcolor="white", boxcolor="#0d1117"),
-    ))
+    timeline.add_overlay(
+        max(5, demo_start),
+        TextAsset(
+            text="Demo Highlights",
+            duration=3,
+            style=TextStyle(fontsize=36, fontcolor="white", boxcolor="#0d1117"),
+        ),
+    )
 
 # Overlay background music
-timeline.add_overlay(0, AudioAsset(
-    asset_id=music.id, fade_in_duration=3
-))
+timeline.add_overlay(0, AudioAsset(asset_id=music.id, fade_in_duration=3))
 
 # Stream the final recap
 stream_url = timeline.generate_stream()

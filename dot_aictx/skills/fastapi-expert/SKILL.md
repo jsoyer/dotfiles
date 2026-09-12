@@ -48,6 +48,7 @@ Schema + endpoint + dependency injection in one cohesive unit:
 # schemas.py
 from pydantic import BaseModel, EmailStr, field_validator, model_config
 
+
 class UserCreate(BaseModel):
     model_config = model_config(str_strip_whitespace=True)
 
@@ -61,6 +62,7 @@ class UserCreate(BaseModel):
         if len(v) < 8:
             raise ValueError("Password must be at least 8 characters")
         return v
+
 
 class UserResponse(BaseModel):
     model_config = model_config(from_attributes=True)
@@ -84,11 +86,14 @@ router = APIRouter(prefix="/users", tags=["users"])
 
 DbDep = Annotated[AsyncSession, Depends(get_db)]
 
+
 @router.post("/", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 async def create_user(payload: UserCreate, db: DbDep) -> UserResponse:
     existing = await crud.get_user_by_email(db, payload.email)
     if existing:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already registered")
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail="Email already registered"
+        )
     return await crud.create_user(db, payload)
 ```
 
@@ -100,12 +105,18 @@ from app.models import User
 from app.schemas import UserCreate
 from app.security import hash_password
 
+
 async def get_user_by_email(db: AsyncSession, email: str) -> User | None:
     result = await db.execute(select(User).where(User.email == email))
     return result.scalar_one_or_none()
 
+
 async def create_user(db: AsyncSession, payload: UserCreate) -> User:
-    user = User(email=payload.email, hashed_password=hash_password(payload.password), name=payload.name)
+    user = User(
+        email=payload.email,
+        hashed_password=hash_password(payload.password),
+        name=payload.name,
+    )
     db.add(user)
     await db.commit()
     await db.refresh(user)
@@ -126,9 +137,13 @@ SECRET_KEY = "read-from-env"  # use os.environ / settings
 ALGORITHM = "HS256"
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/token")
 
-def create_access_token(subject: str, expires_delta: timedelta = timedelta(minutes=30)) -> str:
+
+def create_access_token(
+    subject: str, expires_delta: timedelta = timedelta(minutes=30)
+) -> str:
     payload = {"sub": subject, "exp": datetime.now(timezone.utc) + expires_delta}
     return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
+
 
 async def get_current_user(token: Annotated[str, Depends(oauth2_scheme)]) -> str:
     try:
@@ -138,7 +153,10 @@ async def get_current_user(token: Annotated[str, Depends(oauth2_scheme)]) -> str
             raise ValueError
         return subject
     except (JWTError, ValueError):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials"
+        )
+
 
 CurrentUser = Annotated[str, Depends(get_current_user)]
 ```

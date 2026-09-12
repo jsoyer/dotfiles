@@ -4,26 +4,27 @@
 serie_renommer.py was added after the ignore list and leaked onto Mac Pro.
 These checks fail if another bin/ sibling is introduced without the same scope.
 """
+
 import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-IGNORE = ROOT / '.chezmoiignore.tmpl'
+IGNORE = ROOT / ".chezmoiignore.tmpl"
 
 
 def nas_ignore_block():
     ignore = IGNORE.read_text()
-    start = ignore.index('media_automation : NAS uniquement')
-    return ignore[start:ignore.index('{{ end }}', start)]
+    start = ignore.index("media_automation : NAS uniquement")
+    return ignore[start : ignore.index("{{ end }}", start)]
 
 
 def target_for(path: Path) -> str | None:
-    if path.name.startswith('executable_'):
-        return 'bin/' + path.name.removeprefix('executable_')
-    if path.name == 'test_media_automation.py':
-        return 'bin/test_media_automation.py'
-    if path.name == 'media_automation':
-        return 'bin/media_automation'
+    if path.name.startswith("executable_"):
+        return "bin/" + path.name.removeprefix("executable_")
+    if path.name == "test_media_automation.py":
+        return "bin/test_media_automation.py"
+    if path.name == "media_automation":
+        return "bin/media_automation"
     return None
 
 
@@ -31,35 +32,38 @@ class MediaScriptsStayNasOnly(unittest.TestCase):
     def test_every_bin_script_is_in_the_nas_ignore_list(self):
         block = nas_ignore_block()
         missing = []
-        for path in sorted((ROOT / 'bin').iterdir()):
+        for path in sorted((ROOT / "bin").iterdir()):
             target = target_for(path)
             if target and target not in block:
                 missing.append(target)
-        self.assertEqual(missing, [], f'NAS ignore missing: {missing}')
+        self.assertEqual(missing, [], f"NAS ignore missing: {missing}")
 
     def test_future_bin_siblings_are_covered_by_glob(self):
-        self.assertIn('bin/**', nas_ignore_block())
+        self.assertIn("bin/**", nas_ignore_block())
 
     def test_leaked_scripts_are_deleted_once_not_prompted(self):
-        remove = (ROOT / '.chezmoiremove.tmpl').read_text()
-        self.assertNotIn('bin/serie_renommer.py', remove)
-        script = (ROOT / '.chezmoiscripts/02-install'
-                  / 'run_once_13-remove-nas-media-leftovers.sh.tmpl').read_text()
+        remove = (ROOT / ".chezmoiremove.tmpl").read_text()
+        self.assertNotIn("bin/serie_renommer.py", remove)
+        script = (
+            ROOT
+            / ".chezmoiscripts/02-install"
+            / "run_once_13-remove-nas-media-leftovers.sh.tmpl"
+        ).read_text()
         for name in (
-            'serie_renommer.py',
-            'media_automation.py',
-            'audit_seasonless.sh',
-            'test_media_automation.py',
-            'anime_absolute_plan.py',
-            'anime_folder_plan.py',
-            'infuse_rename_plan.py',
-            'media_absolute_shows.py',
-            'media_absolute_refresh.py',
+            "serie_renommer.py",
+            "media_automation.py",
+            "audit_seasonless.sh",
+            "test_media_automation.py",
+            "anime_absolute_plan.py",
+            "anime_folder_plan.py",
+            "infuse_rename_plan.py",
+            "media_absolute_shows.py",
+            "media_absolute_refresh.py",
         ):
-            self.assertIn(name, script, f'run_once_13 missing {name}')
-        self.assertIn('omv-nice', script)
-        self.assertIn('omv-dijon', script)
+            self.assertIn(name, script, f"run_once_13 missing {name}")
+        self.assertIn("omv-nice", script)
+        self.assertIn("omv-dijon", script)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

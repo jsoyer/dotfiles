@@ -14,7 +14,10 @@ pip install azure-storage-file-datalake azure-identity
 ```python
 from azure.storage.filedatalake import DataLakeServiceClient
 from azure.identity import DefaultAzureCredential
-service_client = DataLakeServiceClient("https://<account>.dfs.core.windows.net", DefaultAzureCredential())
+
+service_client = DataLakeServiceClient(
+    "https://<account>.dfs.core.windows.net", DefaultAzureCredential()
+)
 ```
 
 ## Best Practices
@@ -31,7 +34,7 @@ service_client = DataLakeServiceClient("https://<account>.dfs.core.windows.net",
 # Large file upload requires append + flush
 offset = 0
 for chunk in chunks:
-	file_client.append_data(data=chunk, offset=offset, length=len(chunk))
-	offset += len(chunk)
+    file_client.append_data(data=chunk, offset=offset, length=len(chunk))
+    offset += len(chunk)
 file_client.flush_data(offset)
 ```

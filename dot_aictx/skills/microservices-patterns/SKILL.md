@@ -106,11 +106,12 @@ class OrderService:
                 order_id=order.id,
                 customer_id=order.customer_id,
                 items=order.items,
-                total=order.total
+                total=order.total,
             )
         )
 
         return order
+
 
 # Payment Service (separate service)
 class PaymentService:
@@ -119,42 +120,40 @@ class PaymentService:
     async def process_payment(self, payment_request: PaymentRequest) -> PaymentResult:
         # Process payment
         result = await self.payment_gateway.charge(
-            amount=payment_request.amount,
-            customer=payment_request.customer_id
+            amount=payment_request.amount, customer=payment_request.customer_id
         )
 
         if result.success:
             await self.event_bus.publish(
                 PaymentCompletedEvent(
                     order_id=payment_request.order_id,
-                    transaction_id=result.transaction_id
+                    transaction_id=result.transaction_id,
                 )
             )
 
         return result
 
+
 # Inventory Service (separate service)
 class InventoryService:
     """Handles inventory management."""
 
-    async def reserve_items(self, order_id: str, items: List[OrderItem]) -> ReservationResult:
+    async def reserve_items(
+        self, order_id: str, items: List[OrderItem]
+    ) -> ReservationResult:
         # Check availability
         for item in items:
             available = await self.inventory_repo.get_available(item.product_id)
             if available < item.quantity:
                 return ReservationResult(
-                    success=False,
-                    error=f"Insufficient inventory for {item.product_id}"
+                    success=False, error=f"Insufficient inventory for {item.product_id}"
                 )
 
         # Reserve items
         reservation = await self.create_reservation(order_id, items)
 
         await self.event_bus.publish(
-            InventoryReservedEvent(
-                order_id=order_id,
-                reservation_id=reservation.id
-            )
+            InventoryReservedEvent(order_id=order_id, reservation_id=reservation.id)
         )
 
         return ReservationResult(success=True, reservation=reservation)
@@ -169,6 +168,7 @@ from circuitbreaker import circuit
 
 app = FastAPI()
 
+
 class APIGateway:
     """Central entry point for all client requests."""
 
@@ -182,9 +182,7 @@ class APIGateway:
     async def call_order_service(self, path: str, method: str = "GET", **kwargs):
         """Call order service with circuit breaker."""
         response = await self.http_client.request(
-            method,
-            f"{self.order_service_url}{path}",
-            **kwargs
+            method, f"{self.order_service_url}{path}", **kwargs
         )
         response.raise_for_status()
         return response.json()
@@ -196,7 +194,7 @@ class APIGateway:
             self.call_order_service(f"/orders/{order_id}"),
             self.call_payment_service(f"/payments/order/{order_id}"),
             self.call_inventory_service(f"/reservations/order/{order_id}"),
-            return_exceptions=True
+            return_exceptions=True,
         )
 
         # Handle partial failures
@@ -208,18 +206,14 @@ class APIGateway:
 
         return result
 
+
 @app.post("/api/orders")
-async def create_order(
-    order_data: dict,
-    gateway: APIGateway = Depends()
-):
+async def create_order(order_data: dict, gateway: APIGateway = Depends()):
     """API Gateway endpoint."""
     try:
         # Route to order service
         order = await gateway.call_order_service(
-            "/orders",
-            method="POST",
-            json=order_data
+            "/orders", method="POST", json=order_data
         )
         return {"order": order}
     except httpx.HTTPError as e:
@@ -235,6 +229,7 @@ async def create_order(
 import httpx
 from tenacity import retry, stop_after_attempt, wait_exponential
 
+
 class ServiceClient:
     """HTTP client with retries and timeout."""
 
@@ -242,12 +237,11 @@ class ServiceClient:
         self.base_url = base_url
         self.client = httpx.AsyncClient(
             timeout=httpx.Timeout(5.0, connect=2.0),
-            limits=httpx.Limits(max_keepalive_connections=20)
+            limits=httpx.Limits(max_keepalive_connections=20),
         )
 
     @retry(
-        stop=stop_after_attempt(3),
-        wait=wait_exponential(multiplier=1, min=2, max=10)
+        stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=2, max=10)
     )
     async def get(self, path: str, **kwargs):
         """GET with automatic retries."""
@@ -260,6 +254,7 @@ class ServiceClient:
         response = await self.client.post(f"{self.base_url}{path}", **kwargs)
         response.raise_for_status()
         return response.json()
+
 
 # Usage
 payment_client = ServiceClient("http://payment-service:8001")
@@ -275,6 +270,7 @@ import json
 from dataclasses import dataclass, asdict
 from datetime import datetime
 
+
 @dataclass
 class DomainEvent:
     event_id: str
@@ -282,6 +278,7 @@ class DomainEvent:
     aggregate_id: str
     occurred_at: datetime
     data: dict
+
 
 class EventBus:
     """Event publishing and subscription."""
@@ -293,7 +290,7 @@ class EventBus:
     async def start(self):
         self.producer = AIOKafkaProducer(
             bootstrap_servers=self.bootstrap_servers,
-            value_serializer=lambda v: json.dumps(v).encode()
+            value_serializer=lambda v: json.dumps(v).encode(),
         )
         await self.producer.start()
 
@@ -301,9 +298,7 @@ class EventBus:
         """Publish event to Kafka topic."""
         topic = event.event_type
         await self.producer.send_and_wait(
-            topic,
-            value=asdict(event),
-            key=event.aggregate_id.encode()
+            topic, value=asdict(event), key=event.aggregate_id.encode()
         )
 
     async def subscribe(self, topic: str, handler: callable):
@@ -312,7 +307,7 @@ class EventBus:
             topic,
             bootstrap_servers=self.bootstrap_servers,
             value_deserializer=lambda v: json.loads(v.decode()),
-            group_id="my-service"
+            group_id="my-service",
         )
         await consumer.start()
 
@@ -322,6 +317,7 @@ class EventBus:
                 await handler(event_data)
         finally:
             await consumer.stop()
+
 
 # Order Service publishes event
 async def create_order(order_data: dict):
@@ -335,11 +331,12 @@ async def create_order(order_data: dict):
         data={
             "order_id": order.id,
             "customer_id": order.customer_id,
-            "total": order.total
-        }
+            "total": order.total,
+        },
     )
 
     await event_bus.publish(event)
+
 
 # Inventory Service listens for OrderCreated
 async def handle_order_created(event_data: dict):
@@ -358,18 +355,15 @@ async def handle_order_created(event_data: dict):
 from enum import Enum
 from typing import List, Callable
 
+
 class SagaStep:
     """Single step in saga."""
 
-    def __init__(
-        self,
-        name: str,
-        action: Callable,
-        compensation: Callable
-    ):
+    def __init__(self, name: str, action: Callable, compensation: Callable):
         self.name = name
         self.action = action
         self.compensation = compensation
+
 
 class SagaStatus(Enum):
     PENDING = "pending"
@@ -377,31 +371,30 @@ class SagaStatus(Enum):
     COMPENSATING = "compensating"
     FAILED = "failed"
 
+
 class OrderFulfillmentSaga:
     """Orchestrated saga for order fulfillment."""
 
     def __init__(self):
         self.steps: List[SagaStep] = [
             SagaStep(
-                "create_order",
-                action=self.create_order,
-                compensation=self.cancel_order
+                "create_order", action=self.create_order, compensation=self.cancel_order
             ),
             SagaStep(
                 "reserve_inventory",
                 action=self.reserve_inventory,
-                compensation=self.release_inventory
+                compensation=self.release_inventory,
             ),
             SagaStep(
                 "process_payment",
                 action=self.process_payment,
-                compensation=self.refund_payment
+                compensation=self.refund_payment,
             ),
             SagaStep(
                 "confirm_order",
                 action=self.confirm_order,
-                compensation=self.cancel_order_confirmation
-            )
+                compensation=self.cancel_order_confirmation,
+            ),
         ]
 
     async def execute(self, order_data: dict) -> SagaResult:
@@ -416,10 +409,7 @@ class OrderFulfillmentSaga:
                 if not result.success:
                     # Compensate
                     await self.compensate(completed_steps, context)
-                    return SagaResult(
-                        status=SagaStatus.FAILED,
-                        error=result.error
-                    )
+                    return SagaResult(status=SagaStatus.FAILED, error=result.error)
 
                 completed_steps.append(step)
                 context.update(result.data)
@@ -450,12 +440,10 @@ class OrderFulfillmentSaga:
 
     async def reserve_inventory(self, context: dict) -> StepResult:
         result = await inventory_service.reserve(
-            context["order_id"],
-            context["order_data"]["items"]
+            context["order_id"], context["order_data"]["items"]
         )
         return StepResult(
-            success=result.success,
-            data={"reservation_id": result.reservation_id}
+            success=result.success, data={"reservation_id": result.reservation_id}
         )
 
     async def release_inventory(self, context: dict):
@@ -463,13 +451,12 @@ class OrderFulfillmentSaga:
 
     async def process_payment(self, context: dict) -> StepResult:
         result = await payment_service.charge(
-            context["order_id"],
-            context["order_data"]["total"]
+            context["order_id"], context["order_data"]["total"]
         )
         return StepResult(
             success=result.success,
             data={"transaction_id": result.transaction_id},
-            error=result.error
+            error=result.error,
         )
 
     async def refund_payment(self, context: dict):
@@ -485,10 +472,12 @@ from enum import Enum
 from datetime import datetime, timedelta
 from typing import Callable, Any
 
+
 class CircuitState(Enum):
     CLOSED = "closed"  # Normal operation
-    OPEN = "open"      # Failing, reject requests
+    OPEN = "open"  # Failing, reject requests
     HALF_OPEN = "half_open"  # Testing if recovered
+
 
 class CircuitBreaker:
     """Circuit breaker for service calls."""
@@ -497,7 +486,7 @@ class CircuitBreaker:
         self,
         failure_threshold: int = 5,
         recovery_timeout: int = 30,
-        success_threshold: int = 2
+        success_threshold: int = 2,
     ):
         self.failure_threshold = failure_threshold
         self.recovery_timeout = recovery_timeout
@@ -550,17 +539,15 @@ class CircuitBreaker:
 
     def _should_attempt_reset(self) -> bool:
         """Check if enough time passed to try again."""
-        return (
-            datetime.now() - self.opened_at
-            > timedelta(seconds=self.recovery_timeout)
+        return datetime.now() - self.opened_at > timedelta(
+            seconds=self.recovery_timeout
         )
+
 
 # Usage
 breaker = CircuitBreaker(failure_threshold=5, recovery_timeout=30)
 
+
 async def call_payment_service(payment_data: dict):
-    return await breaker.call(
-        payment_client.process_payment,
-        payment_data
-    )
+    return await breaker.call(payment_client.process_payment, payment_data)
 ```

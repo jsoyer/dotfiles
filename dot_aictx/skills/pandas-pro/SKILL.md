@@ -58,32 +58,32 @@ Load detailed guidance based on context:
 ```python
 # ❌ AVOID: row-by-row iteration
 for i, row in df.iterrows():
-    df.at[i, 'tax'] = row['price'] * 0.2
+    df.at[i, "tax"] = row["price"] * 0.2
 
 # ✅ USE: vectorized assignment
-df['tax'] = df['price'] * 0.2
+df["tax"] = df["price"] * 0.2
 ```
 
 ### Safe Subsetting with `.copy()`
 
 ```python
 # ❌ AVOID: chained indexing triggers SettingWithCopyWarning
-df['A']['B'] = 1
+df["A"]["B"] = 1
 
 # ✅ USE: .loc[] with explicit copy when mutating a subset
-subset = df.loc[df['status'] == 'active', :].copy()
-subset['score'] = subset['score'].fillna(0)
+subset = df.loc[df["status"] == "active", :].copy()
+subset["score"] = subset["score"].fillna(0)
 ```
 
 ### GroupBy Aggregation
 
 ```python
 summary = (
-    df.groupby(['region', 'category'], observed=True)
+    df.groupby(["region", "category"], observed=True)
     .agg(
-        total_sales=('revenue', 'sum'),
-        avg_price=('price', 'mean'),
-        order_count=('order_id', 'nunique'),
+        total_sales=("revenue", "sum"),
+        avg_price=("price", "mean"),
+        order_count=("order_id", "nunique"),
     )
     .reset_index()
 )
@@ -93,27 +93,28 @@ summary = (
 
 ```python
 merged = pd.merge(
-    left_df, right_df,
-    on=['customer_id', 'date'],
-    how='left',
-    validate='m:1',          # asserts right key is unique
+    left_df,
+    right_df,
+    on=["customer_id", "date"],
+    how="left",
+    validate="m:1",  # asserts right key is unique
     indicator=True,
 )
-unmatched = merged[merged['_merge'] != 'both']
+unmatched = merged[merged["_merge"] != "both"]
 print(f"Unmatched rows: {len(unmatched)}")
-merged.drop(columns=['_merge'], inplace=True)
+merged.drop(columns=["_merge"], inplace=True)
 ```
 
 ### Missing Value Handling
 
 ```python
 # Forward-fill then interpolate numeric gaps
-df['price'] = df['price'].ffill().interpolate(method='linear')
+df["price"] = df["price"].ffill().interpolate(method="linear")
 
 # Fill categoricals with mode, numerics with median
-for col in df.select_dtypes(include='object'):
+for col in df.select_dtypes(include="object"):
     df[col] = df[col].fillna(df[col].mode()[0])
-for col in df.select_dtypes(include='number'):
+for col in df.select_dtypes(include="number"):
     df[col] = df[col].fillna(df[col].median())
 ```
 
@@ -121,9 +122,9 @@ for col in df.select_dtypes(include='number'):
 
 ```python
 daily = (
-    df.set_index('timestamp')
-    .resample('D')
-    .agg({'revenue': 'sum', 'sessions': 'count'})
+    df.set_index("timestamp")
+    .resample("D")
+    .agg({"revenue": "sum", "sessions": "count"})
     .fillna(0)
 )
 ```
@@ -132,10 +133,10 @@ daily = (
 
 ```python
 pivot = df.pivot_table(
-    values='revenue',
-    index='region',
-    columns='product_line',
-    aggfunc='sum',
+    values="revenue",
+    index="region",
+    columns="product_line",
+    aggfunc="sum",
     fill_value=0,
     margins=True,
 )
@@ -145,9 +146,9 @@ pivot = df.pivot_table(
 
 ```python
 # Downcast numerics and convert low-cardinality strings to categorical
-df['category'] = df['category'].astype('category')
-df['count'] = pd.to_numeric(df['count'], downcast='integer')
-df['score'] = pd.to_numeric(df['score'], downcast='float')
+df["category"] = df["category"].astype("category")
+df["count"] = pd.to_numeric(df["count"], downcast="integer")
+df["score"] = pd.to_numeric(df["score"], downcast="float")
 print(df.memory_usage(deep=True).sum() / 1e6, "MB after optimization")
 ```
 

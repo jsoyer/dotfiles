@@ -635,8 +635,11 @@ from app.database import Base, get_db
 
 # In-memory SQLite for tests
 SQLALCHEMY_DATABASE_URL = "sqlite:///./test.db"
-engine = create_engine(SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False})
+engine = create_engine(
+    SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False}
+)
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
 
 @pytest.fixture(scope="function")
 def db_session():
@@ -647,6 +650,7 @@ def db_session():
     finally:
         db.close()
         Base.metadata.drop_all(bind=engine)
+
 
 @pytest.fixture(scope="function")
 def client(db_session):
@@ -660,70 +664,87 @@ def client(db_session):
     yield TestClient(app)
     app.dependency_overrides.clear()
 
+
 # tests/test_auth.py
 def test_register_user_success(client):
-    response = client.post("/auth/register", json={
-        "email": "test@example.com",
-        "username": "testuser",
-        "password": "Password123!"
-    })
+    response = client.post(
+        "/auth/register",
+        json={
+            "email": "test@example.com",
+            "username": "testuser",
+            "password": "Password123!",
+        },
+    )
 
     assert response.status_code == 201
     assert "access_token" in response.json()
     assert response.json()["user"]["email"] == "test@example.com"
 
+
 def test_register_duplicate_email(client):
     # First user
-    client.post("/auth/register", json={
-        "email": "test@example.com",
-        "username": "user1",
-        "password": "Password123!"
-    })
+    client.post(
+        "/auth/register",
+        json={
+            "email": "test@example.com",
+            "username": "user1",
+            "password": "Password123!",
+        },
+    )
 
     # Duplicate email
-    response = client.post("/auth/register", json={
-        "email": "test@example.com",
-        "username": "user2",
-        "password": "Password123!"
-    })
+    response = client.post(
+        "/auth/register",
+        json={
+            "email": "test@example.com",
+            "username": "user2",
+            "password": "Password123!",
+        },
+    )
 
     assert response.status_code == 409
     assert "already exists" in response.json()["detail"]
 
+
 def test_login_success(client):
     # Register
-    client.post("/auth/register", json={
-        "email": "test@example.com",
-        "username": "testuser",
-        "password": "Password123!"
-    })
+    client.post(
+        "/auth/register",
+        json={
+            "email": "test@example.com",
+            "username": "testuser",
+            "password": "Password123!",
+        },
+    )
 
     # Login
-    response = client.post("/auth/login", json={
-        "email": "test@example.com",
-        "password": "Password123!"
-    })
+    response = client.post(
+        "/auth/login", json={"email": "test@example.com", "password": "Password123!"}
+    )
 
     assert response.status_code == 200
     assert "access_token" in response.json()
+
 
 def test_protected_route_without_token(client):
     response = client.get("/auth/me")
     assert response.status_code == 401
 
+
 def test_protected_route_with_token(client):
     # Register and get token
-    register_response = client.post("/auth/register", json={
-        "email": "test@example.com",
-        "username": "testuser",
-        "password": "Password123!"
-    })
+    register_response = client.post(
+        "/auth/register",
+        json={
+            "email": "test@example.com",
+            "username": "testuser",
+            "password": "Password123!",
+        },
+    )
     token = register_response.json()["access_token"]
 
     # Access protected route
-    response = client.get("/auth/me", headers={
-        "Authorization": f"Bearer {token}"
-    })
+    response = client.get("/auth/me", headers={"Authorization": f"Bearer {token}"})
 
     assert response.status_code == 200
     assert response.json()["email"] == "test@example.com"

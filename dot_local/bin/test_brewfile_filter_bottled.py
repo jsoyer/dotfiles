@@ -5,6 +5,7 @@ Origin: Intel macOS Sequoia is Homebrew Tier 3. brew bundle tries to install
 or upgrade formulae with no pourable bottle, then prints
 "Installing X has failed!" / "Upgrading X has failed!" during chezmoi update.
 """
+
 import importlib.machinery
 import importlib.util
 import unittest
@@ -45,8 +46,8 @@ class ParseBrewfile(unittest.TestCase):
 
     def test_ignores_cask_and_comments(self):
         self.assertIsNone(mod.formula_name('cask "ghostty"'))
-        self.assertIsNone(mod.formula_name("# brew \"awscli\""))
-        self.assertIsNone(mod.formula_name("tap \"buo/cask-upgrade\""))
+        self.assertIsNone(mod.formula_name('# brew "awscli"'))
+        self.assertIsNone(mod.formula_name('tap "buo/cask-upgrade"'))
 
 
 class SkipReason(unittest.TestCase):

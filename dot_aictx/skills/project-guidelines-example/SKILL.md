@@ -101,7 +101,8 @@ project/
 from pydantic import BaseModel
 from typing import Generic, TypeVar, Optional
 
-T = TypeVar('T')
+T = TypeVar("T")
+
 
 class ApiResponse(BaseModel, Generic[T]):
     success: bool
@@ -156,10 +157,12 @@ async function fetchApi<T>(
 from anthropic import Anthropic
 from pydantic import BaseModel
 
+
 class AnalysisResult(BaseModel):
     summary: str
     key_points: list[str]
     confidence: float
+
 
 async def analyze_with_claude(content: str) -> AnalysisResult:
     client = Anthropic()
@@ -168,19 +171,18 @@ async def analyze_with_claude(content: str) -> AnalysisResult:
         model="claude-sonnet-4-5-20250514",
         max_tokens=1024,
         messages=[{"role": "user", "content": content}],
-        tools=[{
-            "name": "provide_analysis",
-            "description": "Provide structured analysis",
-            "input_schema": AnalysisResult.model_json_schema()
-        }],
-        tool_choice={"type": "tool", "name": "provide_analysis"}
+        tools=[
+            {
+                "name": "provide_analysis",
+                "description": "Provide structured analysis",
+                "input_schema": AnalysisResult.model_json_schema(),
+            }
+        ],
+        tool_choice={"type": "tool", "name": "provide_analysis"},
     )
 
     # Extract tool use result
-    tool_use = next(
-        block for block in response.content
-        if block.type == "tool_use"
-    )
+    tool_use = next(block for block in response.content if block.type == "tool_use")
 
     return AnalysisResult(**tool_use.input)
 ```
@@ -244,10 +246,12 @@ import pytest
 from httpx import AsyncClient
 from main import app
 
+
 @pytest.fixture
 async def client():
     async with AsyncClient(app=app, base_url="http://test") as ac:
         yield ac
+
 
 @pytest.mark.asyncio
 async def test_health_check(client: AsyncClient):

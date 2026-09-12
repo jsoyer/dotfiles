@@ -26,8 +26,7 @@ from azure.keyvault.secrets import SecretClient
 from azure.identity import DefaultAzureCredential
 
 client = SecretClient(
-    vault_url=os.environ["KEY_VAULT_URL"],
-    credential=DefaultAzureCredential()
+    vault_url=os.environ["KEY_VAULT_URL"], credential=DefaultAzureCredential()
 )
 
 secret = client.get_secret("database-connection-string")

@@ -14,9 +14,7 @@ Python applications send telemetry via the logger class in Python standard libra
 import logging
 from azure.monitor.opentelemetry import configure_azure_monitor
 
-configure_azure_monitor(
-    logger_name="<your_logger_namespace>"
-)
+configure_azure_monitor(logger_name="<your_logger_namespace>")
 logger = logging.getLogger("<your_logger_namespace>")
 ```
 

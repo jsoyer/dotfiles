@@ -141,64 +141,57 @@ TENANT_ID = "YOUR_TENANT_ID"
 AUTHORITY = f"https://login.microsoftonline.com/{TENANT_ID}"
 SCOPES = ["User.Read"]
 
+
 def acquire_token_interactive():
     """Acquire token using interactive flow (opens browser)"""
-    app = msal.PublicClientApplication(
-        CLIENT_ID,
-        authority=AUTHORITY
-    )
-    
+    app = msal.PublicClientApplication(CLIENT_ID, authority=AUTHORITY)
+
     # Try to get token from cache first
     accounts = app.get_accounts()
     result = None
-    
+
     if accounts:
         # Try silent acquisition
         result = app.acquire_token_silent(SCOPES, account=accounts[0])
         if result:
             print("Token acquired from cache")
-    
+
     if not result:
         # Interactive authentication
-        result = app.acquire_token_interactive(
-            scopes=SCOPES,
-            prompt="select_account"
-        )
+        result = app.acquire_token_interactive(scopes=SCOPES, prompt="select_account")
         print("Token acquired interactively")
-    
+
     return result
+
 
 def acquire_token_device_code():
     """Acquire token using device code flow (for headless scenarios)"""
-    app = msal.PublicClientApplication(
-        CLIENT_ID,
-        authority=AUTHORITY
-    )
-    
+    app = msal.PublicClientApplication(CLIENT_ID, authority=AUTHORITY)
+
     flow = app.initiate_device_flow(scopes=SCOPES)
-    
+
     if "user_code" not in flow:
-        raise Exception(f"Failed to create device flow: {flow.get('error_description')}")
-    
+        raise Exception(
+            f"Failed to create device flow: {flow.get('error_description')}"
+        )
+
     # Display instructions to user
     print(flow["message"])
-    
+
     # Wait for user to complete authentication
     result = app.acquire_token_by_device_flow(flow)
     return result
 
+
 def call_graph_api(access_token):
     """Call Microsoft Graph API with access token"""
     headers = {
-        'Authorization': f'Bearer {access_token}',
-        'Content-Type': 'application/json'
+        "Authorization": f"Bearer {access_token}",
+        "Content-Type": "application/json",
     }
-    
-    response = requests.get(
-        'https://graph.microsoft.com/v1.0/me',
-        headers=headers
-    )
-    
+
+    response = requests.get("https://graph.microsoft.com/v1.0/me", headers=headers)
+
     if response.status_code == 200:
         user_data = response.json()
         print("\nUser profile from Microsoft Graph:")
@@ -207,13 +200,14 @@ def call_graph_api(access_token):
         print(f"API call failed: {response.status_code}")
         print(response.text)
 
+
 def main():
     # Choose authentication method
     print("Select authentication method:")
     print("1. Interactive (opens browser)")
     print("2. Device code (for headless scenarios)")
     choice = input("Enter choice (1 or 2): ")
-    
+
     try:
         if choice == "1":
             result = acquire_token_interactive()
@@ -222,19 +216,22 @@ def main():
         else:
             print("Invalid choice")
             return
-        
+
         if "access_token" in result:
-            print(f"\nWelcome, {result.get('id_token_claims', {}).get('preferred_username', 'User')}!")
+            print(
+                f"\nWelcome, {result.get('id_token_claims', {}).get('preferred_username', 'User')}!"
+            )
             print(f"Token expires in: {result.get('expires_in')} seconds")
-            
+
             # Call Microsoft Graph API
             call_graph_api(result["access_token"])
         else:
             print(f"Error acquiring token: {result.get('error')}")
             print(f"Description: {result.get('error_description')}")
-    
+
     except Exception as e:
         print(f"Error: {e}")
+
 
 if __name__ == "__main__":
     main()

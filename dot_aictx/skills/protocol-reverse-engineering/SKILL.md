@@ -118,11 +118,12 @@ for pkt in packets:
             print(f"Data: {pkt[Raw].load[:50]}")
 
 # Filter packets
-http_packets = [p for p in packets if p.haslayer(TCP)
-                and (p[TCP].sport == 80 or p[TCP].dport == 80)]
+http_packets = [
+    p for p in packets if p.haslayer(TCP) and (p[TCP].sport == 80 or p[TCP].dport == 80)
+]
 
 # Create custom packets
-pkt = IP(dst="target")/TCP(dport=80)/Raw(load="GET / HTTP/1.1\r\n")
+pkt = IP(dst="target") / TCP(dport=80) / Raw(load="GET / HTTP/1.1\r\n")
 send(pkt)
 ```
 
@@ -199,6 +200,7 @@ struct Packet {
 import struct
 from dataclasses import dataclass
 
+
 @dataclass
 class MessageHeader:
     magic: bytes
@@ -208,10 +210,9 @@ class MessageHeader:
 
     @classmethod
     def from_bytes(cls, data: bytes):
-        magic, version, msg_type, length = struct.unpack(
-            ">4sHHI", data[:12]
-        )
+        magic, version, msg_type, length = struct.unpack(">4sHHI", data[:12])
         return cls(magic, version, msg_type, length)
+
 
 def parse_messages(data: bytes):
     offset = 0
@@ -219,11 +220,12 @@ def parse_messages(data: bytes):
 
     while offset < len(data):
         header = MessageHeader.from_bytes(data[offset:])
-        payload = data[offset+12:offset+12+header.length]
+        payload = data[offset + 12 : offset + 12 + header.length]
         messages.append((header, payload))
         offset += 12 + header.length
 
     return messages
+
 
 # Parse TLV structure
 def parse_tlv(data: bytes):
@@ -232,8 +234,8 @@ def parse_tlv(data: bytes):
 
     while offset < len(data):
         field_type = data[offset]
-        length = struct.unpack(">H", data[offset+1:offset+3])[0]
-        value = data[offset+3:offset+3+length]
+        length = struct.unpack(">H", data[offset + 1 : offset + 3])[0]
+        value = data[offset + 3 : offset + 3 + length]
         fields.append((field_type, value))
         offset += 3 + length
 
@@ -247,14 +249,12 @@ def hexdump(data: bytes, width: int = 16):
     """Format binary data as hex dump."""
     lines = []
     for i in range(0, len(data), width):
-        chunk = data[i:i+width]
-        hex_part = ' '.join(f'{b:02x}' for b in chunk)
-        ascii_part = ''.join(
-            chr(b) if 32 <= b < 127 else '.'
-            for b in chunk
-        )
-        lines.append(f'{i:08x}  {hex_part:<{width*3}}  {ascii_part}')
-    return '\n'.join(lines)
+        chunk = data[i : i + width]
+        hex_part = " ".join(f"{b:02x}" for b in chunk)
+        ascii_part = "".join(chr(b) if 32 <= b < 127 else "." for b in chunk)
+        lines.append(f"{i:08x}  {hex_part:<{width * 3}}  {ascii_part}")
+    return "\n".join(lines)
+
 
 # Example output:
 # 00000000  48 54 54 50 2f 31 2e 31  20 32 30 30 20 4f 4b 0d  HTTP/1.1 200 OK.
@@ -270,12 +270,14 @@ def hexdump(data: bytes, width: int = 16):
 import math
 from collections import Counter
 
+
 def entropy(data: bytes) -> float:
     if not data:
         return 0.0
     counter = Counter(data)
     probs = [count / len(data) for count in counter.values()]
     return -sum(p * math.log2(p) for p in probs)
+
 
 # Entropy thresholds:
 # < 6.0: Likely plaintext or structured data
@@ -449,19 +451,16 @@ tcp_table:add(8888, proto)
 ```python
 from boofuzz import *
 
+
 def main():
-    session = Session(
-        target=Target(
-            connection=TCPSocketConnection("target", 8888)
-        )
-    )
+    session = Session(target=Target(connection=TCPSocketConnection("target", 8888)))
 
     # Define protocol structure
     s_initialize("HELLO")
     s_static(b"\x50\x52\x4f\x54")  # Magic
-    s_word(1, name="version")       # Version
-    s_word(0x01, name="type")       # Type (HELLO)
-    s_size("payload", length=4)     # Length field
+    s_word(1, name="version")  # Version
+    s_word(0x01, name="type")  # Type (HELLO)
+    s_size("payload", length=4)  # Length field
     s_block_start("payload")
     s_dword(0x12345678, name="client_id")
     s_word(0, name="flags")
@@ -469,6 +468,7 @@ def main():
 
     session.connect(s_get("HELLO"))
     session.fuzz()
+
 
 if __name__ == "__main__":
     main()

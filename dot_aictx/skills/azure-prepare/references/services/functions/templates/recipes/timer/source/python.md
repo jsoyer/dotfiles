@@ -12,11 +12,12 @@ from datetime import datetime
 
 app = func.FunctionApp()
 
+
 @app.timer_trigger(
     schedule="%TIMER_SCHEDULE%",
     arg_name="timer",
     run_on_startup=False,
-    use_monitor=True
+    use_monitor=True,
 )
 def timer_trigger(timer: func.TimerRequest) -> None:
     """
@@ -24,12 +25,12 @@ def timer_trigger(timer: func.TimerRequest) -> None:
     Default: every 5 minutes (0 */5 * * * *)
     """
     utc_timestamp = datetime.utcnow().isoformat()
-    
+
     if timer.past_due:
-        logging.warning('Timer is past due!')
-    
-    logging.info(f'Python timer trigger executed at {utc_timestamp}')
-    
+        logging.warning("Timer is past due!")
+
+    logging.info(f"Python timer trigger executed at {utc_timestamp}")
+
     # Add your scheduled task logic here
     # Examples:
     # - Call an external API
@@ -37,13 +38,15 @@ def timer_trigger(timer: func.TimerRequest) -> None:
     # - Generate reports
     # - Clean up old data
 
+
 @app.route(route="health", methods=["GET"], auth_level=func.AuthLevel.FUNCTION)
 def health_check(req: func.HttpRequest) -> func.HttpResponse:
     """Health check endpoint."""
     return func.HttpResponse(
-        '{"status": "healthy", "schedule": "' + 
-        (os.environ.get("TIMER_SCHEDULE") or "not-set") + '"}',
-        mimetype="application/json"
+        '{"status": "healthy", "schedule": "'
+        + (os.environ.get("TIMER_SCHEDULE") or "not-set")
+        + '"}',
+        mimetype="application/json",
     )
 ```
 

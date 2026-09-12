@@ -11,7 +11,10 @@ pip install azure-storage-blob azure-identity
 ```python
 from azure.storage.blob import BlobServiceClient
 from azure.identity import DefaultAzureCredential
-blob_service_client = BlobServiceClient("https://<account>.blob.core.windows.net", DefaultAzureCredential())
+
+blob_service_client = BlobServiceClient(
+    "https://<account>.blob.core.windows.net", DefaultAzureCredential()
+)
 ```
 
 ## Best Practices

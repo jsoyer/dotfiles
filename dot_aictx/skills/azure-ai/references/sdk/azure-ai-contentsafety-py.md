@@ -12,6 +12,7 @@ pip install azure-ai-contentsafety
 ```python
 from azure.ai.contentsafety import ContentSafetyClient, BlocklistClient
 from azure.ai.contentsafety.models import AnalyzeTextOptions, TextCategory
+
 client = ContentSafetyClient(endpoint=endpoint, credential=credential)
 ```
 

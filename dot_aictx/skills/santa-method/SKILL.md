@@ -219,11 +219,11 @@ Subagents provide true context isolation. Each reviewer is a separate process wi
 # Pseudocode for Agent tool invocation
 reviewer_b = Agent(
     description="Santa Review B",
-    prompt=f"Review this output for quality...\n\nRUBRIC:\n{rubric}\n\nOUTPUT:\n{output}"
+    prompt=f"Review this output for quality...\n\nRUBRIC:\n{rubric}\n\nOUTPUT:\n{output}",
 )
 reviewer_c = Agent(
     description="Santa Review C",
-    prompt=f"Review this output for quality...\n\nRUBRIC:\n{rubric}\n\nOUTPUT:\n{output}"
+    prompt=f"Review this output for quality...\n\nRUBRIC:\n{rubric}\n\nOUTPUT:\n{output}",
 )
 ```
 
@@ -253,6 +253,7 @@ For large batches (100+ items), full Santa on every item is cost-prohibitive. Us
 ```python
 import random
 
+
 def santa_batch(items, rubric, sample_rate=0.15):
     sample = random.sample(items, max(5, int(len(items) * sample_rate)))
 
@@ -261,7 +262,7 @@ def santa_batch(items, rubric, sample_rate=0.15):
         if result.verdict == "NAUGHTY":
             pattern = classify_failure(result.issues)
             items = batch_fix(items, pattern)  # Fix all items matching pattern
-            return santa_batch(items, rubric)   # Re-sample
+            return santa_batch(items, rubric)  # Re-sample
 
     return items  # Clean sample → ship batch
 ```

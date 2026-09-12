@@ -52,6 +52,7 @@ from decimal import Decimal
 
 stripe.api_key = "sk_test_..."
 
+
 class PaymentService:
     def create_payment_intent(self, amount: Decimal, currency: str = "usd"):
         """Create payment intent with idempotency"""
@@ -59,22 +60,20 @@ class PaymentService:
             amount=int(amount * 100),  # Convert to cents
             currency=currency,
             payment_method_types=["card"],
-            metadata={"order_id": "12345"}
+            metadata={"order_id": "12345"},
         )
 
     def process_refund(self, payment_intent_id: str, amount: Decimal = None):
         """Process full or partial refund"""
         return stripe.Refund.create(
             payment_intent=payment_intent_id,
-            amount=int(amount * 100) if amount else None
+            amount=int(amount * 100) if amount else None,
         )
 
     def handle_webhook(self, payload: str, signature: str):
         """Handle Stripe webhook events"""
         try:
-            event = stripe.Webhook.construct_event(
-                payload, signature, webhook_secret
-            )
+            event = stripe.Webhook.construct_event(payload, signature, webhook_secret)
 
             if event.type == "payment_intent.succeeded":
                 payment_intent = event.data.object
@@ -95,23 +94,22 @@ class PaymentService:
 from plaid import Client
 from plaid.errors import PlaidError
 
+
 class BankingService:
     def __init__(self):
-        self.client = Client(
-            client_id="...",
-            secret="...",
-            environment="sandbox"
-        )
+        self.client = Client(client_id="...", secret="...", environment="sandbox")
 
     def create_link_token(self, user_id: str):
         """Create link token for Plaid Link"""
-        response = self.client.LinkToken.create({
-            "user": {"client_user_id": user_id},
-            "client_name": "My App",
-            "products": ["auth", "transactions"],
-            "country_codes": ["US"],
-            "language": "en"
-        })
+        response = self.client.LinkToken.create(
+            {
+                "user": {"client_user_id": user_id},
+                "client_name": "My App",
+                "products": ["auth", "transactions"],
+                "country_codes": ["US"],
+                "language": "en",
+            }
+        )
         return response["link_token"]
 
     def exchange_public_token(self, public_token: str):
@@ -119,7 +117,7 @@ class BankingService:
         response = self.client.Item.public_token.exchange(public_token)
         return {
             "access_token": response["access_token"],
-            "item_id": response["item_id"]
+            "item_id": response["item_id"],
         }
 
     def get_accounts(self, access_token: str):
@@ -129,11 +127,7 @@ class BankingService:
 
     def get_transactions(self, access_token: str, start_date: str, end_date: str):
         """Get transactions for date range"""
-        response = self.client.Transactions.get(
-            access_token,
-            start_date,
-            end_date
-        )
+        response = self.client.Transactions.get(access_token, start_date, end_date)
         return response["transactions"]
 ```
 
@@ -143,6 +137,7 @@ class BankingService:
 from decimal import Decimal, ROUND_HALF_UP
 from datetime import datetime, timedelta
 
+
 class FinancialCalculator:
     @staticmethod
     def calculate_interest(principal: Decimal, rate: Decimal, periods: int) -> Decimal:
@@ -150,25 +145,30 @@ class FinancialCalculator:
         return principal * ((1 + rate) ** periods - 1)
 
     @staticmethod
-    def calculate_loan_payment(principal: Decimal, annual_rate: Decimal, months: int) -> Decimal:
+    def calculate_loan_payment(
+        principal: Decimal, annual_rate: Decimal, months: int
+    ) -> Decimal:
         """Calculate monthly loan payment (amortization)"""
         monthly_rate = annual_rate / 12
-        payment = principal * (monthly_rate * (1 + monthly_rate) ** months) / \
-                  ((1 + monthly_rate) ** months - 1)
-        return payment.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        payment = (
+            principal
+            * (monthly_rate * (1 + monthly_rate) ** months)
+            / ((1 + monthly_rate) ** months - 1)
+        )
+        return payment.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
     @staticmethod
     def calculate_npv(cash_flows: list[Decimal], discount_rate: Decimal) -> Decimal:
         """Calculate Net Present Value"""
-        npv = Decimal('0')
+        npv = Decimal("0")
         for i, cf in enumerate(cash_flows):
             npv += cf / ((1 + discount_rate) ** i)
-        return npv.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        return npv.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
     @staticmethod
     def calculate_roi(gain: Decimal, cost: Decimal) -> Decimal:
         """Calculate Return on Investment"""
-        return ((gain - cost) / cost * 100).quantize(Decimal('0.01'))
+        return ((gain - cost) / cost * 100).quantize(Decimal("0.01"))
 ```
 
 ## Fraud Detection
@@ -176,6 +176,7 @@ class FinancialCalculator:
 ```python
 from sklearn.ensemble import RandomForestClassifier
 import pandas as pd
+
 
 class FraudDetectionService:
     def __init__(self):
@@ -191,7 +192,7 @@ class FraudDetectionService:
             "is_international": transaction["is_international"],
             "card_present": transaction["card_present"],
             "transaction_velocity_1h": self.get_velocity(transaction, hours=1),
-            "transaction_velocity_24h": self.get_velocity(transaction, hours=24)
+            "transaction_velocity_24h": self.get_velocity(transaction, hours=24),
         }
 
     def predict_fraud(self, transaction: dict) -> dict:
@@ -202,7 +203,7 @@ class FraudDetectionService:
         return {
             "is_fraud": fraud_probability > 0.8,
             "fraud_score": fraud_probability,
-            "risk_level": self.get_risk_level(fraud_probability)
+            "risk_level": self.get_risk_level(fraud_probability),
         }
 
     def get_risk_level(self, score: float) -> str:
@@ -231,7 +232,7 @@ class PCICompliantPaymentHandler:
             "token": token,
             "last_4": card_data["number"][-4:],
             "exp_month": card_data["exp_month"],
-            "exp_year": card_data["exp_year"]
+            "exp_year": card_data["exp_year"],
         }
 
         return self.process_with_token(token)
@@ -239,6 +240,7 @@ class PCICompliantPaymentHandler:
     def tokenize_card(self, card_data: dict) -> str:
         # Use payment gateway tokenization
         return stripe.Token.create(card=card_data)["id"]
+
 
 # KYC/AML Compliance
 class ComplianceService:
@@ -256,7 +258,7 @@ class ComplianceService:
         return {
             "verified": identity_verified and sanctions_clear,
             "risk_level": risk_level,
-            "requires_manual_review": risk_level == "HIGH"
+            "requires_manual_review": risk_level == "HIGH",
         }
 ```
 

@@ -33,13 +33,14 @@ import logging
 
 app = func.FunctionApp()
 
+
 @app.service_bus_queue_trigger(
     arg_name="msg",
     queue_name="orders",
-    connection="SERVICEBUS"  # References SERVICEBUS__fullyQualifiedNamespace
+    connection="SERVICEBUS",  # References SERVICEBUS__fullyQualifiedNamespace
 )
 def process_queue_message(msg: func.ServiceBusMessage):
-    logging.info('Processing Service Bus message: %s', msg.get_body().decode('utf-8'))
+    logging.info("Processing Service Bus message: %s", msg.get_body().decode("utf-8"))
     # Process the message
 ```
 
@@ -66,8 +67,9 @@ def process_queue_message(msg: func.ServiceBusMessage):
 import logging
 import azure.functions as func
 
+
 def main(msg: func.ServiceBusMessage):
-    logging.info('Processing message: %s', msg.get_body().decode('utf-8'))
+    logging.info("Processing message: %s", msg.get_body().decode("utf-8"))
 ```
 
 ### Node.js
@@ -117,10 +119,10 @@ public void Run(
     arg_name="msg",
     topic_name="events",
     subscription_name="processor",
-    connection="SERVICEBUS"
+    connection="SERVICEBUS",
 )
 def process_topic_message(msg: func.ServiceBusMessage):
-    logging.info('Processing topic message: %s', msg.get_body().decode('utf-8'))
+    logging.info("Processing topic message: %s", msg.get_body().decode("utf-8"))
 ```
 
 ## Queue Trigger (Legacy - Connection String)

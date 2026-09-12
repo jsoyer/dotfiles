@@ -61,10 +61,16 @@ async function queryGraphQL<T>(query: string, variables: Record<string, unknown>
 ```python
 import requests, os
 
+
 def query_graphql(query: str, variables: dict = None) -> dict:
-    r = requests.post("https://api.cloudflare.com/client/v4/graphql",
-        headers={"Authorization": f"Bearer {os.environ['CF_API_TOKEN']}", "Content-Type": "application/json"},
-        json={"query": query, "variables": variables or {}})
+    r = requests.post(
+        "https://api.cloudflare.com/client/v4/graphql",
+        headers={
+            "Authorization": f"Bearer {os.environ['CF_API_TOKEN']}",
+            "Content-Type": "application/json",
+        },
+        json={"query": query, "variables": variables or {}},
+    )
     r.raise_for_status()
     result = r.json()
     if result.get("errors"):

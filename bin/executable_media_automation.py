@@ -49,61 +49,77 @@ from pathlib import Path
 import fcntl
 
 SCRIPT_NAME = Path(__file__).name
-VIDEO_EXTENSIONS = {'.mkv', '.mp4', '.avi', '.wmv', '.m4v', '.mov'}
-ART_NAMES = {'poster.jpg', 'fanart.jpg', 'fanart.png', 'logo.png', 'logo.svg',
-             'clearlogo.png', 'clearlogo.svg', 'banner.jpg', 'thumb.jpg',
-             'landscape.jpg', 'disc.png'}
-ILLEGAL_CHARS = re.compile(r'[\\/:*?"<>|]')
-QUALITY_DIR_NAMES = ('2160p', '1080p', '720p', '480p')
-ROMAN_NUMERALS = {
-    'i': '1',
-    'ii': '2',
-    'iii': '3',
-    'iv': '4',
-    'v': '5',
-    'vi': '6',
-    'vii': '7',
-    'viii': '8',
-    'ix': '9',
-    'x': '10',
+VIDEO_EXTENSIONS = {".mkv", ".mp4", ".avi", ".wmv", ".m4v", ".mov"}
+ART_NAMES = {
+    "poster.jpg",
+    "fanart.jpg",
+    "fanart.png",
+    "logo.png",
+    "logo.svg",
+    "clearlogo.png",
+    "clearlogo.svg",
+    "banner.jpg",
+    "thumb.jpg",
+    "landscape.jpg",
+    "disc.png",
 }
-TMDB_API_BASE = 'https://api.themoviedb.org/3'
-TMDB_IMAGE_BASE = 'https://image.tmdb.org/t/p/original'
-PARTIAL_EXTENSIONS = {'.part', '.tmp', '.crdownload', '.download'}
+ILLEGAL_CHARS = re.compile(r'[\\/:*?"<>|]')
+QUALITY_DIR_NAMES = ("2160p", "1080p", "720p", "480p")
+ROMAN_NUMERALS = {
+    "i": "1",
+    "ii": "2",
+    "iii": "3",
+    "iv": "4",
+    "v": "5",
+    "vi": "6",
+    "vii": "7",
+    "viii": "8",
+    "ix": "9",
+    "x": "10",
+}
+TMDB_API_BASE = "https://api.themoviedb.org/3"
+TMDB_IMAGE_BASE = "https://image.tmdb.org/t/p/original"
+PARTIAL_EXTENSIONS = {".part", ".tmp", ".crdownload", ".download"}
 ANIMATION_GENRE_ID = 16
 LOGGER = logging.getLogger(SCRIPT_NAME)
 
 QUALITY_PATTERNS = [
-    (re.compile(r'2160p|4K|UHD', re.I), '2160p'),
-    (re.compile(r'1080p', re.I), '1080p'),
-    (re.compile(r'720p', re.I), '720p'),
-    (re.compile(r'480p', re.I), '480p'),
+    (re.compile(r"2160p|4K|UHD", re.I), "2160p"),
+    (re.compile(r"1080p", re.I), "1080p"),
+    (re.compile(r"720p", re.I), "720p"),
+    (re.compile(r"480p", re.I), "480p"),
 ]
 
-PAREN_YEAR_RE = re.compile(r'^(.+?)\s*\((\d{4})\)')
-DOT_YEAR_RE = re.compile(r'^(.+?)[.\s_](\d{4})[.\s_]')
-DOT_YEAR_END_RE = re.compile(r'^(.+?)[.\s_](\d{4})$')
-DASH_RE = re.compile(r'^(.+?)\s*-\s*(1080p|720p|2160p|mHD)', re.I)
+PAREN_YEAR_RE = re.compile(r"^(.+?)\s*\((\d{4})\)")
+DOT_YEAR_RE = re.compile(r"^(.+?)[.\s_](\d{4})[.\s_]")
+DOT_YEAR_END_RE = re.compile(r"^(.+?)[.\s_](\d{4})$")
+DASH_RE = re.compile(r"^(.+?)\s*-\s*(1080p|720p|2160p|mHD)", re.I)
 # "S018E30 Pokémon - Pikachu en vedette !" : le jeton ouvre le nom et le titre
 # suit. Le separateur consomme espaces et points mais PAS le tiret, pour que
 # "S01E01 - Titre" laisse un tiret en tete : signe qu'aucun nom de serie ne
 # precede et qu'il faut se rabattre sur le dossier parent.
 LEADING_EPISODE_RE = re.compile(
-    r'^S(?P<season>\d{1,3})[.\s_-]?E(?P<episode>\d{1,4})(?!\d)'
-    r'(?:[-.\s_]?E(?P<episode2>\d{1,4}))?(?=[.\s_-]|$)[.\s_]*(?P<title>.*)$',
+    r"^S(?P<season>\d{1,3})[.\s_-]?E(?P<episode>\d{1,4})(?!\d)"
+    r"(?:[-.\s_]?E(?P<episode2>\d{1,4}))?(?=[.\s_-]|$)[.\s_]*(?P<title>.*)$",
     re.I,
 )
 
 EPISODE_PATTERNS = [
-    re.compile(r'^(?P<title>.+?)[.\s_-]+S(?P<season>\d{1,2})E(?P<episode>\d{1,4})(?!\d)(?:[-.\s_]?E(?P<episode2>\d{1,4})(?!\d))?', re.I),
-    re.compile(r'^(?P<title>.+?)[.\s_-]+(?P<season>\d{1,2})x(?P<episode>\d{1,3})(?:-(?P<episode2>\d{1,3}))?', re.I),
+    re.compile(
+        r"^(?P<title>.+?)[.\s_-]+S(?P<season>\d{1,2})E(?P<episode>\d{1,4})(?!\d)(?:[-.\s_]?E(?P<episode2>\d{1,4})(?!\d))?",
+        re.I,
+    ),
+    re.compile(
+        r"^(?P<title>.+?)[.\s_-]+(?P<season>\d{1,2})x(?P<episode>\d{1,3})(?:-(?P<episode2>\d{1,3}))?",
+        re.I,
+    ),
     # Season-less releases: "Show.1982.TV.Series.E01.MULTi.1080p", "Show - Ep05".
     # The episode token must stand alone (delimiter or end of name) to avoid
     # matching release-group suffixes. Season defaults to 1, or is taken from
     # the parent directory when it advertises one.
     re.compile(
-        r'^(?P<title>.+?)[.\s_-]+(?:E|EP|EPISODE)[.\s_-]?(?P<episode>\d{1,4})(?!\d)'
-        r'(?:[-.\s_]?E(?P<episode2>\d{1,4})(?!\d))?(?=[.\s_-]|$)',
+        r"^(?P<title>.+?)[.\s_-]+(?:E|EP|EPISODE)[.\s_-]?(?P<episode>\d{1,4})(?!\d)"
+        r"(?:[-.\s_]?E(?P<episode2>\d{1,4})(?!\d))?(?=[.\s_-]|$)",
         re.I,
     ),
     # Convention de fansub : « Serie - 124 (VOSTFR-FR 1920x1080 H264 AAC) ».
@@ -112,27 +128,31 @@ EPISODE_PATTERNS = [
     # garde-fous appliques plus bas : le numero ne doit pas etre une annee
     # plausible, et ce qui suit ne doit pas en etre une non plus.
     re.compile(
-        r'^(?P<title>.+?)\s+-\s+(?P<episode>\d{1,4})(?!\d)'
-        r'\s*(?P<apres>[\(\[][^)\]]*[\)\]])?'
+        r"^(?P<title>.+?)\s+-\s+(?P<episode>\d{1,4})(?!\d)"
+        r"\s*(?P<apres>[\(\[][^)\]]*[\)\]])?"
         # Une reedition ajoute sa marque apres la parenthese : « …AAC)v2 ».
         # Exiger que le nom s'arrete la faisait echouer la lecture pour deux
         # caracteres, et trois episodes repartaient dans le tas des films.
-        r'\s*(?:v\d{1,2}|final|repack|corrected?)?\s*$', re.I),
+        r"\s*(?:v\d{1,2}|final|repack|corrected?)?\s*$",
+        re.I,
+    ),
 ]
 
 # Standalone season markers used when the episode token carries no season.
-SEASON_HINT_RE = re.compile(r'(?:^|[.\s_-])(?:S|SAISON|SEASON)[.\s_-]?(\d{1,2})(?=[.\s_-]|$)', re.I)
+SEASON_HINT_RE = re.compile(
+    r"(?:^|[.\s_-])(?:S|SAISON|SEASON)[.\s_-]?(\d{1,2})(?=[.\s_-]|$)", re.I
+)
 
 # Release noise stripped from a parsed series title before querying TMDb.
 SERIES_TITLE_NOISE_RE = re.compile(
-    r'(?:^|[.\s_-])(?:'
-    r'TV[.\s_-]?SERIES|COMPLETE(?:D)?|INTEGRALE|INT[EÉ]GRALE|SERIE[.\s_-]?COMPLETE|'
-    r'MULTI|VOSTFR|VF{1,2}|VFF|VFQ|TRUEFRENCH|FRENCH|SUBFRENCH|ENGLISH|JAPANESE|'
-    r'\d{3,4}P|4K|UHD|HDR\d*|SDR|BLURAY|BLU[.\s_-]?RAY|BDRIP|BRRIP|WEB[.\s_-]?DL|'
-    r'WEBRIP|HDTV|DVDRIP|REMUX|X26[45]|H[.\s_-]?26[45]|HEVC|AVC|XVID|DIVX|'
-    r'\d{1,2}BITS?|AAC\d*|AC3|DTS(?:[.\s_-]?HD)?|DDP?\d?(?:[.\s_-]?\d)?|FLAC|OPUS|'
-    r'ATMOS|TRUEHD|\d[.\s_-]?\d(?:CH)?|REPACK|PROPER|FINAL|EXTENDED|UNCUT'
-    r')(?=[.\s_-]|$)',
+    r"(?:^|[.\s_-])(?:"
+    r"TV[.\s_-]?SERIES|COMPLETE(?:D)?|INTEGRALE|INT[EÉ]GRALE|SERIE[.\s_-]?COMPLETE|"
+    r"MULTI|VOSTFR|VF{1,2}|VFF|VFQ|TRUEFRENCH|FRENCH|SUBFRENCH|ENGLISH|JAPANESE|"
+    r"\d{3,4}P|4K|UHD|HDR\d*|SDR|BLURAY|BLU[.\s_-]?RAY|BDRIP|BRRIP|WEB[.\s_-]?DL|"
+    r"WEBRIP|HDTV|DVDRIP|REMUX|X26[45]|H[.\s_-]?26[45]|HEVC|AVC|XVID|DIVX|"
+    r"\d{1,2}BITS?|AAC\d*|AC3|DTS(?:[.\s_-]?HD)?|DDP?\d?(?:[.\s_-]?\d)?|FLAC|OPUS|"
+    r"ATMOS|TRUEHD|\d[.\s_-]?\d(?:CH)?|REPACK|PROPER|FINAL|EXTENDED|UNCUT"
+    r")(?=[.\s_-]|$)",
     re.I,
 )
 
@@ -142,7 +162,7 @@ class LoggingConfig:
     """Logging configuration for automated inbox scans."""
 
     file: Path | None = None
-    level: str = 'INFO'
+    level: str = "INFO"
     max_bytes: int = 5 * 1024 * 1024
     backup_count: int = 5
 
@@ -162,7 +182,7 @@ class NtfyConfig:
     """ntfy notification settings."""
 
     enabled: bool = False
-    server: str = 'https://ntfy.sh'
+    server: str = "https://ntfy.sh"
     topic: str | None = None
     token: str | None = None
     priority: int = 3
@@ -193,8 +213,8 @@ class RoutesConfig:
 class RoutingConfig:
     """Configurable routing for anime content."""
 
-    anime_movies_to: str = 'anime'
-    anime_series_to: str = 'anime'
+    anime_movies_to: str = "anime"
+    anime_series_to: str = "anime"
 
 
 @dataclass(slots=True)
@@ -205,7 +225,7 @@ class AutomationConfig:
     routes: RoutesConfig
     tmdb_api_key: str | None
     routing: RoutingConfig = field(default_factory=RoutingConfig)
-    tmdb_language: str = 'fr-FR'
+    tmdb_language: str = "fr-FR"
     fetch_metadata: bool = True
     logging: LoggingConfig = field(default_factory=LoggingConfig)
     telegram: TelegramConfig = field(default_factory=TelegramConfig)
@@ -251,19 +271,19 @@ def sanitize(name):
     un piege pour le tri, la saisie et toute comparaison. La categorie Cf part
     en entier.
     """
-    visible = ''.join(c for c in name if unicodedata.category(c) != 'Cf')
-    return re.sub(r'\s+', ' ', ILLEGAL_CHARS.sub('', visible)).strip()
+    visible = "".join(c for c in name if unicodedata.category(c) != "Cf")
+    return re.sub(r"\s+", " ", ILLEGAL_CHARS.sub("", visible)).strip()
 
 
 def normalize(text):
     """Normalize text for fuzzy comparison."""
-    text = re.sub(r'(?<=[a-z])(?=[A-Z])', ' ', text)
-    text = unicodedata.normalize('NFD', text)
-    text = ''.join(c for c in text if unicodedata.category(c) != 'Mn')
+    text = re.sub(r"(?<=[a-z])(?=[A-Z])", " ", text)
+    text = unicodedata.normalize("NFD", text)
+    text = "".join(c for c in text if unicodedata.category(c) != "Mn")
     text = text.lower()
-    text = text.replace('&', ' and ')
-    text = re.sub(r'[^a-z0-9\s]', ' ', text)
-    text = re.sub(r'\s+', ' ', text).strip()
+    text = text.replace("&", " and ")
+    text = re.sub(r"[^a-z0-9\s]", " ", text)
+    text = re.sub(r"\s+", " ", text).strip()
     return text
 
 
@@ -276,13 +296,13 @@ def bool_from_config(value, default=False):
     if isinstance(value, (int, float)):
         return bool(value)
     if isinstance(value, str):
-        return value.strip().lower() in {'1', 'true', 'yes', 'on'}
+        return value.strip().lower() in {"1", "true", "yes", "on"}
     return default
 
 
 def resolve_config_path(value):
     """Return a resolved Path for a config value when provided."""
-    if value in (None, ''):
+    if value in (None, ""):
         return None
     return Path(value).expanduser().resolve()
 
@@ -293,7 +313,7 @@ def configure_logging(settings):
     LOGGER.setLevel(getattr(logging, settings.level.upper(), logging.INFO))
     LOGGER.propagate = False
 
-    formatter = logging.Formatter('%(asctime)s [%(levelname)s] %(message)s')
+    formatter = logging.Formatter("%(asctime)s [%(levelname)s] %(message)s")
     stream_handler = logging.StreamHandler(sys.stdout)
     stream_handler.setFormatter(formatter)
     LOGGER.addHandler(stream_handler)
@@ -304,13 +324,13 @@ def configure_logging(settings):
             settings.file,
             maxBytes=settings.max_bytes,
             backupCount=settings.backup_count,
-            encoding='utf-8',
+            encoding="utf-8",
         )
         file_handler.setFormatter(formatter)
         LOGGER.addHandler(file_handler)
 
 
-def log_message(message, level='info'):
+def log_message(message, level="info"):
     """Log a message and keep legacy stdout-oriented flow visible."""
     log_func = getattr(LOGGER, level, LOGGER.info)
     if LOGGER.handlers:
@@ -321,75 +341,89 @@ def log_message(message, level='info'):
 
 def load_automation_config(config_path):
     """Load automation settings from a TOML config file."""
-    with config_path.open('rb') as handle:
+    with config_path.open("rb") as handle:
         raw = tomllib.load(handle)
 
-    inbox_raw = raw.get('inbox', {})
-    routes_raw = raw.get('routes', {})
-    routing_raw = raw.get('routing', {})
-    tmdb_raw = raw.get('tmdb', {})
-    logging_raw = raw.get('logging', {})
-    telegram_raw = raw.get('telegram', {})
-    ntfy_raw = raw.get('ntfy', {})
+    inbox_raw = raw.get("inbox", {})
+    routes_raw = raw.get("routes", {})
+    routing_raw = raw.get("routing", {})
+    tmdb_raw = raw.get("tmdb", {})
+    logging_raw = raw.get("logging", {})
+    telegram_raw = raw.get("telegram", {})
+    ntfy_raw = raw.get("ntfy", {})
 
-    inbox_path = resolve_config_path(inbox_raw.get('path'))
+    inbox_path = resolve_config_path(inbox_raw.get("path"))
     if not inbox_path:
-        raise ValueError('Config section [inbox] must define `path`.')
+        raise ValueError("Config section [inbox] must define `path`.")
 
-    movies_root = resolve_config_path(routes_raw.get('movies'))
-    series_root = resolve_config_path(routes_raw.get('series'))
-    anime_root = resolve_config_path(routes_raw.get('anime'))
+    movies_root = resolve_config_path(routes_raw.get("movies"))
+    series_root = resolve_config_path(routes_raw.get("series"))
+    anime_root = resolve_config_path(routes_raw.get("anime"))
     if not all((movies_root, series_root, anime_root)):
-        raise ValueError('Config section [routes] must define `movies`, `series` and `anime`.')
+        raise ValueError(
+            "Config section [routes] must define `movies`, `series` and `anime`."
+        )
 
-    anime_movies_to = str(routing_raw.get('anime_movies_to', 'anime')).strip().lower()
-    anime_series_to = str(routing_raw.get('anime_series_to', 'anime')).strip().lower()
-    if anime_movies_to not in {'movies', 'anime'}:
-        raise ValueError('Config section [routing].anime_movies_to must be `movies` or `anime`.')
-    if anime_series_to not in {'series', 'anime'}:
-        raise ValueError('Config section [routing].anime_series_to must be `series` or `anime`.')
+    anime_movies_to = str(routing_raw.get("anime_movies_to", "anime")).strip().lower()
+    anime_series_to = str(routing_raw.get("anime_series_to", "anime")).strip().lower()
+    if anime_movies_to not in {"movies", "anime"}:
+        raise ValueError(
+            "Config section [routing].anime_movies_to must be `movies` or `anime`."
+        )
+    if anime_series_to not in {"series", "anime"}:
+        raise ValueError(
+            "Config section [routing].anime_series_to must be `series` or `anime`."
+        )
 
     return AutomationConfig(
         inbox=InboxConfig(
             path=inbox_path,
-            stability_seconds=int(inbox_raw.get('stability_seconds', 300)),
-            lock_file=resolve_config_path(inbox_raw.get('lock_file')),
-            extract_archives=bool_from_config(inbox_raw.get('extract_archives'), True),
-            extract_margin_bytes=int(inbox_raw.get(
-                'extract_margin_bytes', 10 * 1024 * 1024 * 1024)),
+            stability_seconds=int(inbox_raw.get("stability_seconds", 300)),
+            lock_file=resolve_config_path(inbox_raw.get("lock_file")),
+            extract_archives=bool_from_config(inbox_raw.get("extract_archives"), True),
+            extract_margin_bytes=int(
+                inbox_raw.get("extract_margin_bytes", 10 * 1024 * 1024 * 1024)
+            ),
         ),
         routes=RoutesConfig(
             movies=movies_root,
             series=series_root,
             anime=anime_root,
         ),
-        tmdb_api_key=tmdb_raw.get('api_key') or os.environ.get('TMDB_API_KEY'),
+        tmdb_api_key=tmdb_raw.get("api_key") or os.environ.get("TMDB_API_KEY"),
         routing=RoutingConfig(
             anime_movies_to=anime_movies_to,
             anime_series_to=anime_series_to,
         ),
-        tmdb_language=tmdb_raw.get('language', 'fr-FR'),
-        fetch_metadata=bool_from_config(tmdb_raw.get('fetch_metadata'), True),
+        tmdb_language=tmdb_raw.get("language", "fr-FR"),
+        fetch_metadata=bool_from_config(tmdb_raw.get("fetch_metadata"), True),
         logging=LoggingConfig(
-            file=resolve_config_path(logging_raw.get('file')),
-            level=str(logging_raw.get('level', 'INFO')).upper(),
-            max_bytes=int(logging_raw.get('max_bytes', 5 * 1024 * 1024)),
-            backup_count=int(logging_raw.get('backup_count', 5)),
+            file=resolve_config_path(logging_raw.get("file")),
+            level=str(logging_raw.get("level", "INFO")).upper(),
+            max_bytes=int(logging_raw.get("max_bytes", 5 * 1024 * 1024)),
+            backup_count=int(logging_raw.get("backup_count", 5)),
         ),
         telegram=TelegramConfig(
-            enabled=bool_from_config(telegram_raw.get('enabled'), False),
-            bot_token=telegram_raw.get('bot_token') or os.environ.get('TELEGRAM_BOT_TOKEN'),
-            chat_id=str(telegram_raw.get('chat_id') or os.environ.get('TELEGRAM_CHAT_ID') or '') or None,
-            timeout=int(telegram_raw.get('timeout', 15)),
+            enabled=bool_from_config(telegram_raw.get("enabled"), False),
+            bot_token=telegram_raw.get("bot_token")
+            or os.environ.get("TELEGRAM_BOT_TOKEN"),
+            chat_id=str(
+                telegram_raw.get("chat_id") or os.environ.get("TELEGRAM_CHAT_ID") or ""
+            )
+            or None,
+            timeout=int(telegram_raw.get("timeout", 15)),
         ),
         ntfy=NtfyConfig(
-            enabled=bool_from_config(ntfy_raw.get('enabled'), False),
-            server=str(ntfy_raw.get('server')
-                       or os.environ.get('NTFY_SERVER') or 'https://ntfy.sh'),
-            topic=ntfy_raw.get('topic') or os.environ.get('NTFY_TOPIC'),
-            token=ntfy_raw.get('token') or os.environ.get('NTFY_TOKEN'),
-            priority=int(ntfy_raw.get('priority', 3)),
-            timeout=int(ntfy_raw.get('timeout', 15)),
+            enabled=bool_from_config(ntfy_raw.get("enabled"), False),
+            server=str(
+                ntfy_raw.get("server")
+                or os.environ.get("NTFY_SERVER")
+                or "https://ntfy.sh"
+            ),
+            topic=ntfy_raw.get("topic") or os.environ.get("NTFY_TOPIC"),
+            token=ntfy_raw.get("token") or os.environ.get("NTFY_TOKEN"),
+            priority=int(ntfy_raw.get("priority", 3)),
+            timeout=int(ntfy_raw.get("timeout", 15)),
         ),
     )
 
@@ -403,14 +437,14 @@ def split_telegram_message(message, chunk_size=3900):
     for line in lines:
         extra = len(line) + 1
         if current and current_len + extra > chunk_size:
-            chunks.append('\n'.join(current))
+            chunks.append("\n".join(current))
             current = [line]
             current_len = extra
         else:
             current.append(line)
             current_len += extra
     if current:
-        chunks.append('\n'.join(current))
+        chunks.append("\n".join(current))
     return chunks
 
 
@@ -420,73 +454,77 @@ def emojiize_telegram_message(message):
     for line in message.splitlines():
         stripped = line.strip()
 
-        if line.startswith('Detected '):
+        if line.startswith("Detected "):
             transformed.append(f"🔎 {line}")
             continue
-        if line.startswith('DRY-RUN Inbox summary'):
+        if line.startswith("DRY-RUN Inbox summary"):
             transformed.append(f"🧪 {line}")
             continue
-        if line.startswith('Inbox summary'):
+        if line.startswith("Inbox summary"):
             transformed.append(f"📦 {line}")
             continue
-        if '[IMPORT:MOVIE]' in line:
-            transformed.append(line.replace('[IMPORT:MOVIE]', '🎬 [FILM]'))
+        if "[IMPORT:MOVIE]" in line:
+            transformed.append(line.replace("[IMPORT:MOVIE]", "🎬 [FILM]"))
             continue
-        if '[IMPORT:SERIES]' in line:
-            transformed.append(line.replace('[IMPORT:SERIES]', '📺 [SÉRIE]'))
+        if "[IMPORT:SERIES]" in line:
+            transformed.append(line.replace("[IMPORT:SERIES]", "📺 [SÉRIE]"))
             continue
-        if '[IMPORT:ANIME]' in line:
-            transformed.append(line.replace('[IMPORT:ANIME]', '🌸 [ANIME]'))
+        if "[IMPORT:ANIME]" in line:
+            transformed.append(line.replace("[IMPORT:ANIME]", "🌸 [ANIME]"))
             continue
-        if '[SKIP]' in line:
-            transformed.append(line.replace('[SKIP]', '⏭️ [SKIP]'))
+        if "[SKIP]" in line:
+            transformed.append(line.replace("[SKIP]", "⏭️ [SKIP]"))
             continue
-        if '[ERROR]' in line:
-            transformed.append(line.replace('[ERROR]', '❌ [ERROR]'))
+        if "[ERROR]" in line:
+            transformed.append(line.replace("[ERROR]", "❌ [ERROR]"))
             continue
-        if '[SCAN]' in line:
-            transformed.append(line.replace('[SCAN]', '🔎 [SCAN]'))
+        if "[SCAN]" in line:
+            transformed.append(line.replace("[SCAN]", "🔎 [SCAN]"))
             continue
-        if stripped == 'Skipped:':
-            transformed.append('⏭️ Skipped:')
+        if stripped == "Skipped:":
+            transformed.append("⏭️ Skipped:")
             continue
-        if stripped == 'Imported:':
-            transformed.append('✅ Imported:')
+        if stripped == "Imported:":
+            transformed.append("✅ Imported:")
             continue
-        if stripped.startswith('- detected items:'):
-            transformed.append(line.replace('- detected items:', '🔎 detected items:'))
+        if stripped.startswith("- detected items:"):
+            transformed.append(line.replace("- detected items:", "🔎 detected items:"))
             continue
-        if stripped.startswith('- imported items:'):
-            transformed.append(line.replace('- imported items:', '✅ imported items:'))
+        if stripped.startswith("- imported items:"):
+            transformed.append(line.replace("- imported items:", "✅ imported items:"))
             continue
-        if stripped.startswith('- imported movies:'):
-            transformed.append(line.replace('- imported movies:', '🎬 imported movies:'))
+        if stripped.startswith("- imported movies:"):
+            transformed.append(
+                line.replace("- imported movies:", "🎬 imported movies:")
+            )
             continue
-        if stripped.startswith('- imported series:'):
-            transformed.append(line.replace('- imported series:', '📺 imported series:'))
+        if stripped.startswith("- imported series:"):
+            transformed.append(
+                line.replace("- imported series:", "📺 imported series:")
+            )
             continue
-        if stripped.startswith('- imported anime:'):
-            transformed.append(line.replace('- imported anime:', '🌸 imported anime:'))
+        if stripped.startswith("- imported anime:"):
+            transformed.append(line.replace("- imported anime:", "🌸 imported anime:"))
             continue
-        if stripped.startswith('- moved files:'):
-            transformed.append(line.replace('- moved files:', '📁 moved files:'))
+        if stripped.startswith("- moved files:"):
+            transformed.append(line.replace("- moved files:", "📁 moved files:"))
             continue
-        if stripped.startswith('- skipped items:'):
-            transformed.append(line.replace('- skipped items:', '⏭️ skipped items:'))
+        if stripped.startswith("- skipped items:"):
+            transformed.append(line.replace("- skipped items:", "⏭️ skipped items:"))
             continue
-        if stripped.startswith('- errors:'):
-            transformed.append(line.replace('- errors:', '❌ errors:'))
+        if stripped.startswith("- errors:"):
+            transformed.append(line.replace("- errors:", "❌ errors:"))
             continue
-        if stripped.startswith('- '):
-            transformed.append(line.replace('- ', '• ', 1))
+        if stripped.startswith("- "):
+            transformed.append(line.replace("- ", "• ", 1))
             continue
-        if stripped.startswith('* '):
-            transformed.append(line.replace('* ', '📎 ', 1))
+        if stripped.startswith("* "):
+            transformed.append(line.replace("* ", "📎 ", 1))
             continue
 
         transformed.append(line)
 
-    return '\n'.join(transformed)
+    return "\n".join(transformed)
 
 
 def send_telegram_message(settings, message):
@@ -497,12 +535,14 @@ def send_telegram_message(settings, message):
     url = f"https://api.telegram.org/bot{settings.bot_token}/sendMessage"
     telegram_message = emojiize_telegram_message(message)
     for chunk in split_telegram_message(telegram_message):
-        payload = urllib.parse.urlencode({
-            'chat_id': settings.chat_id,
-            'text': chunk,
-            'disable_web_page_preview': 'true',
-        }).encode('utf-8')
-        request = urllib.request.Request(url, data=payload, method='POST')
+        payload = urllib.parse.urlencode(
+            {
+                "chat_id": settings.chat_id,
+                "text": chunk,
+                "disable_web_page_preview": "true",
+            }
+        ).encode("utf-8")
+        request = urllib.request.Request(url, data=payload, method="POST")
         try:
             with urllib.request.urlopen(request, timeout=settings.timeout):
                 pass
@@ -521,7 +561,7 @@ def _entete_transmissible(valeur):
     d'appel. On prefere perdre le titre que la notification.
     """
     try:
-        valeur.encode('latin-1')
+        valeur.encode("latin-1")
     except UnicodeEncodeError:
         return False
     return True
@@ -536,11 +576,11 @@ def decouper_pour_ntfy(message, taille=NTFY_TAILLE_MAX):
     """
     morceaux = []
     for chunk in split_telegram_message(message, taille):
-        if len(chunk.encode('utf-8')) <= taille:
+        if len(chunk.encode("utf-8")) <= taille:
             morceaux.append(chunk)
             continue
         for debut in range(0, len(chunk), taille):
-            morceaux.append(chunk[debut:debut + taille])
+            morceaux.append(chunk[debut : debut + taille])
     return morceaux
 
 
@@ -553,16 +593,16 @@ def send_ntfy_message(settings, message, titre=None):
     # Cloudflare protege le serveur ntfy et refuse la signature par defaut
     # d'urllib (« Python-urllib/3.x ») par une erreur 1010, qui se presente
     # comme un 403 et ressemble a tort a un jeton invalide.
-    entetes = {'Priority': str(settings.priority),
-               'User-Agent': 'media_automation/1.0'}
+    entetes = {"Priority": str(settings.priority), "User-Agent": "media_automation/1.0"}
     if settings.token:
-        entetes['Authorization'] = f"Bearer {settings.token}"
+        entetes["Authorization"] = f"Bearer {settings.token}"
     if titre and _entete_transmissible(titre):
-        entetes['Title'] = titre
+        entetes["Title"] = titre
 
     for chunk in decouper_pour_ntfy(message):
         request = urllib.request.Request(
-            url, data=chunk.encode('utf-8'), headers=dict(entetes), method='POST')
+            url, data=chunk.encode("utf-8"), headers=dict(entetes), method="POST"
+        )
         try:
             with urllib.request.urlopen(request, timeout=settings.timeout):
                 pass
@@ -587,11 +627,13 @@ def notifier(config, message, titre=None):
 def exclusive_lock(lock_path):
     """Prevent concurrent cron runs against the same inbox."""
     lock_path.parent.mkdir(parents=True, exist_ok=True)
-    with lock_path.open('w', encoding='utf-8') as handle:
+    with lock_path.open("w", encoding="utf-8") as handle:
         try:
             fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError as exc:
-            raise RuntimeError(f"Another scan is already running (lock: {lock_path})") from exc
+            raise RuntimeError(
+                f"Another scan is already running (lock: {lock_path})"
+            ) from exc
         handle.write(str(os.getpid()))
         handle.flush()
         try:
@@ -603,14 +645,14 @@ def exclusive_lock(lock_path):
 def roman_to_arabic_tokens(text):
     """Convert standalone Roman numeral tokens to Arabic equivalents."""
     tokens = text.split()
-    return ' '.join(ROMAN_NUMERALS.get(token, token) for token in tokens)
+    return " ".join(ROMAN_NUMERALS.get(token, token) for token in tokens)
 
 
 def remove_trailing_sequel_marker(text):
     """Drop a trailing sequel marker like 1/I used for the first film."""
     tokens = text.split()
-    if tokens and tokens[-1] in {'1', 'i'}:
-        return ' '.join(tokens[:-1]).strip()
+    if tokens and tokens[-1] in {"1", "i"}:
+        return " ".join(tokens[:-1]).strip()
     return text
 
 
@@ -627,7 +669,7 @@ def title_aliases(text):
         return aliases
 
     candidates = {text}
-    for separator in (':', ' - ', ' – ', ' — '):
+    for separator in (":", " - ", " – ", " — "):
         if separator in text:
             stripped = text.split(separator, 1)[0].strip()
             if should_add_stripped_title_alias(stripped):
@@ -663,22 +705,22 @@ def detect_quality(filename):
 def parse_nfo(nfo_path):
     """Extract title and year from NFO XML file."""
     metadata = parse_nfo_metadata(nfo_path)
-    return metadata['title'], metadata['year']
+    return metadata["title"], metadata["year"]
 
 
 def extract_unique_ids(root):
     """Extract TMDb and IMDb IDs from common NFO fields."""
-    tmdbid = root.findtext('tmdbid')
-    imdbid = root.findtext('id')
+    tmdbid = root.findtext("tmdbid")
+    imdbid = root.findtext("id")
 
-    for uniqueid in root.findall('uniqueid'):
-        uid_type = (uniqueid.get('type') or '').strip().lower()
-        uid_value = (uniqueid.text or '').strip()
+    for uniqueid in root.findall("uniqueid"):
+        uid_type = (uniqueid.get("type") or "").strip().lower()
+        uid_value = (uniqueid.text or "").strip()
         if not uid_value:
             continue
-        if uid_type == 'tmdb' and not tmdbid:
+        if uid_type == "tmdb" and not tmdbid:
             tmdbid = uid_value
-        elif uid_type == 'imdb' and (not imdbid or imdbid.startswith('tt')):
+        elif uid_type == "imdb" and (not imdbid or imdbid.startswith("tt")):
             imdbid = uid_value
 
     tmdbid = tmdbid.strip() if tmdbid else None
@@ -691,30 +733,30 @@ def parse_nfo_metadata(nfo_path):
     try:
         tree = ET.parse(nfo_path)
         root = tree.getroot()
-        title = root.findtext('title')
-        year = root.findtext('year')
-        originaltitle = root.findtext('originaltitle')
-        sorttitle = root.findtext('sorttitle')
-        english_title = root.findtext('english_title')
+        title = root.findtext("title")
+        year = root.findtext("year")
+        originaltitle = root.findtext("originaltitle")
+        sorttitle = root.findtext("sorttitle")
+        english_title = root.findtext("english_title")
         tmdbid, imdbid = extract_unique_ids(root)
         return {
-            'title': title.strip() if title else None,
-            'year': year.strip() if year else None,
-            'originaltitle': originaltitle.strip() if originaltitle else None,
-            'sorttitle': sorttitle.strip() if sorttitle else None,
-            'english_title': english_title.strip() if english_title else None,
-            'tmdbid': tmdbid,
-            'imdbid': imdbid,
+            "title": title.strip() if title else None,
+            "year": year.strip() if year else None,
+            "originaltitle": originaltitle.strip() if originaltitle else None,
+            "sorttitle": sorttitle.strip() if sorttitle else None,
+            "english_title": english_title.strip() if english_title else None,
+            "tmdbid": tmdbid,
+            "imdbid": imdbid,
         }
     except Exception:
         return {
-            'title': None,
-            'year': None,
-            'originaltitle': None,
-            'sorttitle': None,
-            'english_title': None,
-            'tmdbid': None,
-            'imdbid': None,
+            "title": None,
+            "year": None,
+            "originaltitle": None,
+            "sorttitle": None,
+            "english_title": None,
+            "tmdbid": None,
+            "imdbid": None,
         }
 
 
@@ -743,48 +785,61 @@ def _titre_autour_de_l_annee(avant, apres):
     """
     if not RANG_FINAL_RE.search(avant):
         return avant
-    suite = apres.replace('.', ' ').replace('_', ' ').strip(' -')
+    suite = apres.replace(".", " ").replace("_", " ").strip(" -")
     coupe = QUALITE_RE.search(suite)
     if coupe:
-        suite = suite[:coupe.start()]
-    suite = re.sub(r'\s+', ' ', suite).strip(' -')
+        suite = suite[: coupe.start()]
+    suite = re.sub(r"\s+", " ", suite).strip(" -")
     if len(suite) < 3:
         return avant
-    prefixe = RANG_FINAL_RE.sub('', avant).strip(' -')
-    return f'{prefixe} {suite}'.strip() if prefixe else suite
+    prefixe = RANG_FINAL_RE.sub("", avant).strip(" -")
+    return f"{prefixe} {suite}".strip() if prefixe else suite
 
 
 def parse_filename(filename):
     """Extract title and year from a scene-style filename."""
     name = filename
-    for suffix in ['-fanart', '-poster', '-clearlogo', '-logo', '-banner',
-                   '-thumb', '-landscape', '-disc', '-backdrop']:
+    for suffix in [
+        "-fanart",
+        "-poster",
+        "-clearlogo",
+        "-logo",
+        "-banner",
+        "-thumb",
+        "-landscape",
+        "-disc",
+        "-backdrop",
+    ]:
         name = name.split(suffix)[0]
-    name = re.sub(r'\.(mkv|mp4|avi|jpg|png|svg|nfo|srt|sub|idx|ass)$', '', name, flags=re.I)
+    name = re.sub(
+        r"\.(mkv|mp4|avi|jpg|png|svg|nfo|srt|sub|idx|ass)$", "", name, flags=re.I
+    )
     # Les etiquettes entre crochets encadrent le titre sans en faire partie :
     # groupe de release en tete, mentions de qualite en queue. Les laisser
     # empechait toute extraction — le fichier etait ecarte sans titre du tout.
-    name = re.sub(r'\[[^\]]*\]', ' ', name)
-    name = re.sub(r'\s+', ' ', name).strip(' .-_')
+    name = re.sub(r"\[[^\]]*\]", " ", name)
+    name = re.sub(r"\s+", " ", name).strip(" .-_")
 
     m = PAREN_YEAR_RE.match(name)
     if m and annee_plausible(m.group(2)):
-        title = m.group(1).replace('.', ' ').replace('_', ' ').strip()
+        title = m.group(1).replace(".", " ").replace("_", " ").strip()
         return title, m.group(2)
 
     # On parcourt tous les nombres a quatre chiffres et on retient le premier qui
     # puisse etre une annee : ce qui precede est le titre, ceux qu'on a franchis
     # lui appartiennent.
-    for trouve in re.finditer(r'[.\s_](\d{4})(?=[.\s_]|$)', name):
+    for trouve in re.finditer(r"[.\s_](\d{4})(?=[.\s_]|$)", name):
         if not annee_plausible(trouve.group(1)):
             continue
-        title = name[:trouve.start()].replace('.', ' ').replace('_', ' ').strip()
+        title = name[: trouve.start()].replace(".", " ").replace("_", " ").strip()
         if title:
-            return _titre_autour_de_l_annee(title, name[trouve.end():]), trouve.group(1)
+            return _titre_autour_de_l_annee(title, name[trouve.end() :]), trouve.group(
+                1
+            )
 
     m = DASH_RE.match(name)
     if m:
-        title = m.group(1).replace('.', ' ').replace('_', ' ').strip()
+        title = m.group(1).replace(".", " ").replace("_", " ").strip()
         return title, None
 
     # Dernier recours : ce qui subsiste une fois le bruit de release retire.
@@ -792,9 +847,9 @@ def parse_filename(filename):
     # sans titre — « Détective Conan - Le Cauchemar Noir de Jais » etait ecarte
     # sans qu'aucune recherche n'ait seulement ete tentee. Mieux vaut une
     # recherche qui echoue, elle se lit dans le journal.
-    reste = SERIES_TITLE_NOISE_RE.sub(' ', name.replace('.', ' ').replace('_', ' '))
-    reste = re.sub(r'\s+', ' ', reste).strip(' -.')
-    if len(reste) >= 3 and re.search(r'[^\W\d_]', reste):
+    reste = SERIES_TITLE_NOISE_RE.sub(" ", name.replace(".", " ").replace("_", " "))
+    reste = re.sub(r"\s+", " ", reste).strip(" -.")
+    if len(reste) >= 3 and re.search(r"[^\W\d_]", reste):
         return reste, None
 
     return None, None
@@ -802,14 +857,14 @@ def parse_filename(filename):
 
 def clean_series_title(raw_title):
     """Strip release noise and a trailing year from a parsed series title."""
-    title = raw_title.replace('.', ' ').replace('_', ' ')
+    title = raw_title.replace(".", " ").replace("_", " ")
     previous = None
     while previous != title:
         previous = title
-        title = SERIES_TITLE_NOISE_RE.sub(' ', title)
-        title = SEASON_HINT_RE.sub(' ', title)
-    title = re.sub(r'[\s.\-_]*\(?(?:19|20)\d{2}\)?[\s.\-_]*$', ' ', title)
-    title = re.sub(r'\s+', ' ', title).strip(' -.')
+        title = SERIES_TITLE_NOISE_RE.sub(" ", title)
+        title = SEASON_HINT_RE.sub(" ", title)
+    title = re.sub(r"[\s.\-_]*\(?(?:19|20)\d{2}\)?[\s.\-_]*$", " ", title)
+    title = re.sub(r"\s+", " ", title).strip(" -.")
     return title
 
 
@@ -823,64 +878,68 @@ def parse_season_hint(text):
 
 def parse_episode_filename(filename, parent_name=None):
     """Extract series title, season and episode numbers from common TV patterns."""
-    name = re.sub(r'\.(mkv|mp4|avi|wmv|m4v|mov|srt|sub|idx|ass|ssa)$', '', filename, flags=re.I)
-    name = name.replace('_', ' ').strip()
+    name = re.sub(
+        r"\.(mkv|mp4|avi|wmv|m4v|mov|srt|sub|idx|ass|ssa)$", "", filename, flags=re.I
+    )
+    name = name.replace("_", " ").strip()
     # Une etiquette de groupe ouvre souvent le nom : « [Pokemon Fansub] Serie ».
     # Elle encadre le titre sans en faire partie, et TMDb ne connait personne
     # sous ce nom. parse_filename la retire deja pour les films.
-    name = re.sub(r'^\s*\[[^\]]*\]\s*', '', name).strip()
+    name = re.sub(r"^\s*\[[^\]]*\]\s*", "", name).strip()
 
     # Jeton en tete de nom : la serie, si elle est la, precede le titre d'episode.
     leading = LEADING_EPISODE_RE.match(name)
     if leading:
-        reste = (leading.group('title') or '').strip()
+        reste = (leading.group("title") or "").strip()
         # Un tiret en tete signale que le titre d'episode suit directement,
         # sans nom de serie : on prend alors celui du dossier parent.
-        serie = '' if reste.startswith('-') else reste.split(' - ')[0]
-        title = clean_series_title(serie) if serie else ''
+        serie = "" if reste.startswith("-") else reste.split(" - ")[0]
+        title = clean_series_title(serie) if serie else ""
         if not title and parent_name:
             title = clean_series_title(parent_name)
         if title:
-            episodes = [int(leading.group('episode'))]
-            if leading.group('episode2'):
-                episodes.append(int(leading.group('episode2')))
-            return title, int(leading.group('season')), episodes
+            episodes = [int(leading.group("episode"))]
+            if leading.group("episode2"):
+                episodes.append(int(leading.group("episode2")))
+            return title, int(leading.group("season")), episodes
 
     for pattern in EPISODE_PATTERNS:
         match = pattern.match(name)
         if not match:
             continue
-        raw_title = match.group('title')
+        raw_title = match.group("title")
         groups = match.groupdict()
-        if groups.get('season'):
-            season = int(groups['season'])
+        if groups.get("season"):
+            season = int(groups["season"])
         else:
             # Season-less release: prefer a marker on the release/parent folder.
             season = parse_season_hint(raw_title) or parse_season_hint(parent_name) or 1
-        numero = int(match.group('episode'))
+        numero = int(match.group("episode"))
         # Un numero nu apres un tiret peut aussi bien etre un rang d'episode
         # qu'une part de titre : « Blade Runner - 2049 (2017) » n'est pas le
         # 2049e episode de Blade Runner. On refuse donc quand le numero peut
         # etre une annee, ou quand ce qui le suit en est une — un film porte son
         # millesime entre parentheses, un fansub y met ses mentions techniques.
-        if 'apres' in match.groupdict():
-            apres = (match.group('apres') or '').strip('()[] ')
+        if "apres" in match.groupdict():
+            apres = (match.group("apres") or "").strip("()[] ")
             # annee_plausible attend un nombre : « VOSTFR-FR 1920x1080 » n'en
             # est pas un, et n'a donc pas a lui etre soumis.
             suite_est_une_annee = apres.isdigit() and annee_plausible(apres)
             if annee_plausible(numero) or suite_est_une_annee:
                 continue
-        title = clean_series_title(raw_title) or raw_title.replace('.', ' ').strip(' -.')
+        title = clean_series_title(raw_title) or raw_title.replace(".", " ").strip(
+            " -."
+        )
         episodes = [numero]
-        if groups.get('episode2'):
-            episodes.append(int(groups['episode2']))
+        if groups.get("episode2"):
+            episodes.append(int(groups["episode2"]))
         return title, season, episodes
     return None, None, []
 
 
 def is_partial_file(path):
     """Return True when a file still looks incomplete."""
-    return path.suffix.lower() in PARTIAL_EXTENSIONS or path.name.endswith('.partial')
+    return path.suffix.lower() in PARTIAL_EXTENSIONS or path.name.endswith(".partial")
 
 
 def is_stable_file(path, stability_seconds):
@@ -893,16 +952,19 @@ def gather_incoming_items(incoming_dir, stability_seconds):
     """Collect stable video files and their companions from the inbox."""
     items = []
     seen = set()
-    for video_path in sorted(incoming_dir.rglob('*')):
+    for video_path in sorted(incoming_dir.rglob("*")):
         if not video_path.is_file():
             continue
         if video_path.suffix.lower() not in VIDEO_EXTENSIONS:
             continue
-        if is_partial_file(video_path) or not is_stable_file(video_path, stability_seconds):
+        if is_partial_file(video_path) or not is_stable_file(
+            video_path, stability_seconds
+        ):
             continue
 
         related = [
-            candidate for candidate in find_incoming_related_files(video_path)
+            candidate
+            for candidate in find_incoming_related_files(video_path)
             if is_stable_file(candidate, stability_seconds)
         ]
         key = tuple(sorted(str(path) for path in related))
@@ -921,7 +983,7 @@ def summarize_incoming_items(items, inbox_dir):
         for related in item.related_files:
             if related != item.video_path:
                 lines.append(f"  * {related.relative_to(inbox_dir)}")
-    return '\n'.join(lines)
+    return "\n".join(lines)
 
 
 def find_related_files(nfo_path):
@@ -929,7 +991,7 @@ def find_related_files(nfo_path):
     nfo_dir = nfo_path.parent
     nfo_stem = nfo_path.stem
 
-    if nfo_path.name == 'movie.nfo':
+    if nfo_path.name == "movie.nfo":
         return [f for f in nfo_dir.iterdir() if f.is_file()]
 
     related = []
@@ -941,28 +1003,28 @@ def find_related_files(nfo_path):
 
 def get_new_filename(f, clean_name):
     """Determine the new filename for a file."""
-    ext = f.suffix.lstrip('.')
+    ext = f.suffix.lstrip(".")
     name_lower = f.name.lower()
 
-    if any(tag in name_lower for tag in ['-poster.', '_poster.']):
+    if any(tag in name_lower for tag in ["-poster.", "_poster."]):
         return f"poster.{ext}"
-    elif any(tag in name_lower for tag in ['-fanart.', '_fanart.', '-backdrop.']):
+    elif any(tag in name_lower for tag in ["-fanart.", "_fanart.", "-backdrop."]):
         return f"fanart.{ext}"
-    elif any(tag in name_lower for tag in ['-clearlogo.', '-logo.']):
+    elif any(tag in name_lower for tag in ["-clearlogo.", "-logo."]):
         return f"logo.{ext}"
-    elif '-banner.' in name_lower:
+    elif "-banner." in name_lower:
         return f"banner.{ext}"
-    elif '-thumb.' in name_lower:
+    elif "-thumb." in name_lower:
         return f"poster.{ext}"
-    elif '-landscape.' in name_lower:
+    elif "-landscape." in name_lower:
         return f"landscape.{ext}"
-    elif '-disc.' in name_lower:
+    elif "-disc." in name_lower:
         return f"disc.{ext}"
-    elif ext == 'nfo':
+    elif ext == "nfo":
         return f"{clean_name}.nfo"
-    elif ext in ('mkv', 'mp4', 'avi', 'wmv'):
+    elif ext in ("mkv", "mp4", "avi", "wmv"):
         return f"{clean_name}.{ext}"
-    elif ext in ('srt', 'sub', 'idx', 'ass', 'ssa'):
+    elif ext in ("srt", "sub", "idx", "ass", "ssa"):
         return f"{clean_name}.{ext}"
     return f.name
 
@@ -971,17 +1033,17 @@ def get_art_name(f):
     """Normalize artwork filename."""
     ext = f.suffix
     name_lower = f.name.lower()
-    if 'poster' in name_lower or 'thumb' in name_lower:
+    if "poster" in name_lower or "thumb" in name_lower:
         return f"poster{ext}"
-    elif 'fanart' in name_lower or 'backdrop' in name_lower:
+    elif "fanart" in name_lower or "backdrop" in name_lower:
         return f"fanart{ext}"
-    elif 'clearlogo' in name_lower or 'logo' in name_lower:
+    elif "clearlogo" in name_lower or "logo" in name_lower:
         return f"logo{ext}"
-    elif 'banner' in name_lower:
+    elif "banner" in name_lower:
         return f"banner{ext}"
-    elif 'landscape' in name_lower:
+    elif "landscape" in name_lower:
         return f"landscape{ext}"
-    elif 'disc' in name_lower:
+    elif "disc" in name_lower:
         return f"disc{ext}"
     return f.name
 
@@ -996,7 +1058,7 @@ def fuzzy_match_dir(old_name, proper_dirs):
     best_score = 0
 
     for pd in proper_dirs:
-        m = re.match(r'^(.+?)\s*\(\d{4}\)$', pd.name)
+        m = re.match(r"^(.+?)\s*\(\d{4}\)$", pd.name)
         if not m:
             continue
         pd_words = word_set(m.group(1))
@@ -1022,22 +1084,22 @@ def fuzzy_match_dir(old_name, proper_dirs):
 
 def is_proper_dir(d):
     """A properly named dir ends with (YYYY)."""
-    return bool(re.search(r'\(\d{4}\)$', d.name))
+    return bool(re.search(r"\(\d{4}\)$", d.name))
 
 
 def is_script_file(f):
     """Check if file is a script or log."""
-    return f.suffix in ('.py', '.sh', '.log')
+    return f.suffix in (".py", ".sh", ".log")
 
 
 def dir_has_art(d, art_type):
     """Check if directory or quality subdirs has artwork."""
-    for ext in ('.jpg', '.png', '.svg'):
+    for ext in (".jpg", ".png", ".svg"):
         if (d / f"{art_type}{ext}").exists():
             return True
     for sub in d.iterdir():
         if sub.is_dir():
-            for ext in ('.jpg', '.png', '.svg'):
+            for ext in (".jpg", ".png", ".svg"):
                 if (sub / f"{art_type}{ext}").exists():
                     return True
     return False
@@ -1048,7 +1110,8 @@ def get_quality_subdirs(d):
     if not d.exists():
         return []
     quality_map = {
-        sub.name: sub for sub in d.iterdir()
+        sub.name: sub
+        for sub in d.iterdir()
         if sub.is_dir() and sub.name in QUALITY_DIR_NAMES
     }
     return [quality_map[name] for name in QUALITY_DIR_NAMES if name in quality_map]
@@ -1061,7 +1124,7 @@ def get_root_media_files(d):
 
 def get_consolidated_filename(f, clean_name):
     """Normalize filenames when consolidating into a quality directory."""
-    if f.suffix.lower() in ('.jpg', '.png', '.svg'):
+    if f.suffix.lower() in (".jpg", ".png", ".svg"):
         return get_art_name(f)
     return get_new_filename(f, clean_name)
 
@@ -1087,10 +1150,10 @@ def aplatir_dossier_qualite(dossier, dry_run=False):
     for sous in sorted(get_quality_subdirs(dossier), key=lambda p: p.name):
         radical = nom_de_version(dossier.name, sous.name)
         conflits = []
-        for f in sorted(p for p in sous.rglob('*') if p.is_file()):
+        for f in sorted(p for p in sous.rglob("*") if p.is_file()):
             cible = dossier / get_consolidated_filename(f, radical)
             if cible.exists():
-                if f.suffix.lower() in ('.jpg', '.png', '.svg'):
+                if f.suffix.lower() in (".jpg", ".png", ".svg"):
                     if not dry_run:
                         f.unlink()
                 else:
@@ -1100,24 +1163,28 @@ def aplatir_dossier_qualite(dossier, dry_run=False):
                 f.rename(cible)
             remontes += 1
         if conflits:
-            log_message(f"[FLAT] {dossier.name}/{sous.name}: {len(conflits)} "
-                        f"fichier(s) en conflit, sous-dossier conserve", 'warning')
+            log_message(
+                f"[FLAT] {dossier.name}/{sous.name}: {len(conflits)} "
+                f"fichier(s) en conflit, sous-dossier conserve",
+                "warning",
+            )
         elif not dry_run:
             shutil.rmtree(sous)
     return remontes
 
+
 def count_dir_files(d):
     """Count files recursively in a directory."""
-    return sum(1 for f in d.rglob('*') if f.is_file())
+    return sum(1 for f in d.rglob("*") if f.is_file())
 
 
 def canonical_name_score(name):
     """Score a directory name for canonical duplicate selection."""
     score = 0
-    score -= sum(1 for _ in re.finditer(r'\s{2,}', name))
-    score -= name.count('_')
-    score -= len(re.findall(r'\bMULTI\b', name, flags=re.I)) * 3
-    score += len(re.findall(r'[A-Z]\.', name))
+    score -= sum(1 for _ in re.finditer(r"\s{2,}", name))
+    score -= name.count("_")
+    score -= len(re.findall(r"\bMULTI\b", name, flags=re.I)) * 3
+    score += len(re.findall(r"[A-Z]\.", name))
     score += len(re.findall(r"[A-Za-zÀ-ÿ]'[A-Za-zÀ-ÿ]", name))
     score += sum(1 for ch in name if ord(ch) > 127)
     return score
@@ -1129,29 +1196,32 @@ def get_preferred_group_name(group):
     for d in group:
         metadata = get_dir_metadata(d)
         dir_title, dir_year = parse_dir_name(d)
-        year = metadata['year'] or dir_year
+        year = metadata["year"] or dir_year
 
-        if metadata['title'] and year:
+        if metadata["title"] and year:
             preferred_name = sanitize(f"{metadata['title']} ({year})")
-            is_localized = (
-                metadata['originaltitle']
-                and normalize(metadata['title']) != normalize(metadata['originaltitle'])
+            is_localized = metadata["originaltitle"] and normalize(
+                metadata["title"]
+            ) != normalize(metadata["originaltitle"])
+            candidates.append(
+                (
+                    preferred_name,
+                    2 if is_localized else 1,
+                    count_dir_files(d),
+                    canonical_name_score(preferred_name),
+                )
             )
-            candidates.append((
-                preferred_name,
-                2 if is_localized else 1,
-                count_dir_files(d),
-                canonical_name_score(preferred_name),
-            ))
 
         if dir_year:
             fallback_name = sanitize(f"{dir_title} ({dir_year})")
-            candidates.append((
-                fallback_name,
-                0,
-                count_dir_files(d),
-                canonical_name_score(fallback_name),
-            ))
+            candidates.append(
+                (
+                    fallback_name,
+                    0,
+                    count_dir_files(d),
+                    canonical_name_score(fallback_name),
+                )
+            )
 
     if not candidates:
         return None
@@ -1168,18 +1238,29 @@ def choose_canonical_dir(group):
                 return d
     return max(
         group,
-        key=lambda d: (count_dir_files(d), len(get_quality_subdirs(d)), canonical_name_score(d.name), -len(d.name))
+        key=lambda d: (
+            count_dir_files(d),
+            len(get_quality_subdirs(d)),
+            canonical_name_score(d.name),
+            -len(d.name),
+        ),
     )
 
 
 def iter_movie_files(d):
     """Iterate over all files contained in a movie directory."""
-    return sorted((f for f in d.rglob('*') if f.is_file()), key=lambda p: (len(p.parts), str(p)))
+    return sorted(
+        (f for f in d.rglob("*") if f.is_file()), key=lambda p: (len(p.parts), str(p))
+    )
 
 
 def remove_empty_dirs(d, dry_run=False):
     """Remove empty directories from deepest to shallowest."""
-    for child in sorted((p for p in d.rglob('*') if p.is_dir()), key=lambda p: len(p.parts), reverse=True):
+    for child in sorted(
+        (p for p in d.rglob("*") if p.is_dir()),
+        key=lambda p: len(p.parts),
+        reverse=True,
+    ):
         if not list(child.iterdir()):
             if dry_run:
                 print(f"    rmdir: {child.relative_to(d.parent)}/")
@@ -1197,9 +1278,9 @@ def remove_empty_dirs(d, dry_run=False):
 def get_dir_nfo_candidates(d):
     """Return NFO files for a movie directory, preferring canonical ones first."""
     return sorted(
-        (f for f in d.rglob('*.nfo') if f.is_file()),
+        (f for f in d.rglob("*.nfo") if f.is_file()),
         key=lambda f: (
-            f.name != 'movie.nfo',
+            f.name != "movie.nfo",
             f.stem != d.name,
             len(f.parts),
             str(f),
@@ -1211,41 +1292,41 @@ def get_dir_metadata(d):
     """Return the best available NFO metadata for a movie directory."""
     for nfo_path in get_dir_nfo_candidates(d):
         metadata = parse_nfo_metadata(nfo_path)
-        if metadata['title'] or metadata['tmdbid'] or metadata['imdbid']:
+        if metadata["title"] or metadata["tmdbid"] or metadata["imdbid"]:
             return metadata
     return {
-        'title': None,
-        'year': None,
-        'originaltitle': None,
-        'sorttitle': None,
-        'english_title': None,
-        'tmdbid': None,
-        'imdbid': None,
+        "title": None,
+        "year": None,
+        "originaltitle": None,
+        "sorttitle": None,
+        "english_title": None,
+        "tmdbid": None,
+        "imdbid": None,
     }
 
 
 def get_metadata_group_key(d):
     """Build a duplicate-group key from NFO metadata when possible."""
     metadata = get_dir_metadata(d)
-    if metadata['tmdbid']:
-        return ('tmdb', metadata['tmdbid'])
-    if metadata['imdbid']:
-        return ('imdb', metadata['imdbid'])
+    if metadata["tmdbid"]:
+        return ("tmdb", metadata["tmdbid"])
+    if metadata["imdbid"]:
+        return ("imdb", metadata["imdbid"])
 
     meta_title = (
-        metadata['originaltitle']
-        or metadata['english_title']
-        or metadata['sorttitle']
-        or metadata['title']
+        metadata["originaltitle"]
+        or metadata["english_title"]
+        or metadata["sorttitle"]
+        or metadata["title"]
     )
-    if meta_title and metadata['year']:
-        return ('metadata-title', normalize(meta_title), metadata['year'])
+    if meta_title and metadata["year"]:
+        return ("metadata-title", normalize(meta_title), metadata["year"])
     return None
 
 
 def parse_dir_name(d):
     """Extract title and year from a properly named directory."""
-    match = re.match(r'^(.+?)\s*\((\d{4})\)$', d.name)
+    match = re.match(r"^(.+?)\s*\((\d{4})\)$", d.name)
     if not match:
         return d.name, None
     return match.group(1).strip(), match.group(2)
@@ -1272,35 +1353,34 @@ def _alias_discriminants(titre):
     # prefixe ni l'un ni l'autre mais figure dans les deux. Une lettre isolee
     # suffisait ainsi a declarer doublons deux films de 1995. Un alias contenu
     # dans un autre n'ajoute aucune information : il ne peut qu'egarer.
-    return {a for a in alias
-            if not any(autre != a and a in autre for autre in alias)}
+    return {a for a in alias if not any(autre != a and a in autre for autre in alias)}
 
 
 def get_duplicate_group_keys(d):
     """Return all duplicate-matching keys for a movie directory."""
     metadata = get_dir_metadata(d)
     dir_title, dir_year = parse_dir_name(d)
-    year = metadata['year'] or dir_year
+    year = metadata["year"] or dir_year
     keys = set()
 
-    if metadata['tmdbid']:
-        keys.add(('tmdb', metadata['tmdbid']))
-    if metadata['imdbid']:
-        keys.add(('imdb', metadata['imdbid']))
+    if metadata["tmdbid"]:
+        keys.add(("tmdb", metadata["tmdbid"]))
+    if metadata["imdbid"]:
+        keys.add(("imdb", metadata["imdbid"]))
 
     if dir_year:
         for alias in _alias_discriminants(dir_title):
-            keys.add(('title-year', alias, dir_year))
+            keys.add(("title-year", alias, dir_year))
 
     for title in (
-        metadata['title'],
-        metadata['originaltitle'],
-        metadata['sorttitle'],
-        metadata['english_title'],
+        metadata["title"],
+        metadata["originaltitle"],
+        metadata["sorttitle"],
+        metadata["english_title"],
     ):
         if title and year:
             for alias in _alias_discriminants(title):
-                keys.add(('title-year', alias, year))
+                keys.add(("title-year", alias, year))
 
     return keys
 
@@ -1315,19 +1395,21 @@ def identite_du_dossier_diverge(dossier, tmdb_id):
     """
     if not dossier.is_dir():
         return None
-    declare = get_dir_metadata(dossier)['tmdbid']
+    declare = get_dir_metadata(dossier)["tmdbid"]
     # TMDb renvoie un entier la ou le NFO porte du texte : cette seule
     # difference ne doit pas faire conclure a une divergence.
     if not declare or str(declare) == str(tmdb_id):
         return None
-    a_une_video = any(f.suffix.lower() in VIDEO_EXTENSIONS
-                      for f in iter_movie_files(dossier))
-    return 'occupe' if a_une_video else 'perime'
+    a_une_video = any(
+        f.suffix.lower() in VIDEO_EXTENSIONS for f in iter_movie_files(dossier)
+    )
+    return "occupe" if a_une_video else "perime"
+
 
 # Un suffixe de copie « (2) » nait d'une collision de noms. Trois chiffres au
 # plus, pour ne pas confondre avec l'annee que porte la fin du nom de dossier :
 # « Le Parrain (1972) » ne doit pas perdre son millesime.
-SUFFIXE_COPIE_RE = re.compile(r'\s\(\d{1,3}\)$')
+SUFFIXE_COPIE_RE = re.compile(r"\s\(\d{1,3}\)$")
 
 
 def etiquette_de_version(fichier, nom_dossier):
@@ -1337,65 +1419,155 @@ def etiquette_de_version(fichier, nom_dossier):
     est l'etiquette affichee dans l'application. Un suffixe de copie ne fait
     pas une version : deux fichiers ainsi nommes sont deux copies de la meme.
     """
-    radical = SUFFIXE_COPIE_RE.sub('', Path(fichier).stem)
+    radical = SUFFIXE_COPIE_RE.sub("", Path(fichier).stem)
     if not radical.startswith(nom_dossier):
         return None
-    reste = radical[len(nom_dossier):]
-    if not reste.startswith(' - '):
+    reste = radical[len(nom_dossier) :]
+    if not reste.startswith(" - "):
         return None
     return reste[3:].strip() or None
 
 
 def _videos_du_dossier(dossier):
-    return sorted(f for f in dossier.iterdir()
-                  if f.is_file() and f.suffix.lower() in VIDEO_EXTENSIONS)
+    return sorted(
+        f
+        for f in dossier.iterdir()
+        if f.is_file() and f.suffix.lower() in VIDEO_EXTENSIONS
+    )
 
 
 def videos_hors_convention(dossier):
     """Videos qu'Emby ne peut rattacher au film, faute d'en porter le nom."""
-    return [f for f in _videos_du_dossier(dossier)
-            if not SUFFIXE_COPIE_RE.sub('', f.stem).startswith(dossier.name)]
+    return [
+        f
+        for f in _videos_du_dossier(dossier)
+        if not SUFFIXE_COPIE_RE.sub("", f.stem).startswith(dossier.name)
+    ]
 
 
 def doublons_internes(dossier):
     """Groupes de videos d'un meme dossier qui pretendent a la meme version."""
     par_etiquette = defaultdict(list)
     for f in _videos_du_dossier(dossier):
-        if SUFFIXE_COPIE_RE.sub('', f.stem).startswith(dossier.name):
+        if SUFFIXE_COPIE_RE.sub("", f.stem).startswith(dossier.name):
             par_etiquette[etiquette_de_version(f, dossier.name)].append(f)
-    return [groupe for _, groupe in
-            sorted(par_etiquette.items(), key=lambda kv: str(kv[0]))
-            if len(groupe) > 1]
+    return [
+        groupe
+        for _, groupe in sorted(par_etiquette.items(), key=lambda kv: str(kv[0]))
+        if len(groupe) > 1
+    ]
+
 
 # Vocabulaire d'une release : present dans presque tous les noms, il n'aide en
 # rien a distinguer deux oeuvres.
-BRUIT_RELEASE = frozenset({
-    '1080p', '2160p', '720p', '480p', 'x264', 'x265', 'h264', 'h265', 'hevc',
-    'multi', 'vostfr', 'vost', 'vosten', 'vf', 'vff', 'vfi', 'vo', 'french',
-    'truefrench', 'bluray', 'brrip', 'webrip', 'web', 'dl', 'hdlight', 'hdtv',
-    'dvdrip', 'remux', 'aac', 'ac3', 'dts', 'hd', 'ma', 'film', 'films',
-    'movie', 'final', 'repack', 'bit', '10bit', '10bits', 'hdr', 'uhd', 'sdr',
-})
+BRUIT_RELEASE = frozenset(
+    {
+        "1080p",
+        "2160p",
+        "720p",
+        "480p",
+        "x264",
+        "x265",
+        "h264",
+        "h265",
+        "hevc",
+        "multi",
+        "vostfr",
+        "vost",
+        "vosten",
+        "vf",
+        "vff",
+        "vfi",
+        "vo",
+        "french",
+        "truefrench",
+        "bluray",
+        "brrip",
+        "webrip",
+        "web",
+        "dl",
+        "hdlight",
+        "hdtv",
+        "dvdrip",
+        "remux",
+        "aac",
+        "ac3",
+        "dts",
+        "hd",
+        "ma",
+        "film",
+        "films",
+        "movie",
+        "final",
+        "repack",
+        "bit",
+        "10bit",
+        "10bits",
+        "hdr",
+        "uhd",
+        "sdr",
+    }
+)
 # Mots outils : trop frequents pour porter du sens.
-MOTS_OUTILS = frozenset({
-    'le', 'la', 'les', 'de', 'du', 'des', 'un', 'une', 'et', 'a', 'au', 'aux',
-    'en', 'l', 'd', 'the', 'of', 'and', 'in', 'on', 'no', 'to',
-})
+MOTS_OUTILS = frozenset(
+    {
+        "le",
+        "la",
+        "les",
+        "de",
+        "du",
+        "des",
+        "un",
+        "une",
+        "et",
+        "a",
+        "au",
+        "aux",
+        "en",
+        "l",
+        "d",
+        "the",
+        "of",
+        "and",
+        "in",
+        "on",
+        "no",
+        "to",
+    }
+)
 # Un jeton de saison ou d'episode ne dit rien de l'oeuvre. Le rang d'une saga,
 # lui, est ce qui la distingue : il est conserve, et meme decisif plus bas.
-JETON_TECHNIQUE_RE = re.compile(r's\d{1,3}|e\d{1,4}')
+JETON_TECHNIQUE_RE = re.compile(r"s\d{1,3}|e\d{1,4}")
 # L'annee accompagne tout nom de dossier par convention : deux films sortis la
 # meme annee ne se ressemblent pas pour autant.
-ANNEE_RE = re.compile(r'(?:19|20)\d{2}')
-BLOC_CROCHETS_RE = re.compile(r'\[[^\]]*\]')
-RANGS_ROMAINS = frozenset({'ii', 'iii', 'iv', 'v', 'vi', 'vii', 'viii'})
+ANNEE_RE = re.compile(r"(?:19|20)\d{2}")
+BLOC_CROCHETS_RE = re.compile(r"\[[^\]]*\]")
+RANGS_ROMAINS = frozenset({"ii", "iii", "iv", "v", "vi", "vii", "viii"})
 # Ces mots qualifient une copie, jamais une oeuvre : deux fichiers qui ne
 # different que par eux restent deux copies du meme film.
-MOTS_EDITION = frozenset({
-    'remaster', 'remastered', 'restaure', 'restauree', 'extended', 'longue',
-    'integrale', 'uncut', 'unrated', 'director', 'directors', 'cut', 'redux',
-    'theatrical', 'cinema', 'special', 'edition', 'version', 'collector',
-})
+MOTS_EDITION = frozenset(
+    {
+        "remaster",
+        "remastered",
+        "restaure",
+        "restauree",
+        "extended",
+        "longue",
+        "integrale",
+        "uncut",
+        "unrated",
+        "director",
+        "directors",
+        "cut",
+        "redux",
+        "theatrical",
+        "cinema",
+        "special",
+        "edition",
+        "version",
+        "collector",
+    }
+)
 
 
 def mots_signifiants(nom):
@@ -1404,13 +1576,18 @@ def mots_signifiants(nom):
     Les blocs entre crochets designent le groupe de release et disparaissent
     en entier ; les jetons de saison et les annees ne distinguent rien.
     """
-    sans_groupe = BLOC_CROCHETS_RE.sub(' ', nom)
-    plat = unicodedata.normalize('NFKD', sans_groupe.lower())
-    plat = ''.join(c for c in plat if not unicodedata.combining(c))
-    return {mot for mot in re.split(r'[^a-z0-9]+', plat)
-            if mot and mot not in MOTS_OUTILS and mot not in BRUIT_RELEASE
-            and not JETON_TECHNIQUE_RE.fullmatch(mot)
-            and not ANNEE_RE.fullmatch(mot)}
+    sans_groupe = BLOC_CROCHETS_RE.sub(" ", nom)
+    plat = unicodedata.normalize("NFKD", sans_groupe.lower())
+    plat = "".join(c for c in plat if not unicodedata.combining(c))
+    return {
+        mot
+        for mot in re.split(r"[^a-z0-9]+", plat)
+        if mot
+        and mot not in MOTS_OUTILS
+        and mot not in BRUIT_RELEASE
+        and not JETON_TECHNIQUE_RE.fullmatch(mot)
+        and not ANNEE_RE.fullmatch(mot)
+    }
 
 
 def rangs_de_saga(mots):
@@ -1431,7 +1608,7 @@ def doublons_inter_racines(entrees, ecart_minutes=1.0):
         if not duree:
             continue
         chemin = Path(chemin)
-        mots = mots_signifiants(f'{chemin.parent.name} {chemin.stem}')
+        mots = mots_signifiants(f"{chemin.parent.name} {chemin.stem}")
         if mots:
             utiles.append((chemin, duree, mots))
 
@@ -1440,7 +1617,7 @@ def doublons_inter_racines(entrees, ecart_minutes=1.0):
         if chemin_a in vus:
             continue
         groupe = [chemin_a]
-        for chemin_b, duree_b, mots_b in utiles[i + 1:]:
+        for chemin_b, duree_b, mots_b in utiles[i + 1 :]:
             if chemin_b in vus or chemin_b.parent == chemin_a.parent:
                 continue
             if abs(duree_a - duree_b) > ecart_minutes:
@@ -1466,6 +1643,7 @@ def doublons_inter_racines(entrees, ecart_minutes=1.0):
             groupes.append(groupe)
     return groupes
 
+
 def get_duplicate_groups(movies_dir):
     """Return duplicate groups using NFO identifiers and title aliases.
 
@@ -1476,9 +1654,10 @@ def get_duplicate_groups(movies_dir):
     ressemblance n'unit donc plus deux groupes dont les identites se
     contredisent.
     """
-    proper_dirs = sorted((d for d in movies_dir.iterdir()
-                          if d.is_dir() and is_proper_dir(d)),
-                         key=lambda p: p.name)
+    proper_dirs = sorted(
+        (d for d in movies_dir.iterdir() if d.is_dir() and is_proper_dir(d)),
+        key=lambda p: p.name,
+    )
     parent = {d: d for d in proper_dirs}
 
     # Identifiants revendiques par chaque groupe, refondus a chaque union.
@@ -1486,8 +1665,8 @@ def get_duplicate_groups(movies_dir):
     for d in proper_dirs:
         metadata = get_dir_metadata(d)
         identites[d] = (
-            {str(metadata['tmdbid'])} if metadata['tmdbid'] else set(),
-            {str(metadata['imdbid'])} if metadata['imdbid'] else set(),
+            {str(metadata["tmdbid"])} if metadata["tmdbid"] else set(),
+            {str(metadata["imdbid"])} if metadata["imdbid"] else set(),
         )
 
     def find(d):
@@ -1504,15 +1683,13 @@ def get_duplicate_groups(movies_dir):
         parent[root_right] = root_left
         tmdb_gauche, imdb_gauche = identites[root_left]
         tmdb_droite, imdb_droite = identites[root_right]
-        identites[root_left] = (tmdb_gauche | tmdb_droite,
-                                imdb_gauche | imdb_droite)
+        identites[root_left] = (tmdb_gauche | tmdb_droite, imdb_gauche | imdb_droite)
 
     def se_contredisent(left, right):
         """Vrai si unir ces deux groupes reunirait deux identites distinctes."""
         tmdb_gauche, imdb_gauche = identites[find(left)]
         tmdb_droite, imdb_droite = identites[find(right)]
-        return (len(tmdb_gauche | tmdb_droite) > 1
-                or len(imdb_gauche | imdb_droite) > 1)
+        return len(tmdb_gauche | tmdb_droite) > 1 or len(imdb_gauche | imdb_droite) > 1
 
     key_to_dirs = defaultdict(list)
     for d in proper_dirs:
@@ -1522,13 +1699,13 @@ def get_duplicate_groups(movies_dir):
     # L'identite passe en premier : elle fixe les groupes que la ressemblance
     # devra ensuite respecter.
     for key, dirs in key_to_dirs.items():
-        if key[0] not in ('tmdb', 'imdb') or len(dirs) < 2:
+        if key[0] not in ("tmdb", "imdb") or len(dirs) < 2:
             continue
         for other in dirs[1:]:
             union(dirs[0], other)
 
     for key, dirs in key_to_dirs.items():
-        if key[0] in ('tmdb', 'imdb') or len(dirs) < 2:
+        if key[0] in ("tmdb", "imdb") or len(dirs) < 2:
             continue
         for other in dirs[1:]:
             if se_contredisent(dirs[0], other):
@@ -1550,27 +1727,30 @@ def get_duplicate_groups(movies_dir):
 def tmdb_request(path, api_key, params):
     """Perform a TMDb API request and return parsed JSON."""
     query = dict(params)
-    query['api_key'] = api_key
+    query["api_key"] = api_key
     url = f"{TMDB_API_BASE}{path}?{urllib.parse.urlencode(query)}"
     with urllib.request.urlopen(url, timeout=30) as response:
-        return json.loads(response.read().decode('utf-8'))
+        return json.loads(response.read().decode("utf-8"))
 
 
 # Un rang dans la saga — « FiLM x 09 », « Film 3 » — sert au rangement, pas a
 # l'identification : TMDb ne connait aucun film sous ce nom.
-RANG_SAGA_RE = re.compile(r'\b(?:le\s+)?films?\s*(?:x\s*)?\d{0,2}\b', re.I)
+RANG_SAGA_RE = re.compile(r"\b(?:le\s+)?films?\s*(?:x\s*)?\d{0,2}\b", re.I)
 # Elision perdue : un nom de fichier ne peut pas porter d'apostrophe, elle y
 # devient un souligne, puis une espace. « Les Mercenaires de L espace » ne
 # ressemble alors plus a rien de cherchable.
 # Un rang de serie ferme parfois le titre : « Lupin III Special 01 ».
 RANG_FINAL_RE = re.compile(
-    r'\s*\b(?:specials?|films?|vol\.?|volumes?|oav|ova|ep|episodes?|partie|part)\s*\d{1,3}$',
-    re.I)
+    r"\s*\b(?:specials?|films?|vol\.?|volumes?|oav|ova|ep|episodes?|partie|part)\s*\d{1,3}$",
+    re.I,
+)
 # Premier marqueur de qualite : ce qui suit n'appartient plus au titre.
 QUALITE_RE = re.compile(
-    r'\b(?:\d{3,4}[pi]|bluray|blu-ray|bdrip|brrip|webrip|web-dl|web|hdlight|hdtv|dvdrip|'
-    r'x26[45]|h\.?26[45]|hevc|avc|aac|ac3|eac3|dts|flac|multi|vff|vfq|vostfr|vo|truefrench|'
-    r'french|remux|repack|proper|fansub|notag)\b', re.I)
+    r"\b(?:\d{3,4}[pi]|bluray|blu-ray|bdrip|brrip|webrip|web-dl|web|hdlight|hdtv|dvdrip|"
+    r"x26[45]|h\.?26[45]|hevc|avc|aac|ac3|eac3|dts|flac|multi|vff|vfq|vostfr|vo|truefrench|"
+    r"french|remux|repack|proper|fansub|notag)\b",
+    re.I,
+)
 
 ELISION_RE = re.compile(r"\b([ldjnmtcsLDJNMTCS])\s+(?=[aeiouyhàâéèêëîïôöûüAEIOUYH])")
 
@@ -1591,24 +1771,24 @@ def _variantes_titre(titre):
     vues, variantes = set(), []
 
     def ajouter(candidat):
-        candidat = re.sub(r'\s+', ' ', candidat or '').strip(' -.')
+        candidat = re.sub(r"\s+", " ", candidat or "").strip(" -.")
         if len(candidat) >= 3 and candidat.lower() not in vues:
             vues.add(candidat.lower())
             variantes.append(candidat)
 
     formes = [titre]
     # Le groupe de release ferme souvent le nom, apres un tiret.
-    formes.append(re.sub(r'\s+-\s+[A-Za-z0-9]{2,10}$', '', titre))
-    formes.append(RANG_SAGA_RE.sub(' ', formes[-1]))
+    formes.append(re.sub(r"\s+-\s+[A-Za-z0-9]{2,10}$", "", titre))
+    formes.append(RANG_SAGA_RE.sub(" ", formes[-1]))
     # En dernier ressort, ce qui suit le dernier tiret : le titre propre, quand
     # ce qui precede n'est que le nom de la saga.
-    if ' - ' in formes[-1]:
-        formes.append(formes[-1].rsplit(' - ', 1)[1])
+    if " - " in formes[-1]:
+        formes.append(formes[-1].rsplit(" - ", 1)[1])
     # Un chiffre isole au milieu du titre est un rang de suite ajoute par la
     # release : « Fullmetal Alchemist 2 The Revenge of Scar ». Le retirer en
     # dernier seulement, car « Toy Story 2 » se trouve des la forme integrale et
     # n'atteint jamais cette variante.
-    sans_rang_isole = re.sub(r'(?<=\S)\s+\d{1,2}\s+(?=\S)', ' ', formes[-1])
+    sans_rang_isole = re.sub(r"(?<=\S)\s+\d{1,2}\s+(?=\S)", " ", formes[-1])
     if sans_rang_isole != formes[-1]:
         formes.append(sans_rang_isole)
 
@@ -1631,10 +1811,12 @@ def search_tmdb_movie(title, year, api_key, language):
     """
     results, retenu = [], title
     for variante in _variantes_titre(title):
-        params = {'query': variante, 'language': language}
+        params = {"query": variante, "language": language}
         if year:
-            params['year'] = year
-        results = (tmdb_request('/search/movie', api_key, params) or {}).get('results', [])
+            params["year"] = year
+        results = (tmdb_request("/search/movie", api_key, params) or {}).get(
+            "results", []
+        )
         if results:
             retenu = variante
             break
@@ -1642,8 +1824,9 @@ def search_tmdb_movie(title, year, api_key, language):
         return None
     title = retenu
     if year:
-        millesime = [r for r in results
-                     if (r.get('release_date') or '').startswith(str(year))]
+        millesime = [
+            r for r in results if (r.get("release_date") or "").startswith(str(year))
+        ]
         if millesime:
             return _meilleur_candidat_film(title, millesime)
     return _meilleur_candidat_film(title, results)
@@ -1652,18 +1835,21 @@ def search_tmdb_movie(title, year, api_key, language):
 def _meilleur_candidat_film(query, results):
     """An exact title wins outright; otherwise popularity decides."""
     cible = normalize(query)
-    exacts = [r for r in results
-              if cible in {normalize(r.get('title') or ''),
-                           normalize(r.get('original_title') or '')}]
-    return max(exacts or results, key=lambda r: r.get('popularity') or 0)
+    exacts = [
+        r
+        for r in results
+        if cible
+        in {normalize(r.get("title") or ""), normalize(r.get("original_title") or "")}
+    ]
+    return max(exacts or results, key=lambda r: r.get("popularity") or 0)
 
 
 def get_tmdb_movie_details(movie_id, api_key, language):
     """Fetch detailed metadata and images for a TMDb movie."""
     return tmdb_request(
-        f'/movie/{movie_id}',
+        f"/movie/{movie_id}",
         api_key,
-        {'language': language, 'append_to_response': 'images,external_ids'}
+        {"language": language, "append_to_response": "images,external_ids"},
     )
 
 
@@ -1677,19 +1863,20 @@ def titres_de_recherche_tv(title):
     enough not to be a generic particle.
     """
     queries = []
+
     def add(candidate):
-        candidate = ' '.join((candidate or '').split())
+        candidate = " ".join((candidate or "").split())
         if candidate and candidate not in queries:
             queries.append(candidate)
 
-    add(title or '')
-    tokens = (title or '').split()
+    add(title or "")
+    tokens = (title or "").split()
     if len(tokens) >= 2:
-        raccourci = ' '.join(tokens[:-1])
+        raccourci = " ".join(tokens[:-1])
         # Un seul mot, assez long : « Lastman Heroes » -> « Lastman ».
         # « Star Trek Discovery » -> « Star Trek » est un prefixe de franchise,
         # trop large pour etre tente.
-        if ' ' not in raccourci and len(raccourci) >= 7:
+        if " " not in raccourci and len(raccourci) >= 7:
             add(raccourci)
     return queries
 
@@ -1707,19 +1894,22 @@ def search_tmdb_tv(title, year, api_key, language):
     full string first, then a shortened one, rather than skip the pack.
     """
     for query in titres_de_recherche_tv(title):
-        params = {'query': query, 'language': language}
+        params = {"query": query, "language": language}
         if year:
-            params['first_air_date_year'] = year
-        results = tmdb_request('/search/tv', api_key, params).get('results', [])
+            params["first_air_date_year"] = year
+        results = tmdb_request("/search/tv", api_key, params).get("results", [])
         if not results and year:
             results = tmdb_request(
-                '/search/tv', api_key, {'query': query, 'language': language}
-            ).get('results', [])
+                "/search/tv", api_key, {"query": query, "language": language}
+            ).get("results", [])
         if not results:
             continue
         if year:
-            millesime = [r for r in results
-                         if (r.get('first_air_date') or '').startswith(str(year))]
+            millesime = [
+                r
+                for r in results
+                if (r.get("first_air_date") or "").startswith(str(year))
+            ]
             if millesime:
                 results = millesime
         choisi = _meilleur_candidat_tv(query, results)
@@ -1735,8 +1925,8 @@ def _titre_tv_exact(query, candidat):
         return False
     cible = normalize(query)
     return cible in {
-        normalize(candidat.get('name') or ''),
-        normalize(candidat.get('original_name') or ''),
+        normalize(candidat.get("name") or ""),
+        normalize(candidat.get("original_name") or ""),
     }
 
 
@@ -1748,41 +1938,45 @@ def _meilleur_candidat_tv(query, results):
     An exact title match wins outright; otherwise popularity decides.
     """
     cible = normalize(query)
-    exacts = [r for r in results
-              if cible in {normalize(r.get('name') or ''), normalize(r.get('original_name') or '')}]
+    exacts = [
+        r
+        for r in results
+        if cible
+        in {normalize(r.get("name") or ""), normalize(r.get("original_name") or "")}
+    ]
     lot = exacts or results
-    return max(lot, key=lambda r: r.get('popularity') or 0)
+    return max(lot, key=lambda r: r.get("popularity") or 0)
 
 
 def get_tmdb_tv_details(tv_id, api_key, language):
     """Fetch detailed metadata and images for a TMDb TV show."""
     return tmdb_request(
-        f'/tv/{tv_id}',
+        f"/tv/{tv_id}",
         api_key,
-        {'language': language, 'append_to_response': 'images,external_ids'}
+        {"language": language, "append_to_response": "images,external_ids"},
     )
 
 
 def get_tmdb_episode_details(tv_id, season_number, episode_number, api_key, language):
     """Fetch TMDb metadata for a single TV episode."""
     return tmdb_request(
-        f'/tv/{tv_id}/season/{season_number}/episode/{episode_number}',
+        f"/tv/{tv_id}/season/{season_number}/episode/{episode_number}",
         api_key,
-        {'language': language},
+        {"language": language},
     )
 
 
 def write_tmdb_nfo(nfo_path, details, language):
     """Write a simple movie NFO from TMDb data."""
-    movie = ET.Element('movie')
+    movie = ET.Element("movie")
     fields = {
-        'title': details.get('title'),
-        'originaltitle': details.get('original_title'),
-        'year': (details.get('release_date') or '')[:4] or None,
-        'plot': details.get('overview'),
-        'tagline': details.get('tagline'),
-        'tmdbid': str(details.get('id')) if details.get('id') else None,
-        'id': details.get('external_ids', {}).get('imdb_id'),
+        "title": details.get("title"),
+        "originaltitle": details.get("original_title"),
+        "year": (details.get("release_date") or "")[:4] or None,
+        "plot": details.get("overview"),
+        "tagline": details.get("tagline"),
+        "tmdbid": str(details.get("id")) if details.get("id") else None,
+        "id": details.get("external_ids", {}).get("imdb_id"),
     }
     for key, value in fields.items():
         if value:
@@ -1790,19 +1984,19 @@ def write_tmdb_nfo(nfo_path, details, language):
 
     tree = ET.ElementTree(movie)
     nfo_path.parent.mkdir(parents=True, exist_ok=True)
-    tree.write(nfo_path, encoding='utf-8', xml_declaration=True)
+    tree.write(nfo_path, encoding="utf-8", xml_declaration=True)
 
 
 def write_tmdb_tvshow_nfo(nfo_path, details):
     """Write a simple TV show NFO from TMDb data."""
-    tvshow = ET.Element('tvshow')
+    tvshow = ET.Element("tvshow")
     fields = {
-        'title': details.get('name'),
-        'originaltitle': details.get('original_name'),
-        'year': (details.get('first_air_date') or '')[:4] or None,
-        'plot': details.get('overview'),
-        'tmdbid': str(details.get('id')) if details.get('id') else None,
-        'id': details.get('external_ids', {}).get('imdb_id'),
+        "title": details.get("name"),
+        "originaltitle": details.get("original_name"),
+        "year": (details.get("first_air_date") or "")[:4] or None,
+        "plot": details.get("overview"),
+        "tmdbid": str(details.get("id")) if details.get("id") else None,
+        "id": details.get("external_ids", {}).get("imdb_id"),
     }
     for key, value in fields.items():
         if value:
@@ -1810,20 +2004,22 @@ def write_tmdb_tvshow_nfo(nfo_path, details):
 
     tree = ET.ElementTree(tvshow)
     nfo_path.parent.mkdir(parents=True, exist_ok=True)
-    tree.write(nfo_path, encoding='utf-8', xml_declaration=True)
+    tree.write(nfo_path, encoding="utf-8", xml_declaration=True)
 
 
-def write_tmdb_episode_nfo(nfo_path, series_details, episode_details, season_number, episode_number):
+def write_tmdb_episode_nfo(
+    nfo_path, series_details, episode_details, season_number, episode_number
+):
     """Write a simple episode NFO using TMDb TV metadata."""
-    episode = ET.Element('episodedetails')
+    episode = ET.Element("episodedetails")
     fields = {
-        'title': episode_details.get('name') or f"Episode {episode_number:02d}",
-        'showtitle': series_details.get('name'),
-        'season': str(season_number),
-        'episode': str(episode_number),
-        'plot': episode_details.get('overview'),
-        'aired': episode_details.get('air_date'),
-        'tmdbid': str(episode_details.get('id')) if episode_details.get('id') else None,
+        "title": episode_details.get("name") or f"Episode {episode_number:02d}",
+        "showtitle": series_details.get("name"),
+        "season": str(season_number),
+        "episode": str(episode_number),
+        "plot": episode_details.get("overview"),
+        "aired": episode_details.get("air_date"),
+        "tmdbid": str(episode_details.get("id")) if episode_details.get("id") else None,
     }
     for key, value in fields.items():
         if value:
@@ -1831,7 +2027,7 @@ def write_tmdb_episode_nfo(nfo_path, series_details, episode_details, season_num
 
     tree = ET.ElementTree(episode)
     nfo_path.parent.mkdir(parents=True, exist_ok=True)
-    tree.write(nfo_path, encoding='utf-8', xml_declaration=True)
+    tree.write(nfo_path, encoding="utf-8", xml_declaration=True)
 
 
 def download_tmdb_asset(url, destination, dry_run=False):
@@ -1842,41 +2038,48 @@ def download_tmdb_asset(url, destination, dry_run=False):
         print(f"    FETCH {destination.name}")
         return True
     destination.parent.mkdir(parents=True, exist_ok=True)
-    with urllib.request.urlopen(url, timeout=30) as response, destination.open('wb') as handle:
+    with (
+        urllib.request.urlopen(url, timeout=30) as response,
+        destination.open("wb") as handle,
+    ):
         shutil.copyfileobj(response, handle)
     return True
 
 
 def pick_tmdb_logo(details, language):
     """Pick the best TMDb logo path for the requested language."""
-    logos = details.get('images', {}).get('logos', [])
+    logos = details.get("images", {}).get("logos", [])
     if not logos:
         return None
 
     preferred_languages = []
-    if language and '-' in language:
-        preferred_languages.append(language.split('-', 1)[0])
+    if language and "-" in language:
+        preferred_languages.append(language.split("-", 1)[0])
     if language:
         preferred_languages.append(language)
-    preferred_languages.extend(['fr', 'en', None])
+    preferred_languages.extend(["fr", "en", None])
 
     for preferred in preferred_languages:
         for logo in logos:
-            if logo.get('iso_639_1') == preferred:
-                return logo.get('file_path')
-    return logos[0].get('file_path')
+            if logo.get("iso_639_1") == preferred:
+                return logo.get("file_path")
+    return logos[0].get("file_path")
 
 
-def fetch_tmdb_assets(details, target_dir, dry_run=False, language='fr-FR'):
+def fetch_tmdb_assets(details, target_dir, dry_run=False, language="fr-FR"):
     """Download common artwork assets from TMDb."""
     assets = []
-    if details.get('poster_path'):
-        assets.append((f"{TMDB_IMAGE_BASE}{details['poster_path']}", target_dir / 'poster.jpg'))
-    if details.get('backdrop_path'):
-        assets.append((f"{TMDB_IMAGE_BASE}{details['backdrop_path']}", target_dir / 'fanart.jpg'))
+    if details.get("poster_path"):
+        assets.append(
+            (f"{TMDB_IMAGE_BASE}{details['poster_path']}", target_dir / "poster.jpg")
+        )
+    if details.get("backdrop_path"):
+        assets.append(
+            (f"{TMDB_IMAGE_BASE}{details['backdrop_path']}", target_dir / "fanart.jpg")
+        )
     logo_path = pick_tmdb_logo(details, language)
     if logo_path:
-        assets.append((f"{TMDB_IMAGE_BASE}{logo_path}", target_dir / 'logo.png'))
+        assets.append((f"{TMDB_IMAGE_BASE}{logo_path}", target_dir / "logo.png"))
 
     for url, destination in assets:
         download_tmdb_asset(url, destination, dry_run=dry_run)
@@ -1888,24 +2091,31 @@ def find_incoming_related_files(video_path):
     parent = video_path.parent
     return sorted(
         [
-            f for f in parent.iterdir()
-            if f.is_file() and (f == video_path or f.stem == stem or f.name.startswith(stem + '.'))
+            f
+            for f in parent.iterdir()
+            if f.is_file()
+            and (f == video_path or f.stem == stem or f.name.startswith(stem + "."))
         ],
         key=lambda p: p.name,
     )
 
 
-def process_incoming(incoming_dir, movies_dir, dry_run, api_key, language, fetch_metadata):
+def process_incoming(
+    incoming_dir, movies_dir, dry_run, api_key, language, fetch_metadata
+):
     """Process raw incoming video files via TMDb and build the target structure."""
     if not api_key:
-        raise ValueError('TMDb API key required for --incoming. Use --tmdb-api-key or TMDB_API_KEY.')
+        raise ValueError(
+            "TMDb API key required for --incoming. Use --tmdb-api-key or TMDB_API_KEY."
+        )
 
     print("=" * 60)
     print("Incoming processing\n")
 
     moved = 0
     incoming_videos = sorted(
-        f for f in incoming_dir.rglob('*')
+        f
+        for f in incoming_dir.rglob("*")
         if f.is_file() and f.suffix.lower() in VIDEO_EXTENSIONS
     )
 
@@ -1922,11 +2132,15 @@ def process_incoming(incoming_dir, movies_dir, dry_run, api_key, language, fetch
             print(f"[SKIP] {video_path.name} (no TMDb match)")
             continue
 
-        details = get_tmdb_movie_details(candidate['id'], api_key, language)
-        release_year = (details.get('release_date') or '')[:4] or year
-        fr_title = details.get('title') or title
-        clean_name = sanitize(f"{fr_title} ({release_year})") if release_year else sanitize(fr_title)
-        quality = detect_quality(video_path.name) or '1080p'
+        details = get_tmdb_movie_details(candidate["id"], api_key, language)
+        release_year = (details.get("release_date") or "")[:4] or year
+        fr_title = details.get("title") or title
+        clean_name = (
+            sanitize(f"{fr_title} ({release_year})")
+            if release_year
+            else sanitize(fr_title)
+        )
+        quality = detect_quality(video_path.name) or "1080p"
         target_dir = movies_dir / clean_name
         radical = nom_de_version(clean_name, quality)
 
@@ -1979,36 +2193,42 @@ def safe_move(src, dst, dry_run=False):
 
 def get_release_year(details, field):
     """Extract the year portion from a TMDb date field."""
-    value = details.get(field) or ''
+    value = details.get(field) or ""
     return value[:4] or None
 
 
 def is_anime_details(details):
     """Heuristic to route Japanese animation into the anime library."""
-    genre_ids = {genre.get('id') for genre in details.get('genres', []) if isinstance(genre, dict)}
-    countries = set(details.get('origin_country', []) or [])
+    genre_ids = {
+        genre.get("id")
+        for genre in details.get("genres", [])
+        if isinstance(genre, dict)
+    }
+    countries = set(details.get("origin_country", []) or [])
     countries.update(
-        country.get('iso_3166_1')
-        for country in details.get('production_countries', [])
+        country.get("iso_3166_1")
+        for country in details.get("production_countries", [])
         if isinstance(country, dict)
     )
-    original_language = (details.get('original_language') or '').lower()
-    return ANIMATION_GENRE_ID in genre_ids and (original_language == 'ja' or 'JP' in countries)
+    original_language = (details.get("original_language") or "").lower()
+    return ANIMATION_GENRE_ID in genre_ids and (
+        original_language == "ja" or "JP" in countries
+    )
 
 
 def pick_route_root(routes, routing, media_type, details):
     """Select the destination library root for a media item."""
     if is_anime_details(details):
-        if media_type == 'tv':
-            if routing.anime_series_to == 'series':
-                return routes.series, 'series'
-            return routes.anime, 'anime'
-        if routing.anime_movies_to == 'movies':
-            return routes.movies, 'movie'
-        return routes.anime, 'anime'
-    if media_type == 'tv':
-        return routes.series, 'series'
-    return routes.movies, 'movie'
+        if media_type == "tv":
+            if routing.anime_series_to == "series":
+                return routes.series, "series"
+            return routes.anime, "anime"
+        if routing.anime_movies_to == "movies":
+            return routes.movies, "movie"
+        return routes.anime, "anime"
+    if media_type == "tv":
+        return routes.series, "series"
+    return routes.movies, "movie"
 
 
 def display_relative(path, root):
@@ -2027,7 +2247,9 @@ def build_episode_code(season_number, episodes):
     return f"{base}-E{episodes[-1]:02d}"
 
 
-def get_episode_target_name(path, series_name, season_number, episodes, episode_title=None):
+def get_episode_target_name(
+    path, series_name, season_number, episodes, episode_title=None
+):
     """Build the destination filename for an imported TV/anime episode asset.
 
     The title belongs in the name. A bare code says nothing to the viewer, and
@@ -2036,16 +2258,28 @@ def get_episode_target_name(path, series_name, season_number, episodes, episode_
     import went astray. When TMDb has no title to offer, the bare code stands.
     """
     episode_code = build_episode_code(season_number, episodes)
-    title = sanitize(episode_title or '')
+    title = sanitize(episode_title or "")
     if title:
         episode_code = f"{episode_code} - {title}"
     series_name = sanitize(series_name)
     ext = path.suffix.lower()
-    if ext in ('.srt', '.sub', '.idx', '.ass', '.ssa', '.mkv', '.mp4', '.avi', '.wmv', '.m4v', '.mov'):
+    if ext in (
+        ".srt",
+        ".sub",
+        ".idx",
+        ".ass",
+        ".ssa",
+        ".mkv",
+        ".mp4",
+        ".avi",
+        ".wmv",
+        ".m4v",
+        ".mov",
+    ):
         return f"{series_name} - {episode_code}{path.suffix}"
-    if ext == '.nfo':
+    if ext == ".nfo":
         return f"{series_name} - {episode_code}.nfo"
-    if ext in ('.jpg', '.png', '.svg'):
+    if ext in (".jpg", ".png", ".svg"):
         return get_art_name(path)
     return path.name
 
@@ -2059,38 +2293,49 @@ def import_movie_item(item, config, dry_run, summary):
         summary.skipped_items += 1
         detail = f"[SKIP] {item.video_path.name} (unable to parse title/year)"
         summary.skipped_details.append(detail)
-        log_message(detail, 'warning')
+        log_message(detail, "warning")
         return
 
-    candidate = search_tmdb_movie(title, year, config.tmdb_api_key, config.tmdb_language)
+    candidate = search_tmdb_movie(
+        title, year, config.tmdb_api_key, config.tmdb_language
+    )
     if not candidate:
         summary.skipped_items += 1
         detail = f"[SKIP] {item.video_path.name} (no TMDb movie match)"
         summary.skipped_details.append(detail)
-        log_message(detail, 'warning')
+        log_message(detail, "warning")
         return
 
-    details = get_tmdb_movie_details(candidate['id'], config.tmdb_api_key, config.tmdb_language)
-    route_root, route_kind = pick_route_root(config.routes, config.routing, 'movie', details)
-    release_year = get_release_year(details, 'release_date') or year
-    localized_title = details.get('title') or title
-    clean_name = sanitize(f"{localized_title} ({release_year})") if release_year else sanitize(localized_title)
-    quality = detect_quality(item.video_path.name) or '1080p'
+    details = get_tmdb_movie_details(
+        candidate["id"], config.tmdb_api_key, config.tmdb_language
+    )
+    route_root, route_kind = pick_route_root(
+        config.routes, config.routing, "movie", details
+    )
+    release_year = get_release_year(details, "release_date") or year
+    localized_title = details.get("title") or title
+    clean_name = (
+        sanitize(f"{localized_title} ({release_year})")
+        if release_year
+        else sanitize(localized_title)
+    )
+    quality = detect_quality(item.video_path.name) or "1080p"
 
     # Un dossier au bon nom n'est pas forcement le bon dossier : on confronte
     # l'identifiant resolu a celui que le NFO declare avant d'y deverser quoi
     # que ce soit.
     dossier_film = route_root / clean_name
-    divergence = identite_du_dossier_diverge(dossier_film, candidate['id'])
-    if divergence == 'occupe':
+    divergence = identite_du_dossier_diverge(dossier_film, candidate["id"])
+    if divergence == "occupe":
         summary.skipped_items += 1
-        detail = (f"[SKIP] {item.video_path.name} "
-                  f"({clean_name} heberge deja un autre film)")
+        detail = (
+            f"[SKIP] {item.video_path.name} ({clean_name} heberge deja un autre film)"
+        )
         summary.skipped_details.append(detail)
-        log_message(detail, 'warning')
-        notifier(config, f"⚠️ {detail}", 'media')
+        log_message(detail, "warning")
+        notifier(config, f"⚠️ {detail}", "media")
         return
-    if divergence == 'perime':
+    if divergence == "perime":
         # Le film a quitte ce dossier en y laissant son NFO. Le garder ferait
         # croire au prochain passage que la place est prise.
         for nfo in list(get_dir_nfo_candidates(dossier_film)):
@@ -2103,7 +2348,9 @@ def import_movie_item(item, config, dry_run, summary):
     # versions d'un meme film cohabitant dans un seul dossier.
     radical = nom_de_version(clean_name, quality)
 
-    log_message(f"[IMPORT:{route_kind.upper()}] {item.video_path.name} -> {display_relative(target_dir, route_root)}/")
+    log_message(
+        f"[IMPORT:{route_kind.upper()}] {item.video_path.name} -> {display_relative(target_dir, route_root)}/"
+    )
     if not dry_run:
         target_dir.mkdir(parents=True, exist_ok=True)
 
@@ -2120,11 +2367,13 @@ def import_movie_item(item, config, dry_run, summary):
             log_message(f"    FETCH {nfo_path.name}")
         else:
             write_tmdb_nfo(nfo_path, details, config.tmdb_language)
-        fetch_tmdb_assets(details, target_dir, dry_run=dry_run, language=config.tmdb_language)
+        fetch_tmdb_assets(
+            details, target_dir, dry_run=dry_run, language=config.tmdb_language
+        )
 
     summary.imported_items += 1
     summary.moved_files += moved_now
-    if route_kind == 'anime':
+    if route_kind == "anime":
         summary.imported_anime += 1
     else:
         summary.imported_movies += 1
@@ -2138,9 +2387,11 @@ def import_tv_item(item, config, dry_run, summary):
     )
     if not title:
         summary.skipped_items += 1
-        detail = f"[SKIP] {item.video_path.name} (unable to parse series/episode pattern)"
+        detail = (
+            f"[SKIP] {item.video_path.name} (unable to parse series/episode pattern)"
+        )
         summary.skipped_details.append(detail)
-        log_message(detail, 'warning')
+        log_message(detail, "warning")
         return
 
     year_hint = None
@@ -2148,35 +2399,47 @@ def import_tv_item(item, config, dry_run, summary):
     if parent_title:
         year_hint = parent_year
 
-    inline_year = re.search(r'\((\d{4})\)\s*$', title)
+    inline_year = re.search(r"\((\d{4})\)\s*$", title)
     if inline_year:
         year_hint = year_hint or inline_year.group(1)
-        title = title[:inline_year.start()].strip(' -.')
+        title = title[: inline_year.start()].strip(" -.")
 
     if not year_hint:
         # Season-less releases often carry the year on the file itself, with or
         # without parentheses: "Show.1982.TV.Series.E01" / "Show.(2005).S01E01".
         file_year = re.search(
-            r'(?:^|[.\s_-])\(?((?:19|20)\d{2})\)?(?=[.\s_-])', item.video_path.stem
+            r"(?:^|[.\s_-])\(?((?:19|20)\d{2})\)?(?=[.\s_-])", item.video_path.stem
         )
         year_hint = file_year.group(1) if file_year else None
 
-    candidate = search_tmdb_tv(title, year_hint, config.tmdb_api_key, config.tmdb_language)
+    candidate = search_tmdb_tv(
+        title, year_hint, config.tmdb_api_key, config.tmdb_language
+    )
     if not candidate:
         summary.skipped_items += 1
         detail = f"[SKIP] {item.video_path.name} (no TMDb TV match)"
         summary.skipped_details.append(detail)
-        log_message(detail, 'warning')
+        log_message(detail, "warning")
         return
 
-    details = get_tmdb_tv_details(candidate['id'], config.tmdb_api_key, config.tmdb_language)
-    route_root, route_kind = pick_route_root(config.routes, config.routing, 'tv', details)
-    first_year = get_release_year(details, 'first_air_date') or year_hint
-    series_name = details.get('name') or title
-    clean_series_name = sanitize(f"{series_name} ({first_year})") if first_year else sanitize(series_name)
+    details = get_tmdb_tv_details(
+        candidate["id"], config.tmdb_api_key, config.tmdb_language
+    )
+    route_root, route_kind = pick_route_root(
+        config.routes, config.routing, "tv", details
+    )
+    first_year = get_release_year(details, "first_air_date") or year_hint
+    series_name = details.get("name") or title
+    clean_series_name = (
+        sanitize(f"{series_name} ({first_year})")
+        if first_year
+        else sanitize(series_name)
+    )
     show_dir = route_root / clean_series_name
     season_dir = show_dir / f"Season {season_number:02d}"
-    log_message(f"[IMPORT:{route_kind.upper()}] {item.video_path.name} -> {display_relative(season_dir, route_root)}/")
+    log_message(
+        f"[IMPORT:{route_kind.upper()}] {item.video_path.name} -> {display_relative(season_dir, route_root)}/"
+    )
     if not dry_run:
         season_dir.mkdir(parents=True, exist_ok=True)
 
@@ -2189,7 +2452,7 @@ def import_tv_item(item, config, dry_run, summary):
     if config.fetch_metadata:
         try:
             episode_details = get_tmdb_episode_details(
-                details['id'],
+                details["id"],
                 season_number,
                 episodes[0],
                 config.tmdb_api_key,
@@ -2199,13 +2462,17 @@ def import_tv_item(item, config, dry_run, summary):
             log_message(
                 f"    [WARN] TMDb has no {build_episode_code(season_number, episodes)} "
                 f"for {series_name}: {exc}",
-                'warning',
+                "warning",
             )
-    episode_title = (episode_details or {}).get('name')
+    episode_title = (episode_details or {}).get("name")
 
     moved_now = 0
     for related in item.related_files:
-        destination_parent = show_dir if related.suffix.lower() in ('.jpg', '.png', '.svg') else season_dir
+        destination_parent = (
+            show_dir
+            if related.suffix.lower() in (".jpg", ".png", ".svg")
+            else season_dir
+        )
         new_name = get_episode_target_name(
             related, series_name, season_number, episodes, episode_title
         )
@@ -2214,30 +2481,41 @@ def import_tv_item(item, config, dry_run, summary):
             moved_now += 1
 
     if config.fetch_metadata:
-        show_nfo_path = show_dir / 'tvshow.nfo'
+        show_nfo_path = show_dir / "tvshow.nfo"
         if dry_run:
             log_message(f"    FETCH {show_nfo_path.name}")
         else:
             write_tmdb_tvshow_nfo(show_nfo_path, details)
-        fetch_tmdb_assets(details, show_dir, dry_run=dry_run, language=config.tmdb_language)
+        fetch_tmdb_assets(
+            details, show_dir, dry_run=dry_run, language=config.tmdb_language
+        )
 
         # episode_details was fetched before the move, above. Without it there is
         # nothing to describe, so the episode NFO is skipped rather than written
         # empty — the warning has already been logged.
         if episode_details is not None:
             episode_nfo_name = get_episode_target_name(
-                Path(f"episode{item.video_path.suffix}"), series_name,
-                season_number, episodes, episode_title,
+                Path(f"episode{item.video_path.suffix}"),
+                series_name,
+                season_number,
+                episodes,
+                episode_title,
             )
-            episode_nfo_path = season_dir / Path(episode_nfo_name).with_suffix('.nfo')
+            episode_nfo_path = season_dir / Path(episode_nfo_name).with_suffix(".nfo")
             if dry_run:
                 log_message(f"    FETCH {episode_nfo_path.name}")
             else:
-                write_tmdb_episode_nfo(episode_nfo_path, details, episode_details, season_number, episodes[0])
+                write_tmdb_episode_nfo(
+                    episode_nfo_path,
+                    details,
+                    episode_details,
+                    season_number,
+                    episodes[0],
+                )
 
     summary.imported_items += 1
     summary.moved_files += moved_now
-    if route_kind == 'anime':
+    if route_kind == "anime":
         summary.imported_anime += 1
     else:
         summary.imported_series += 1
@@ -2247,7 +2525,11 @@ def import_tv_item(item, config, dry_run, summary):
 def prune_empty_directories(root_dir, dry_run=False):
     """Remove empty directories left behind in the inbox."""
     removed = 0
-    directories = sorted((d for d in root_dir.rglob('*') if d.is_dir()), key=lambda path: len(path.parts), reverse=True)
+    directories = sorted(
+        (d for d in root_dir.rglob("*") if d.is_dir()),
+        key=lambda path: len(path.parts),
+        reverse=True,
+    )
     for directory in directories:
         if any(directory.iterdir()):
             continue
@@ -2275,24 +2557,24 @@ def format_import_summary(summary, inbox_dir, dry_run=False):
         f"- errors: {summary.errors}",
     ]
     if summary.skipped_details:
-        lines.append('')
-        lines.append('Skipped:')
+        lines.append("")
+        lines.append("Skipped:")
         lines.extend(f"  {detail}" for detail in summary.skipped_details[:20])
     if summary.extracted_details:
-        lines.append('')
-        lines.append('Extracted:')
+        lines.append("")
+        lines.append("Extracted:")
         lines.extend(f"  {detail}" for detail in summary.extracted_details[:20])
     if summary.imported_details:
-        lines.append('')
-        lines.append('Imported:')
+        lines.append("")
+        lines.append("Imported:")
         lines.extend(f"  {detail}" for detail in summary.imported_details[:20])
-    return '\n'.join(lines)
+    return "\n".join(lines)
 
 
 def get_post_import_roots(config):
     """Return unique destination roots that should be reconciled after inbox import."""
     roots = [config.routes.movies]
-    if config.routing.anime_movies_to == 'anime':
+    if config.routing.anime_movies_to == "anime":
         roots.append(config.routes.anime)
 
     unique_roots = []
@@ -2319,7 +2601,9 @@ def run_post_import_reconciliation(config, dry_run=False):
     return total_moved
 
 
-ABSOLUTE_REGISTRY_PATH = Path(__file__).resolve().parent / 'media_automation' / 'shows_registry.toml'
+ABSOLUTE_REGISTRY_PATH = (
+    Path(__file__).resolve().parent / "media_automation" / "shows_registry.toml"
+)
 
 
 def load_absolute_shows(registry_path=None):
@@ -2334,9 +2618,11 @@ def load_absolute_shows(registry_path=None):
         LOGGER.warning("Absolute-show support unavailable: %s", exc)
         return []
     try:
-        return media_absolute_shows.load_registry(registry_path or ABSOLUTE_REGISTRY_PATH)
+        return media_absolute_shows.load_registry(
+            registry_path or ABSOLUTE_REGISTRY_PATH
+        )
     except Exception as exc:  # noqa: BLE001
-        log_message(f"[WARN] Registre des series absolues illisible: {exc}", 'warning')
+        log_message(f"[WARN] Registre des series absolues illisible: {exc}", "warning")
         return []
 
 
@@ -2345,6 +2631,7 @@ def match_absolute_show(filename, shows):
     if not shows:
         return None
     import media_absolute_shows
+
     return media_absolute_shows.match_show(filename, shows)
 
 
@@ -2353,9 +2640,9 @@ def _ecarter_episode(name, raison, summary, show=None, config=None):
     summary.skipped_items += 1
     detail = f"[SKIP] {name} ({raison})"
     summary.skipped_details.append(detail)
-    log_message(detail, 'warning')
+    log_message(detail, "warning")
     if show is not None and config is not None:
-        notifier(config, f"⚠️ {show.name}: {name}\n{raison}", 'media')
+        notifier(config, f"⚠️ {show.name}: {name}\n{raison}", "media")
 
 
 def import_absolute_item(item, show, config, dry_run, summary):
@@ -2369,11 +2656,13 @@ def import_absolute_item(item, show, config, dry_run, summary):
         summary.skipped_items += 1
         detail = f"[SKIP] {name} (table de conversion illisible: {exc})"
         summary.skipped_details.append(detail)
-        log_message(detail, 'warning')
+        log_message(detail, "warning")
         return
 
     try:
-        relative, season_number, episode_number = abs_shows.plan_episode(name, show, mapping)
+        relative, season_number, episode_number = abs_shows.plan_episode(
+            name, show, mapping
+        )
     except ValueError as exc:
         # La table ne se rafraichit qu'apres un import reussi : un episode
         # ecarte parce qu'il « depasse la bibliotheque » ne la met donc jamais
@@ -2381,12 +2670,14 @@ def import_absolute_item(item, show, config, dry_run, summary):
         # une fois, puis on retente — si l'episode etait simplement plus recent
         # que la table, il passe ; s'il est vraiment aberrant, il est ecarte
         # comme avant, mais sur des donnees fraiches.
-        if 'depasse la bibliotheque' in str(exc):
+        if "depasse la bibliotheque" in str(exc):
             try:
                 mapping = abs_shows.refresh_mapping(
-                    show, api_key=config.tmdb_api_key, language=config.tmdb_language)
+                    show, api_key=config.tmdb_api_key, language=config.tmdb_language
+                )
                 relative, season_number, episode_number = abs_shows.plan_episode(
-                    name, show, mapping)
+                    name, show, mapping
+                )
                 log_message(f"[INFO] Table {show.name} rafraichie, {name} accepte")
             except Exception:  # noqa: BLE001
                 _ecarter_episode(name, exc, summary, show, config)
@@ -2398,18 +2689,25 @@ def import_absolute_item(item, show, config, dry_run, summary):
     if show.tmdb_id and config.fetch_metadata and config.tmdb_api_key:
         try:
             episode_title = abs_shows.fetch_episode_title(
-                show, season_number, episode_number,
-                config.tmdb_api_key, config.tmdb_language)
+                show,
+                season_number,
+                episode_number,
+                config.tmdb_api_key,
+                config.tmdb_language,
+            )
         except Exception as exc:  # noqa: BLE001 - a missing title never blocks an import
             log_message(
                 f"[WARN] Titre TMDb introuvable pour {show.name} "
                 f"S{season_number:02d}E{episode_number:02d}: {exc}",
-                'warning',
+                "warning",
             )
     relative = abs_shows.remote_episode_path(
-        show, season_number, episode_number, Path(name).suffix, episode_title)
+        show, season_number, episode_number, Path(name).suffix, episode_title
+    )
     destination = f"{show.destination}/{relative}"
-    log_message(f"[IMPORT:REMOTE] {name} -> {show.name} S{season_number:02d}E{episode_number:02d}")
+    log_message(
+        f"[IMPORT:REMOTE] {name} -> {show.name} S{season_number:02d}E{episode_number:02d}"
+    )
 
     # Never overwrite an episode already present upstream.
     try:
@@ -2417,13 +2715,13 @@ def import_absolute_item(item, show, config, dry_run, summary):
             summary.skipped_items += 1
             detail = f"[SKIP] {name} (deja present: {relative})"
             summary.skipped_details.append(detail)
-            log_message(detail, 'warning')
+            log_message(detail, "warning")
             return
     except Exception as exc:  # noqa: BLE001
         summary.errors += 1
         detail = f"[ERROR] {name} (verification distante impossible: {exc})"
         summary.skipped_details.append(detail)
-        log_message(detail, 'warning')
+        log_message(detail, "warning")
         return
 
     if dry_run:
@@ -2438,8 +2736,8 @@ def import_absolute_item(item, show, config, dry_run, summary):
         summary.errors += 1
         detail = f"[ERROR] {name} (transfert distant echoue: {exc})"
         summary.skipped_details.append(detail)
-        log_message(detail, 'warning')
-        notifier(config, f"❌ {show.name}: transfert echoue\n{name}", 'media')
+        log_message(detail, "warning")
+        notifier(config, f"❌ {show.name}: transfert echoue\n{name}", "media")
         return
 
     print(f"    OK: {name} -> {relative}")
@@ -2448,27 +2746,35 @@ def import_absolute_item(item, show, config, dry_run, summary):
     summary.imported_details.append(f"{name} -> {destination}")
     notifier(
         config,
-        f"☁️ {show.name} S{season_number:02d}E{episode_number:02d} envoye sur Drive\n{relative}")
+        f"☁️ {show.name} S{season_number:02d}E{episode_number:02d} envoye sur Drive\n{relative}",
+    )
 
     # Keep the table in step so the next episode lands on the following slot.
     try:
         abs_shows.refresh_mapping(show)
     except Exception as exc:  # noqa: BLE001
-        log_message(f"[WARN] Table {show.name} non rafraichie: {exc}", 'warning')
+        log_message(f"[WARN] Table {show.name} non rafraichie: {exc}", "warning")
 
 
 def process_automation_inbox(config, dry_run=False):
     """Process the configured inbox in a cron-friendly, lock-protected way."""
-    lock_path = config.inbox.lock_file or (config.inbox.path / '.reorganize_movies.lock')
+    lock_path = config.inbox.lock_file or (
+        config.inbox.path / ".reorganize_movies.lock"
+    )
     summary = ImportSummary()
 
     with exclusive_lock(lock_path):
-        for route_root in (config.routes.movies, config.routes.series, config.routes.anime):
+        for route_root in (
+            config.routes.movies,
+            config.routes.series,
+            config.routes.anime,
+        ):
             if not dry_run:
                 route_root.mkdir(parents=True, exist_ok=True)
 
         if config.inbox.extract_archives:
             from media_extract_archives import extract_pending_archives
+
             for result in extract_pending_archives(
                 config.inbox.path,
                 stability_seconds=config.inbox.stability_seconds,
@@ -2479,7 +2785,7 @@ def process_automation_inbox(config, dry_run=False):
                 if result.extracted:
                     summary.extracted_archives += 1
                     summary.extracted_details.append(result.detail)
-                elif 'espace insuffisant' in result.detail:
+                elif "espace insuffisant" in result.detail:
                     summary.skipped_items += 1
                     summary.skipped_details.append(result.detail)
                 else:
@@ -2496,17 +2802,19 @@ def process_automation_inbox(config, dry_run=False):
                     f"(stabilite {config.inbox.stability_seconds}s)"
                 )
                 log_message(message)
-                notifier(config, message, 'media')
+                notifier(config, message, "media")
                 return summary
             log_message(f"[SCAN] No stable media detected in {config.inbox.path}")
             return summary
 
         detection_message = summarize_incoming_items(items, config.inbox.path)
         log_message(detection_message)
-        notifier(config, detection_message, 'media')
+        notifier(config, detection_message, "media")
 
         if not config.tmdb_api_key:
-            raise ValueError('TMDb API key required for inbox automation. Set it in config or TMDB_API_KEY.')
+            raise ValueError(
+                "TMDb API key required for inbox automation. Set it in config or TMDB_API_KEY."
+            )
 
         absolute_shows = load_absolute_shows()
 
@@ -2535,9 +2843,11 @@ def process_automation_inbox(config, dry_run=False):
         if summary.imported_items:
             run_post_import_reconciliation(config, dry_run=dry_run)
         prune_empty_directories(config.inbox.path, dry_run=dry_run)
-        summary_message = format_import_summary(summary, config.inbox.path, dry_run=dry_run)
+        summary_message = format_import_summary(
+            summary, config.inbox.path, dry_run=dry_run
+        )
         log_message(summary_message)
-        notifier(config, summary_message, 'media')
+        notifier(config, summary_message, "media")
         return summary
 
 
@@ -2558,12 +2868,20 @@ def phase_nfo(movies_dir, dry_run):
 
         related = find_related_files(nfo_path)
         video_files = [f for f in related if f.suffix in VIDEO_EXTENSIONS]
-        quality = detect_quality(video_files[0].name) if video_files else detect_quality(nfo_path.name)
+        quality = (
+            detect_quality(video_files[0].name)
+            if video_files
+            else detect_quality(nfo_path.name)
+        )
 
-        movies[clean_name].append({
-            'nfo': nfo_path, 'related': related,
-            'quality': quality, 'source_dir': nfo_path.parent,
-        })
+        movies[clean_name].append(
+            {
+                "nfo": nfo_path,
+                "related": related,
+                "quality": quality,
+                "source_dir": nfo_path.parent,
+            }
+        )
 
     moved = 0
     for clean_name, versions in sorted(movies.items()):
@@ -2574,9 +2892,9 @@ def phase_nfo(movies_dir, dry_run):
             print(f"[MULTI] {clean_name} ({len(versions)} versions)")
 
         for v in versions:
-            related = v['related']
-            quality = v['quality'] or '1080p'
-            source_dir = v['source_dir']
+            related = v["related"]
+            quality = v["quality"] or "1080p"
+            source_dir = v["source_dir"]
             # Plusieurs versions cohabitent desormais dans un seul dossier,
             # distinguees par leur nom : Emby les presente comme un film unique
             # assorti d'un selecteur de version.
@@ -2584,7 +2902,9 @@ def phase_nfo(movies_dir, dry_run):
             radical = nom_de_version(clean_name, quality) if is_multi else clean_name
 
             if source_dir == final_dir:
-                needs_work = any(get_new_filename(f, radical) != f.name for f in related)
+                needs_work = any(
+                    get_new_filename(f, radical) != f.name for f in related
+                )
                 if not needs_work:
                     for f in related:
                         handled_files.add(f)
@@ -2646,7 +2966,7 @@ def phase_orphans(movies_dir, handled_files, dry_run):
             print(f"[ORPHAN-MULTI] {clean_name}")
             by_quality = defaultdict(list)
             for f in files:
-                by_quality[detect_quality(f.name) or '1080p'].append(f)
+                by_quality[detect_quality(f.name) or "1080p"].append(f)
             for q, qfiles in sorted(by_quality.items()):
                 final_dir = target_dir / q
                 if not dry_run:
@@ -2685,20 +3005,20 @@ def phase_old_dirs(movies_dir, dry_run):
             continue
 
         has_video = any(f.suffix in VIDEO_EXTENSIONS for f in files)
-        has_nfo = any(f.suffix == '.nfo' for f in files)
-        is_art_only = all(f.suffix in ('.jpg', '.png', '.svg') for f in files)
+        has_nfo = any(f.suffix == ".nfo" for f in files)
+        is_art_only = all(f.suffix in (".jpg", ".png", ".svg") for f in files)
 
         # Dirs with NFO/video: parse and move
         if has_nfo or has_video:
             title, year = None, None
-            nfos = [f for f in files if f.suffix == '.nfo']
+            nfos = [f for f in files if f.suffix == ".nfo"]
             for nfo in nfos:
                 title, year = parse_nfo(nfo)
                 if title and year:
                     break
             if not title or not year:
                 # Try movie.nfo
-                movie_nfo = d / 'movie.nfo'
+                movie_nfo = d / "movie.nfo"
                 if movie_nfo.exists():
                     title, year = parse_nfo(movie_nfo)
             if not title:
@@ -2715,12 +3035,17 @@ def phase_old_dirs(movies_dir, dry_run):
                 if target_dir != d:
                     # Rejoindre un dossier occupe ne creuse plus de sous-dossier :
                     # c'est le nom du fichier qui evite la collision.
-                    quality = detect_quality(d.name) or '1080p'
-                    radical = (nom_de_version(clean_name, quality)
-                               if target_dir.exists() else clean_name)
+                    quality = detect_quality(d.name) or "1080p"
+                    radical = (
+                        nom_de_version(clean_name, quality)
+                        if target_dir.exists()
+                        else clean_name
+                    )
                     final_dir = target_dir
 
-                    print(f"[DIR-FIX] {d.name}/ -> {final_dir.relative_to(movies_dir)}/")
+                    print(
+                        f"[DIR-FIX] {d.name}/ -> {final_dir.relative_to(movies_dir)}/"
+                    )
                     if not dry_run:
                         final_dir.mkdir(parents=True, exist_ok=True)
 
@@ -2752,8 +3077,7 @@ def phase_old_dirs(movies_dir, dry_run):
             match, score = fuzzy_match_dir(d.name, proper_dirs)
             if match:
                 needs_art = any(
-                    not dir_has_art(match, get_art_name(f).split('.')[0])
-                    for f in files
+                    not dir_has_art(match, get_art_name(f).split(".")[0]) for f in files
                 )
                 if not needs_art:
                     if not dry_run:
@@ -2793,8 +3117,9 @@ def phase_aplatir_qualites(movies_dir, dry_run):
     print("Phase 4: Aplatir les sous-dossiers de qualite\n")
 
     moved = 0
-    for movie_dir in sorted(d for d in movies_dir.iterdir()
-                            if d.is_dir() and is_proper_dir(d)):
+    for movie_dir in sorted(
+        d for d in movies_dir.iterdir() if d.is_dir() and is_proper_dir(d)
+    ):
         if not get_quality_subdirs(movie_dir):
             continue
         print(f"[FLAT] {movie_dir.name}")
@@ -2828,9 +3153,11 @@ def phase_duplicate_dirs(movies_dir, dry_run):
                 # La qualite d'origine, qu'elle vienne d'un sous-dossier ou du
                 # nom, se retrouve dans le nom du fichier fusionne.
                 parts = src.relative_to(source_dir).parts
-                radical = (nom_de_version(target_dir.name, parts[0])
-                           if parts and parts[0] in QUALITY_DIR_NAMES
-                           else target_dir.name)
+                radical = (
+                    nom_de_version(target_dir.name, parts[0])
+                    if parts and parts[0] in QUALITY_DIR_NAMES
+                    else target_dir.name
+                )
                 dst = target_dir / get_consolidated_filename(src, radical)
 
                 if not dry_run:
@@ -2851,12 +3178,12 @@ def phase_cleanup(movies_dir, dry_run):
     print("Phase 6: Cleanup\n")
 
     # Fix unknown/ subdirs: merge into parent or rename to 1080p
-    unknown_dirs = sorted(movies_dir.rglob('unknown'))
+    unknown_dirs = sorted(movies_dir.rglob("unknown"))
     for u in unknown_dirs:
         if not u.is_dir():
             continue
         parent = u.parent
-        siblings = [d for d in parent.iterdir() if d.is_dir() and d.name != 'unknown']
+        siblings = [d for d in parent.iterdir() if d.is_dir() and d.name != "unknown"]
 
         if not siblings:
             # No quality siblings: move files up
@@ -2874,7 +3201,7 @@ def phase_cleanup(movies_dir, dry_run):
                     pass
         else:
             # Has quality siblings: rename to 1080p
-            target = parent / '1080p'
+            target = parent / "1080p"
             print(f"  [FIX] {parent.name}/unknown/ -> 1080p/")
             if not dry_run:
                 if target.exists():
@@ -2916,7 +3243,7 @@ def phase_report(movies_dir):
     remaining_dirs = []
     for d in sorted(movies_dir.iterdir()):
         if d.is_dir() and not is_proper_dir(d):
-            files = [f for f in d.rglob('*') if f.is_file()]
+            files = [f for f in d.rglob("*") if f.is_file()]
             if files:
                 remaining_dirs.append(d)
                 has_mkv = any(f.suffix in VIDEO_EXTENSIONS for f in files)
@@ -2933,27 +3260,37 @@ def phase_report(movies_dir):
         root_files = get_root_media_files(d)
         if root_files:
             split_layouts.append((d, root_files))
-            print(f"  [SPLIT] {d.name}/ ({len(root_files)} root files outside quality dirs)")
+            print(
+                f"  [SPLIT] {d.name}/ ({len(root_files)} root files outside quality dirs)"
+            )
 
     duplicate_groups = get_duplicate_groups(movies_dir)
     for group in duplicate_groups:
         print(f"  [DUP] {' | '.join(d.name for d in group)}")
 
-    remaining_loose = [f for f in sorted(movies_dir.iterdir())
-                       if f.is_file() and not is_script_file(f)]
+    remaining_loose = [
+        f for f in sorted(movies_dir.iterdir()) if f.is_file() and not is_script_file(f)
+    ]
     if remaining_loose:
         print()
         for f in remaining_loose:
             tag = "FILM" if f.suffix in VIDEO_EXTENSIONS else "FILE"
             print(f"  [{tag}] {f.name}")
 
-    if not remaining_dirs and not remaining_loose and not split_layouts and not duplicate_groups:
+    if (
+        not remaining_dirs
+        and not remaining_loose
+        and not split_layouts
+        and not duplicate_groups
+    ):
         print("  (none)")
 
     # Summary
     proper = sum(1 for d in movies_dir.iterdir() if d.is_dir() and is_proper_dir(d))
     print(f"\n  Properly organized: {proper} movies")
-    print(f"  Unresolved dirs:    {len(remaining_dirs) + len(split_layouts) + len(duplicate_groups)}")
+    print(
+        f"  Unresolved dirs:    {len(remaining_dirs) + len(split_layouts) + len(duplicate_groups)}"
+    )
     print(f"  Loose files:        {len(remaining_loose)}")
 
 
@@ -2970,8 +3307,11 @@ def phase_stats(movies_dir):
     multi_quality = []
 
     for d in proper_dirs:
-        subdirs = [s for s in d.iterdir() if s.is_dir() and s.name in
-                   ('2160p', '1080p', '720p', '480p')]
+        subdirs = [
+            s
+            for s in d.iterdir()
+            if s.is_dir() and s.name in ("2160p", "1080p", "720p", "480p")
+        ]
 
         if subdirs:
             qualities = sorted(s.name for s in subdirs)
@@ -2983,15 +3323,15 @@ def phase_stats(movies_dir):
             # Single version: detect quality from video file
             videos = [f for f in d.iterdir() if f.suffix in VIDEO_EXTENSIONS]
             if videos:
-                q = detect_quality(videos[0].name) or '1080p'
+                q = detect_quality(videos[0].name) or "1080p"
             else:
-                q = '1080p'
+                q = "1080p"
             quality_counts[q] += 1
 
     print(f"Total films: {len(proper_dirs)}\n")
 
     # Quality breakdown
-    quality_order = ['2160p', '1080p', '720p', '480p']
+    quality_order = ["2160p", "1080p", "720p", "480p"]
     print("Films par qualite:")
     for q in quality_order:
         if q in quality_counts:
@@ -3011,24 +3351,48 @@ def main():
     parser = argparse.ArgumentParser(
         description="Reorganize a movies directory into a clean Jellyfin/Plex/Kodi structure."
     )
-    parser.add_argument('directory', nargs='?', default='.',
-                        help='Path to movies directory (default: current directory)')
-    parser.add_argument('--config',
-                        help='Path to a TOML config file for automated inbox processing')
-    parser.add_argument('--scan-inbox', action='store_true',
-                        help='Process the configured inbox once (cron-friendly)')
-    parser.add_argument('--dry-run', action='store_true',
-                        help='Show what would be done without moving anything')
-    parser.add_argument('--stats', action='store_true',
-                        help='Show statistics: total films, multi-quality, per-quality counts')
-    parser.add_argument('--incoming',
-                        help='Path to a directory of newly downloaded files to identify and import')
-    parser.add_argument('--tmdb-api-key',
-                        help='TMDb API key (defaults to TMDB_API_KEY environment variable)')
-    parser.add_argument('--tmdb-language', default='fr-FR',
-                        help='Preferred TMDb language for title and metadata (default: fr-FR)')
-    parser.add_argument('--fetch-metadata', action='store_true',
-                        help='Download NFO and artwork from TMDb while processing --incoming')
+    parser.add_argument(
+        "directory",
+        nargs="?",
+        default=".",
+        help="Path to movies directory (default: current directory)",
+    )
+    parser.add_argument(
+        "--config", help="Path to a TOML config file for automated inbox processing"
+    )
+    parser.add_argument(
+        "--scan-inbox",
+        action="store_true",
+        help="Process the configured inbox once (cron-friendly)",
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Show what would be done without moving anything",
+    )
+    parser.add_argument(
+        "--stats",
+        action="store_true",
+        help="Show statistics: total films, multi-quality, per-quality counts",
+    )
+    parser.add_argument(
+        "--incoming",
+        help="Path to a directory of newly downloaded files to identify and import",
+    )
+    parser.add_argument(
+        "--tmdb-api-key",
+        help="TMDb API key (defaults to TMDB_API_KEY environment variable)",
+    )
+    parser.add_argument(
+        "--tmdb-language",
+        default="fr-FR",
+        help="Preferred TMDb language for title and metadata (default: fr-FR)",
+    )
+    parser.add_argument(
+        "--fetch-metadata",
+        action="store_true",
+        help="Download NFO and artwork from TMDb while processing --incoming",
+    )
 
     args = parser.parse_args()
 
@@ -3046,9 +3410,8 @@ def main():
             process_automation_inbox(config, dry_run=args.dry_run)
         except Exception as exc:
             LOGGER.exception("Automated inbox scan failed")
-            if 'config' in locals():
-                notifier(config, f"[ERROR] Automated inbox scan failed: {exc}",
-                         'media')
+            if "config" in locals():
+                notifier(config, f"[ERROR] Automated inbox scan failed: {exc}", "media")
             print(f"Error: {exc}", file=sys.stderr)
             sys.exit(1)
         return
@@ -3069,7 +3432,7 @@ def main():
         if not incoming_dir.is_dir():
             print(f"Error: {incoming_dir} is not a directory", file=sys.stderr)
             sys.exit(1)
-        api_key = args.tmdb_api_key or os.environ.get('TMDB_API_KEY')
+        api_key = args.tmdb_api_key or os.environ.get("TMDB_API_KEY")
         try:
             moved0 = process_incoming(
                 incoming_dir,
@@ -3099,5 +3462,5 @@ def main():
     print(f"\n  Total files {'to move' if args.dry_run else 'moved'}: {total}")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

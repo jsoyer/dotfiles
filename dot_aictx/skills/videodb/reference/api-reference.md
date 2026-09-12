@@ -8,8 +8,8 @@ Reference material for the VideoDB skill. For usage guidance and workflow select
 import videodb
 
 conn = videodb.connect(
-    api_key="your-api-key",      # or set VIDEO_DB_API_KEY env var
-    base_url=None,                # custom API endpoint (optional)
+    api_key="your-api-key",  # or set VIDEO_DB_API_KEY env var
+    base_url=None,  # custom API endpoint (optional)
 )
 ```
 
@@ -70,11 +70,11 @@ details = conn.get_transcode_details(job_id)
 from videodb import VideoConfig, ResizeMode
 
 config = VideoConfig(
-    resolution=720,              # Target resolution height (e.g. 480, 720, 1080)
-    quality=23,                  # Encoding quality (lower = better, default 23)
-    framerate=30,                # Target framerate
-    aspect_ratio="16:9",         # Target aspect ratio
-    resize_mode=ResizeMode.crop, # How to fit: crop, fit, or pad
+    resolution=720,  # Target resolution height (e.g. 480, 720, 1080)
+    quality=23,  # Encoding quality (lower = better, default 23)
+    framerate=30,  # Target framerate
+    aspect_ratio="16:9",  # Target aspect ratio
+    resize_mode=ResizeMode.crop,  # How to fit: crop, fit, or pad
 )
 ```
 
@@ -138,12 +138,12 @@ coll = conn.get_collection()
 
 ```python
 video = coll.upload(
-    url=None,            # Remote URL (HTTP, YouTube)
-    file_path=None,      # Local file path
-    media_type=None,     # "video", "audio", or "image" (auto-detected if omitted)
-    name=None,           # Custom name for the media
-    description=None,    # Description
-    callback_url=None,   # Webhook URL for async notification
+    url=None,  # Remote URL (HTTP, YouTube)
+    file_path=None,  # Local file path
+    media_type=None,  # "video", "audio", or "image" (auto-detected if omitted)
+    name=None,  # Custom name for the media
+    description=None,  # Description
+    callback_url=None,  # Webhook URL for async notification
 )
 ```
 
@@ -294,8 +294,8 @@ from videodb.asset import VideoAsset
 
 asset = VideoAsset(
     asset_id=video.id,
-    start=0,              # trim start (seconds)
-    end=None,             # trim end (seconds, None = full)
+    start=0,  # trim start (seconds)
+    end=None,  # trim end (seconds, None = full)
 )
 ```
 
@@ -308,9 +308,9 @@ asset = AudioAsset(
     asset_id=audio.id,
     start=0,
     end=None,
-    disable_other_tracks=True,   # mute original audio when True
-    fade_in_duration=0,          # seconds (max 5)
-    fade_out_duration=0,         # seconds (max 5)
+    disable_other_tracks=True,  # mute original audio when True
+    fade_in_duration=0,  # seconds (max 5)
+    fade_out_duration=0,  # seconds (max 5)
 )
 ```
 
@@ -321,11 +321,11 @@ from videodb.asset import ImageAsset
 
 asset = ImageAsset(
     asset_id=image.id,
-    duration=None,        # display duration (seconds)
-    width=100,            # display width
-    height=100,           # display height
-    x=80,                 # horizontal position (px from left)
-    y=20,                 # vertical position (px from top)
+    duration=None,  # display duration (seconds)
+    width=100,  # display width
+    height=100,  # display height
+    x=80,  # horizontal position (px from left)
+    y=20,  # vertical position (px from top)
 )
 ```
 
@@ -340,10 +340,10 @@ asset = TextAsset(
     style=TextStyle(
         fontsize=24,
         fontcolor="black",
-        boxcolor="white",       # background box colour
+        boxcolor="white",  # background box colour
         alpha=1.0,
         font="Sans",
-        text_align="T",         # text alignment within box
+        text_align="T",  # text alignment within box
     ),
 )
 ```
@@ -356,7 +356,7 @@ CaptionAsset belongs to the Editor API, which has its own Timeline, Track, and C
 from videodb.editor import CaptionAsset, FontStyling
 
 asset = CaptionAsset(
-    src="auto",                    # "auto" or base64 ASS string
+    src="auto",  # "auto" or base64 ASS string
     font=FontStyling(name="Clear Sans", size=30),
     primary_color="&H00FFFFFF",
 )
@@ -369,13 +369,13 @@ See [editor.md](editor.md#caption-overlays) for full CaptionAsset usage with the
 ```python
 results = video.search(
     query="your query",
-    search_type=SearchType.semantic,       # semantic, keyword, or scene
-    index_type=IndexType.spoken_word,      # spoken_word or scene
-    result_threshold=None,                 # max number of results
-    score_threshold=None,                  # minimum relevance score
-    dynamic_score_percentage=None,         # percentage of dynamic score
-    scene_index_id=None,                   # target a specific scene index (pass via **kwargs)
-    filter=[],                             # metadata filters for scene search
+    search_type=SearchType.semantic,  # semantic, keyword, or scene
+    index_type=IndexType.spoken_word,  # spoken_word or scene
+    result_threshold=None,  # max number of results
+    score_threshold=None,  # minimum relevance score
+    dynamic_score_percentage=None,  # percentage of dynamic score
+    scene_index_id=None,  # target a specific scene index (pass via **kwargs)
+    filter=[],  # metadata filters for scene search
 )
 ```
 
@@ -420,9 +420,9 @@ results = video.search("query", search_type=SearchType.semantic)
 meeting = coll.record_meeting(
     meeting_url="https://meet.google.com/...",
     bot_name="Bot",
-    callback_url=None,          # Webhook URL for status updates
-    callback_data=None,         # Optional dict passed through to callbacks
-    time_zone="UTC",            # Time zone for the meeting
+    callback_url=None,  # Webhook URL for status updates
+    callback_data=None,  # Optional dict passed through to callbacks
+    time_zone="UTC",  # Time zone for the meeting
 )
 ```
 
@@ -461,10 +461,10 @@ For capture sessions (desktop recording, CaptureClient, channels), see [capture-
 ```python
 from videodb import SearchType
 
-SearchType.semantic    # Natural language semantic search
-SearchType.keyword     # Exact keyword matching
-SearchType.scene       # Visual scene search (may require paid plan)
-SearchType.llm         # LLM-powered search
+SearchType.semantic  # Natural language semantic search
+SearchType.keyword  # Exact keyword matching
+SearchType.scene  # Visual scene search (may require paid plan)
+SearchType.llm  # LLM-powered search
 ```
 
 ### SceneExtractionType
@@ -472,9 +472,9 @@ SearchType.llm         # LLM-powered search
 ```python
 from videodb import SceneExtractionType
 
-SceneExtractionType.shot_based   # Automatic shot boundary detection
-SceneExtractionType.time_based   # Fixed time interval extraction
-SceneExtractionType.transcript   # Transcript-based scene extraction
+SceneExtractionType.shot_based  # Automatic shot boundary detection
+SceneExtractionType.time_based  # Fixed time interval extraction
+SceneExtractionType.transcript  # Transcript-based scene extraction
 ```
 
 ### SubtitleStyle
@@ -518,13 +518,13 @@ style = TextStyle(
 
 ```python
 from videodb import (
-    IndexType,          # spoken_word, scene
-    MediaType,          # video, audio, image
-    Segmenter,          # word, sentence, time
-    SegmentationType,   # sentence, llm
-    TranscodeMode,      # economy, lightning
-    ResizeMode,         # crop, fit, pad
-    ReframeMode,        # simple, smart
+    IndexType,  # spoken_word, scene
+    MediaType,  # video, audio, image
+    Segmenter,  # word, sentence, time
+    SegmentationType,  # sentence, llm
+    TranscodeMode,  # economy, lightning
+    ResizeMode,  # crop, fit, pad
+    ReframeMode,  # simple, smart
     RTStreamChannelType,
 )
 ```
@@ -533,11 +533,11 @@ from videodb import (
 
 ```python
 from videodb.exceptions import (
-    AuthenticationError,     # Invalid or missing API key
-    InvalidRequestError,     # Bad parameters or malformed request
-    RequestTimeoutError,     # Request timed out
-    SearchError,             # Search operation failure (e.g. not indexed)
-    VideodbError,            # Base exception for all VideoDB errors
+    AuthenticationError,  # Invalid or missing API key
+    InvalidRequestError,  # Bad parameters or malformed request
+    RequestTimeoutError,  # Request timed out
+    SearchError,  # Search operation failure (e.g. not indexed)
+    VideodbError,  # Base exception for all VideoDB errors
 )
 ```
 

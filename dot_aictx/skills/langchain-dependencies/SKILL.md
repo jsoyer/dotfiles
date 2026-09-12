@@ -366,10 +366,12 @@ from langchain_community.vectorstores import Chroma
 from langchain_community.vectorstores import Pinecone
 
 # CORRECT — use dedicated package imports
-from langchain_tavily import TavilySearch                  # pip: langchain-tavily (TavilySearchResults is deprecated)
+from langchain_tavily import (
+    TavilySearch,
+)  # pip: langchain-tavily (TavilySearchResults is deprecated)
 from langchain_community.tools import WikipediaQueryRun  # no dedicated pkg yet
-from langchain_chroma import Chroma                       # pip: langchain-chroma
-from langchain_pinecone import PineconeVectorStore        # pip: langchain-pinecone
+from langchain_chroma import Chroma  # pip: langchain-chroma
+from langchain_pinecone import PineconeVectorStore  # pip: langchain-pinecone
 ```
 
 To find the current canonical import for any integration, search the integrations directory:
@@ -406,6 +408,7 @@ Python 3.9 and below are not supported by LangChain 1.0.
 ```python
 # Verify before installing
 import sys
+
 assert sys.version_info >= (3, 10), "Python 3.10+ required for LangChain 1.0"
 ```
 </python>

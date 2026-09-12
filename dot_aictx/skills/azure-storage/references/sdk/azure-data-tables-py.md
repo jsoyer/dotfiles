@@ -14,7 +14,10 @@ pip install azure-data-tables azure-identity
 ```python
 from azure.data.tables import TableClient
 from azure.identity import DefaultAzureCredential
-table_client = TableClient("https://<account>.table.core.windows.net", "mytable", DefaultAzureCredential())
+
+table_client = TableClient(
+    "https://<account>.table.core.windows.net", "mytable", DefaultAzureCredential()
+)
 ```
 
 ## Best Practices

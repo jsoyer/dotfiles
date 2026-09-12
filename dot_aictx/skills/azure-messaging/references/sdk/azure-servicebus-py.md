@@ -20,13 +20,18 @@ Package: `azure-servicebus` | [README](https://github.com/Azure/azure-sdk-for-py
 import logging, sys
 
 handler = logging.StreamHandler(stream=sys.stdout)
-handler.setFormatter(logging.Formatter("%(asctime)s | %(threadName)s | %(levelname)s | %(name)s | %(message)s"))
-logger = logging.getLogger('azure.servicebus')
+handler.setFormatter(
+    logging.Formatter(
+        "%(asctime)s | %(threadName)s | %(levelname)s | %(name)s | %(message)s"
+    )
+)
+logger = logging.getLogger("azure.servicebus")
 logger.setLevel(logging.DEBUG)
 logger.addHandler(handler)
 
 # Enable AMQP frame tracing
 from azure.servicebus import ServiceBusClient
+
 client = ServiceBusClient(..., logging_enable=True)
 ```
 

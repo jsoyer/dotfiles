@@ -14,6 +14,7 @@ from anthropic import beta_tool
 
 client = anthropic.Anthropic()
 
+
 @beta_tool
 def get_weather(location: str, unit: str = "celsius") -> str:
     """Get current weather for a location.
@@ -24,6 +25,7 @@ def get_weather(location: str, unit: str = "celsius") -> str:
     """
     # Your implementation here
     return f"72°F and sunny in {location}"
+
 
 # The tool runner handles the agentic loop automatically
 runner = client.beta.messages.tool_runner(
@@ -104,13 +106,15 @@ resource = await mcp_client.read_resource(uri="file:///path/to/doc.txt")
 response = await client.beta.messages.create(
     model="claude-opus-4-6",
     max_tokens=1024,
-    messages=[{
-        "role": "user",
-        "content": [
-            mcp_resource_to_content(resource),
-            {"type": "text", "text": "Summarize this document"},
-        ],
-    }],
+    messages=[
+        {
+            "role": "user",
+            "content": [
+                mcp_resource_to_content(resource),
+                {"type": "text", "text": "Summarize this document"},
+            ],
+        }
+    ],
 )
 ```
 
@@ -141,10 +145,7 @@ messages = [{"role": "user", "content": user_input}]
 # Agentic loop: keep going until Claude stops calling tools
 while True:
     response = client.messages.create(
-        model="claude-opus-4-6",
-        max_tokens=4096,
-        tools=tools,
-        messages=messages
+        model="claude-opus-4-6", max_tokens=4096, tools=tools, messages=messages
     )
 
     # If Claude is done (no more tool calls), break
@@ -169,11 +170,13 @@ while True:
     tool_results = []
     for tool in tool_use_blocks:
         result = execute_tool(tool.name, tool.input)  # Your implementation
-        tool_results.append({
-            "type": "tool_result",
-            "tool_use_id": tool.id,  # Must match the tool_use block's id
-            "content": result
-        })
+        tool_results.append(
+            {
+                "type": "tool_result",
+                "tool_use_id": tool.id,  # Must match the tool_use block's id
+                "content": result,
+            }
+        )
 
     # Append tool results as a user message
     messages.append({"role": "user", "content": tool_results})
@@ -191,7 +194,7 @@ response = client.messages.create(
     model="claude-opus-4-6",
     max_tokens=1024,
     tools=tools,
-    messages=[{"role": "user", "content": "What's the weather in Paris?"}]
+    messages=[{"role": "user", "content": "What's the weather in Paris?"}],
 )
 
 for block in response.content:
@@ -211,13 +214,15 @@ for block in response.content:
                 {"role": "assistant", "content": response.content},
                 {
                     "role": "user",
-                    "content": [{
-                        "type": "tool_result",
-                        "tool_use_id": tool_use_id,
-                        "content": result
-                    }]
-                }
-            ]
+                    "content": [
+                        {
+                            "type": "tool_result",
+                            "tool_use_id": tool_use_id,
+                            "content": result,
+                        }
+                    ],
+                },
+            ],
         )
 ```
 
@@ -231,11 +236,9 @@ tool_results = []
 for block in response.content:
     if block.type == "tool_use":
         result = execute_tool(block.name, block.input)
-        tool_results.append({
-            "type": "tool_result",
-            "tool_use_id": block.id,
-            "content": result
-        })
+        tool_results.append(
+            {"type": "tool_result", "tool_use_id": block.id, "content": result}
+        )
 
 # Send all results back at once
 if tool_results:
@@ -246,8 +249,8 @@ if tool_results:
         messages=[
             *previous_messages,
             {"role": "assistant", "content": response.content},
-            {"role": "user", "content": tool_results}
-        ]
+            {"role": "user", "content": tool_results},
+        ],
     )
 ```
 
@@ -260,7 +263,7 @@ tool_result = {
     "type": "tool_result",
     "tool_use_id": tool_use_id,
     "content": "Error: Location 'xyz' not found. Please provide a valid city name.",
-    "is_error": True
+    "is_error": True,
 }
 ```
 
@@ -274,7 +277,7 @@ response = client.messages.create(
     max_tokens=1024,
     tools=tools,
     tool_choice={"type": "tool", "name": "get_weather"},  # Force specific tool
-    messages=[{"role": "user", "content": "What's the weather in Paris?"}]
+    messages=[{"role": "user", "content": "What's the weather in Paris?"}],
 )
 ```
 
@@ -292,14 +295,13 @@ client = anthropic.Anthropic()
 response = client.messages.create(
     model="claude-opus-4-6",
     max_tokens=4096,
-    messages=[{
-        "role": "user",
-        "content": "Calculate the mean and standard deviation of [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]"
-    }],
-    tools=[{
-        "type": "code_execution_20260120",
-        "name": "code_execution"
-    }]
+    messages=[
+        {
+            "role": "user",
+            "content": "Calculate the mean and standard deviation of [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]",
+        }
+    ],
+    tools=[{"type": "code_execution_20260120", "name": "code_execution"}],
 )
 
 for block in response.content:
@@ -321,14 +323,19 @@ response = client.messages.create(
     model="claude-opus-4-6",
     max_tokens=4096,
     extra_headers={"anthropic-beta": "files-api-2025-04-14"},
-    messages=[{
-        "role": "user",
-        "content": [
-            {"type": "text", "text": "Analyze this sales data. Show trends and create a visualization."},
-            {"type": "container_upload", "file_id": uploaded.id}
-        ]
-    }],
-    tools=[{"type": "code_execution_20260120", "name": "code_execution"}]
+    messages=[
+        {
+            "role": "user",
+            "content": [
+                {
+                    "type": "text",
+                    "text": "Analyze this sales data. Show trends and create a visualization.",
+                },
+                {"type": "container_upload", "file_id": uploaded.id},
+            ],
+        }
+    ],
+    tools=[{"type": "code_execution_20260120", "name": "code_execution"}],
 )
 ```
 
@@ -365,8 +372,13 @@ for block in response.content:
 response1 = client.messages.create(
     model="claude-opus-4-6",
     max_tokens=4096,
-    messages=[{"role": "user", "content": "Install tabulate and create data.json with sample data"}],
-    tools=[{"type": "code_execution_20260120", "name": "code_execution"}]
+    messages=[
+        {
+            "role": "user",
+            "content": "Install tabulate and create data.json with sample data",
+        }
+    ],
+    tools=[{"type": "code_execution_20260120", "name": "code_execution"}],
 )
 
 # Get container ID from response
@@ -377,8 +389,10 @@ response2 = client.messages.create(
     container=container_id,
     model="claude-opus-4-6",
     max_tokens=4096,
-    messages=[{"role": "user", "content": "Read data.json and display as a formatted table"}],
-    tools=[{"type": "code_execution_20260120", "name": "code_execution"}]
+    messages=[
+        {"role": "user", "content": "Read data.json and display as a formatted table"}
+    ],
+    tools=[{"type": "code_execution_20260120", "name": "code_execution"}],
 )
 ```
 
@@ -417,7 +431,9 @@ client = anthropic.Anthropic()
 response = client.messages.create(
     model="claude-opus-4-6",
     max_tokens=2048,
-    messages=[{"role": "user", "content": "Remember that my preferred language is Python."}],
+    messages=[
+        {"role": "user", "content": "Remember that my preferred language is Python."}
+    ],
     tools=[{"type": "memory_20250818", "name": "memory"}],
 )
 ```
@@ -429,6 +445,7 @@ Subclass `BetaAbstractMemoryTool`:
 ```python
 from anthropic.lib.tools import BetaAbstractMemoryTool
 
+
 class MyMemoryTool(BetaAbstractMemoryTool):
     def view(self, command): ...
     def create(self, command): ...
@@ -436,6 +453,7 @@ class MyMemoryTool(BetaAbstractMemoryTool):
     def insert(self, command): ...
     def delete(self, command): ...
     def rename(self, command): ...
+
 
 memory = MyMemoryTool()
 
@@ -466,6 +484,7 @@ from pydantic import BaseModel
 from typing import List
 import anthropic
 
+
 class ContactInfo(BaseModel):
     name: str
     email: str
@@ -473,22 +492,25 @@ class ContactInfo(BaseModel):
     interests: List[str]
     demo_requested: bool
 
+
 client = anthropic.Anthropic()
 
 response = client.messages.parse(
     model="claude-opus-4-6",
     max_tokens=1024,
-    messages=[{
-        "role": "user",
-        "content": "Extract: Jane Doe (jane@co.com) wants Enterprise, interested in API and SDKs, wants a demo."
-    }],
+    messages=[
+        {
+            "role": "user",
+            "content": "Extract: Jane Doe (jane@co.com) wants Enterprise, interested in API and SDKs, wants a demo.",
+        }
+    ],
     output_format=ContactInfo,
 )
 
 # response.parsed_output is a validated ContactInfo instance
 contact = response.parsed_output
-print(contact.name)           # "Jane Doe"
-print(contact.interests)      # ["API", "SDKs"]
+print(contact.name)  # "Jane Doe"
+print(contact.interests)  # ["API", "SDKs"]
 ```
 
 ### Raw Schema
@@ -497,10 +519,12 @@ print(contact.interests)      # ["API", "SDKs"]
 response = client.messages.create(
     model="claude-opus-4-6",
     max_tokens=1024,
-    messages=[{
-        "role": "user",
-        "content": "Extract info: John Smith (john@example.com) wants the Enterprise plan."
-    }],
+    messages=[
+        {
+            "role": "user",
+            "content": "Extract info: John Smith (john@example.com) wants the Enterprise plan.",
+        }
+    ],
     output_config={
         "format": {
             "type": "json_schema",
@@ -510,16 +534,17 @@ response = client.messages.create(
                     "name": {"type": "string"},
                     "email": {"type": "string"},
                     "plan": {"type": "string"},
-                    "demo_requested": {"type": "boolean"}
+                    "demo_requested": {"type": "boolean"},
                 },
                 "required": ["name", "email", "plan", "demo_requested"],
-                "additionalProperties": False
-            }
+                "additionalProperties": False,
+            },
         }
-    }
+    },
 )
 
 import json
+
 data = json.loads(response.content[0].text)
 ```
 
@@ -529,22 +554,29 @@ data = json.loads(response.content[0].text)
 response = client.messages.create(
     model="claude-opus-4-6",
     max_tokens=1024,
-    messages=[{"role": "user", "content": "Book a flight to Tokyo for 2 passengers on March 15"}],
-    tools=[{
-        "name": "book_flight",
-        "description": "Book a flight to a destination",
-        "strict": True,
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "destination": {"type": "string"},
-                "date": {"type": "string", "format": "date"},
-                "passengers": {"type": "integer", "enum": [1, 2, 3, 4, 5, 6, 7, 8]}
-            },
-            "required": ["destination", "date", "passengers"],
-            "additionalProperties": False
+    messages=[
+        {
+            "role": "user",
+            "content": "Book a flight to Tokyo for 2 passengers on March 15",
         }
-    }]
+    ],
+    tools=[
+        {
+            "name": "book_flight",
+            "description": "Book a flight to a destination",
+            "strict": True,
+            "input_schema": {
+                "type": "object",
+                "properties": {
+                    "destination": {"type": "string"},
+                    "date": {"type": "string", "format": "date"},
+                    "passengers": {"type": "integer", "enum": [1, 2, 3, 4, 5, 6, 7, 8]},
+                },
+                "required": ["destination", "date", "passengers"],
+                "additionalProperties": False,
+            },
+        }
+    ],
 )
 ```
 
@@ -562,26 +594,28 @@ response = client.messages.create(
                 "type": "object",
                 "properties": {
                     "summary": {"type": "string"},
-                    "next_steps": {"type": "array", "items": {"type": "string"}}
+                    "next_steps": {"type": "array", "items": {"type": "string"}},
                 },
                 "required": ["summary", "next_steps"],
-                "additionalProperties": False
-            }
+                "additionalProperties": False,
+            },
         }
     },
-    tools=[{
-        "name": "search_flights",
-        "description": "Search for available flights",
-        "strict": True,
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "destination": {"type": "string"},
-                "date": {"type": "string", "format": "date"}
+    tools=[
+        {
+            "name": "search_flights",
+            "description": "Search for available flights",
+            "strict": True,
+            "input_schema": {
+                "type": "object",
+                "properties": {
+                    "destination": {"type": "string"},
+                    "date": {"type": "string", "format": "date"},
+                },
+                "required": ["destination", "date"],
+                "additionalProperties": False,
             },
-            "required": ["destination", "date"],
-            "additionalProperties": False
         }
-    }]
+    ],
 )
 ```

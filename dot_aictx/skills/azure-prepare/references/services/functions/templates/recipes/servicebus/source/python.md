@@ -12,18 +12,19 @@ import os
 
 app = func.FunctionApp()
 
+
 # Service Bus Queue Trigger
 # Connection uses UAMI via ServiceBusConnection__fullyQualifiedNamespace + credential + clientId
 @app.service_bus_queue_trigger(
     arg_name="msg",
     queue_name="%SERVICEBUS_QUEUE_NAME%",
-    connection="ServiceBusConnection"
+    connection="ServiceBusConnection",
 )
 def servicebus_trigger(msg: func.ServiceBusMessage) -> None:
     """Process messages from Service Bus queue."""
-    message_body = msg.get_body().decode('utf-8')
+    message_body = msg.get_body().decode("utf-8")
     logging.info(f"Service Bus trigger processed message: {message_body}")
-    
+
     # Log message metadata
     logging.info(f"Message ID: {msg.message_id}")
     logging.info(f"Delivery count: {msg.delivery_count}")
@@ -35,7 +36,7 @@ def servicebus_trigger(msg: func.ServiceBusMessage) -> None:
 @app.service_bus_queue_output(
     arg_name="message",
     queue_name="%SERVICEBUS_QUEUE_NAME%",
-    connection="ServiceBusConnection"
+    connection="ServiceBusConnection",
 )
 def send_message(req: func.HttpRequest, message: func.Out[str]) -> func.HttpResponse:
     """Send a message to Service Bus queue via HTTP POST."""
@@ -47,13 +48,13 @@ def send_message(req: func.HttpRequest, message: func.Out[str]) -> func.HttpResp
         return func.HttpResponse(
             json.dumps({"status": "sent", "data": body}),
             mimetype="application/json",
-            status_code=200
+            status_code=200,
         )
     except ValueError:
         return func.HttpResponse(
             json.dumps({"error": "Invalid JSON"}),
             mimetype="application/json",
-            status_code=400
+            status_code=400,
         )
 
 
@@ -62,12 +63,14 @@ def send_message(req: func.HttpRequest, message: func.Out[str]) -> func.HttpResp
 def health_check(req: func.HttpRequest) -> func.HttpResponse:
     """Health check endpoint."""
     return func.HttpResponse(
-        json.dumps({
-            "status": "healthy",
-            "queue": os.environ.get("SERVICEBUS_QUEUE_NAME", "not-set")
-        }),
+        json.dumps(
+            {
+                "status": "healthy",
+                "queue": os.environ.get("SERVICEBUS_QUEUE_NAME", "not-set"),
+            }
+        ),
         mimetype="application/json",
-        status_code=200
+        status_code=200,
     )
 ```
 

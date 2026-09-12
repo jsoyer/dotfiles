@@ -6,16 +6,17 @@
 import anyio
 from claude_agent_sdk import query, ClaudeAgentOptions, ResultMessage
 
+
 async def main():
     async for message in query(
         prompt="Explain what this repository does",
         options=ClaudeAgentOptions(
-            cwd="/path/to/project",
-            allowed_tools=["Read", "Glob", "Grep"]
-        )
+            cwd="/path/to/project", allowed_tools=["Read", "Glob", "Grep"]
+        ),
     ):
         if isinstance(message, ResultMessage):
             print(message.result)
+
 
 anyio.run(main)
 ```
@@ -37,12 +38,19 @@ from claude_agent_sdk import (
     TextBlock,
 )
 
+
 @tool("get_weather", "Get the current weather for a location", {"location": str})
 async def get_weather(args):
     location = args["location"]
-    return {"content": [{"type": "text", "text": f"The weather in {location} is sunny and 72°F."}]}
+    return {
+        "content": [
+            {"type": "text", "text": f"The weather in {location} is sunny and 72°F."}
+        ]
+    }
+
 
 server = create_sdk_mcp_server("weather-tools", tools=[get_weather])
+
 
 async def main():
     options = ClaudeAgentOptions(mcp_servers={"weather": server})
@@ -53,6 +61,7 @@ async def main():
                 for block in message.content:
                     if isinstance(block, TextBlock):
                         print(block.text)
+
 
 anyio.run(main)
 ```
@@ -70,11 +79,13 @@ import anyio
 from datetime import datetime
 from claude_agent_sdk import query, ClaudeAgentOptions, HookMatcher, ResultMessage
 
+
 async def log_file_change(input_data, tool_use_id, context):
-    file_path = input_data.get('tool_input', {}).get('file_path', 'unknown')
-    with open('./audit.log', 'a') as f:
+    file_path = input_data.get("tool_input", {}).get("file_path", "unknown")
+    with open("./audit.log", "a") as f:
         f.write(f"{datetime.now()}: modified {file_path}\n")
     return {}
+
 
 async def main():
     async for message in query(
@@ -83,12 +94,15 @@ async def main():
             allowed_tools=["Read", "Edit", "Write"],
             permission_mode="acceptEdits",
             hooks={
-                "PostToolUse": [HookMatcher(matcher="Edit|Write", hooks=[log_file_change])]
-            }
-        )
+                "PostToolUse": [
+                    HookMatcher(matcher="Edit|Write", hooks=[log_file_change])
+                ]
+            },
+        ),
     ):
         if isinstance(message, ResultMessage):
             print(message.result)
+
 
 anyio.run(main)
 ```
@@ -101,6 +115,7 @@ anyio.run(main)
 import anyio
 from claude_agent_sdk import query, ClaudeAgentOptions, AgentDefinition, ResultMessage
 
+
 async def main():
     async for message in query(
         prompt="Use the code-reviewer agent to review this codebase",
@@ -110,13 +125,14 @@ async def main():
                 "code-reviewer": AgentDefinition(
                     description="Expert code reviewer for quality and security reviews.",
                     prompt="Analyze code quality and suggest improvements.",
-                    tools=["Read", "Glob", "Grep"]
+                    tools=["Read", "Glob", "Grep"],
                 )
-            }
-        )
+            },
+        ),
     ):
         if isinstance(message, ResultMessage):
             print(message.result)
+
 
 anyio.run(main)
 ```
@@ -131,6 +147,7 @@ anyio.run(main)
 import anyio
 from claude_agent_sdk import query, ClaudeAgentOptions, ResultMessage
 
+
 async def main():
     async for message in query(
         prompt="Open example.com and describe what you see",
@@ -138,10 +155,11 @@ async def main():
             mcp_servers={
                 "playwright": {"command": "npx", "args": ["@playwright/mcp@latest"]}
             }
-        )
+        ),
     ):
         if isinstance(message, ResultMessage):
             print(message.result)
+
 
 anyio.run(main)
 ```
@@ -153,6 +171,7 @@ import os
 import anyio
 from claude_agent_sdk import query, ClaudeAgentOptions, ResultMessage
 
+
 async def main():
     async for message in query(
         prompt="Show me the top 10 users by order count",
@@ -161,13 +180,14 @@ async def main():
                 "postgres": {
                     "command": "npx",
                     "args": ["-y", "@modelcontextprotocol/server-postgres"],
-                    "env": {"DATABASE_URL": os.environ["DATABASE_URL"]}
+                    "env": {"DATABASE_URL": os.environ["DATABASE_URL"]},
                 }
             }
-        )
+        ),
     ):
         if isinstance(message, ResultMessage):
             print(message.result)
+
 
 anyio.run(main)
 ```
@@ -180,14 +200,15 @@ anyio.run(main)
 import anyio
 from claude_agent_sdk import query, ClaudeAgentOptions
 
+
 async def main():
     # Default: prompt for dangerous operations
     async for message in query(
         prompt="Delete all test files",
         options=ClaudeAgentOptions(
             allowed_tools=["Bash"],
-            permission_mode="default"  # Will prompt before deleting
-        )
+            permission_mode="default",  # Will prompt before deleting
+        ),
     ):
         pass
 
@@ -195,9 +216,8 @@ async def main():
     async for message in query(
         prompt="Refactor the auth system",
         options=ClaudeAgentOptions(
-            allowed_tools=["Read", "Edit"],
-            permission_mode="plan"
-        )
+            allowed_tools=["Read", "Edit"], permission_mode="plan"
+        ),
     ):
         pass
 
@@ -205,9 +225,8 @@ async def main():
     async for message in query(
         prompt="Refactor this module",
         options=ClaudeAgentOptions(
-            allowed_tools=["Read", "Edit"],
-            permission_mode="acceptEdits"
-        )
+            allowed_tools=["Read", "Edit"], permission_mode="acceptEdits"
+        ),
     ):
         pass
 
@@ -217,10 +236,11 @@ async def main():
         options=ClaudeAgentOptions(
             allowed_tools=["Bash", "Write"],
             permission_mode="bypassPermissions",
-            allow_dangerously_skip_permissions=True
-        )
+            allow_dangerously_skip_permissions=True,
+        ),
     ):
         pass
+
 
 anyio.run(main)
 ```
@@ -240,14 +260,14 @@ from claude_agent_sdk import (
     ResultMessage,
 )
 
+
 async def run_with_recovery():
     try:
         async for message in query(
             prompt="Fix the failing tests",
             options=ClaudeAgentOptions(
-                allowed_tools=["Read", "Edit", "Bash"],
-                max_turns=10
-            )
+                allowed_tools=["Read", "Edit", "Bash"], max_turns=10
+            ),
         ):
             if isinstance(message, ResultMessage):
                 print(message.result)
@@ -257,6 +277,7 @@ async def run_with_recovery():
         print(f"Connection error: {e}")
     except ProcessError as e:
         print(f"Process error: {e}")
+
 
 anyio.run(run_with_recovery)
 ```
@@ -269,13 +290,14 @@ anyio.run(run_with_recovery)
 import anyio
 from claude_agent_sdk import query, ClaudeAgentOptions, ResultMessage, SystemMessage
 
+
 async def main():
     session_id = None
 
     # First query: capture the session ID
     async for message in query(
         prompt="Read the authentication module",
-        options=ClaudeAgentOptions(allowed_tools=["Read", "Glob"])
+        options=ClaudeAgentOptions(allowed_tools=["Read", "Glob"]),
     ):
         if isinstance(message, SystemMessage) and message.subtype == "init":
             session_id = message.session_id
@@ -283,10 +305,11 @@ async def main():
     # Resume with full context from the first query
     async for message in query(
         prompt="Now find all places that call it",  # "it" = auth module
-        options=ClaudeAgentOptions(resume=session_id)
+        options=ClaudeAgentOptions(resume=session_id),
     ):
         if isinstance(message, ResultMessage):
             print(message.result)
+
 
 anyio.run(main)
 ```
@@ -299,6 +322,7 @@ anyio.run(main)
 import anyio
 from claude_agent_sdk import query, ClaudeAgentOptions, ResultMessage
 
+
 async def main():
     async for message in query(
         prompt="Review this code",
@@ -309,11 +333,12 @@ async def main():
 2. Performance issues
 3. Code maintainability
 
-Always provide specific line numbers and suggestions for improvement."""
-        )
+Always provide specific line numbers and suggestions for improvement.""",
+        ),
     ):
         if isinstance(message, ResultMessage):
             print(message.result)
+
 
 anyio.run(main)
 ```

@@ -126,21 +126,22 @@ from inferencesh import inference
 client = inference()
 
 # Basic generation
-result = client.run({
-    "app": "google/gemini-3-1-flash-image-preview@0c7ma1ex",
-    "input": {
-        "prompt": "A banana in space, photorealistic"
+result = client.run(
+    {
+        "app": "google/gemini-3-1-flash-image-preview@0c7ma1ex",
+        "input": {"prompt": "A banana in space, photorealistic"},
     }
-})
+)
 print(result["output"])
 
 # Stream live updates
-for update in client.run({
-    "app": "google/gemini-3-1-flash-image-preview@0c7ma1ex",
-    "input": {
-        "prompt": "A futuristic cityscape at sunset"
-    }
-}, stream=True):
+for update in client.run(
+    {
+        "app": "google/gemini-3-1-flash-image-preview@0c7ma1ex",
+        "input": {"prompt": "A futuristic cityscape at sunset"},
+    },
+    stream=True,
+):
     if update.get("progress"):
         print(f"progress: {update['progress']}%")
     if update.get("output"):

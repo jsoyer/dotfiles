@@ -331,54 +331,79 @@ import pandas as pd
 import numpy as np
 from sklearn.cluster import KMeans
 
+
 def customer_segmentation_analysis(df: pd.DataFrame) -> pd.DataFrame:
     """Perform RFM analysis and customer segmentation using K-Means clustering."""
-    current_date = df['date'].max()
-    rfm = df.groupby('customer_id').agg({
-        'date': lambda x: (current_date - x.max()).days,   # Recency
-        'order_id': 'count',                                # Frequency
-        'revenue': 'sum'                                    # Monetary
-    }).rename(columns={'date': 'recency', 'order_id': 'frequency', 'revenue': 'monetary'})
+    current_date = df["date"].max()
+    rfm = (
+        df.groupby("customer_id")
+        .agg(
+            {
+                "date": lambda x: (current_date - x.max()).days,  # Recency
+                "order_id": "count",  # Frequency
+                "revenue": "sum",  # Monetary
+            }
+        )
+        .rename(
+            columns={"date": "recency", "order_id": "frequency", "revenue": "monetary"}
+        )
+    )
 
     # Create RFM scores via quintile binning
-    rfm['r_score'] = pd.qcut(rfm['recency'], 5, labels=[5, 4, 3, 2, 1])
-    rfm['f_score'] = pd.qcut(rfm['frequency'].rank(method='first'), 5, labels=[1, 2, 3, 4, 5])
-    rfm['m_score'] = pd.qcut(rfm['monetary'], 5, labels=[1, 2, 3, 4, 5])
+    rfm["r_score"] = pd.qcut(rfm["recency"], 5, labels=[5, 4, 3, 2, 1])
+    rfm["f_score"] = pd.qcut(
+        rfm["frequency"].rank(method="first"), 5, labels=[1, 2, 3, 4, 5]
+    )
+    rfm["m_score"] = pd.qcut(rfm["monetary"], 5, labels=[1, 2, 3, 4, 5])
 
-    rfm['rfm_score'] = (
-        rfm['r_score'].astype(str) + rfm['f_score'].astype(str) + rfm['m_score'].astype(str)
+    rfm["rfm_score"] = (
+        rfm["r_score"].astype(str)
+        + rfm["f_score"].astype(str)
+        + rfm["m_score"].astype(str)
     )
 
     def segment_customers(row):
-        score = row['rfm_score']
-        if score in ['555', '554', '544', '545', '454', '455', '445']:
-            return 'Champions'
-        elif score in ['543', '444', '435', '355', '354', '345', '344', '335']:
-            return 'Loyal Customers'
-        elif score in ['553', '551', '552', '541', '542', '533', '532', '531', '452', '451']:
-            return 'Potential Loyalists'
-        elif score in ['512', '511', '422', '421', '412', '411', '311']:
-            return 'New Customers'
-        elif score in ['155', '154', '144', '214', '215', '115', '114']:
-            return 'At Risk'
+        score = row["rfm_score"]
+        if score in ["555", "554", "544", "545", "454", "455", "445"]:
+            return "Champions"
+        elif score in ["543", "444", "435", "355", "354", "345", "344", "335"]:
+            return "Loyal Customers"
+        elif score in [
+            "553",
+            "551",
+            "552",
+            "541",
+            "542",
+            "533",
+            "532",
+            "531",
+            "452",
+            "451",
+        ]:
+            return "Potential Loyalists"
+        elif score in ["512", "511", "422", "421", "412", "411", "311"]:
+            return "New Customers"
+        elif score in ["155", "154", "144", "214", "215", "115", "114"]:
+            return "At Risk"
         else:
-            return 'Others'
+            return "Others"
 
-    rfm['segment'] = rfm.apply(segment_customers, axis=1)
+    rfm["segment"] = rfm.apply(segment_customers, axis=1)
     return rfm
+
 
 def generate_customer_insights(rfm_df: pd.DataFrame) -> dict:
     """Generate actionable insights and recommendations per segment."""
     return {
-        'total_customers': len(rfm_df),
-        'segment_distribution': rfm_df['segment'].value_counts().to_dict(),
-        'avg_clv_by_segment': rfm_df.groupby('segment')['monetary'].mean().to_dict(),
-        'recommendations': {
-            'Champions': 'Reward loyalty, ask for referrals, upsell premium products',
-            'Loyal Customers': 'Nurture relationship, recommend new products, loyalty programs',
-            'At Risk': 'Re-engagement campaigns, special offers, win-back strategies',
-            'New Customers': 'Onboarding optimization, early engagement, product education',
-        }
+        "total_customers": len(rfm_df),
+        "segment_distribution": rfm_df["segment"].value_counts().to_dict(),
+        "avg_clv_by_segment": rfm_df.groupby("segment")["monetary"].mean().to_dict(),
+        "recommendations": {
+            "Champions": "Reward loyalty, ask for referrals, upsell premium products",
+            "Loyal Customers": "Nurture relationship, recommend new products, loyalty programs",
+            "At Risk": "Re-engagement campaigns, special offers, win-back strategies",
+            "New Customers": "Onboarding optimization, early engagement, product education",
+        },
     }
 ```
 

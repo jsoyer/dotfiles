@@ -197,6 +197,7 @@ Retry-After: 3600
 from fastapi import HTTPException, Request
 from datetime import datetime, timedelta
 
+
 class RateLimiter:
     def __init__(self, calls: int, period: int):
         self.calls = calls
@@ -210,8 +211,7 @@ class RateLimiter:
 
         # Remove old requests
         self.cache[key] = [
-            ts for ts in self.cache[key]
-            if now - ts < timedelta(seconds=self.period)
+            ts for ts in self.cache[key] if now - ts < timedelta(seconds=self.period)
         ]
 
         if len(self.cache[key]) >= self.calls:
@@ -220,15 +220,14 @@ class RateLimiter:
         self.cache[key].append(now)
         return True
 
+
 limiter = RateLimiter(calls=100, period=60)
+
 
 @app.get("/api/users")
 async def get_users(request: Request):
     if not limiter.check(request.client.host):
-        raise HTTPException(
-            status_code=429,
-            headers={"Retry-After": "60"}
-        )
+        raise HTTPException(status_code=429, headers={"Retry-After": "60"})
     return {"users": [...]}
 ```
 
@@ -361,18 +360,17 @@ app = FastAPI(
     description="API for managing users",
     version="1.0.0",
     docs_url="/docs",
-    redoc_url="/redoc"
+    redoc_url="/redoc",
 )
+
 
 @app.get(
     "/api/users/{user_id}",
     summary="Get user by ID",
     response_description="User details",
-    tags=["Users"]
+    tags=["Users"],
 )
-async def get_user(
-    user_id: str = Path(..., description="The user ID")
-):
+async def get_user(user_id: str = Path(..., description="The user ID")):
     """
     Retrieve user by ID.
 
@@ -392,8 +390,9 @@ async def health_check():
     return {
         "status": "healthy",
         "version": "1.0.0",
-        "timestamp": datetime.now().isoformat()
+        "timestamp": datetime.now().isoformat(),
     }
+
 
 @app.get("/health/detailed")
 async def detailed_health():
@@ -402,7 +401,7 @@ async def detailed_health():
         "checks": {
             "database": await check_database(),
             "redis": await check_redis(),
-            "external_api": await check_external_api()
-        }
+            "external_api": await check_external_api(),
+        },
     }
 ```

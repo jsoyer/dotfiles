@@ -132,7 +132,9 @@ bnb_config = BitsAndBytesConfig(
     bnb_4bit_compute_dtype=torch.bfloat16,
     bnb_4bit_use_double_quant=True,
 )
-model = AutoModelForCausalLM.from_pretrained(model_id, quantization_config=bnb_config, device_map="auto")
+model = AutoModelForCausalLM.from_pretrained(
+    model_id, quantization_config=bnb_config, device_map="auto"
+)
 ```
 
 **Merge adapter into base model for deployment:**

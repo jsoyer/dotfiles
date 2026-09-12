@@ -36,8 +36,10 @@ import re
 app = FastAPI()
 security = HTTPBearer()
 
+
 class UserInput(BaseModel):
     """Input validation with strict constraints."""
+
     username: str = Field(..., min_length=3, max_length=30)
     email: str = Field(..., max_length=254)
 

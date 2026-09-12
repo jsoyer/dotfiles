@@ -75,20 +75,19 @@ See the [References](#references) section for detailed implementation guides. Qu
 **AWS Chalice:**
 ```python
 from chalice import Chalice
-app = Chalice(app_name='my-api')
 
-@app.route('/')
+app = Chalice(app_name="my-api")
+
+
+@app.route("/")
 def index():
-    return {'message': 'Hello from Chalice!'}
+    return {"message": "Hello from Chalice!"}
 ```
 
 **Raw Python:**
 ```python
 def lambda_handler(event, context):
-    return {
-        'statusCode': 200,
-        'body': json.dumps({'message': 'Hello from Lambda!'})
-    }
+    return {"statusCode": 200, "body": json.dumps({"message": "Hello from Lambda!"})}
 ```
 
 ## Core Concepts
@@ -110,10 +109,11 @@ Create clients at module level and reuse:
 ```python
 _dynamodb = None
 
+
 def get_table():
     global _dynamodb
     if _dynamodb is None:
-        _dynamodb = boto3.resource('dynamodb').Table('my-table')
+        _dynamodb = boto3.resource("dynamodb").Table("my-table")
     return _dynamodb
 ```
 
@@ -121,8 +121,8 @@ def get_table():
 
 ```python
 class Config:
-    TABLE_NAME = os.environ.get('TABLE_NAME')
-    DEBUG = os.environ.get('DEBUG', 'false').lower() == 'true'
+    TABLE_NAME = os.environ.get("TABLE_NAME")
+    DEBUG = os.environ.get("DEBUG", "false").lower() == "true"
 
     @classmethod
     def validate(cls):
@@ -161,12 +161,12 @@ Return proper HTTP codes with request ID:
 def lambda_handler(event, context):
     try:
         result = process_event(event)
-        return {'statusCode': 200, 'body': json.dumps(result)}
+        return {"statusCode": 200, "body": json.dumps(result)}
     except ValueError as e:
-        return {'statusCode': 400, 'body': json.dumps({'error': str(e)})}
+        return {"statusCode": 400, "body": json.dumps({"error": str(e)})}
     except Exception as e:
         print(f"Error: {str(e)}")  # Log to CloudWatch
-        return {'statusCode': 500, 'body': json.dumps({'error': 'Internal error'})}
+        return {"statusCode": 500, "body": json.dumps({"error": "Internal error"})}
 ```
 
 See [Raw Python Lambda](references/raw-python-lambda.md#error-handling) for structured error patterns.
@@ -177,15 +177,20 @@ Use structured logging for CloudWatch Insights:
 
 ```python
 import logging, json
+
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
 # Structured log
-logger.info(json.dumps({
-    'eventType': 'REQUEST',
-    'requestId': context.aws_request_id,
-    'path': event.get('path')
-}))
+logger.info(
+    json.dumps(
+        {
+            "eventType": "REQUEST",
+            "requestId": context.aws_request_id,
+            "path": event.get("path"),
+        }
+    )
+)
 ```
 
 See [Raw Python Lambda](references/raw-python-lambda.md#logging) for advanced patterns.

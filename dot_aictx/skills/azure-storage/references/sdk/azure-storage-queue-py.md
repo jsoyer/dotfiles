@@ -14,7 +14,10 @@ pip install azure-storage-queue azure-identity
 ```python
 from azure.storage.queue import QueueClient
 from azure.identity import DefaultAzureCredential
-queue_client = QueueClient("https://<account>.queue.core.windows.net", "myqueue", DefaultAzureCredential())
+
+queue_client = QueueClient(
+    "https://<account>.queue.core.windows.net", "myqueue", DefaultAzureCredential()
+)
 ```
 
 ## Best Practices

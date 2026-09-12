@@ -53,9 +53,9 @@ import os
 from azure.identity import DefaultAzureCredential, ManagedIdentityCredential
 
 credential = (
-    DefaultAzureCredential()                              # local dev — uses CLI/VS credentials
+    DefaultAzureCredential()  # local dev — uses CLI/VS credentials
     if os.getenv("AZURE_FUNCTIONS_ENVIRONMENT") == "Development"
-    else ManagedIdentityCredential()                      # production — deterministic, no fallback chain
+    else ManagedIdentityCredential()  # production — deterministic, no fallback chain
 )
 # For user-assigned identity: ManagedIdentityCredential(client_id="<client-id>")
 ```

@@ -81,21 +81,21 @@ Accept: application/vnd.api+json; version=1
 
 ```python
 # Good: Resource-oriented endpoints
-GET    /api/users              # List users (with pagination)
-POST   /api/users              # Create user
-GET    /api/users/{id}         # Get specific user
-PUT    /api/users/{id}         # Replace user
-PATCH  /api/users/{id}         # Update user fields
-DELETE /api/users/{id}         # Delete user
+GET / api / users  # List users (with pagination)
+POST / api / users  # Create user
+GET / api / users / {id}  # Get specific user
+PUT / api / users / {id}  # Replace user
+PATCH / api / users / {id}  # Update user fields
+DELETE / api / users / {id}  # Delete user
 
 # Nested resources
-GET    /api/users/{id}/orders  # Get user's orders
-POST   /api/users/{id}/orders  # Create order for user
+GET / api / users / {id} / orders  # Get user's orders
+POST / api / users / {id} / orders  # Create order for user
 
 # Bad: Action-oriented endpoints (avoid)
-POST   /api/createUser
-POST   /api/getUserById
-POST   /api/deleteUser
+POST / api / createUser
+POST / api / getUserById
+POST / api / deleteUser
 ```
 
 ### Pattern 2: Pagination and Filtering
@@ -104,14 +104,17 @@ POST   /api/deleteUser
 from typing import List, Optional
 from pydantic import BaseModel, Field
 
+
 class PaginationParams(BaseModel):
     page: int = Field(1, ge=1, description="Page number")
     page_size: int = Field(20, ge=1, le=100, description="Items per page")
+
 
 class FilterParams(BaseModel):
     status: Optional[str] = None
     created_after: Optional[str] = None
     search: Optional[str] = None
+
 
 class PaginatedResponse(BaseModel):
     items: List[dict]
@@ -128,17 +131,19 @@ class PaginatedResponse(BaseModel):
     def has_prev(self) -> bool:
         return self.page > 1
 
+
 # FastAPI endpoint example
 from fastapi import FastAPI, Query, Depends
 
 app = FastAPI()
+
 
 @app.get("/api/users", response_model=PaginatedResponse)
 async def list_users(
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     status: Optional[str] = Query(None),
-    search: Optional[str] = Query(None)
+    search: Optional[str] = Query(None),
 ):
     # Apply filters
     query = build_query(status=status, search=search)
@@ -155,7 +160,7 @@ async def list_users(
         total=total,
         page=page,
         page_size=page_size,
-        pages=(total + page_size - 1) // page_size
+        pages=(total + page_size - 1) // page_size,
     )
 ```
 
@@ -165,6 +170,7 @@ async def list_users(
 from fastapi import HTTPException, status
 from pydantic import BaseModel
 
+
 class ErrorResponse(BaseModel):
     error: str
     message: str
@@ -172,10 +178,12 @@ class ErrorResponse(BaseModel):
     timestamp: str
     path: str
 
+
 class ValidationErrorDetail(BaseModel):
     field: str
     message: str
     value: Any
+
 
 # Consistent error responses
 STATUS_CODES = {
@@ -188,8 +196,9 @@ STATUS_CODES = {
     "not_found": 404,
     "conflict": 409,
     "unprocessable": 422,
-    "internal_error": 500
+    "internal_error": 500,
 }
+
 
 def raise_not_found(resource: str, id: str):
     raise HTTPException(
@@ -197,9 +206,10 @@ def raise_not_found(resource: str, id: str):
         detail={
             "error": "NotFound",
             "message": f"{resource} not found",
-            "details": {"id": id}
-        }
+            "details": {"id": id},
+        },
     )
+
 
 def raise_validation_error(errors: List[ValidationErrorDetail]):
     raise HTTPException(
@@ -207,9 +217,10 @@ def raise_validation_error(errors: List[ValidationErrorDetail]):
         detail={
             "error": "ValidationError",
             "message": "Request validation failed",
-            "details": {"errors": [e.dict() for e in errors]}
-        }
+            "details": {"errors": [e.dict() for e in errors]},
+        },
     )
+
 
 # Example usage
 @app.get("/api/users/{user_id}")
@@ -240,13 +251,13 @@ class UserResponse(BaseModel):
                 "orders": {"href": f"{base_url}/api/users/{user.id}/orders"},
                 "update": {
                     "href": f"{base_url}/api/users/{user.id}",
-                    "method": "PATCH"
+                    "method": "PATCH",
                 },
                 "delete": {
                     "href": f"{base_url}/api/users/{user.id}",
-                    "method": "DELETE"
-                }
-            }
+                    "method": "DELETE",
+                },
+            },
         )
 ```
 
@@ -360,10 +371,12 @@ query = QueryType()
 mutation = MutationType()
 user_type = ObjectType("User")
 
+
 @query.field("user")
 async def resolve_user(obj, info, id: str) -> Optional[dict]:
     """Resolve single user by ID."""
     return await fetch_user_by_id(id)
+
 
 @query.field("users")
 async def resolve_users(
@@ -371,7 +384,7 @@ async def resolve_users(
     info,
     first: int = 20,
     after: Optional[str] = None,
-    search: Optional[str] = None
+    search: Optional[str] = None,
 ) -> dict:
     """Resolve paginated user list."""
     # Decode cursor
@@ -381,7 +394,7 @@ async def resolve_users(
     users = await fetch_users(
         limit=first + 1,  # Fetch one extra to check hasNextPage
         offset=offset,
-        search=search
+        search=search,
     )
 
     # Pagination
@@ -390,10 +403,7 @@ async def resolve_users(
         users = users[:first]
 
     edges = [
-        {
-            "node": user,
-            "cursor": encode_cursor(offset + i)
-        }
+        {"node": user, "cursor": encode_cursor(offset + i)}
         for i, user in enumerate(users)
     ]
 
@@ -403,10 +413,11 @@ async def resolve_users(
             "hasNextPage": has_next,
             "hasPreviousPage": offset > 0,
             "startCursor": edges[0]["cursor"] if edges else None,
-            "endCursor": edges[-1]["cursor"] if edges else None
+            "endCursor": edges[-1]["cursor"] if edges else None,
         },
-        "totalCount": await count_users(search=search)
+        "totalCount": await count_users(search=search),
     }
+
 
 @user_type.field("orders")
 async def resolve_user_orders(user: dict, info, first: int = 20) -> dict:
@@ -416,6 +427,7 @@ async def resolve_user_orders(user: dict, info, first: int = 20) -> dict:
     orders = await loader.load(user["id"])
 
     return paginate_orders(orders, first)
+
 
 @mutation.field("createUser")
 async def resolve_create_user(obj, info, input: dict) -> dict:
@@ -428,18 +440,12 @@ async def resolve_create_user(obj, info, input: dict) -> dict:
         user = await create_user(
             email=input["email"],
             name=input["name"],
-            password=hash_password(input["password"])
+            password=hash_password(input["password"]),
         )
 
-        return {
-            "user": user,
-            "errors": []
-        }
+        return {"user": user, "errors": []}
     except ValidationError as e:
-        return {
-            "user": None,
-            "errors": [{"field": e.field, "message": e.message}]
-        }
+        return {"user": None, "errors": [{"field": e.field, "message": e.message}]}
 ```
 
 ### Pattern 3: DataLoader (N+1 Problem Prevention)
@@ -447,6 +453,7 @@ async def resolve_create_user(obj, info, input: dict) -> dict:
 ```python
 from aiodataloader import DataLoader
 from typing import List, Optional
+
 
 class UserLoader(DataLoader):
     """Batch load users by ID."""
@@ -458,6 +465,7 @@ class UserLoader(DataLoader):
         # Map results back to input order
         user_map = {user["id"]: user for user in users}
         return [user_map.get(user_id) for user_id in user_ids]
+
 
 class OrdersByUserLoader(DataLoader):
     """Batch load orders by user ID."""
@@ -477,14 +485,10 @@ class OrdersByUserLoader(DataLoader):
         # Return in input order
         return [orders_by_user.get(user_id, []) for user_id in user_ids]
 
+
 # Context setup
 def create_context():
-    return {
-        "loaders": {
-            "user": UserLoader(),
-            "orders_by_user": OrdersByUserLoader()
-        }
-    }
+    return {"loaders": {"user": UserLoader(), "orders_by_user": OrdersByUserLoader()}}
 ```
 
 ## Best Practices

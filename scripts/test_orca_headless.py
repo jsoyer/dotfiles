@@ -6,6 +6,7 @@ Origin: looping's orca-serve crash-looped (70+ restarts) with:
   AppImages require FUSE to run.
 Raspberry Pi OS / Debian ship fuse3; the AppImage type-2 runtime wants fuse2.
 """
+
 import unittest
 from pathlib import Path
 
@@ -34,7 +35,7 @@ class FuseFallback(unittest.TestCase):
 
     def test_unquoted_unit_heredoc_does_not_expand_display(self):
         # set -u: `$DISPLAY` in <<EOF aborted orca-setup on diabolo.
-        unit = SETUP.split("write_file \"/etc/systemd/system/${SERVICE}\" <<EOF", 1)[1]
+        unit = SETUP.split('write_file "/etc/systemd/system/${SERVICE}" <<EOF', 1)[1]
         unit = unit.split("EOF", 1)[0]
         self.assertNotIn("$DISPLAY", unit)
 

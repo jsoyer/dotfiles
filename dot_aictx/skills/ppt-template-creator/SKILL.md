@@ -34,7 +34,7 @@ The generated skill includes:
 from pptx import Presentation
 
 prs = Presentation(template_path)
-print(f"Dimensions: {prs.slide_width/914400:.2f}\" x {prs.slide_height/914400:.2f}\"")
+print(f'Dimensions: {prs.slide_width / 914400:.2f}" x {prs.slide_height / 914400:.2f}"')
 print(f"Layouts: {len(prs.slide_layouts)}")
 
 for idx, layout in enumerate(prs.slide_layouts):
@@ -49,7 +49,9 @@ for idx, layout in enumerate(prs.slide_layouts):
             width = ph.width / 914400
             height = ph.height / 914400
             print(f"    idx={ph_idx}, type={ph_type}")
-            print(f"        x={left:.2f}\", y={top:.2f}\", w={width:.2f}\", h={height:.2f}\"")
+            print(
+                f'        x={left:.2f}", y={top:.2f}", w={width:.2f}", h={height:.2f}"'
+            )
         except:
             pass
 ```
@@ -73,7 +75,7 @@ for idx, layout in enumerate(prs.slide_layouts):
         try:
             if ph.placeholder_format.type == 7:  # OBJECT type
                 top = ph.top / 914400
-                print(f"Layout [{idx}] {layout.name}: OBJECT starts at y={top:.2f}\"")
+                print(f'Layout [{idx}] {layout.name}: OBJECT starts at y={top:.2f}"')
                 # This y value is where your content should start!
         except:
             pass

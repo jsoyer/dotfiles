@@ -14,7 +14,10 @@ pip install azure-storage-file-share azure-identity
 ```python
 from azure.storage.fileshare import ShareServiceClient
 from azure.identity import DefaultAzureCredential
-service = ShareServiceClient("https://<account>.file.core.windows.net", DefaultAzureCredential())
+
+service = ShareServiceClient(
+    "https://<account>.file.core.windows.net", DefaultAzureCredential()
+)
 ```
 
 ## Best Practices

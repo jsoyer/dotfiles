@@ -134,27 +134,23 @@ class DelegationVerifier:
     def verify_chain(self, chain: list[DelegationLink]) -> VerificationResult:
         for i, link in enumerate(chain):
             # Verify signature on this link
-            if not self.verify_signature(link.delegator_pub_key, link.signature, link.payload):
+            if not self.verify_signature(
+                link.delegator_pub_key, link.signature, link.payload
+            ):
                 return VerificationResult(
-                    valid=False,
-                    failure_point=i,
-                    reason="invalid_signature"
+                    valid=False, failure_point=i, reason="invalid_signature"
                 )
 
             # Verify scope is equal or narrower than parent
-            if i > 0 and not self.is_subscope(chain[i-1].scopes, link.scopes):
+            if i > 0 and not self.is_subscope(chain[i - 1].scopes, link.scopes):
                 return VerificationResult(
-                    valid=False,
-                    failure_point=i,
-                    reason="scope_escalation"
+                    valid=False, failure_point=i, reason="scope_escalation"
                 )
 
             # Verify temporal validity
             if link.expires_at < datetime.utcnow():
                 return VerificationResult(
-                    valid=False,
-                    failure_point=i,
-                    reason="expired_delegation"
+                    valid=False, failure_point=i, reason="expired_delegation"
                 )
 
         return VerificationResult(valid=True, chain_length=len(chain))
@@ -221,8 +217,7 @@ class PeerVerifier:
 
         # 1. Verify cryptographic identity
         checks["identity_valid"] = self.verify_identity(
-            peer_request["agent_id"],
-            peer_request["identity_proof"]
+            peer_request["agent_id"], peer_request["identity_proof"]
         )
 
         # 2. Check credential expiry
@@ -232,8 +227,7 @@ class PeerVerifier:
 
         # 3. Verify scope covers requested action
         checks["scope_sufficient"] = self.action_in_scope(
-            peer_request["requested_action"],
-            peer_request["granted_scopes"]
+            peer_request["requested_action"], peer_request["granted_scopes"]
         )
 
         # 4. Check trust score
@@ -251,11 +245,7 @@ class PeerVerifier:
 
         # All checks must pass (fail-closed)
         all_passed = all(checks.values())
-        return PeerVerification(
-            authorized=all_passed,
-            checks=checks,
-            trust_score=trust
-        )
+        return PeerVerification(authorized=all_passed, checks=checks, trust_score=trust)
 ```
 
 ## 🔄 Your Workflow Process

@@ -30,7 +30,7 @@ import os
 
 DEBUG = False  # CRITICAL: Never use True in production
 
-ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', '').split(',')
+ALLOWED_HOSTS = os.environ.get("ALLOWED_HOSTS", "").split(",")
 
 # Security headers
 SECURE_SSL_REDIRECT = True
@@ -41,35 +41,35 @@ SECURE_HSTS_INCLUDE_SUBDOMAINS = True
 SECURE_HSTS_PRELOAD = True
 SECURE_CONTENT_TYPE_NOSNIFF = True
 SECURE_BROWSER_XSS_FILTER = True
-X_FRAME_OPTIONS = 'DENY'
+X_FRAME_OPTIONS = "DENY"
 
 # HTTPS and Cookies
 SESSION_COOKIE_HTTPONLY = True
 CSRF_COOKIE_HTTPONLY = True
-SESSION_COOKIE_SAMESITE = 'Lax'
-CSRF_COOKIE_SAMESITE = 'Lax'
+SESSION_COOKIE_SAMESITE = "Lax"
+CSRF_COOKIE_SAMESITE = "Lax"
 
 # Secret key (must be set via environment variable)
-SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY')
+SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY")
 if not SECRET_KEY:
-    raise ImproperlyConfigured('DJANGO_SECRET_KEY environment variable is required')
+    raise ImproperlyConfigured("DJANGO_SECRET_KEY environment variable is required")
 
 # Password validation
 AUTH_PASSWORD_VALIDATORS = [
     {
-        'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
+        "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator",
     },
     {
-        'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
-        'OPTIONS': {
-            'min_length': 12,
-        }
+        "NAME": "django.contrib.auth.password_validation.MinimumLengthValidator",
+        "OPTIONS": {
+            "min_length": 12,
+        },
     },
     {
-        'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
+        "NAME": "django.contrib.auth.password_validation.CommonPasswordValidator",
     },
     {
-        'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
+        "NAME": "django.contrib.auth.password_validation.NumericPasswordValidator",
     },
 ]
 ```
@@ -83,25 +83,27 @@ AUTH_PASSWORD_VALIDATORS = [
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 
+
 class User(AbstractUser):
     """Custom user model for better security."""
 
     email = models.EmailField(unique=True)
     phone = models.CharField(max_length=20, blank=True)
 
-    USERNAME_FIELD = 'email'  # Use email as username
-    REQUIRED_FIELDS = ['username']
+    USERNAME_FIELD = "email"  # Use email as username
+    REQUIRED_FIELDS = ["username"]
 
     class Meta:
-        db_table = 'users'
-        verbose_name = 'User'
-        verbose_name_plural = 'Users'
+        db_table = "users"
+        verbose_name = "User"
+        verbose_name_plural = "Users"
 
     def __str__(self):
         return self.email
 
+
 # settings/base.py
-AUTH_USER_MODEL = 'users.User'
+AUTH_USER_MODEL = "users.User"
 ```
 
 ### Password Hashing
@@ -109,10 +111,10 @@ AUTH_USER_MODEL = 'users.User'
 ```python
 # Django uses PBKDF2 by default. For stronger security:
 PASSWORD_HASHERS = [
-    'django.contrib.auth.hashers.Argon2PasswordHasher',
-    'django.contrib.auth.hashers.PBKDF2PasswordHasher',
-    'django.contrib.auth.hashers.PBKDF2SHA1PasswordHasher',
-    'django.contrib.auth.hashers.BCryptSHA256PasswordHasher',
+    "django.contrib.auth.hashers.Argon2PasswordHasher",
+    "django.contrib.auth.hashers.PBKDF2PasswordHasher",
+    "django.contrib.auth.hashers.PBKDF2SHA1PasswordHasher",
+    "django.contrib.auth.hashers.BCryptSHA256PasswordHasher",
 ]
 ```
 
@@ -120,8 +122,8 @@ PASSWORD_HASHERS = [
 
 ```python
 # Session configuration
-SESSION_ENGINE = 'django.contrib.sessions.backends.cache'  # Or 'db'
-SESSION_CACHE_ALIAS = 'default'
+SESSION_ENGINE = "django.contrib.sessions.backends.cache"  # Or 'db'
+SESSION_CACHE_ALIAS = "default"
 SESSION_COOKIE_AGE = 3600 * 24 * 7  # 1 week
 SESSION_SAVE_EVERY_REQUEST = False
 SESSION_EXPIRE_AT_BROWSER_CLOSE = False  # Better UX, but less secure
@@ -136,6 +138,7 @@ SESSION_EXPIRE_AT_BROWSER_CLOSE = False  # Better UX, but less secure
 from django.db import models
 from django.contrib.auth.models import Permission
 
+
 class Post(models.Model):
     title = models.CharField(max_length=200)
     content = models.TextField()
@@ -143,21 +146,23 @@ class Post(models.Model):
 
     class Meta:
         permissions = [
-            ('can_publish', 'Can publish posts'),
-            ('can_edit_others', 'Can edit posts of others'),
+            ("can_publish", "Can publish posts"),
+            ("can_edit_others", "Can edit posts of others"),
         ]
 
     def user_can_edit(self, user):
         """Check if user can edit this post."""
-        return self.author == user or user.has_perm('app.can_edit_others')
+        return self.author == user or user.has_perm("app.can_edit_others")
+
 
 # views.py
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
 from django.views.generic import UpdateView
 
+
 class PostUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
     model = Post
-    permission_required = 'app.can_edit_others'
+    permission_required = "app.can_edit_others"
     raise_exception = True  # Return 403 instead of redirect
 
     def get_queryset(self):
@@ -171,6 +176,7 @@ class PostUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
 # permissions.py
 from rest_framework import permissions
 
+
 class IsOwnerOrReadOnly(permissions.BasePermission):
     """Allow only owners to edit objects."""
 
@@ -182,6 +188,7 @@ class IsOwnerOrReadOnly(permissions.BasePermission):
         # Write permissions only for owner
         return obj.author == request.user
 
+
 class IsAdminOrReadOnly(permissions.BasePermission):
     """Allow admins to do anything, others read-only."""
 
@@ -190,11 +197,14 @@ class IsAdminOrReadOnly(permissions.BasePermission):
             return True
         return request.user and request.user.is_staff
 
+
 class IsVerifiedUser(permissions.BasePermission):
     """Allow only verified users."""
 
     def has_permission(self, request, view):
-        return request.user and request.user.is_authenticated and request.user.is_verified
+        return (
+            request.user and request.user.is_authenticated and request.user.is_verified
+        )
 ```
 
 ### Role-Based Access Control (RBAC)
@@ -203,19 +213,21 @@ class IsVerifiedUser(permissions.BasePermission):
 # models.py
 from django.contrib.auth.models import AbstractUser, Group
 
+
 class User(AbstractUser):
     ROLE_CHOICES = [
-        ('admin', 'Administrator'),
-        ('moderator', 'Moderator'),
-        ('user', 'Regular User'),
+        ("admin", "Administrator"),
+        ("moderator", "Moderator"),
+        ("user", "Regular User"),
     ]
-    role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='user')
+    role = models.CharField(max_length=20, choices=ROLE_CHOICES, default="user")
 
     def is_admin(self):
-        return self.role == 'admin' or self.is_superuser
+        return self.role == "admin" or self.is_superuser
 
     def is_moderator(self):
-        return self.role in ['admin', 'moderator']
+        return self.role in ["admin", "moderator"]
+
 
 # Mixins
 class AdminRequiredMixin:
@@ -224,6 +236,7 @@ class AdminRequiredMixin:
     def dispatch(self, request, *args, **kwargs):
         if not request.user.is_authenticated or not request.user.is_admin():
             from django.core.exceptions import PermissionDenied
+
             raise PermissionDenied
         return super().dispatch(request, *args, **kwargs)
 ```
@@ -237,24 +250,31 @@ class AdminRequiredMixin:
 def get_user(username):
     return User.objects.get(username=username)  # Safe
 
+
 # GOOD: Using parameters with raw()
 def search_users(query):
-    return User.objects.raw('SELECT * FROM users WHERE username = %s', [query])
+    return User.objects.raw("SELECT * FROM users WHERE username = %s", [query])
+
 
 # BAD: Never directly interpolate user input
 def get_user_bad(username):
-    return User.objects.raw(f'SELECT * FROM users WHERE username = {username}')  # VULNERABLE!
+    return User.objects.raw(
+        f"SELECT * FROM users WHERE username = {username}"
+    )  # VULNERABLE!
+
 
 # GOOD: Using filter with proper escaping
 def get_users_by_email(email):
     return User.objects.filter(email__iexact=email)  # Safe
 
+
 # GOOD: Using Q objects for complex queries
 from django.db.models import Q
+
+
 def search_users_complex(query):
     return User.objects.filter(
-        Q(username__icontains=query) |
-        Q(email__icontains=query)
+        Q(username__icontains=query) | Q(email__icontains=query)
     )  # Safe
 ```
 
@@ -263,8 +283,7 @@ def search_users_complex(query):
 ```python
 # If you must use raw SQL, always use parameters
 User.objects.raw(
-    'SELECT * FROM users WHERE email = %s AND status = %s',
-    [user_input_email, status]
+    "SELECT * FROM users WHERE email = %s AND status = %s", [user_input_email, status]
 )
 ```
 
@@ -295,16 +314,20 @@ User.objects.raw(
 from django.utils.safestring import mark_safe
 from django.utils.html import escape
 
+
 # BAD: Never mark user input as safe without escaping
 def render_bad(user_input):
     return mark_safe(user_input)  # VULNERABLE!
+
 
 # GOOD: Escape first, then mark safe
 def render_good(user_input):
     return mark_safe(escape(user_input))
 
+
 # GOOD: Use format_html for HTML with variables
 from django.utils.html import format_html
+
 
 def greet_user(username):
     return format_html('<span class="user">{}</span>', escape(username))
@@ -316,10 +339,11 @@ def greet_user(username):
 # settings.py
 SECURE_CONTENT_TYPE_NOSNIFF = True  # Prevent MIME sniffing
 SECURE_BROWSER_XSS_FILTER = True  # Enable XSS filter
-X_FRAME_OPTIONS = 'DENY'  # Prevent clickjacking
+X_FRAME_OPTIONS = "DENY"  # Prevent clickjacking
 
 # Custom middleware
 from django.conf import settings
+
 
 class SecurityHeaderMiddleware:
     def __init__(self, get_response):
@@ -327,10 +351,10 @@ class SecurityHeaderMiddleware:
 
     def __call__(self, request):
         response = self.get_response(request)
-        response['X-Content-Type-Options'] = 'nosniff'
-        response['X-Frame-Options'] = 'DENY'
-        response['X-XSS-Protection'] = '1; mode=block'
-        response['Content-Security-Policy'] = "default-src 'self'"
+        response["X-Content-Type-Options"] = "nosniff"
+        response["X-Frame-Options"] = "DENY"
+        response["X-XSS-Protection"] = "1; mode=block"
+        response["Content-Security-Policy"] = "default-src 'self'"
         return response
 ```
 
@@ -383,6 +407,7 @@ fetch('/api/endpoint/', {
 ```python
 from django.views.decorators.csrf import csrf_exempt
 
+
 @csrf_exempt  # Only use when absolutely necessary!
 def webhook_view(request):
     # Webhook from external service
@@ -397,24 +422,26 @@ def webhook_view(request):
 import os
 from django.core.exceptions import ValidationError
 
+
 def validate_file_extension(value):
     """Validate file extension."""
     ext = os.path.splitext(value.name)[1]
-    valid_extensions = ['.jpg', '.jpeg', '.png', '.gif', '.pdf']
+    valid_extensions = [".jpg", ".jpeg", ".png", ".gif", ".pdf"]
     if not ext.lower() in valid_extensions:
-        raise ValidationError('Unsupported file extension.')
+        raise ValidationError("Unsupported file extension.")
+
 
 def validate_file_size(value):
     """Validate file size (max 5MB)."""
     filesize = value.size
     if filesize > 5 * 1024 * 1024:
-        raise ValidationError('File too large. Max size is 5MB.')
+        raise ValidationError("File too large. Max size is 5MB.")
+
 
 # models.py
 class Document(models.Model):
     file = models.FileField(
-        upload_to='documents/',
-        validators=[validate_file_extension, validate_file_size]
+        upload_to="documents/", validators=[validate_file_extension, validate_file_size]
     )
 ```
 
@@ -422,11 +449,11 @@ class Document(models.Model):
 
 ```python
 # settings.py
-MEDIA_ROOT = '/var/www/media/'
-MEDIA_URL = '/media/'
+MEDIA_ROOT = "/var/www/media/"
+MEDIA_URL = "/media/"
 
 # Use a separate domain for media in production
-MEDIA_DOMAIN = 'https://media.example.com'
+MEDIA_DOMAIN = "https://media.example.com"
 
 # Don't serve user uploads directly
 # Use whitenoise or a CDN for static files
@@ -440,27 +467,29 @@ MEDIA_DOMAIN = 'https://media.example.com'
 ```python
 # settings.py
 REST_FRAMEWORK = {
-    'DEFAULT_THROTTLE_CLASSES': [
-        'rest_framework.throttling.AnonRateThrottle',
-        'rest_framework.throttling.UserRateThrottle'
+    "DEFAULT_THROTTLE_CLASSES": [
+        "rest_framework.throttling.AnonRateThrottle",
+        "rest_framework.throttling.UserRateThrottle",
     ],
-    'DEFAULT_THROTTLE_RATES': {
-        'anon': '100/day',
-        'user': '1000/day',
-        'upload': '10/hour',
-    }
+    "DEFAULT_THROTTLE_RATES": {
+        "anon": "100/day",
+        "user": "1000/day",
+        "upload": "10/hour",
+    },
 }
 
 # Custom throttle
 from rest_framework.throttling import UserRateThrottle
 
+
 class BurstRateThrottle(UserRateThrottle):
-    scope = 'burst'
-    rate = '60/min'
+    scope = "burst"
+    rate = "60/min"
+
 
 class SustainedRateThrottle(UserRateThrottle):
-    scope = 'sustained'
-    rate = '1000/day'
+    scope = "sustained"
+    rate = "1000/day"
 ```
 
 ### Authentication for APIs
@@ -468,13 +497,13 @@ class SustainedRateThrottle(UserRateThrottle):
 ```python
 # settings.py
 REST_FRAMEWORK = {
-    'DEFAULT_AUTHENTICATION_CLASSES': [
-        'rest_framework.authentication.TokenAuthentication',
-        'rest_framework.authentication.SessionAuthentication',
-        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    "DEFAULT_AUTHENTICATION_CLASSES": [
+        "rest_framework.authentication.TokenAuthentication",
+        "rest_framework.authentication.SessionAuthentication",
+        "rest_framework_simplejwt.authentication.JWTAuthentication",
     ],
-    'DEFAULT_PERMISSION_CLASSES': [
-        'rest_framework.permissions.IsAuthenticated',
+    "DEFAULT_PERMISSION_CLASSES": [
+        "rest_framework.permissions.IsAuthenticated",
     ],
 }
 
@@ -482,10 +511,11 @@ REST_FRAMEWORK = {
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 
-@api_view(['GET', 'POST'])
+
+@api_view(["GET", "POST"])
 @permission_classes([IsAuthenticated])
 def protected_view(request):
-    return Response({'message': 'You are authenticated'})
+    return Response({"message": "You are authenticated"})
 ```
 
 ## Security Headers
@@ -500,6 +530,7 @@ CSP_STYLE_SRC = "'self' 'unsafe-inline'"
 CSP_IMG_SRC = "'self' data: https:"
 CSP_CONNECT_SRC = "'self' https://api.example.com"
 
+
 # Middleware
 class CSPMiddleware:
     def __init__(self, get_response):
@@ -507,7 +538,7 @@ class CSPMiddleware:
 
     def __call__(self, request):
         response = self.get_response(request)
-        response['Content-Security-Policy'] = (
+        response["Content-Security-Policy"] = (
             f"default-src {CSP_DEFAULT_SRC}; "
             f"script-src {CSP_SCRIPT_SRC}; "
             f"style-src {CSP_STYLE_SRC}; "
@@ -549,29 +580,29 @@ ALLOWED_HOSTS=example.com,www.example.com
 ```python
 # settings.py
 LOGGING = {
-    'version': 1,
-    'disable_existing_loggers': False,
-    'handlers': {
-        'file': {
-            'level': 'WARNING',
-            'class': 'logging.FileHandler',
-            'filename': '/var/log/django/security.log',
+    "version": 1,
+    "disable_existing_loggers": False,
+    "handlers": {
+        "file": {
+            "level": "WARNING",
+            "class": "logging.FileHandler",
+            "filename": "/var/log/django/security.log",
         },
-        'console': {
-            'level': 'INFO',
-            'class': 'logging.StreamHandler',
+        "console": {
+            "level": "INFO",
+            "class": "logging.StreamHandler",
         },
     },
-    'loggers': {
-        'django.security': {
-            'handlers': ['file', 'console'],
-            'level': 'WARNING',
-            'propagate': True,
+    "loggers": {
+        "django.security": {
+            "handlers": ["file", "console"],
+            "level": "WARNING",
+            "propagate": True,
         },
-        'django.request': {
-            'handlers': ['file'],
-            'level': 'ERROR',
-            'propagate': False,
+        "django.request": {
+            "handlers": ["file"],
+            "level": "ERROR",
+            "propagate": False,
         },
     },
 }

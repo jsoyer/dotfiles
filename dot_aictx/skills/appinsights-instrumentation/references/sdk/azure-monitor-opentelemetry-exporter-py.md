@@ -12,6 +12,7 @@ pip install azure-monitor-opentelemetry-exporter
 ## Quick Start
 ```python
 from azure.monitor.opentelemetry.exporter import AzureMonitorTraceExporter
+
 exporter = AzureMonitorTraceExporter()  # reads APPLICATIONINSIGHTS_CONNECTION_STRING
 ```
 

@@ -28,10 +28,12 @@ from langchain.agents.middleware import HumanInTheLoopMiddleware
 from langgraph.checkpoint.memory import MemorySaver
 from langchain.tools import tool
 
+
 @tool
 def send_email(to: str, subject: str, body: str) -> str:
     """Send an email."""
     return f"Email sent to {to}"
+
 
 agent = create_agent(
     model="gpt-4.1",
@@ -87,9 +89,10 @@ from langgraph.types import Command
 config = {"configurable": {"thread_id": "session-1"}}
 
 # Step 1: Agent runs until it needs to call tool
-result1 = agent.invoke({
-    "messages": [{"role": "user", "content": "Send email to john@example.com"}]
-}, config=config)
+result1 = agent.invoke(
+    {"messages": [{"role": "user", "content": "Send email to john@example.com"}]},
+    config=config,
+)
 
 # Check for interrupt
 if "__interrupt__" in result1:
@@ -97,8 +100,7 @@ if "__interrupt__" in result1:
 
 # Step 2: Human approves
 result2 = agent.invoke(
-    Command(resume={"decisions": [{"type": "approve"}]}),
-    config=config
+    Command(resume={"decisions": [{"type": "approve"}]}), config=config
 )
 ```
 </python>
@@ -134,20 +136,24 @@ Edit the tool arguments before approving when the original values need correctio
 ```python
 # Human edits the arguments — edited_action must include name + args
 result2 = agent.invoke(
-    Command(resume={
-        "decisions": [{
-            "type": "edit",
-            "edited_action": {
-                "name": "send_email",
-                "args": {
-                    "to": "alice@company.com",  # Fixed email
-                    "subject": "Project Meeting - Updated",
-                    "body": "...",
-                },
-            },
-        }]
-    }),
-    config=config
+    Command(
+        resume={
+            "decisions": [
+                {
+                    "type": "edit",
+                    "edited_action": {
+                        "name": "send_email",
+                        "args": {
+                            "to": "alice@company.com",  # Fixed email
+                            "subject": "Project Meeting - Updated",
+                            "body": "...",
+                        },
+                    },
+                }
+            ]
+        }
+    ),
+    config=config,
 )
 ```
 </python>
@@ -183,13 +189,17 @@ Reject a tool call and provide feedback explaining why it was rejected.
 ```python
 # Human rejects
 result2 = agent.invoke(
-    Command(resume={
-        "decisions": [{
-            "type": "reject",
-            "feedback": "Cannot delete customer data without manager approval",
-        }]
-    }),
-    config=config
+    Command(
+        resume={
+            "decisions": [
+                {
+                    "type": "reject",
+                    "feedback": "Cannot delete customer data without manager approval",
+                }
+            ]
+        }
+    ),
+    config=config,
 )
 ```
 </python>
@@ -236,13 +246,16 @@ agent = create_agent(
 HITL middleware requires a checkpointer to persist state.
 ```python
 # WRONG
-agent = create_agent(model="gpt-4.1", tools=[send_email], middleware=[HumanInTheLoopMiddleware({...})])
+agent = create_agent(
+    model="gpt-4.1", tools=[send_email], middleware=[HumanInTheLoopMiddleware({...})]
+)
 
 # CORRECT
 agent = create_agent(
-    model="gpt-4.1", tools=[send_email],
+    model="gpt-4.1",
+    tools=[send_email],
     checkpointer=MemorySaver(),  # Required
-    middleware=[HumanInTheLoopMiddleware({...})]
+    middleware=[HumanInTheLoopMiddleware({...})],
 )
 ```
 </python>
@@ -287,6 +300,7 @@ agent.invoke({"resume": {"decisions": [...]}})
 
 # CORRECT
 from langgraph.types import Command
+
 agent.invoke(Command(resume={"decisions": [{"type": "approve"}]}), config=config)
 ```
 </python>

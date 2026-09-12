@@ -49,25 +49,29 @@ from pyspark.sql import SparkSession
 from pyspark.sql import functions as F
 from pyspark.sql.types import StructType, StructField, StringType, LongType, DoubleType
 
-spark = SparkSession.builder \
-    .appName("example-pipeline") \
-    .config("spark.sql.shuffle.partitions", "400") \
-    .config("spark.sql.adaptive.enabled", "true") \
+spark = (
+    SparkSession.builder.appName("example-pipeline")
+    .config("spark.sql.shuffle.partitions", "400")
+    .config("spark.sql.adaptive.enabled", "true")
     .getOrCreate()
+)
 
 # Always define explicit schemas in production
-schema = StructType([
-    StructField("user_id", StringType(), False),
-    StructField("event_ts", LongType(), False),
-    StructField("amount", DoubleType(), True),
-])
+schema = StructType(
+    [
+        StructField("user_id", StringType(), False),
+        StructField("event_ts", LongType(), False),
+        StructField("amount", DoubleType(), True),
+    ]
+)
 
 df = spark.read.schema(schema).parquet("s3://bucket/events/")
 
-result = df \
-    .filter(F.col("amount").isNotNull()) \
-    .groupBy("user_id") \
+result = (
+    df.filter(F.col("amount").isNotNull())
+    .groupBy("user_id")
     .agg(F.sum("amount").alias("total_amount"), F.count("*").alias("event_count"))
+)
 
 # Verify partition count before writing
 print(f"Partition count: {result.rdd.getNumPartitions()}")
@@ -92,14 +96,17 @@ import pyspark.sql.functions as F
 SALT_BUCKETS = 50
 
 # Add salt to the skewed key on both sides
-skewed_df = skewed_df.withColumn("salt", (F.rand() * SALT_BUCKETS).cast("int")) \
-    .withColumn("salted_key", F.concat(F.col("skewed_key"), F.lit("_"), F.col("salt")))
+skewed_df = skewed_df.withColumn(
+    "salt", (F.rand() * SALT_BUCKETS).cast("int")
+).withColumn("salted_key", F.concat(F.col("skewed_key"), F.lit("_"), F.col("salt")))
 
-other_df = other_df.withColumn("salt", F.explode(F.array([F.lit(i) for i in range(SALT_BUCKETS)]))) \
-    .withColumn("salted_key", F.concat(F.col("skewed_key"), F.lit("_"), F.col("salt")))
+other_df = other_df.withColumn(
+    "salt", F.explode(F.array([F.lit(i) for i in range(SALT_BUCKETS)]))
+).withColumn("salted_key", F.concat(F.col("skewed_key"), F.lit("_"), F.col("salt")))
 
-result = skewed_df.join(other_df, on="salted_key", how="inner") \
-    .drop("salt", "salted_key")
+result = skewed_df.join(other_df, on="salted_key", how="inner").drop(
+    "salt", "salted_key"
+)
 ```
 
 ### Correct Caching Pattern

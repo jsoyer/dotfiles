@@ -31,9 +31,9 @@ print(text)
 
 # Extract to structured format
 result = processor.extract_structured()
-print(result['text'])
-print(result['confidence'])
-print(result['blocks'])  # Text blocks with positions
+print(result["text"])
+print(result["confidence"])
+print(result["blocks"])  # Text blocks with positions
 ```
 
 ## Core Workflow
@@ -90,13 +90,13 @@ processor.export_html("output.html")
 
 ```python
 # Specify language for better accuracy
-processor = OCRProcessor("german_doc.png", lang='deu')
+processor = OCRProcessor("german_doc.png", lang="deu")
 
 # Multiple languages
-processor = OCRProcessor("mixed_doc.png", lang='eng+fra+deu')
+processor = OCRProcessor("mixed_doc.png", lang="eng+fra+deu")
 
 # Auto-detect language
-processor = OCRProcessor("document.png", lang='auto')
+processor = OCRProcessor("document.png", lang="auto")
 ```
 
 ### Supported Languages (Common)
@@ -119,10 +119,10 @@ Preprocessing improves OCR accuracy on low-quality images.
 # Enable preprocessing
 processor = OCRProcessor("noisy_scan.png")
 processor.preprocess(
-    deskew=True,        # Fix rotation
-    denoise=True,       # Remove noise
-    threshold=True,     # Binarize image
-    contrast=1.5        # Enhance contrast
+    deskew=True,  # Fix rotation
+    denoise=True,  # Remove noise
+    threshold=True,  # Binarize image
+    contrast=1.5,  # Enhance contrast
 )
 text = processor.extract_text()
 ```
@@ -195,7 +195,7 @@ results = batch_ocr(
     output_dir="extracted/",
     output_format="markdown",
     lang="eng",
-    recursive=True
+    recursive=True,
 )
 
 print(f"Processed: {results['success']} files")
@@ -243,13 +243,15 @@ contact = processor.parse_business_card()
 processor = OCRProcessor("document.png")
 
 # Configure OCR settings
-processor.config.update({
-    'psm': 3,           # Page segmentation mode
-    'oem': 3,           # OCR engine mode
-    'dpi': 300,         # DPI for processing
-    'timeout': 30,      # Timeout in seconds
-    'min_confidence': 60,  # Minimum word confidence
-})
+processor.config.update(
+    {
+        "psm": 3,  # Page segmentation mode
+        "oem": 3,  # OCR engine mode
+        "dpi": 300,  # DPI for processing
+        "timeout": 30,  # Timeout in seconds
+        "min_confidence": 60,  # Minimum word confidence
+    }
+)
 ```
 
 ### Page Segmentation Modes (PSM)
@@ -276,11 +278,11 @@ result = processor.extract_structured()
 print(f"Confidence: {result['confidence']}%")
 
 # Per-word confidence
-for word in result['words']:
+for word in result["words"]:
     print(f"{word['text']}: {word['confidence']}%")
 
 # Filter low-confidence words
-high_conf_words = [w for w in result['words'] if w['confidence'] > 80]
+high_conf_words = [w for w in result["words"] if w["confidence"] > 80]
 ```
 
 ## Output Formats

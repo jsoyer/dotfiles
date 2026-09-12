@@ -54,6 +54,7 @@ Source Text
 import re
 from dataclasses import dataclass
 
+
 @dataclass(frozen=True)
 class ParsedItem:
     id: str
@@ -61,6 +62,7 @@ class ParsedItem:
     choices: tuple[str, ...]
     answer: str
     confidence: float = 1.0
+
 
 def parse_structured_text(content: str) -> list[ParsedItem]:
     """Parse structured text using regex patterns."""
@@ -75,12 +77,14 @@ def parse_structured_text(content: str) -> list[ParsedItem]:
         choices = tuple(
             c.strip() for c in re.findall(r"[A-D]\.\s*(.+)", match.group("choices"))
         )
-        items.append(ParsedItem(
-            id=match.group("id"),
-            text=match.group("text").strip(),
-            choices=choices,
-            answer=match.group("answer"),
-        ))
+        items.append(
+            ParsedItem(
+                id=match.group("id"),
+                text=match.group("text").strip(),
+                choices=choices,
+                answer=match.group("answer"),
+            )
+        )
     return items
 ```
 
@@ -94,6 +98,7 @@ class ConfidenceFlag:
     item_id: str
     score: float
     reasons: tuple[str, ...]
+
 
 def score_confidence(item: ParsedItem) -> ConfidenceFlag:
     """Score extraction confidence and flag issues."""
@@ -118,6 +123,7 @@ def score_confidence(item: ParsedItem) -> ConfidenceFlag:
         reasons=tuple(reasons),
     )
 
+
 def identify_low_confidence(
     items: list[ParsedItem],
     threshold: float = 0.95,
@@ -139,15 +145,17 @@ def validate_with_llm(
     response = client.messages.create(
         model="claude-haiku-4-5-20251001",  # Cheapest model for validation
         max_tokens=500,
-        messages=[{
-            "role": "user",
-            "content": (
-                f"Extract the question, choices, and answer from this text.\n\n"
-                f"Text: {original_text}\n\n"
-                f"Current extraction: {item}\n\n"
-                f"Return corrected JSON if needed, or 'CORRECT' if accurate."
-            ),
-        }],
+        messages=[
+            {
+                "role": "user",
+                "content": (
+                    f"Extract the question, choices, and answer from this text.\n\n"
+                    f"Text: {original_text}\n\n"
+                    f"Current extraction: {item}\n\n"
+                    f"Return corrected JSON if needed, or 'CORRECT' if accurate."
+                ),
+            }
+        ],
     )
     # Parse LLM response and return corrected item...
     return corrected_item

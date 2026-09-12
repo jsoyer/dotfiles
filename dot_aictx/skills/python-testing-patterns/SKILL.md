@@ -57,14 +57,17 @@ Comprehensive guide to implementing robust testing strategies in Python using py
 def add(a, b):
     return a + b
 
+
 def test_add():
     """Basic test example."""
     result = add(2, 3)
     assert result == 5
 
+
 def test_add_negative():
     """Test with negative numbers."""
     assert add(-1, 1) == 0
+
 
 # Run with: pytest test_example.py
 ```
@@ -76,6 +79,7 @@ def test_add_negative():
 ```python
 # test_calculator.py
 import pytest
+
 
 class Calculator:
     """Simple calculator for testing."""
@@ -138,6 +142,7 @@ def test_division_by_zero():
 import pytest
 from typing import Generator
 
+
 class Database:
     """Simple database class."""
 
@@ -187,7 +192,7 @@ def app_config():
     return {
         "database_url": "postgresql://localhost/test",
         "api_key": "test-key",
-        "debug": True
+        "debug": True,
     }
 
 
@@ -213,44 +218,55 @@ def test_api_client(api_client):
 # test_validation.py
 import pytest
 
+
 def is_valid_email(email: str) -> bool:
     """Check if email is valid."""
     return "@" in email and "." in email.split("@")[1]
 
 
-@pytest.mark.parametrize("email,expected", [
-    ("user@example.com", True),
-    ("test.user@domain.co.uk", True),
-    ("invalid.email", False),
-    ("@example.com", False),
-    ("user@domain", False),
-    ("", False),
-])
+@pytest.mark.parametrize(
+    "email,expected",
+    [
+        ("user@example.com", True),
+        ("test.user@domain.co.uk", True),
+        ("invalid.email", False),
+        ("@example.com", False),
+        ("user@domain", False),
+        ("", False),
+    ],
+)
 def test_email_validation(email, expected):
     """Test email validation with various inputs."""
     assert is_valid_email(email) == expected
 
 
-@pytest.mark.parametrize("a,b,expected", [
-    (2, 3, 5),
-    (0, 0, 0),
-    (-1, 1, 0),
-    (100, 200, 300),
-    (-5, -5, -10),
-])
+@pytest.mark.parametrize(
+    "a,b,expected",
+    [
+        (2, 3, 5),
+        (0, 0, 0),
+        (-1, 1, 0),
+        (100, 200, 300),
+        (-5, -5, -10),
+    ],
+)
 def test_addition_parameterized(a, b, expected):
     """Test addition with multiple parameter sets."""
     from test_calculator import Calculator
+
     calc = Calculator()
     assert calc.add(a, b) == expected
 
 
 # Using pytest.param for special cases
-@pytest.mark.parametrize("value,expected", [
-    pytest.param(1, True, id="positive"),
-    pytest.param(0, False, id="zero"),
-    pytest.param(-1, False, id="negative"),
-])
+@pytest.mark.parametrize(
+    "value,expected",
+    [
+        pytest.param(1, True, id="positive"),
+        pytest.param(0, False, id="zero"),
+        pytest.param(-1, False, id="negative"),
+    ],
+)
 def test_is_positive(value, expected):
     """Test with custom test IDs."""
     assert (value > 0) == expected
@@ -263,6 +279,7 @@ def test_is_positive(value, expected):
 import pytest
 from unittest.mock import Mock, patch, MagicMock
 import requests
+
 
 class APIClient:
     """Simple API client."""
@@ -334,6 +351,7 @@ def test_create_user(mock_post):
 # test_exceptions.py
 import pytest
 
+
 def divide(a: float, b: float) -> float:
     """Divide a by b."""
     if b == 0:
@@ -377,6 +395,7 @@ def test_exception_info():
 # test_async.py
 import pytest
 import asyncio
+
 
 async def fetch_data(url: str) -> dict:
     """Fetch data asynchronously."""
@@ -423,6 +442,7 @@ async def test_with_async_fixture(async_client):
 # test_environment.py
 import os
 import pytest
+
 
 def get_database_url() -> str:
     """Get database URL from environment."""
@@ -472,6 +492,7 @@ def test_monkeypatch_attribute(monkeypatch):
 import pytest
 from pathlib import Path
 
+
 def save_data(filepath: Path, data: str):
     """Save data to file."""
     filepath.write_text(data)
@@ -503,7 +524,7 @@ def test_multiple_files(tmp_path):
     files = {
         "file1.txt": "Content 1",
         "file2.txt": "Content 2",
-        "file3.txt": "Content 3"
+        "file3.txt": "Content 3",
     }
 
     for filename, content in files.items():
@@ -524,7 +545,9 @@ def test_multiple_files(tmp_path):
 ```python
 # conftest.py
 """Shared fixtures for all tests."""
+
 import pytest
+
 
 @pytest.fixture(scope="session")
 def database_url():
@@ -545,11 +568,7 @@ def reset_database(database_url):
 @pytest.fixture
 def sample_user():
     """Provide sample user data."""
-    return {
-        "id": 1,
-        "name": "Test User",
-        "email": "test@example.com"
-    }
+    return {"id": 1, "name": "Test User", "email": "test@example.com"}
 
 
 @pytest.fixture
@@ -581,6 +600,7 @@ def test_with_db_backend(db_backend):
 # test_properties.py
 from hypothesis import given, strategies as st
 import pytest
+
 
 def reverse_string(s: str) -> str:
     """Reverse a string."""
@@ -636,14 +656,17 @@ def test_user_service():
     updated = service.update_user(user.id, {"name": "New"})
     assert updated.name == "New"
 
+
 # GOOD - focused tests
 def test_create_user_assigns_id():
     user = service.create_user(data)
     assert user.id is not None
 
+
 def test_create_user_stores_email():
     user = service.create_user(data)
     assert user.email == data["email"]
+
 
 def test_update_user_changes_name():
     user = service.create_user(data)
@@ -661,6 +684,7 @@ def test_get_user_raises_not_found():
         service.get_user("nonexistent-id")
 
     assert "nonexistent-id" in str(exc_info.value)
+
 
 def test_create_user_rejects_invalid_email():
     with pytest.raises(ValueError, match="Invalid email format"):
@@ -691,34 +715,39 @@ A common pattern: `test_<unit>_<scenario>_<expected_outcome>`. Adapt to your tea
 
 ```python
 # Pattern: test_<unit>_<scenario>_<expected>
-def test_create_user_with_valid_data_returns_user():
-    ...
+def test_create_user_with_valid_data_returns_user(): ...
 
-def test_create_user_with_duplicate_email_raises_conflict():
-    ...
 
-def test_get_user_with_unknown_id_returns_none():
-    ...
+def test_create_user_with_duplicate_email_raises_conflict(): ...
+
+
+def test_get_user_with_unknown_id_returns_none(): ...
+
 
 # Good test names - clear and descriptive
 def test_user_creation_with_valid_data():
     """Clear name describes what is being tested."""
     pass
 
+
 def test_login_fails_with_invalid_password():
     """Name describes expected behavior."""
     pass
+
 
 def test_api_returns_404_for_missing_resource():
     """Specific about inputs and expected outcomes."""
     pass
 
+
 # Bad test names - avoid these
 def test_1():  # Not descriptive
     pass
 
+
 def test_user():  # Too vague
     pass
+
 
 def test_function():  # Doesn't explain what's tested
     pass
@@ -730,6 +759,7 @@ Verify that retry logic works correctly using mock side effects.
 
 ```python
 from unittest.mock import Mock
+
 
 def test_retries_on_transient_error():
     """Test that service retries on transient failures."""
@@ -747,6 +777,7 @@ def test_retries_on_transient_error():
     assert result == {"status": "ok"}
     assert client.request.call_count == 3
 
+
 def test_gives_up_after_max_retries():
     """Test that service stops retrying after max attempts."""
     client = Mock()
@@ -758,6 +789,7 @@ def test_gives_up_after_max_retries():
         service.fetch()
 
     assert client.request.call_count == 3
+
 
 def test_does_not_retry_on_permanent_error():
     """Test that permanent errors are not retried."""
@@ -781,11 +813,13 @@ Use freezegun to control time in tests for predictable time-dependent behavior.
 from freezegun import freeze_time
 from datetime import datetime, timedelta
 
+
 @freeze_time("2026-01-15 10:00:00")
 def test_token_expiry():
     """Test token expires at correct time."""
     token = create_token(expires_in_seconds=3600)
     assert token.expires_at == datetime(2026, 1, 15, 11, 0, 0)
+
 
 @freeze_time("2026-01-15 10:00:00")
 def test_is_expired_returns_false_before_expiry():
@@ -793,11 +827,13 @@ def test_is_expired_returns_false_before_expiry():
     token = create_token(expires_in_seconds=3600)
     assert not token.is_expired()
 
+
 @freeze_time("2026-01-15 12:00:00")
 def test_is_expired_returns_true_after_expiry():
     """Test token is expired after validity period."""
     token = Token(expires_at=datetime(2026, 1, 15, 11, 30, 0))
     assert token.is_expired()
+
 
 def test_with_time_travel():
     """Test behavior across time using freeze_time context."""
@@ -816,10 +852,12 @@ def test_with_time_travel():
 # test_markers.py
 import pytest
 
+
 @pytest.mark.slow
 def test_slow_operation():
     """Mark slow tests."""
     import time
+
     time.sleep(2)
 
 
@@ -886,6 +924,7 @@ Base = declarative_base()
 
 class User(Base):
     """User model."""
+
     __tablename__ = "users"
 
     id = Column(Integer, primary_key=True)

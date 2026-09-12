@@ -60,6 +60,7 @@ When these flags are `true`, the base template automatically:
 Must use `df.DFApp()` instead of `func.FunctionApp()`:
 ```python
 import azure.durable_functions as df
+
 app = df.DFApp(http_auth_level=func.AuthLevel.FUNCTION)
 ```
 

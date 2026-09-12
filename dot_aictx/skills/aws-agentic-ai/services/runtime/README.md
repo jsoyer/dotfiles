@@ -34,6 +34,7 @@ from bedrock_agentcore.runtime import BedrockAgentCoreApp
 
 app = BedrockAgentCoreApp()
 
+
 @app.handler()
 async def handle_request(request, context):
     user_input = request.get("input", "")
@@ -155,6 +156,7 @@ For workloads exceeding request/response cycles (up to 8 hours):
 from bedrock_agentcore.runtime import BedrockAgentCoreApp
 
 app = BedrockAgentCoreApp()
+
 
 @app.handler()
 async def handle_request(request, context):

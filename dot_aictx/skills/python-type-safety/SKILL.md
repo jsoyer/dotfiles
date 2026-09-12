@@ -43,6 +43,7 @@ def get_user(user_id: str) -> User | None:
     """Return type makes 'might not exist' explicit."""
     ...
 
+
 # Type checker enforces handling None case
 user = get_user("123")
 if user is None:
@@ -61,12 +62,14 @@ def get_user(user_id: str) -> User:
     """Retrieve user by ID."""
     ...
 
+
 def process_batch(
     items: list[Item],
     max_workers: int = 4,
 ) -> BatchResult[ProcessedItem]:
     """Process items concurrently."""
     ...
+
 
 class UserRepository:
     def __init__(self, db: Database) -> None:
@@ -76,8 +79,7 @@ class UserRepository:
         """Return User if found, None otherwise."""
         ...
 
-    async def find_by_email(self, email: str) -> User | None:
-        ...
+    async def find_by_email(self, email: str) -> User | None: ...
 
     async def save(self, user: User) -> User:
         """Save and return user with generated ID."""
@@ -92,17 +94,17 @@ Python 3.10+ provides cleaner union syntax.
 
 ```python
 # Preferred (3.10+)
-def find_user(user_id: str) -> User | None:
-    ...
+def find_user(user_id: str) -> User | None: ...
 
-def parse_value(v: str) -> int | float | str:
-    ...
+
+def parse_value(v: str) -> int | float | str: ...
+
 
 # Older style (still valid, needed for 3.9)
 from typing import Optional, Union
 
-def find_user(user_id: str) -> Optional[User]:
-    ...
+
+def find_user(user_id: str) -> Optional[User]: ...
 ```
 
 ### Pattern 3: Type Narrowing with Guards
@@ -122,6 +124,7 @@ def process_user(user_id: str) -> UserData:
         email=user.email,
     )
 
+
 def process_items(items: list[Item | None]) -> list[ProcessedItem]:
     # Filter and narrow types
     valid_items = [item for item in items if item is not None]
@@ -138,6 +141,7 @@ from typing import TypeVar, Generic
 
 T = TypeVar("T")
 E = TypeVar("E", bound=Exception)
+
 
 class Result(Generic[T, E]):
     """Represents either a success value or an error."""
@@ -172,12 +176,14 @@ class Result(Generic[T, E]):
             return default
         return self._value  # type: ignore[return-value]
 
+
 # Usage preserves types
 def parse_config(path: str) -> Result[Config, ConfigError]:
     try:
         return Result(value=Config.from_file(path))
     except ConfigError as e:
         return Result(error=e)
+
 
 result = parse_config("config.yaml")
 if result.is_success:
@@ -197,6 +203,7 @@ from abc import ABC, abstractmethod
 T = TypeVar("T")
 ID = TypeVar("ID")
 
+
 class Repository(ABC, Generic[T, ID]):
     """Generic repository interface."""
 
@@ -215,20 +222,17 @@ class Repository(ABC, Generic[T, ID]):
         """Delete entity, return True if existed."""
         ...
 
+
 class UserRepository(Repository[User, str]):
     """Concrete repository for Users with string IDs."""
 
     async def get(self, id: str) -> User | None:
-        row = await self._db.fetchrow(
-            "SELECT * FROM users WHERE id = $1", id
-        )
+        row = await self._db.fetchrow("SELECT * FROM users WHERE id = $1", id)
         return User(**row) if row else None
 
-    async def save(self, entity: User) -> User:
-        ...
+    async def save(self, entity: User) -> User: ...
 
-    async def delete(self, id: str) -> bool:
-        ...
+    async def delete(self, id: str) -> bool: ...
 ```
 
 ### Pattern 6: TypeVar with Bounds
@@ -241,14 +245,17 @@ from pydantic import BaseModel
 
 ModelT = TypeVar("ModelT", bound=BaseModel)
 
+
 def validate_and_create(model_cls: type[ModelT], data: dict) -> ModelT:
     """Create a validated Pydantic model from dict."""
     return model_cls.model_validate(data)
+
 
 # Works with any BaseModel subclass
 class User(BaseModel):
     name: str
     email: str
+
 
 user = validate_and_create(User, {"name": "Alice", "email": "a@b.com"})
 # user is typed as User
@@ -264,16 +271,16 @@ Define interfaces without requiring inheritance.
 ```python
 from typing import Protocol, runtime_checkable
 
+
 @runtime_checkable
 class Serializable(Protocol):
     """Any class that can be serialized to/from dict."""
 
-    def to_dict(self) -> dict:
-        ...
+    def to_dict(self) -> dict: ...
 
     @classmethod
-    def from_dict(cls, data: dict) -> "Serializable":
-        ...
+    def from_dict(cls, data: dict) -> "Serializable": ...
+
 
 # User satisfies Serializable without inheriting from it
 class User:
@@ -288,9 +295,11 @@ class User:
     def from_dict(cls, data: dict) -> "User":
         return cls(id=data["id"], name=data["name"])
 
+
 def serialize(obj: Serializable) -> str:
     """Works with any Serializable object."""
     return json.dumps(obj.to_dict())
+
 
 # Works - User matches the protocol
 serialize(User("1", "Alice"))
@@ -306,25 +315,35 @@ Define reusable structural interfaces.
 ```python
 from typing import Protocol
 
+
 class Closeable(Protocol):
     """Resource that can be closed."""
+
     def close(self) -> None: ...
+
 
 class AsyncCloseable(Protocol):
     """Async resource that can be closed."""
+
     async def close(self) -> None: ...
+
 
 class Readable(Protocol):
     """Object that can be read from."""
+
     def read(self, n: int = -1) -> bytes: ...
+
 
 class HasId(Protocol):
     """Object with an ID property."""
+
     @property
     def id(self) -> str: ...
 
+
 class Comparable(Protocol):
     """Object that supports comparison."""
+
     def __lt__(self, other: "Comparable") -> bool: ...
     def __le__(self, other: "Comparable") -> bool: ...
 ```
@@ -351,9 +370,9 @@ from collections.abc import Callable, Awaitable
 UserId: TypeAlias = str
 Handler: TypeAlias = Callable[[Request], Response]
 
+
 # Usage
-def register_handler(path: str, handler: Handler[Response]) -> None:
-    ...
+def register_handler(path: str, handler: Handler[Response]) -> None: ...
 ```
 
 ### Pattern 10: Callable Types
@@ -369,6 +388,7 @@ ProgressCallback = Callable[[int, int], None]  # (current, total)
 # Async callback
 AsyncHandler = Callable[[Request], Awaitable[Response]]
 
+
 # With named parameters (using Protocol)
 class OnProgress(Protocol):
     def __call__(
@@ -378,6 +398,7 @@ class OnProgress(Protocol):
         *,
         message: str = "",
     ) -> None: ...
+
 
 def process_items(
     items: list[Item],

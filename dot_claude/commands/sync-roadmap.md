@@ -140,38 +140,77 @@ When invoked:
    S7-S8→W23-24, S9-S10→W25-26, S11-S12→W27-28, else Backlog.
    Outputs JSON array. CLI: python3 parser.py [roadmap_file]
    """
+
    import re, json, sys, pathlib, os
 
-   ROADMAP_FILE = sys.argv[1] if len(sys.argv) > 1 else os.environ.get(
-       "NOXYS_ROADMAP_FILE",
-       os.path.expanduser("~/Documents/Github/noxys-eu/noxys-obsidian-vault/00 - Inbox/MASTER-ROADMAP-2026.md"),
+   ROADMAP_FILE = (
+       sys.argv[1]
+       if len(sys.argv) > 1
+       else os.environ.get(
+           "NOXYS_ROADMAP_FILE",
+           os.path.expanduser(
+               "~/Documents/Github/noxys-eu/noxys-obsidian-vault/00 - Inbox/MASTER-ROADMAP-2026.md"
+           ),
+       )
    )
    src = pathlib.Path(ROADMAP_FILE).read_text(encoding="utf-8")
 
    SPRINT_MAP = {
-       "s1": "W17-18", "s2": "W17-18",
-       "s3": "W19-20", "s4": "W19-20",
-       "s5": "W21-22", "s6": "W21-22",
-       "s7": "W23-24", "s8": "W23-24",
-       "s9": "W25-26", "s10": "W25-26",
-       "s11": "W27-28", "s12": "W27-28",
+       "s1": "W17-18",
+       "s2": "W17-18",
+       "s3": "W19-20",
+       "s4": "W19-20",
+       "s5": "W21-22",
+       "s6": "W21-22",
+       "s7": "W23-24",
+       "s8": "W23-24",
+       "s9": "W25-26",
+       "s10": "W25-26",
+       "s11": "W27-28",
+       "s12": "W27-28",
    }
+
 
    def normalize_title(t):
        t = t.strip().lower()
-       t = re.sub(r'\[#\d+\]', '', t)        # strip existing [#N] markers
-       t = re.sub(r'[^\w\s]', ' ', t)
-       t = re.sub(r'\s+', ' ', t)
-       t = re.sub(r'[.,:;!?]+$', '', t)
-       t = re.sub(r'\*+', '', t)
+       t = re.sub(r"\[#\d+\]", "", t)  # strip existing [#N] markers
+       t = re.sub(r"[^\w\s]", " ", t)
+       t = re.sub(r"\s+", " ", t)
+       t = re.sub(r"[.,:;!?]+$", "", t)
+       t = re.sub(r"\*+", "", t)
        return t.strip()
+
 
    # ── Fuzzy matching ──────────────────────────────────────────────────────────
    STOP = {
-       'the','a','an','and','or','for','with','to','of','in','by','on',
-       'noxys','sprint','phase','le','la','les','un','une','de','du','des',
-       'et','pour','avec',
+       "the",
+       "a",
+       "an",
+       "and",
+       "or",
+       "for",
+       "with",
+       "to",
+       "of",
+       "in",
+       "by",
+       "on",
+       "noxys",
+       "sprint",
+       "phase",
+       "le",
+       "la",
+       "les",
+       "un",
+       "une",
+       "de",
+       "du",
+       "des",
+       "et",
+       "pour",
+       "avec",
    }
+
 
    def token_overlap(a, b):
        """
@@ -185,10 +224,12 @@ When invoked:
            return 0.0
        return len(ta & tb) / min(len(ta), len(tb))
 
+
    # Alias kept for backward-compat references in log output
    token_jaccard = token_overlap
 
    FUZZY_THRESHOLD = 0.75
+
 
    def best_fuzzy_match(roadmap_title, project_items):
        """
@@ -201,7 +242,8 @@ When invoked:
        for item in project_items:
            score = token_overlap(roadmap_title, item["title"])
            if score > best_score or (
-               score == best_score and best is not None
+               score == best_score
+               and best is not None
                and len(item["title"]) < len(best[2])
            ):
                best_score = score
@@ -209,37 +251,44 @@ When invoked:
        if best and best_score >= FUZZY_THRESHOLD:
            return best
        return None
+
+
    # ────────────────────────────────────────────────────────────────────────────
 
+
    def map_sprint(heading_text):
-       m = re.search(r'S(\d+)(?:-S?(\d+))?', heading_text, re.IGNORECASE)
+       m = re.search(r"S(\d+)(?:-S?(\d+))?", heading_text, re.IGNORECASE)
        if m:
            s_start = "s" + m.group(1)
            s_end = "s" + m.group(2) if m.group(2) else s_start
            return SPRINT_MAP.get(s_start) or SPRINT_MAP.get(s_end) or "Backlog"
-       m2 = re.search(r'W(\d+)-?(\d+)', heading_text, re.IGNORECASE)
+       m2 = re.search(r"W(\d+)-?(\d+)", heading_text, re.IGNORECASE)
        if m2:
            return f"W{m2.group(1)}-{m2.group(2)}"
        return "Backlog"
 
+
    # Task-ID shape (allows lowercase suffix like EXT-VER-3b). Used to prefix
    # the description with its ID so titles match the project's "ID: desc" convention.
-   _TASK_ID_RE = re.compile(r'^[A-Z][A-Za-z0-9]*(?:-[A-Za-z0-9]+)*$')
+   _TASK_ID_RE = re.compile(r"^[A-Z][A-Za-z0-9]*(?:-[A-Za-z0-9]+)*$")
+
 
    def is_done(status_val):
        # FIX: strip markdown/brackets first so "**[DONE 2026-05-02]**" is detected,
        # then word-boundary search (avoids matching "done" inside another word).
        if not status_val:
            return False
-       s = re.sub(r'[*\[\]]', '', status_val).strip()
+       s = re.sub(r"[*\[\]]", "", status_val).strip()
        if s.startswith("✅") or s.upper().startswith(("DONE", "✓", "LIVRE")):
            return True
-       return bool(re.search(r'(?i)\bdone\b|\blivr[eé]\b|✅|✓', s))
+       return bool(re.search(r"(?i)\bdone\b|\blivr[eé]\b|✅|✓", s))
+
 
    def extract_issue_id(text):
        """Extract [#123] from text, return int or None."""
-       m = re.search(r'\[#(\d+)\]', text or "")
+       m = re.search(r"\[#(\d+)\]", text or "")
        return int(m.group(1)) if m else None
+
 
    def extract_issue_id_from_cells(cells):
        # FIX: [#N] tracking markers live in the Sprint (last) column, not Title.
@@ -249,6 +298,7 @@ When invoked:
            if iid:
                return iid
        return None
+
 
    def infer_repo(title, area=""):
        t = (title or "").lower()
@@ -265,11 +315,13 @@ When invoked:
            return "noxys-console"
        return "noxys-api"
 
+
    def is_task_table_header(header_row):
        cols = [c.strip().lower() for c in header_row.strip().strip("|").split("|")]
-       has_task = any(re.search(r'\bitem\b|\btask\b|\btitle\b|^#$', c) for c in cols)
-       has_status = any(re.search(r'\bstatut\b|\bstatus\b', c) for c in cols)
+       has_task = any(re.search(r"\bitem\b|\btask\b|\btitle\b|^#$", c) for c in cols)
+       has_status = any(re.search(r"\bstatut\b|\bstatus\b", c) for c in cols)
        return has_task or has_status
+
 
    def parse_table_header(header_row):
        cols = [c.strip().lower() for c in header_row.strip().strip("|").split("|")]
@@ -277,49 +329,56 @@ When invoked:
        for i, c in enumerate(cols):
            # FIX: recognise a literal "Title" column (was only item/task) and capture
            # the separate "ID" column so it is not mistaken for the title.
-           if re.search(r'\bitem\b|\btask\b|\btitle\b', c) and "title" not in col_map:
+           if re.search(r"\bitem\b|\btask\b|\btitle\b", c) and "title" not in col_map:
                col_map["title"] = i
-           elif re.fullmatch(r'id', c) and "idcol" not in col_map:
+           elif re.fullmatch(r"id", c) and "idcol" not in col_map:
                col_map["idcol"] = i
-           elif re.search(r'\bsprint\b', c):
+           elif re.search(r"\bsprint\b", c):
                col_map.setdefault("sprint", i)
-           elif re.search(r'\brepo\b', c):
+           elif re.search(r"\brepo\b", c):
                col_map.setdefault("repo", i)
-           elif re.search(r'\bprio\b|\bpriorit[eé]?\b|\bpriority\b', c):
+           elif re.search(r"\bprio\b|\bpriorit[eé]?\b|\bpriority\b", c):
                col_map.setdefault("priority", i)
-           elif re.search(r'\beffort\b|\bcharge\b', c):
+           elif re.search(r"\beffort\b|\bcharge\b", c):
                col_map.setdefault("effort", i)
-           elif re.search(r'\barea\b|\bdimension\b|\bdomaine\b', c):
+           elif re.search(r"\barea\b|\bdimension\b|\bdomaine\b", c):
                col_map.setdefault("area", i)
-           elif re.search(r'\bstatut\b|\bstatus\b', c):
+           elif re.search(r"\bstatut\b|\bstatus\b", c):
                col_map.setdefault("status", i)
-           elif re.search(r'\bowner\b', c):
+           elif re.search(r"\bowner\b", c):
                col_map.setdefault("owner", i)
        if "title" not in col_map and cols:
            col_map["title"] = 0
        return col_map
 
-   _JUNK = re.compile(r'^(\d+\.?\d*|[A-Z]\d+|jerome|vincent|claude|total|phase \d+|sprint \d+|—|-|n/a|S\d+\s*\(.*)$', re.I)
+
+   _JUNK = re.compile(
+       r"^(\d+\.?\d*|[A-Z]\d+|jerome|vincent|claude|total|phase \d+|sprint \d+|—|-|n/a|S\d+\s*\(.*)$",
+       re.I,
+   )
 
    # Bug #3 fix: detect ✅ Done / ✓ Done suffix embedded inside the title cell.
-   _TITLE_DONE_SUFFIX_RE = re.compile(r'\s*(?:✅|✓)\s*Done\s*$|\s*✅\s*$', re.IGNORECASE)
+   _TITLE_DONE_SUFFIX_RE = re.compile(r"\s*(?:✅|✓)\s*Done\s*$|\s*✅\s*$", re.IGNORECASE)
+
 
    def strip_done_suffix(title):
        """Return (cleaned_title, completed_flag). If title ends with ✅ Done / ✓ Done / ✅, strip and flag."""
        if not title:
            return title, False
        if _TITLE_DONE_SUFFIX_RE.search(title):
-           return _TITLE_DONE_SUFFIX_RE.sub('', title).strip(), True
+           return _TITLE_DONE_SUFFIX_RE.sub("", title).strip(), True
        return title, False
+
 
    def is_valid_title(t):
        if not t or len(t) < 5:
            return False
-       if re.match(r'^S\d+\s*\(', t.strip()):
+       if re.match(r"^S\d+\s*\(", t.strip()):
            return False
-       if re.match(r'(?i)^phase\s+\d+\s+[-—]+', t.strip()):
+       if re.match(r"(?i)^phase\s+\d+\s+[-—]+", t.strip()):
            return False
        return not _JUNK.match(t.strip())
+
 
    def parse_table_rows(block_text, sprint_val):
        items = []
@@ -336,7 +395,7 @@ When invoked:
                    col_map = {}
                    skip_table = False
                continue
-           if re.match(r'^\|[-| :]+\|?$', stripped):
+           if re.match(r"^\|[-| :]+\|?$", stripped):
                has_header = True
                continue
            cells = [c.strip() for c in stripped.strip("|").split("|")]
@@ -362,7 +421,7 @@ When invoked:
            # FIX: scan EVERY cell for the [#N] tracking marker (Sprint column wins),
            # not just the title cell — markers are written back to the Sprint column.
            inline_issue_id = extract_issue_id_from_cells(cells)
-           desc = re.sub(r'\[#\d+\]', '', re.sub(r'\*+', '', raw_title_cell)).strip()
+           desc = re.sub(r"\[#\d+\]", "", re.sub(r"\*+", "", raw_title_cell)).strip()
            # status emoji embedded in title cell
            desc, title_done = strip_done_suffix(desc)
            if desc.startswith("~~") or not is_valid_title(desc):
@@ -379,26 +438,29 @@ When invoked:
            repo_cell = get("repo")
            repo = repo_cell if repo_cell else infer_repo(title, area_val)
            # FIX: prefer the row's own Sprint column over the section heading's sprint.
-           sm = re.search(r'W(\d+)-?(\d+)', get("sprint"))
+           sm = re.search(r"W(\d+)-?(\d+)", get("sprint"))
            item_sprint = f"W{sm.group(1)}-{sm.group(2)}" if sm else sprint_val
-           p_match = re.search(r'P[0-3]', get("priority"))
+           p_match = re.search(r"P[0-3]", get("priority"))
            priority = p_match.group(0) if p_match else "P2"
-           e_match = re.search(r'(\d+(?:\.\d+)?)\s*[jd]', get("effort"))
+           e_match = re.search(r"(\d+(?:\.\d+)?)\s*[jd]", get("effort"))
            effort = float(e_match.group(1)) if e_match else None
            completed = is_done(get("status")) or title_done
 
-           items.append({
-               "id": item_id,
-               "title": title,
-               "inline_issue_id": inline_issue_id,
-               "priority": priority,
-               "effort": effort,
-               "sprint": item_sprint,
-               "area": area_val or "api",
-               "repo": repo,
-               "completed": completed,
-           })
+           items.append(
+               {
+                   "id": item_id,
+                   "title": title,
+                   "inline_issue_id": inline_issue_id,
+                   "priority": priority,
+                   "effort": effort,
+                   "sprint": item_sprint,
+                   "area": area_val or "api",
+                   "repo": repo,
+                   "completed": completed,
+               }
+           )
        return items
+
 
    # ── Heading-level item parser (v3) ─────────────────────────────────────────
    # Matches:  ### ID — title  (e.g. ### ENROLL-1 — Extension enrollment endpoint)
@@ -410,8 +472,7 @@ When invoked:
    #   - **Design:** [[some-doc]]   (skipped, not extracted)
 
    HEADING_ITEM_RE = re.compile(
-       r'^###\s+([A-Z][A-Z0-9]*(?:-[A-Z0-9]+)*)\s*[—\-]+\s*(.+)$',
-       re.MULTILINE
+       r"^###\s+([A-Z][A-Z0-9]*(?:-[A-Z0-9]+)*)\s*[—\-]+\s*(.+)$", re.MULTILINE
    )
 
    # Bug #2 fix: reject sprint section dividers like
@@ -419,8 +480,13 @@ When invoked:
    #   "### W17-18 (Apr 7-11) --- ..."
    # Whitelist: ID must be a real task ID (alpha prefix + optional -digit/-alpha-digit),
    # never purely sprint-like (S\d+, S\d+-S?\d+, W\d+-\d+, P\d+, PHASE\d+).
-   _SPRINT_ID_RE = re.compile(r'^(?:S\d+(?:-S?\d+)?|W\d+(?:-\d+)?|P\d+|PHASE\d+)$', re.IGNORECASE)
-   _DIVIDER_TITLE_RE = re.compile(r'^\(.+?\).*-{2,}', re.IGNORECASE)  # "(May 5-16) --- AGENT"
+   _SPRINT_ID_RE = re.compile(
+       r"^(?:S\d+(?:-S?\d+)?|W\d+(?:-\d+)?|P\d+|PHASE\d+)$", re.IGNORECASE
+   )
+   _DIVIDER_TITLE_RE = re.compile(
+       r"^\(.+?\).*-{2,}", re.IGNORECASE
+   )  # "(May 5-16) --- AGENT"
+
 
    def is_sprint_divider_heading(item_id, title_part):
        """True when this ### heading is a sprint section divider, not a task heading."""
@@ -429,9 +495,10 @@ When invoked:
        if title_part and _DIVIDER_TITLE_RE.match(title_part.strip()):
            return True
        # Multi-dash separator inside title => divider
-       if title_part and re.search(r'\s-{3,}\s', title_part):
+       if title_part and re.search(r"\s-{3,}\s", title_part):
            return True
        return False
+
 
    def parse_heading_items(src_text):
        """
@@ -455,7 +522,7 @@ When invoked:
                # Extract any [#N] marker from the heading line
                inline_id = extract_issue_id(line)
                # Strip [#N] from title
-               title_clean = re.sub(r'\[#\d+\]', '', title_part).strip()
+               title_clean = re.sub(r"\[#\d+\]", "", title_part).strip()
                # Bug #3: status emoji embedded in heading title
                title_clean, heading_done = strip_done_suffix(title_clean)
 
@@ -464,45 +531,54 @@ When invoked:
                j = i + 1
                while j < n:
                    ml = lines[j].strip()
-                   if not ml or re.match(r'^#{2,}\s', ml):
+                   if not ml or re.match(r"^#{2,}\s", ml):
                        break
-                   pm = re.match(r'-\s+\*\*Priority:\*\*\s*(P[0-3])', ml, re.IGNORECASE)
+                   pm = re.match(r"-\s+\*\*Priority:\*\*\s*(P[0-3])", ml, re.IGNORECASE)
                    if pm:
                        meta["priority"] = pm.group(1)
-                   em = re.match(r'-\s+\*\*Effort(?:\s+estimate)?:\*\*\s*(\d+(?:\.\d+)?)\s*[jd]', ml, re.IGNORECASE)
+                   em = re.match(
+                       r"-\s+\*\*Effort(?:\s+estimate)?:\*\*\s*(\d+(?:\.\d+)?)\s*[jd]",
+                       ml,
+                       re.IGNORECASE,
+                   )
                    if em:
                        meta["effort"] = float(em.group(1))
-                   sm = re.match(r'-\s+\*\*Sprint:\*\*\s*([\w\-]+)', ml, re.IGNORECASE)
+                   sm = re.match(r"-\s+\*\*Sprint:\*\*\s*([\w\-]+)", ml, re.IGNORECASE)
                    if sm:
                        meta["sprint"] = sm.group(1)
-                   am = re.match(r'-\s+\*\*Area:\*\*\s*(\w+)', ml, re.IGNORECASE)
+                   am = re.match(r"-\s+\*\*Area:\*\*\s*(\w+)", ml, re.IGNORECASE)
                    if am:
                        meta["area"] = am.group(1).lower()
                    j += 1
 
                sprint_val = meta["sprint"] or map_sprint(title_clean)
                repo = infer_repo(title_clean, meta["area"])
-               full_title = title_clean  # e.g. "Extension enrollment endpoint + JWT + refresh"
+               full_title = (
+                   title_clean  # e.g. "Extension enrollment endpoint + JWT + refresh"
+               )
 
-               heading_items.append({
-                   "id": item_id,
-                   "title": full_title,
-                   "inline_issue_id": inline_id,
-                   "priority": meta["priority"],
-                   "effort": meta["effort"],
-                   "sprint": sprint_val,
-                   "area": meta["area"],
-                   "repo": repo,
-                   "completed": heading_done,
-                   "source": "heading",
-               })
+               heading_items.append(
+                   {
+                       "id": item_id,
+                       "title": full_title,
+                       "inline_issue_id": inline_id,
+                       "priority": meta["priority"],
+                       "effort": meta["effort"],
+                       "sprint": sprint_val,
+                       "area": meta["area"],
+                       "repo": repo,
+                       "completed": heading_done,
+                       "source": "heading",
+                   }
+               )
            i += 1
        return heading_items
+
 
    # ── Assemble all items (table rows + heading items, deduped by norm title) ──
 
    # Split on ### headings
-   blocks = re.split(r'^(### .+)$', src, flags=re.MULTILINE)
+   blocks = re.split(r"^(### .+)$", src, flags=re.MULTILINE)
 
    all_items = []
    seen = set()
@@ -543,16 +619,41 @@ When invoked:
    import re, json
 
    STOP = {
-       'the','a','an','and','or','for','with','to','of','in','by','on',
-       'noxys','sprint','phase','le','la','les','un','une','de','du','des',
-       'et','pour','avec',
+       "the",
+       "a",
+       "an",
+       "and",
+       "or",
+       "for",
+       "with",
+       "to",
+       "of",
+       "in",
+       "by",
+       "on",
+       "noxys",
+       "sprint",
+       "phase",
+       "le",
+       "la",
+       "les",
+       "un",
+       "une",
+       "de",
+       "du",
+       "des",
+       "et",
+       "pour",
+       "avec",
    }
    FUZZY_THRESHOLD = 0.75
 
+
    def normalize_title(t):
-       t = re.sub(r'\[#\d+\]', '', t or "")
-       t = re.sub(r'[^\w\s]', ' ', t.lower().strip())
-       return re.sub(r'\s+', ' ', t).strip()
+       t = re.sub(r"\[#\d+\]", "", t or "")
+       t = re.sub(r"[^\w\s]", " ", t.lower().strip())
+       return re.sub(r"\s+", " ", t).strip()
+
 
    def token_overlap(a, b):
        """Overlap coefficient = |A∩B| / min(|A|,|B|). Handles short project vs long roadmap titles."""
@@ -562,11 +663,13 @@ When invoked:
            return 0.0
        return len(ta & tb) / min(len(ta), len(tb))
 
+
    # Bug #1 fix: helper extracting just the repo NAME from full org/repo or repo string
    def short_repo(full):
        if not full:
            return ""
        return full.rsplit("/", 1)[-1]
+
 
    def match_item(rm_item, by_num, by_norm_title, project_list, by_repo_num=None):
        # Tier 1: [#N] marker — composite (repo, num) lookup post-Phase 3a moves
@@ -578,7 +681,11 @@ When invoked:
            # Fallback: bare-num lookup for items without repo context — log warning
            if num in by_num:
                import sys
-               print(f"WARNING: ambiguous [#{num}] '{rm_item.get('title','')[:60]}' — no repo context, falling back to bare-num match", file=sys.stderr)
+
+               print(
+                   f"WARNING: ambiguous [#{num}] '{rm_item.get('title', '')[:60]}' — no repo context, falling back to bare-num match",
+                   file=sys.stderr,
+               )
                return by_num[num], "id-fallback", 1.0
        # Tier 2: exact normalized title
        norm = normalize_title(rm_item["title"])
@@ -590,7 +697,8 @@ When invoked:
        for proj in project_list:
            score = token_overlap(rm_item["title"], proj["title"])
            if score > best_score or (
-               score == best_score and best_proj is not None
+               score == best_score
+               and best_proj is not None
                and len(proj["title"]) < len(best_proj["title"])
            ):
                best_score = score
@@ -599,10 +707,11 @@ When invoked:
            return best_proj, f"fuzzy {best_score:.2f}", best_score
        return None, "new", 0.0
 
+
    new_items = []
    updated_items = []
    closed_items = []
-   fuzzy_matches = []   # for dry-run display
+   fuzzy_matches = []  # for dry-run display
 
    for rm in roadmap_items:
        proj, strategy, score = match_item(rm, by_num, by_norm_title, project_list)
@@ -610,13 +719,15 @@ When invoked:
            new_items.append(rm)
        else:
            if strategy.startswith("fuzzy"):
-               fuzzy_matches.append({
-                   "roadmap_title": rm["title"],
-                   "project_title": proj["title"],
-                   "issue_number": proj["issue_number"],
-                   "score": score,
-                   "already_has_marker": bool(rm.get("inline_issue_id")),
-               })
+               fuzzy_matches.append(
+                   {
+                       "roadmap_title": rm["title"],
+                       "project_title": proj["title"],
+                       "issue_number": proj["issue_number"],
+                       "score": score,
+                       "already_has_marker": bool(rm.get("inline_issue_id")),
+                   }
+               )
            if rm["completed"] and not proj.get("closed"):
                closed_items.append({**rm, "proj": proj, "strategy": strategy})
            elif fields_differ(rm, proj):
@@ -686,8 +797,11 @@ When invoked:
 
    ROADMAP_FILE = os.environ.get(
        "NOXYS_ROADMAP_FILE",
-       os.path.expanduser("~/Documents/Github/noxys-eu/noxys-obsidian-vault/00 - Inbox/MASTER-ROADMAP-2026.md"),
+       os.path.expanduser(
+           "~/Documents/Github/noxys-eu/noxys-obsidian-vault/00 - Inbox/MASTER-ROADMAP-2026.md"
+       ),
    )
+
 
    def inject_issue_id(line, issue_num):
        """
@@ -696,23 +810,24 @@ When invoked:
        - Heading (###): append at end of line
        - Already has [#N]: skip (idempotent)
        """
-       if re.search(r'\[#\d+\]', line):
-           return line   # already tagged
+       if re.search(r"\[#\d+\]", line):
+           return line  # already tagged
        marker = f"[#{issue_num}]"
        stripped = line.rstrip()
        if stripped.endswith("|"):
-           return stripped[:-1].rstrip() + " " + marker + " |" + line[len(stripped):]
-       return stripped + " " + marker + line[len(stripped):]
+           return stripped[:-1].rstrip() + " " + marker + " |" + line[len(stripped) :]
+       return stripped + " " + marker + line[len(stripped) :]
+
 
    src = pathlib.Path(ROADMAP_FILE).read_text(encoding="utf-8")
    lines = src.split("\n")
 
    # Build map: normalized_title → issue_num for all items needing write-back
    # (new items + fuzzy-matched items without existing [#N])
-   writeback_map = {}   # normalized_title → issue_num
-   for item in new_items_created:       # {"title": ..., "issue_number": N}
+   writeback_map = {}  # normalized_title → issue_num
+   for item in new_items_created:  # {"title": ..., "issue_number": N}
        writeback_map[normalize_title(item["title"])] = item["issue_number"]
-   for fm in fuzzy_matches_applied:     # {"roadmap_title": ..., "issue_number": N}
+   for fm in fuzzy_matches_applied:  # {"roadmap_title": ..., "issue_number": N}
        if not fm["already_has_marker"]:
            writeback_map[normalize_title(fm["roadmap_title"])] = fm["issue_number"]
 
@@ -721,7 +836,7 @@ When invoked:
        injected = False
        for norm_title, issue_num in writeback_map.items():
            # Match if line contains the title text (strip [#N] first)
-           line_norm = normalize_title(re.sub(r'\[#\d+\]', '', line))
+           line_norm = normalize_title(re.sub(r"\[#\d+\]", "", line))
            if norm_title in line_norm and len(norm_title) > 8:
                line = inject_issue_id(line, issue_num)
                injected = True

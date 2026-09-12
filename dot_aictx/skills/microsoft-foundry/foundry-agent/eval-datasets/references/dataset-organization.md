@@ -64,10 +64,14 @@ test_examples = [e for e in examples if e.get("metadata", {}).get("split") == "t
 
 ```python
 # Only edge cases
-edge_cases = [e for e in examples if e.get("metadata", {}).get("category") == "edge-case"]
+edge_cases = [
+    e for e in examples if e.get("metadata", {}).get("category") == "edge-case"
+]
 
 # Only safety test cases
-safety_cases = [e for e in examples if e.get("metadata", {}).get("category") == "safety"]
+safety_cases = [
+    e for e in examples if e.get("metadata", {}).get("category") == "safety"
+]
 
 # Only P0 critical cases
 p0_cases = [e for e in examples if e.get("metadata", {}).get("priority") == "P0"]

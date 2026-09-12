@@ -18,12 +18,12 @@ app = func.FunctionApp()
     event_hub_name="%EVENTHUB_NAME%",
     connection="EventHubConnection",
     consumer_group="%EVENTHUB_CONSUMER_GROUP%",
-    cardinality=func.Cardinality.MANY
+    cardinality=func.Cardinality.MANY,
 )
 def eventhub_trigger(events: List[func.EventHubEvent]):
     """Process batch of events from Event Hub."""
     for event in events:
-        body = event.get_body().decode('utf-8')
+        body = event.get_body().decode("utf-8")
         logging.info(f"Event Hub trigger processed event: {body}")
         logging.info(f"  Partition: {event.partition_key}")
         logging.info(f"  EnqueuedTime: {event.enqueued_time}")
@@ -35,23 +35,23 @@ def eventhub_trigger(events: List[func.EventHubEvent]):
 @app.event_hub_output(
     arg_name="outputEvent",
     event_hub_name="%EVENTHUB_NAME%",
-    connection="EventHubConnection"
+    connection="EventHubConnection",
 )
 def send_event(req: func.HttpRequest, outputEvent: func.Out[str]) -> func.HttpResponse:
     """HTTP endpoint to send events to Event Hub."""
     try:
         body = req.get_json()
     except ValueError:
-        body = {"message": req.get_body().decode('utf-8') or "Hello Event Hub!"}
-    
+        body = {"message": req.get_body().decode("utf-8") or "Hello Event Hub!"}
+
     event_data = json.dumps(body)
     outputEvent.set(event_data)
-    
+
     logging.info(f"Sent event to Event Hub: {event_data}")
     return func.HttpResponse(
         json.dumps({"status": "sent", "data": body}),
         mimetype="application/json",
-        status_code=200
+        status_code=200,
     )
 
 
