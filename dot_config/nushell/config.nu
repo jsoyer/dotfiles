@@ -1606,6 +1606,7 @@ source ~/.cache/starship/init.nu
 $env._ZO_DOCTOR = "0"  # silence zoxide init doctor check
 source ~/.cache/zoxide/init.nu
 source ~/.cache/carapace/init.nu
+source ~/.cache/mise/init.nu
 
 # =============================================================================
 # Package manager wrappers

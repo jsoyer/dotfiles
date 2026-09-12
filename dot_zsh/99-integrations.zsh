@@ -52,6 +52,14 @@ if (( $+commands[atuin] )); then
 fi
 
 # ============================================================================
+# mise - Polyglot version manager (cached init)
+# ============================================================================
+# Activated before direnv so direnv's hook runs after mise's.
+if (( $+commands[mise] )); then
+  _cache_eval mise 'mise activate zsh'
+fi
+
+# ============================================================================
 # Direnv - Environment switcher (cached init)
 # ============================================================================
 if (( $+commands[direnv] )); then

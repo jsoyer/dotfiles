@@ -21,6 +21,13 @@ path=(
   "${path[@]}"
 )
 
+# mise shims — appended (lowest priority) on purpose: `mise activate` owns the
+# PATH in interactive shells, the shims are only a fallback for non-interactive
+# contexts (IDEs, cron, scripts) where the activation hook never runs.
+_mise_shims="${XDG_DATA_HOME:-$HOME/.local/share}/mise/shims"
+[[ -d "$_mise_shims" ]] && path=("${path[@]}" "$_mise_shims")
+unset _mise_shims
+
 # Homebrew (macOS: Apple Silicon or Intel) — cached to avoid forking brew on every shell start
 if [[ -x "/opt/homebrew/bin/brew" ]]; then
   _cache_eval brew '/opt/homebrew/bin/brew shellenv'
