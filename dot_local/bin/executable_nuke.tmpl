@@ -26,9 +26,17 @@ echo "  - Oh-My-Zsh"
 echo "  - All AI tools configs (.claude, .codex, .qwen, .vibe, etc.)"
 echo "  - All shell caches"
 echo "  - ALL dotfiles and configs in your home directory"
+{{- if eq .machine_profile "mac-pro" }}
+echo "  - EVERYTHING inside ~/Documents and ~/Downloads"
+echo ""
+echo -e "${YELLOW}Preserved: ~/Desktop, ~/Pictures, ~/Music, ~/Videos,"
+echo -e "           ~/Public, ~/Templates, ~/Library, ~/Applications"
+echo -e "           (~/Documents and ~/Downloads survive as empty dirs)${NC}"
+{{- else }}
 echo ""
 echo -e "${YELLOW}Preserved: ~/Desktop, ~/Documents, ~/Downloads, ~/Pictures,"
 echo -e "           ~/Music, ~/Videos, ~/Public, ~/Templates, ~/Library, ~/Applications${NC}"
+{{- end }}
 echo ""
 echo -e "${RED}Type 'NUKE' to confirm:${NC}"
 read -r confirm
@@ -107,6 +115,17 @@ KEEP_DIRS="Desktop|Documents|Downloads|Pictures|Music|Videos|Public|Templates|Li
 find "${HOME}" -maxdepth 1 -mindepth 1 \
     -not -regex ".*/\(${KEEP_DIRS}\)" \
     -exec rm -rf {} + 2>/dev/null || true
+{{- if eq .machine_profile "mac-pro" }}
+
+# mac-pro: Documents and Downloads are work scratch space — empty them too.
+# The dirs themselves stay (macOS expects them); only their contents go.
+for _d in Documents Downloads; do
+    [ -d "${HOME}/${_d}" ] || continue
+    echo -e "${RED}      emptying ~/${_d}...${NC}"
+    find "${HOME}/${_d}" -maxdepth 1 -mindepth 1 \
+        -exec rm -rf {} + 2>/dev/null || true
+done
+{{- end }}
 
 echo ""
 echo -e "${GREEN}NUKE complete. Machine is clean.${NC}"
