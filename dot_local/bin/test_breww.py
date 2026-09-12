@@ -15,7 +15,11 @@ import unittest
 import unittest.mock
 from pathlib import Path
 
+# chezmoi strips the "executable_" prefix on apply, so the script sits next to
+# this test under its bare name once deployed to ~/.local/bin.
 _BREWW_PATH = Path(__file__).resolve().parent / "executable_breww"
+if not _BREWW_PATH.exists():
+    _BREWW_PATH = _BREWW_PATH.with_name(_BREWW_PATH.name.removeprefix("executable_"))
 _LOADER = importlib.machinery.SourceFileLoader("breww", str(_BREWW_PATH))
 _SPEC = importlib.util.spec_from_loader("breww", _LOADER)
 assert _SPEC is not None
