@@ -457,6 +457,7 @@ sysup() {
       # The AI CLIs update on macOS too — this call only existed in the
       # Linux branch, so Macs never updated any of them through sysup.
       update-ai
+      _update_mise_if_present
       _update_herdr_if_present
       ;;
     linux)
@@ -508,6 +509,7 @@ sysup() {
       echo "🐚 Updating oh-my-zsh..."
       update-omz
       update-ai
+      _update_mise_if_present
       _update_herdr_if_present
       ;;
     windows)
@@ -603,6 +605,17 @@ update-ai() {
       omp update 2>/dev/null || curl -fsSL https://omp.sh/install | sh 2>/dev/null || true
     fi
   fi
+}
+
+# mise owns toolchains Homebrew cannot pour on this host (rust on Intel macOS is
+# Tier 3: no bottle, an hour of source build per bump). brew upgrade used to keep
+# those current — once a tool moves to mise, nothing does unless sysup asks.
+_update_mise_if_present() {
+  if ! command -v mise &>/dev/null; then
+    return 0
+  fi
+  echo "🔧 Updating mise tools..."
+  mise upgrade || true
 }
 
 _update_herdr_if_present() {
