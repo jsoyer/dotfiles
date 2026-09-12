@@ -206,5 +206,113 @@ class LoadCuSkip(unittest.TestCase):
                 self.assertEqual(breww.load_cu_skip(), ["obs", "xquartz", "logitune"])
 
 
+class RemoveFromBase(unittest.TestCase):
+    """`breww uninstall` must also drop the entry from the profile base Brewfile.
+
+    Origin: removing a cask only from the machine left the line in
+    Brewfile_personal, so the next `chezmoi apply` reinstalled it — the
+    remove/resurrect loop visible on firefox and visual-studio-code.
+    """
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.tmp = Path(self._tmp.name)
+        self.base = self.tmp / "Brewfile_personal"
+        self.shared = self.tmp / "Brewfile_macos"
+
+    def tearDown(self):
+        self._tmp.cleanup()
+
+    def test_removes_cask_and_leaves_every_other_line_untouched(self):
+        self.base.write_text(
+            '# Personal casks\n'
+            'cask "firefox"\n'
+            'cask "visual-studio-code"\n'
+            '\n'
+            'brew "git"\n'
+        )
+        removed = breww.remove_from_base(["visual-studio-code"], self.base, [])
+        self.assertEqual(removed, ["visual-studio-code"])
+        self.assertEqual(
+            self.base.read_text(),
+            '# Personal casks\ncask "firefox"\n\nbrew "git"\n',
+        )
+
+    def test_removes_formula(self):
+        self.base.write_text('brew "git"\nbrew "wget"\n')
+        self.assertEqual(breww.remove_from_base(["wget"], self.base, []), ["wget"])
+        self.assertEqual(self.base.read_text(), 'brew "git"\n')
+
+    def test_removes_several_names_at_once(self):
+        self.base.write_text('cask "firefox"\ncask "microsoft-edge"\nbrew "git"\n')
+        removed = breww.remove_from_base(["firefox", "microsoft-edge"], self.base, [])
+        self.assertEqual(sorted(removed), ["firefox", "microsoft-edge"])
+        self.assertEqual(self.base.read_text(), 'brew "git"\n')
+
+    def test_absent_name_is_a_noop(self):
+        original = 'cask "firefox"\nbrew "git"\n'
+        self.base.write_text(original)
+        self.assertEqual(breww.remove_from_base(["nope"], self.base, []), [])
+        self.assertEqual(self.base.read_text(), original)
+
+    def test_shared_file_is_reported_but_never_modified(self):
+        self.base.write_text('brew "git"\n')
+        self.shared.write_text('cask "firefox"\n')
+        with unittest.mock.patch.object(breww, "print") as _p:
+            removed = breww.remove_from_base(["firefox"], self.base, [self.shared])
+        self.assertEqual(removed, [])
+        self.assertEqual(self.shared.read_text(), 'cask "firefox"\n')
+
+    def test_missing_base_is_a_noop(self):
+        self.assertEqual(breww.remove_from_base(["firefox"], None, []), [])
+        self.assertEqual(
+            breww.remove_from_base(["firefox"], self.tmp / "absent", []), []
+        )
+
+    def test_fully_qualified_tap_entry(self):
+        self.base.write_text(
+            'brew "infisical/get-cli/infisical", trusted: true\nbrew "git"\n'
+        )
+        removed = breww.remove_from_base(
+            ["infisical/get-cli/infisical"], self.base, []
+        )
+        self.assertEqual(removed, ["infisical/get-cli/infisical"])
+        self.assertEqual(self.base.read_text(), 'brew "git"\n')
+
+
+class UninstallWiring(unittest.TestCase):
+    """main() must route uninstall through remove_from_base, not just the dump."""
+
+    def _run(self, argv):
+        calls = {}
+        with unittest.mock.patch.object(breww.sys, "argv", ["breww", *argv]), \
+             unittest.mock.patch("shutil.which", return_value="/usr/bin/brew"), \
+             unittest.mock.patch.object(breww, "get_target_brewfile", return_value=Path("/tmp/Brewfile_personal")), \
+             unittest.mock.patch.object(breww, "run_brew_command", return_value=0), \
+             unittest.mock.patch.object(breww, "load_cu_skip", return_value=[]), \
+             unittest.mock.patch.object(breww, "check_native_available"), \
+             unittest.mock.patch.object(breww, "dump_host_overlay"), \
+             unittest.mock.patch.object(breww, "sync_to_git"), \
+             unittest.mock.patch.object(breww, "remove_from_base") as remove:
+            remove.return_value = []
+            with self.assertRaises(SystemExit):
+                breww.main()
+            calls["remove"] = remove.call_args_list
+        return calls
+
+    def test_uninstall_drops_the_entry_from_the_base(self):
+        calls = self._run(["uninstall", "--cask", "visual-studio-code"])
+        self.assertEqual(len(calls["remove"]), 1)
+        self.assertEqual(calls["remove"][0].args[0], ["visual-studio-code"])
+
+    def test_uninstall_handles_several_packages(self):
+        calls = self._run(["uninstall", "firefox", "microsoft-edge"])
+        self.assertEqual(calls["remove"][0].args[0], ["firefox", "microsoft-edge"])
+
+    def test_install_never_touches_the_base(self):
+        calls = self._run(["install", "ripgrep"])
+        self.assertEqual(calls["remove"], [])
+
+
 if __name__ == "__main__":
     unittest.main()
