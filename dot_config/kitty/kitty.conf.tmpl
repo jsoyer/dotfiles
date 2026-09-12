@@ -43,6 +43,12 @@ mouse_hide_wait 0
 url_style curly
 open_url_with default
 copy_on_select yes
+
+# Hovering a pane focuses it, no click needed. Note the interaction with splits:
+# a new split already takes focus (launch keeps focus only with --keep-focus),
+# but if the pointer still sits over the old pane, focus snaps back to it as
+# soon as the pointer is noticed. Move the mouse, or keep it out of the way.
+focus_follows_mouse yes
 strip_trailing_spaces smart
 
 # ============================================================================
@@ -176,8 +182,6 @@ listen_on unix:/tmp/kitty-socket
 update_check_interval 0
 term xterm-256color
 
-enable_legacy_keyboard true
-
 # ============================================================================
 # Keyboard Shortcuts
 # ============================================================================
@@ -221,6 +225,21 @@ map ctrl+shift+h neighboring_window left
 map ctrl+shift+j neighboring_window down
 map ctrl+shift+k neighboring_window up
 map ctrl+shift+l neighboring_window right
+
+{{ if eq .chezmoi.os "darwin" -}}
+# Same directional pane focus under the Command cluster, to match cmd+ctrl+1..9
+# which focuses panes by number. cmd+alt+h is deliberately avoided: macOS binds
+# it to "Hide Others" system-wide.
+map cmd+ctrl+h neighboring_window left
+map cmd+ctrl+j neighboring_window down
+map cmd+ctrl+k neighboring_window up
+map cmd+ctrl+l neighboring_window right
+
+# Cycle OS windows (actual macOS windows, not panes or tabs). One modifier up
+# from cmd+[ / cmd+] which cycle tabs.
+map cmd+alt+] macos_cycle_through_os_windows
+map cmd+alt+[ macos_cycle_through_os_windows_backwards
+{{ end -}}
 
 map ctrl+shift+up layout_action move_to_screen_edge top
 map ctrl+shift+left layout_action move_to_screen_edge left
