@@ -1,7 +1,6 @@
 # Host overlay for MacMiniIntel — extras beyond the shared base.
 # Managed by breww. Do not edit manually.
 tap "can1357/tap"
-tap "infisical/get-cli"
 tap "mcs-cli/tap", trusted: true
 tap "rjyo/moshi", trusted: true
 brew "sdl2-compat"
