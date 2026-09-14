@@ -17,6 +17,12 @@
 # fails with "command not found" because sudo's secure_path excludes
 # ~/.local/bin.
 #
+# Beyond the runtime itself it provisions the MONITORING that was missing on
+# 2026-09-14, when orca-serve crash-looped for 16h (826 restarts) with nothing
+# ever surfacing it: orca-health + its timer, orca-alert@ wired through
+# OnFailure=, and the zz- drop-ins that make /tmp private and give the crash-loop
+# ceiling a window wide enough to catch a SLOW loop.
+#
 # Usage:
 #   orca-setup                              full install (prompts for sudo)
 #   orca-setup --pairing-address 100.x.y.z  force the pairing address
@@ -35,6 +41,14 @@ DEST="${DEST_DIR}/${APP_NAME}"
 SERVICE="orca-serve.service"
 DROPIN_DIR="/etc/systemd/system/${SERVICE}.d"
 UPDATE_SCRIPT="/usr/local/bin/update-orca"
+UPDATE_SERVICE="orca-update.service"
+UPDATE_DROPIN_DIR="/etc/systemd/system/${UPDATE_SERVICE}.d"
+HEALTH_SCRIPT="/usr/local/bin/orca-health"
+HEALTH_SERVICE="orca-health.service"
+HEALTH_TIMER="orca-health.timer"
+ALERT_SERVICE="orca-alert@.service"
+ALERT_CONF="/etc/orca-alert.conf"
+HEALTH_STATE_DIR="/var/lib/orca-health"
 DEFAULT_PORT=6768
 
 PAIRING_ADDR=""
@@ -122,7 +136,13 @@ do_status() {
     "$(sstate systemctl is-active "$SERVICE")" \
     "$(sstate systemctl is-enabled "$SERVICE")"
   printf '  Timer    : %s\n' "$(sstate systemctl is-active orca-update.timer)"
-  if ss -ltn 2>/dev/null | grep -qE ":${PORT}\b"; then
+  printf '  Health   : %s / %s\n' \
+    "$(sstate systemctl is-active "$HEALTH_TIMER")" \
+    "$(sstate systemctl is-enabled "$HEALTH_TIMER")"
+  # `sport = :N` is an ss FILTER, not a text match. The old `grep -qE ":${PORT}\b"`
+  # produced false positives: with PORT=1, `:1\b` matches `[::1]:631`, because `]`
+  # counts as a word boundary. A probe that lies is worse than no probe at all.
+  if ss -ltn "sport = :${PORT}" 2>/dev/null | grep -q LISTEN; then
     printf '  Port %s : listening\n' "$PORT"
   else
     printf '  Port %s : %snot listening%s\n' "$PORT" "$c_y" "$c_0"
@@ -160,11 +180,19 @@ do_uninstall() {
   fi
   run systemctl disable --now "$SERVICE" 2>/dev/null || true
   run systemctl disable --now orca-update.timer 2>/dev/null || true
-  run rm -rf "$DROPIN_DIR"
+  # Stop the monitoring too: a timer left behind would keep alerting every ten
+  # minutes about a service that no longer exists.
+  run systemctl disable --now "$HEALTH_TIMER" 2>/dev/null || true
+  run rm -rf "$DROPIN_DIR" "$UPDATE_DROPIN_DIR" "$HEALTH_STATE_DIR"
   run rm -f /etc/systemd/system/orca-update.service /etc/systemd/system/orca-update.timer
-  run rm -f "$UPDATE_SCRIPT"
+  run rm -f "/etc/systemd/system/${HEALTH_SERVICE}" \
+            "/etc/systemd/system/${HEALTH_TIMER}" \
+            "/etc/systemd/system/${ALERT_SERVICE}"
+  run rm -f "$UPDATE_SCRIPT" "$HEALTH_SCRIPT"
   run systemctl daemon-reload
-  ok "Units removed. AppImage kept in ${DEST_DIR} (rm -rf ${DEST_DIR} to wipe everything)."
+  # ${ALERT_CONF} is user configuration (it may hold an ntfy URL) and is kept,
+  # like the AppImage.
+  ok "Units removed. AppImage kept in ${DEST_DIR}, alert config kept in ${ALERT_CONF}."
 }
 
 if [[ "$ACTION" == "uninstall" ]]; then do_uninstall; exit 0; fi
@@ -210,20 +238,49 @@ else
   ok "AppImage already present: ${DEST} ($(appimage_version "$DEST"))"
 fi
 
-# --- Update script ------------------------------------------------------------
+# --- Helper scripts (update-orca, orca-health) --------------------------------
 # System location: SELinux `bin_t` context, executable by systemd.
 # (A script under /home carries `home_t`, which systemd refuses to execute.)
-SRC_UPDATE=""
-for c in "$(dirname "$0")/update-orca" "/home/${SVC_USER}/.local/bin/update-orca"; do
-  [[ -r "$c" ]] && { SRC_UPDATE="$c"; break; }
-done
+#
+# TRAP, learned the hard way: `install` DEREFERENCES symlinks. Make
+# ~/.local/bin/update-orca a symlink to /usr/local/bin/update-orca and source and
+# destination become the same inode — install then TRUNCATES the script it is
+# meant to copy, destroying both. Chezmoi deploys real files, so this cannot
+# happen through a normal apply; the `-ef` guard below makes it impossible to
+# reintroduce by hand.
+locate_helper() {
+  local name="$1" c
+  for c in "$(dirname "$0")/${name}" "/home/${SVC_USER}/.local/bin/${name}"; do
+    [[ -r "$c" ]] && { printf '%s' "$c"; return 0; }
+  done
+  return 1
+}
+
+install_helper() {
+  local src="$1" dest="$2"
+  if [[ "$src" -ef "$dest" ]]; then
+    ok "$(basename "$dest") is already the installed copy — left untouched."
+    return 0
+  fi
+  run install -m 0755 "$src" "$dest"
+  command -v restorecon >/dev/null 2>&1 && run restorecon -v "$dest" >/dev/null || true
+  ok "Installed: ${dest}"
+}
+
+SRC_UPDATE="$(locate_helper update-orca || true)"
 if [[ -n "$SRC_UPDATE" ]]; then
-  run install -m 0755 "$SRC_UPDATE" "$UPDATE_SCRIPT"
-  command -v restorecon >/dev/null 2>&1 && run restorecon -v "$UPDATE_SCRIPT" >/dev/null || true
-  ok "Update script installed: ${UPDATE_SCRIPT}"
+  install_helper "$SRC_UPDATE" "$UPDATE_SCRIPT"
 else
   warn "update-orca not found — the update timer will not work."
   warn "Run 'chezmoi apply' to deploy ~/.local/bin/update-orca, then re-run orca-setup."
+fi
+
+SRC_HEALTH="$(locate_helper orca-health || true)"
+if [[ -n "$SRC_HEALTH" ]]; then
+  install_helper "$SRC_HEALTH" "$HEALTH_SCRIPT"
+else
+  warn "orca-health not found — NO monitoring will be installed."
+  warn "Run 'chezmoi apply' to deploy ~/.local/bin/orca-health, then re-run orca-setup."
 fi
 
 if [[ "$DO_SERVICE" -eq 0 ]]; then
@@ -322,14 +379,24 @@ Description=Orca runtime server
 Documentation=https://github.com/${REPO}
 After=network-online.target
 Wants=network-online.target
-# Cap crash-loops (missing FUSE used to hit 70+ restarts with no ceiling).
-StartLimitIntervalSec=120
-StartLimitBurst=8
+# Cap crash-loops. The window is DELIBERATELY wide. 8 starts per 120s only
+# catches a FAST loop: the 2026-09-14 outage cycled every ~69s, i.e. ~1.7 starts
+# per window, so the counter reset before ever reaching 8 and the unit stayed
+# "active" for 16h. 5 starts per 30 minutes cuts that slow loop in ~5 minutes
+# while still tolerating an isolated incident. zz-crashloop-guard.conf restates
+# this, so the ceiling survives a hand-edited unit.
+StartLimitIntervalSec=1800
+StartLimitBurst=5
 
 [Service]
 Type=simple
 User=${SVC_USER}
 WorkingDirectory=${DEST_DIR}
+# Private /tmp, destroyed when the unit stops. Even when extract-and-run is the
+# only option (no FUSE), the 546 MB extraction can then neither saturate the host
+# tmpfs nor be shared with a second instance — and that shared path is precisely
+# what truncated AppRun into "Exec format error" on 2026-09-14.
+PrivateTmp=yes
 # Type-2 AppImage needs libfuse.so.2; extract-and-run works without FUSE.
 Environment=APPIMAGE_EXTRACT_AND_RUN=1
 # Electron/Orca still requires an X server. Without xvfb: Missing X server
@@ -415,6 +482,194 @@ WantedBy=timers.target
 EOF
 ok "Update units written."
 
+# --- Monitoring, alerting, /tmp containment -----------------------------------
+# Why all of this exists: on 2026-09-14 orca-serve crash-looped for 16h (826
+# restarts), saturating the tmpfs /tmp, and NOTHING surfaced it. Three failures
+# had to line up, and each is answered below:
+#
+#   1. APPIMAGE_EXTRACT_AND_RUN=1 unsquashed the whole 546 MB AppImage into the
+#      tmpfs /tmp on every launch, into a directory named after a hash of the
+#      CONTENT — therefore the SAME path every time. With KillMode=mixed and
+#      TimeoutStopSec=45, the outgoing instance's cleanup ran while the incoming
+#      one had just extracted there: truncated AppRun -> "Exec format error" ->
+#      crash -> restart -> re-extract 546 MB. A self-sustaining loop.
+#                                              -> zz-tmp-fix.conf
+#   2. The systemd ceiling was mathematically unreachable (see the base unit).
+#                                              -> zz-crashloop-guard.conf
+#   3. update-orca exited 0 after observing that nothing listened.
+#                                              -> fixed inside update-orca
+#
+# orca-health is the backstop for what none of those anticipate: it probes the
+# REAL symptom — does the port actually answer — rather than trusting the state
+# systemd reports, which said "active" throughout the outage.
+#
+# The zz- prefix is not cosmetic. override.conf is REGENERATED by this script on
+# every run; the zz- files are written separately and drop-ins load in
+# alphabetical order, so these always come last and always win.
+run mkdir -p "$DROPIN_DIR" "$UPDATE_DROPIN_DIR"
+
+if has_libfuse2; then
+  # FUSE is available: the AppImage mounts itself read-only instead of
+  # extracting. Zero bytes written to /tmp, and no shared extraction path between
+  # instances, so the race simply cannot occur.
+  #
+  # `Environment=` with an EMPTY value resets the whole list — that is how
+  # APPIMAGE_EXTRACT_AND_RUN, inherited from the unit and from override.conf, is
+  # removed. The variables worth keeping are redeclared right after.
+  write_file "${DROPIN_DIR}/zz-tmp-fix.conf" <<'EOF'
+# Managed by orca-setup. Loaded AFTER override.conf — deliberately.
+#
+# Kills APPIMAGE_EXTRACT_AND_RUN: libfuse.so.2 is present, so the AppImage mounts
+# itself read-only. Nothing is written to /tmp, and two instances no longer share
+# an extraction directory — which is what produced the truncated AppRun and the
+# 826-restart crash loop of 2026-09-14.
+#
+# PrivateTmp is the second layer: whatever still lands in /tmp (a fallback
+# extraction if FUSE disappears, a leaked mount) is reclaimed on every stop.
+[Service]
+Environment=
+Environment="ELECTRON_EXTRA_LAUNCH_ARGS=--disable-gpu"
+Environment="DBUS_SESSION_BUS_ADDRESS=unix:path=/run/orca-no-session-bus"
+PrivateTmp=yes
+EOF
+  ok "Drop-in written: ${DROPIN_DIR}/zz-tmp-fix.conf (FUSE mode, nothing in /tmp)"
+else
+  # No libfuse.so.2: extraction is the only way to launch, so it stays — but
+  # contained. PrivateTmp gives the unit a /tmp of its own, destroyed on stop:
+  # the extraction can no longer saturate the host tmpfs, and no second instance
+  # can ever see (or delete) these files.
+  write_file "${DROPIN_DIR}/zz-tmp-fix.conf" <<'EOF'
+# Managed by orca-setup. Loaded AFTER override.conf — deliberately.
+#
+# libfuse.so.2 is MISSING on this host, so APPIMAGE_EXTRACT_AND_RUN must stay:
+# without it the AppImage cannot start at all. What changes is the blast radius —
+# PrivateTmp gives the unit its own /tmp, destroyed on stop, so the 546 MB
+# extraction can neither fill the host tmpfs nor be shared between two instances.
+#
+# Install libfuse2 / libfuse2t64 and re-run orca-setup to switch to FUSE mode,
+# which writes nothing to /tmp at all.
+[Service]
+PrivateTmp=yes
+EOF
+  warn "libfuse.so.2 missing — keeping extract-and-run, contained by PrivateTmp."
+fi
+
+write_file "${DROPIN_DIR}/zz-crashloop-guard.conf" <<'EOF'
+# Managed by orca-setup. Anti crash-loop ceiling, restated outside override.conf
+# so a hand-edited unit cannot quietly lose it.
+#
+# 2026-09-14: 1215 failed starts for 1 success, one cycle every ~65s, three days
+# running, and systemd never intervened. StartLimitBurst=8 over
+# StartLimitIntervalSec=120 demands 8 failures in 2 minutes — one every 15s. At
+# 65s per cycle that is ~1.8 per window: the counter resets before reaching 8,
+# forever. A rate ceiling only protects against FAST loops, and it was the SLOW
+# loop that burned CPU and RAM for three days.
+#
+# 5 failures within 30 minutes: a 65s loop is cut in ~5 min, while an isolated
+# incident (the SIGBUS of 14/09 17:02, recovered in 7s) is still tolerated.
+#
+# On reaching the ceiling the unit stays 'failed' instead of looping — visible in
+# `systemctl --failed`. To restart it after a fix:
+#   sudo systemctl reset-failed orca-serve.service && sudo systemctl start orca-serve.service
+[Unit]
+StartLimitIntervalSec=1800
+StartLimitBurst=5
+EOF
+
+if [[ -n "$SRC_HEALTH" ]]; then
+  # OnFailure fires an immediate check — and therefore an alert — instead of
+  # waiting up to 10 minutes for the next timer tick.
+  for d in "$DROPIN_DIR" "$UPDATE_DROPIN_DIR"; do
+    write_file "${d}/zz-alert.conf" <<'EOF'
+# Managed by orca-setup. Fires a health check, and therefore an alert, the moment
+# the unit fails.
+[Unit]
+OnFailure=orca-alert@%n.service
+EOF
+  done
+
+  # orca-update.service makes two `mktemp -d` calls in /tmp with no trap on them:
+  # if the script dies in between, the directory leaks. Small (12 KB measured),
+  # so this is preventive rather than urgent.
+  write_file "${UPDATE_DROPIN_DIR}/zz-tmp-fix.conf" <<'EOF'
+# Managed by orca-setup. Private /tmp, destroyed at the end of the run: the
+# update script's mktemp directories cannot leak.
+[Service]
+PrivateTmp=yes
+EOF
+
+  write_file "/etc/systemd/system/${HEALTH_SERVICE}" <<EOF
+[Unit]
+Description=Orca health check (service + port + crash-loop)
+Documentation=file://${HEALTH_SCRIPT}
+
+[Service]
+Type=oneshot
+ExecStart=${HEALTH_SCRIPT}
+# The script prefixes its messages with <3>/<4>, so journald derives the
+# priority: \`journalctl -u ${HEALTH_SERVICE} -p err\` shows only real outages.
+StandardOutput=journal
+StandardError=journal
+PrivateTmp=yes
+EOF
+
+  write_file "/etc/systemd/system/${HEALTH_TIMER}" <<'EOF'
+[Unit]
+Description=Check Orca every 10 minutes
+
+[Timer]
+# One pass shortly after boot, then every 10 minutes.
+OnBootSec=3min
+OnUnitActiveSec=10min
+# Catch up if the machine was off.
+Persistent=true
+Unit=orca-health.service
+
+[Install]
+WantedBy=timers.target
+EOF
+
+  write_file "/etc/systemd/system/${ALERT_SERVICE}" <<EOF
+[Unit]
+Description=Immediate alert after %i failed
+
+[Service]
+Type=oneshot
+# Reuses the very same logic (and the same anti-spam state) as the periodic check.
+ExecStart=${HEALTH_SCRIPT}
+StandardOutput=journal
+StandardError=journal
+PrivateTmp=yes
+# Do not fail the alert itself: orca-health exits 1 when it finds a problem,
+# which is its job, not a malfunction of the alert.
+SuccessExitStatus=0 1
+EOF
+
+  # Never overwritten: it may already hold the user's ntfy URL. 0600 because that
+  # URL is the only thing protecting the alert feed from being read by anyone.
+  if [[ -f "$ALERT_CONF" ]]; then
+    ok "Alert config already present: ${ALERT_CONF} (left untouched)"
+  elif [[ "$DRY_RUN" -eq 1 ]]; then
+    printf '  %s+%s write %s (mode 600)\n' "$c_y" "$c_0" "$ALERT_CONF"
+  else
+    ( umask 077; cat > "$ALERT_CONF" <<'EOF'
+# Notification channel for orca-health.
+#
+# Default: journal only (journalctl -u orca-health -p err).
+# For a push notification, uncomment and set an ntfy URL. Pick a long,
+# unguessable topic name: anyone who knows it can read your alerts.
+#
+#ORCA_ALERT_URL="https://ntfy.sh/orca-<hostname>-<random-string>"
+EOF
+    )
+    ok "Alert config created: ${ALERT_CONF} (journal only — edit to add a push URL)"
+  fi
+
+  ok "Monitoring units written (${HEALTH_TIMER} every 10 min, OnFailure alerts)."
+else
+  warn "No orca-health — skipping the health timer and the OnFailure alerts."
+fi
+
 # Recent Orca builds IGNORE `serve --port`. The runtime reads
 # ~/.config/orca/mobile-ws-fallback-port.json and may pick an ephemeral port
 # on first boot. Write 6768 before the first start (mkdir: the profile does
@@ -434,7 +689,8 @@ enforce_port_file() {
   ok "Port ${PORT} written to ${file}"
 }
 
-port_listening() { ss -ltn 2>/dev/null | grep -qE ":${PORT}\b"; }
+# See the note in do_status: an ss filter, never a text match on the whole table.
+port_listening() { ss -ltn "sport = :${PORT}" 2>/dev/null | grep -q LISTEN; }
 
 # --- Apply --------------------------------------------------------------------
 enforce_port_file
@@ -444,7 +700,14 @@ if systemctl is-active --quiet "$SERVICE" 2>/dev/null; then
   run systemctl stop "$SERVICE" || true
 fi
 run systemctl enable --now "$SERVICE"
-[[ -n "$SRC_UPDATE" ]] && run systemctl enable --now orca-update.timer
+# `[[ ... ]] && cmd` as a statement returns 1 when the test is false, which under
+# `set -e` would abort the script right here. Spelled as an if-block instead.
+if [[ -n "$SRC_UPDATE" ]]; then
+  run systemctl enable --now orca-update.timer
+fi
+if [[ -n "$SRC_HEALTH" ]]; then
+  run systemctl enable --now "$HEALTH_TIMER"
+fi
 
 if [[ "$DRY_RUN" -eq 1 ]]; then exit 0; fi
 

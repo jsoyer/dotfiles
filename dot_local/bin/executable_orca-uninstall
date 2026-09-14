@@ -17,8 +17,9 @@ Usage: orca-uninstall [-y] [--purge]
   -y, --yes    do not ask for confirmation
   --purge      also drop ~/.config/orca
 
-Linux: stops orca-serve and orca-update, removes their units, /usr/local/bin/
-update-orca and /opt/orca. Needs root (re-runs itself with sudo).
+Linux: stops orca-serve, orca-update and orca-health, removes their units and
+drop-ins, /usr/local/bin/{update-orca,orca-health}, /etc/orca-alert.conf and
+/opt/orca. Needs root (re-runs itself with sudo).
 macOS: uninstalls the cask and untaps stablyai/orca.
 EOF
 }
@@ -62,15 +63,26 @@ if command -v orca-setup &>/dev/null; then
 else
     systemctl disable --now orca-serve.service 2>/dev/null || true
     systemctl disable --now orca-update.timer 2>/dev/null || true
+    systemctl disable --now orca-health.timer 2>/dev/null || true
 fi
 
 echo "🧹 Removing what the setup script leaves behind..."
+# orca-setup --uninstall deliberately KEEPS /etc/orca-alert.conf (it may hold an
+# ntfy URL). This script is the full removal, so it goes too.
 rm -f /etc/systemd/system/orca-serve.service \
       /etc/systemd/system/orca-serve.service.bak \
       /etc/systemd/system/orca-update.service \
       /etc/systemd/system/orca-update.timer \
-      /usr/local/bin/update-orca
-rm -rf /etc/systemd/system/orca-serve.service.d /opt/orca
+      /etc/systemd/system/orca-health.service \
+      /etc/systemd/system/orca-health.timer \
+      "/etc/systemd/system/orca-alert@.service" \
+      /etc/orca-alert.conf \
+      /usr/local/bin/update-orca \
+      /usr/local/bin/orca-health
+rm -rf /etc/systemd/system/orca-serve.service.d \
+       /etc/systemd/system/orca-update.service.d \
+       /var/lib/orca-health \
+       /opt/orca
 systemctl daemon-reload 2>/dev/null || true
 
 if [[ "$PURGE" -eq 1 ]]; then
