@@ -21,7 +21,9 @@
 # 2026-09-14, when orca-serve crash-looped for 16h (826 restarts) with nothing
 # ever surfacing it: orca-health + its timer, orca-alert@ wired through
 # OnFailure=, and the zz- drop-ins that make /tmp private and give the crash-loop
-# ceiling a window wide enough to catch a SLOW loop.
+# ceiling a window wide enough to catch a SLOW loop. It also sweeps the /tmp
+# residue that behaviour left behind, so a machine taken back in hand restarts
+# from a clean base.
 #
 # Usage:
 #   orca-setup                              full install (prompts for sudo)
@@ -692,6 +694,55 @@ enforce_port_file() {
 # See the note in do_status: an ss filter, never a text match on the whole table.
 port_listening() { ss -ltn "sport = :${PORT}" 2>/dev/null | grep -q LISTEN; }
 
+# Sweep the residue the OLD extract-and-run behaviour left in /tmp, so a machine
+# being taken back in hand restarts from a clean base.
+#
+# Two kinds of leftovers, and nothing else reaps either of them: 546 MB
+# extractions under /tmp, and squashfuse mountpoints abandoned by a killed
+# instance (105 had piled up on looping — 105 of the 147 entries in the system
+# mount table). PrivateTmp stops both from accumulating going forward, but it
+# does not remove what is already on disk.
+#
+# Scope is deliberately narrow: Orca's own leftovers, nothing else. /tmp and
+# /var/tmp at large are systemd-tmpfiles' business — its age rules know to spare
+# the private directories of live units, and we do not.
+sweep_tmp_residue() {
+  local mp d n=0
+
+  # Dead mounts first: the directory cannot be removed while the stale mount is
+  # still in the table. A dead mount is unmistakable — stat() fails with
+  # ENOTCONN — so a live instance is never disturbed. Same test as orca-gui.
+  while read -r _ mp _; do
+    case "$mp" in
+      /tmp/.mount_orca-*)
+        stat "$mp" >/dev/null 2>&1 && continue   # alive, leave it alone
+        run fusermount -u "$mp" 2>/dev/null || run umount -l "$mp" 2>/dev/null || true
+        run rmdir "$mp" 2>/dev/null || true
+        n=$((n + 1))
+        ;;
+    esac
+  done < /proc/mounts
+
+  # Orphaned extractions — but ONLY when no Orca process is running. The
+  # directory is named after a hash of the CONTENT, so a live instance is using
+  # the exact path we would delete, and deleting a path in use under another
+  # instance is precisely the bug that produced the 2026-09-14 crash loop. The
+  # caller has already stopped orca-serve; this guard covers a user's orca-gui.
+  if ! pgrep -f "$DEST" >/dev/null 2>&1; then
+    for d in /tmp/appimage_extracted_*; do
+      [[ -d "$d" ]] || continue
+      run rm -rf "$d"
+      n=$((n + 1))
+    done
+  else
+    warn "An Orca process is running — leaving /tmp extractions alone."
+  fi
+
+  if (( n > 0 )); then
+    ok "Swept ${n} leftover /tmp item(s) (dead mounts / orphaned extractions)."
+  fi
+}
+
 # --- Apply --------------------------------------------------------------------
 enforce_port_file
 run systemctl daemon-reload
@@ -699,6 +750,8 @@ run systemctl daemon-reload
 if systemctl is-active --quiet "$SERVICE" 2>/dev/null; then
   run systemctl stop "$SERVICE" || true
 fi
+# With the service down, nothing holds the old paths — sweep before restarting.
+sweep_tmp_residue
 run systemctl enable --now "$SERVICE"
 # `[[ ... ]] && cmd` as a statement returns 1 when the test is false, which under
 # `set -e` would abort the script right here. Spelled as an if-block instead.
