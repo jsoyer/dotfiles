@@ -34,8 +34,27 @@ if systemctl is-active --quiet "$SERVICE"; then
     fi
 fi
 
+# squashfuse leaves its mountpoint behind when it is killed instead of exiting
+# cleanly — 105 of them had piled up under /tmp, each one an entry in the system
+# mount table (147 entries total, 105 of them dead Orca mounts). A dead mount is
+# unmistakable: stat() on it fails with ENOTCONN. Live mounts stat fine, so a
+# concurrent Orca instance is never disturbed.
+sweep_dead_mounts() {
+    local mp
+    while read -r _ mp _; do
+        case "$mp" in
+            /tmp/.mount_orca-*)
+                stat "$mp" >/dev/null 2>&1 && continue   # alive, leave it alone
+                fusermount -u "$mp" 2>/dev/null || sudo -n umount -l "$mp" 2>/dev/null
+                rmdir "$mp" 2>/dev/null
+                ;;
+        esac
+    done < /proc/mounts
+}
+
 # 2) Guarantee restoration even if the GUI crashes or is interrupted
 restore() {
+    sweep_dead_mounts
     if [ "$was_active" -eq 1 ]; then
         note "Restarting the headless service…"
         svc start || note "RESTART FAILED — run: sudo systemctl start $SERVICE"
@@ -45,5 +64,53 @@ trap restore EXIT INT TERM
 
 # 3) Run the GUI in the foreground; the script waits for the window to close
 note "Opening the graphical interface…"
-# Type-2 AppImage needs libfuse.so.2; extract-and-run works without FUSE.
-APPIMAGE_EXTRACT_AND_RUN=1 "$APPIMAGE" --no-sandbox "$@"
+
+# /tmp is a tmpfs — it is RAM. APPIMAGE_EXTRACT_AND_RUN=1 used to unsquash the
+# whole 546 MB AppImage into it on every launch: ~60 s of startup, 546 MB of RAM,
+# and every other /tmp user starved (docker health checks failed with ENOSPC
+# ~15 700 times a day). libfuse2t64 is installed, so the AppImage mounts itself
+# read-only instead: nothing is written to /tmp at all.
+#
+# Extraction stays as a fallback for a host without FUSE, but redirected onto
+# disk so it can never fill the tmpfs again.
+#
+# Better still when it is available: Orca already keeps a fully extracted AppDir
+# under ~/.cache/orca for its CLI, and maintains the "installed" symlink into it
+# on every service start. Running that AppRun directly costs nothing — no /tmp,
+# no extraction, no startup delay — and its pages are mapped from an ordinary
+# on-disk filesystem rather than through FUSE, which sidesteps the SIGBUS seen
+# on orca-serve at 17:02 on 14/09 (a failed page-in through a FUSE mount kills
+# the process; a plain file cannot fail that way).
+#
+# It is only trusted when it is demonstrably in sync: Orca re-extracts the
+# AppDir after an update, so a directory mtime newer than the AppImage's means
+# it mirrors the current version. Right after an update and before Orca has run
+# again, it is older — and we fall through to FUSE rather than launch a stale
+# build.
+appdir=""
+installed_link="${XDG_CACHE_HOME:-$HOME/.cache}/orca/appimage/launcher/installed"
+if [[ -e "$installed_link" ]]; then
+    resolved="$(readlink -f "$installed_link" 2>/dev/null || true)"
+    candidate="${resolved%/resources/bin/orca-ide}"
+    if [[ -n "$resolved" && "$candidate" != "$resolved" \
+          && -x "$candidate/AppRun" && "$candidate" -nt "$APPIMAGE" ]]; then
+        appdir="$candidate"
+    fi
+fi
+
+sweep_dead_mounts
+if [[ -n "$appdir" ]]; then
+    "$appdir/AppRun" --no-sandbox "$@"
+elif [[ -w /dev/fuse ]] && command -v fusermount >/dev/null 2>&1; then
+    "$APPIMAGE" --no-sandbox "$@"
+else
+    note "FUSE unavailable — falling back to extraction (slower)."
+    extract_dir="${XDG_CACHE_HOME:-$HOME/.cache}/orca/appimage-run"
+    mkdir -p "$extract_dir"
+    # An unclean kill leaves the 546 MB extraction behind, and nothing reaps
+    # $HOME/.cache. Drop anything older than a day first — the >24 h cutoff keeps
+    # a concurrent instance's own extraction safe.
+    find "$extract_dir" -maxdepth 1 -name 'appimage_extracted_*' -mtime +0 \
+        -exec rm -rf {} + 2>/dev/null
+    TMPDIR="$extract_dir" APPIMAGE_EXTRACT_AND_RUN=1 "$APPIMAGE" --no-sandbox "$@"
+fi
