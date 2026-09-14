@@ -51,16 +51,25 @@ FALLBACK_PORT_FILE="${SVC_HOME:-/home/$SVC_USER}/.config/orca/mobile-ws-fallback
 # script runs as root but the file belongs to the user).
 enforce_port_file() {
   local dir; dir="$(dirname "$FALLBACK_PORT_FILE")"
-  mkdir -p "$dir"
-  chown "$SVC_USER":"$SVC_USER" "$dir" 2>/dev/null || true
+  [[ -d "$dir" ]] || { warn "Orca profile not found ($dir) — port not forced."; return 0; }
   printf '{"port":%s}' "$EXPECTED_PORT" > "$FALLBACK_PORT_FILE"
   chown "$SVC_USER":"$SVC_USER" "$FALLBACK_PORT_FILE" 2>/dev/null || true
   chmod 644 "$FALLBACK_PORT_FILE" 2>/dev/null || true
-  log "Port forced to ${EXPECTED_PORT} in ${FALLBACK_PORT_FILE}."
+  log "Port forced to ${EXPECTED_PORT} in $(basename "$FALLBACK_PORT_FILE")."
 }
 
 # True if something is listening on EXPECTED_PORT.
-port_listening() { ss -ltn 2>/dev/null | grep -qE ":${EXPECTED_PORT}\b"; }
+port_listening() { ss -ltn "sport = :${EXPECTED_PORT}" 2>/dev/null | grep -q LISTEN; }
+
+# Wait up to ~40s for the headless server to listen. Returns 0 if it does.
+wait_for_port() {
+  local _
+  for _ in $(seq 1 20); do port_listening && return 0; sleep 2; done
+  return 1
+}
+
+# Port actually in use by Orca, for diagnostics.
+actual_port() { ss -ltnp 2>/dev/null | grep -i orca | grep -oE ':[0-9]+' | sort -u | tr '\n' ' '; }
 
 # Extract an Orca AppImage version WITHOUT running it: read `X-AppImage-Version`
 # from the embedded .desktop (internal extraction, no FUSE required). Returns
@@ -110,6 +119,11 @@ SIZE="$(stat -c%s "$TMP")"
 [[ "$SIZE" -gt 1000000 ]] || die "Suspiciously small file (${SIZE} bytes)."
 log "Download OK ($(numfmt --to=iec "$SIZE" 2>/dev/null || echo "${SIZE}B"))."
 
+# Must come BEFORE appimage_version below: mktemp creates the file in mode 600,
+# and a non-executable AppImage cannot self-extract its .desktop -> the version
+# would always read back as "unknown".
+chmod 755 "$TMP"
+
 # --- Versions (read without launching the app) --------------------------------
 CUR_VER="$(appimage_version "$DEST")"   # currently installed version
 NEW_VER="$(appimage_version "$TMP")"    # version just downloaded
@@ -136,7 +150,6 @@ if [[ "$have_systemd" -eq 1 ]]; then
 fi
 
 # --- Atomic install -----------------------------------------------------------
-chmod 755 "$TMP"
 if [[ -f "$DEST" ]]; then
   cp -f "$DEST" "$BACKUP"
   log "Previous version backed up → ${BACKUP}"
@@ -162,25 +175,42 @@ if [[ "$have_systemd" -eq 1 ]]; then
       die  "See: journalctl -u ${SERVICE} -e"
     fi
 
-    # --- Port check (self-correcting) -----------------------------------------
-    # The server takes a few seconds to listen. We wait, and if the expected port
-    # never shows up we re-force the file plus a restart, then check again.
-    # Non-fatal: the update succeeded, we just complain loudly.
+    # --- Port check, then ROLLBACK --------------------------------------------
+    # The server takes a few seconds to listen. If the expected port never shows
+    # up we re-force the file plus a restart, then check again.
+    #
+    # If it still does not serve, the new build is broken: we roll back to the
+    # backup and exit NON-ZERO so systemd marks the unit failed.
+    #
+    # History: on 2026-09-14 this block only warned and then logged "updated
+    # successfully" with exit 0. A broken build crash-looped 826 times over 16h,
+    # saturating the tmpfs /tmp, and nothing ever surfaced it. Never again:
+    # a non-serving Orca MUST be a failed unit.
     log "Checking that the headless server listens on ${EXPECTED_PORT}…"
-    ok_port=0
-    for _ in $(seq 1 20); do port_listening && { ok_port=1; break; }; sleep 2; done
-    if [[ "$ok_port" -eq 0 ]]; then
+    if wait_for_port; then
+      log "Headless server listening on ${EXPECTED_PORT} ✔"
+    else
       warn "Port ${EXPECTED_PORT} missing — re-forcing the file + restart…"
       enforce_port_file
       systemctl restart "$SERVICE" || warn "restart failed."
-      for _ in $(seq 1 20); do port_listening && { ok_port=1; break; }; sleep 2; done
-    fi
-    if [[ "$ok_port" -eq 1 ]]; then
-      log "Headless server listening on ${EXPECTED_PORT} ✔"
-    else
-      warn "⚠ The headless server is NOT listening on ${EXPECTED_PORT} after correction."
-      warn "  Actual port: $(ss -ltnp 2>/dev/null | grep -i orca | grep -oE ':[0-9]+' | sort -u | tr '\n' ' ')"
-      warn "  Fix by hand: echo '{\"port\":${EXPECTED_PORT}}' > '${FALLBACK_PORT_FILE}' then restart."
+      if wait_for_port; then
+        log "Headless server listening on ${EXPECTED_PORT} ✔"
+      else
+        warn "⚠ NOT listening on ${EXPECTED_PORT} after correction (actual: $(actual_port))."
+        [[ -f "$BACKUP" ]] || die "Update ${CUR_VER} → ${NEW_VER} FAILED and no backup exists to roll back to. Fix by hand: journalctl -u ${SERVICE} -e"
+
+        warn "Rolling back to the previous AppImage…"
+        systemctl stop "$SERVICE" || warn "Unclean stop during rollback (continuing)."
+        mv -f "$BACKUP" "$DEST"
+        log "Restored: ${DEST}"
+        enforce_port_file
+        systemctl start "$SERVICE" || die "Rollback FAILED to start. Manual intervention required: journalctl -u ${SERVICE} -e"
+
+        if wait_for_port; then
+          die "Update ${CUR_VER} → ${NEW_VER} FAILED — rolled back to ${CUR_VER}, which is serving on ${EXPECTED_PORT}. The published build is broken; the daily timer will retry and roll back again until it is fixed."
+        fi
+        die "Update FAILED and the rollback is NOT serving either (actual: $(actual_port)). Manual intervention required: journalctl -u ${SERVICE} -e"
+      fi
     fi
   fi
 fi
