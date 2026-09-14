@@ -1,0 +1,108 @@
+{{- $mp := index . "machine_profile" -}}
+{{- $skip := list "windows" "toolbox" -}}
+{{- if and (eq .chezmoi.os "linux") (not (has $mp $skip)) -}}
+#!/usr/bin/env bash
+# Repare /etc/tmpfiles.d/tmp.conf quand il MASQUE la regle d'expiration de
+# /var/tmp.
+#
+# Le piege : un fichier de /etc/tmpfiles.d/ masque celui de /usr/lib/tmpfiles.d/
+# portant le MEME NOM, **en entier** — pas ligne par ligne. Le fichier d'origine
+# de systemd en contient deux :
+#
+#     q /tmp     1777 root root 10d
+#     q /var/tmp 1777 root root 30d
+#
+# Sur looping, /etc/tmpfiles.d/tmp.conf ne contenait qu'une seule ligne,
+# `D /tmp 1777 root root -`. Cette unique ligne a donc supprime DEUX regles :
+# l'expiration de /tmp (champ d'age "-"), et surtout celle de /var/tmp, dont
+# plus rien ne limitait l'age. Resultat mesure le 2026-09-14 : 22 Go dans
+# /var/tmp, dont des dossiers de septembre 2024 jamais expires.
+#
+# Le symptome est sournois : systemd-tmpfiles-clean.timer tournait parfaitement,
+# tous les jours, depuis toujours. Il n'avait simplement plus aucune regle d'age
+# a appliquer. Rien dans le journal, rien en echec — juste un disque qui se
+# remplit.
+#
+# Pourquoi un script et pas un fichier gere directement : chezmoi gere $HOME,
+# pas /etc. Meme raison, et meme motif, que install-sudoers-sysup.
+#
+# Pourquoi `run_always_` et pas `run_onchange_` : le script a besoin de sudo. Si
+# sudo demande un mot de passe il sort proprement sans rien poser ; un
+# run_onchange_ enregistrerait alors son hash comme "execute" et ne RETENTERAIT
+# JAMAIS. Ici il retente a chaque apply, et le test ci-dessous le rend no-op des
+# que la regle est en place.
+#
+# Portee volontairement etroite : on ne cree PAS le fichier s'il n'existe pas.
+# Sans fichier dans /etc, celui de /usr/lib s'applique deja correctement, et en
+# poser un re-introduirait justement le masquage qu'on repare ici (une future
+# version de systemd qui ajouterait une regle a tmp.conf serait masquee par
+# notre copie). On ne corrige donc que le cas reellement casse.
+
+set -uo pipefail
+
+TARGET="/etc/tmpfiles.d/tmp.conf"
+
+# Pas de fichier dans /etc : celui de /usr/lib fait deja le travail. Rien a faire.
+[ -e "$TARGET" ] || exit 0
+
+# Deja reparé (ou surcharge legitime qui redeclare bien les deux regles) : no-op.
+if grep -qE '^[[:space:]]*[a-zA-Z]\+?[[:space:]]+/var/tmp[[:space:]]' "$TARGET"; then
+    exit 0
+fi
+
+command -v sudo >/dev/null 2>&1 || {
+    echo "tmpfiles-tmp: ${TARGET} masque la regle /var/tmp, mais sudo est absent." >&2
+    exit 0
+}
+
+TMP="$(mktemp)"
+cleanup() { [ -n "${TMP:-}" ] && [ -f "$TMP" ] && command rm -f -- "$TMP"; }
+trap cleanup EXIT
+
+cat > "$TMP" <<'EOF'
+# Surcharge locale de /usr/lib/tmpfiles.d/tmp.conf.
+#
+# Genere par chezmoi
+# (.chezmoiscripts/03-configure/run_always_repair-tmpfiles-tmp.sh.tmpl)
+#
+# ATTENTION: un fichier de /etc/tmpfiles.d/ masque celui de /usr/lib/tmpfiles.d/
+# portant le MEME NOM, en entier. Il faut donc redeclarer ici TOUTES les regles
+# du fichier d'origine, pas seulement celle qu'on veut modifier.
+#
+# Historique du bug: ce fichier ne contenait que "D /tmp 1777 root root -".
+#  - le champ d'age "-" retirait l'expiration de /tmp (nettoye au boot seulement) ;
+#  - et l'absence de la ligne /var/tmp supprimait silencieusement la regle des
+#    30 jours -> 22 Go de dossiers datant de septembre 2024 jamais expires.
+# Le timer systemd-tmpfiles-clean tournait pourtant bien tous les jours: il
+# n'avait simplement plus aucune regle d'age a appliquer.
+#
+# On retablit les deux durees par defaut Debian. "D" (au lieu du "q" d'origine)
+# est conserve pour /tmp: c'est l'intention locale, purge complete au boot.
+D /tmp     1777 root root 10d
+q /var/tmp 1777 root root 30d
+EOF
+
+# On teste d'ABORD si sudo passe sans prompt. Ce script tourne a chaque apply
+# (donc a chaque chezmoi-autoupdate) : un `sudo` interactif y bloquerait, et
+# chaque echec laisserait une ligne "a password is required" dans le journal.
+if ! sudo -n true 2>/dev/null; then
+    echo "tmpfiles-tmp: ${TARGET} masque la regle d'expiration de /var/tmp." >&2
+    echo "  sudo demande un mot de passe — correction non appliquee." >&2
+    echo "  Lancer 'chezmoi apply' depuis un terminal interactif pour la poser." >&2
+    exit 0
+fi
+
+# Sauvegarde du fichier casse : il documente l'etat d'origine, et permet de
+# revenir en arriere si la surcharge etait en fait intentionnelle.
+sudo -n cp -n "$TARGET" "${TARGET}.bak" 2>/dev/null || true
+
+if ! sudo -n install -m 0644 -o root -g root "$TMP" "$TARGET"; then
+    echo "tmpfiles-tmp: echec de l'ecriture de ${TARGET}." >&2
+    exit 1
+fi
+
+echo "tmpfiles-tmp: ${TARGET} reparé — la regle d'expiration de /var/tmp (30d) est retablie."
+echo "  Ancien contenu sauvegarde dans ${TARGET}.bak"
+echo "  Verifier: systemd-tmpfiles --cat-config | grep -E '^(D|q) (/tmp|/var/tmp)'"
+echo "  Le prochain passage de systemd-tmpfiles-clean.timer expirera enfin /var/tmp."
+{{- end }}
