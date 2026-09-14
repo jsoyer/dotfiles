@@ -1,0 +1,128 @@
+#!/usr/bin/env bash
+#
+# orca-health — Surveillance d'Orca (runtime headless + mise a jour).
+#
+# Pourquoi ce script existe
+# -------------------------
+# Le 2026-09-14, orca-serve a tourne en crash-loop pendant ~16h (826 redemarrages)
+# sans qu'aucune alerte ne se declenche, saturant le tmpfs /tmp. Deux raisons :
+#
+#  1. update-orca sortait en 0 apres avoir constate que rien n'ecoutait
+#     (corrige : il sort desormais en non-zero et fait un rollback).
+#  2. Le crash-loop a ECHAPPE au garde-fou systemd : StartLimitBurst=8 sur
+#     StartLimitIntervalSec=120 tolere 8 demarrages par fenetre de 120s ; a un
+#     cycle toutes les ~69s le service n'en faisait que ~1.7. La limite n'etait
+#     donc jamais atteinte, l'unite restait "active", et rien ne remontait.
+#
+# D'ou une verification periodique du VRAI symptome (le port ne repond pas)
+# plutot qu'une confiance dans l'etat que systemd affiche.
+#
+set -uo pipefail
+
+SERVICE="orca-serve.service"
+PORT="${ORCA_PORT:-6768}"
+STATE_DIR="/var/lib/orca-health"
+STATE="${STATE_DIR}/state"
+CONF="/etc/orca-alert.conf"
+
+# Seuils
+RESTART_DELTA_MAX=3     # redemarrages tolerables entre deux passes
+TMP_PCT_MAX=70          # % d'occupation de /tmp au-dela duquel on previent
+RENOTIFY_SECONDS=21600  # re-alerte toutes les 6h tant que le probleme dure
+
+mkdir -p "$STATE_DIR"
+# shellcheck source=/dev/null
+[[ -r "$CONF" ]] && . "$CONF"
+
+now=$(date +%s)
+problems=()
+warnings=()
+
+# --- Collecte -----------------------------------------------------------------
+active=$(systemctl is-active "$SERVICE" 2>/dev/null || echo unknown)
+nrestarts=$(systemctl show "$SERVICE" -p NRestarts --value 2>/dev/null || echo 0)
+listening=0
+ss -ltn "sport = :${PORT}" 2>/dev/null | grep -q LISTEN && listening=1
+tmp_pct=$(df --output=pcent /tmp 2>/dev/null | tail -1 | tr -dc '0-9')
+tmp_pct=${tmp_pct:-0}
+
+# Etat precedent
+prev_restarts=0; prev_status="ok"; prev_notified=0
+[[ -r "$STATE" ]] && . "$STATE"
+delta=$(( nrestarts - prev_restarts ))
+(( delta < 0 )) && delta=0   # compteur remis a zero (reset-failed)
+
+# --- Diagnostic ---------------------------------------------------------------
+# Le symptome qui compte vraiment : Orca ne sert pas.
+if [[ "$active" != "active" ]]; then
+  problems+=("Service ${SERVICE} non actif (etat: ${active})")
+elif (( listening == 0 )); then
+  problems+=("Orca est 'active' mais RIEN n'ecoute sur le port ${PORT} — c'est exactement le scenario du 14/09")
+fi
+
+# Crash-loop lent, celui qui passe sous le radar de StartLimitBurst.
+if (( delta >= RESTART_DELTA_MAX )); then
+  problems+=("${delta} redemarrages depuis la derniere verification (total: ${nrestarts}) — crash-loop probable")
+fi
+
+# Le symptome d'origine, au cas ou une autre fuite apparaitrait.
+if (( tmp_pct >= TMP_PCT_MAX )); then
+  warnings+=("/tmp occupe a ${tmp_pct}% (seuil ${TMP_PCT_MAX}%)")
+fi
+
+# --- Notification -------------------------------------------------------------
+notify() {
+  local level="$1" title="$2" body="$3"
+  # Toujours dans le journal : consultable via journalctl -u orca-health -p err
+  if [[ "$level" == "CRITICAL" ]]; then
+    printf '<3>%s\n%s\n' "$title" "$body"    # priorite err
+  else
+    printf '<4>%s\n%s\n' "$title" "$body"    # priorite warning
+  fi
+  # Push optionnel : definir ORCA_ALERT_URL dans /etc/orca-alert.conf
+  if [[ -n "${ORCA_ALERT_URL:-}" ]]; then
+    curl -fsS --max-time 10 \
+      -H "Title: ${title}" \
+      -H "Priority: $([[ "$level" == CRITICAL ]] && echo urgent || echo default)" \
+      -H "Tags: $([[ "$level" == CRITICAL ]] && echo rotating_light || echo warning)" \
+      -d "${body}" "${ORCA_ALERT_URL}" >/dev/null 2>&1 \
+      || printf '<4>orca-health: echec de l envoi vers ORCA_ALERT_URL\n'
+  fi
+}
+
+if (( ${#problems[@]} > 0 )); then
+  status="problem"
+  # Anti-spam : on notifie au changement d'etat, puis toutes les RENOTIFY_SECONDS.
+  if [[ "$prev_status" != "problem" ]] || (( now - prev_notified >= RENOTIFY_SECONDS )); then
+    body=$(printf '%s\n' "${problems[@]}")
+    body+=$'\n\n'"Etat: ${active} | redemarrages: ${nrestarts} (+${delta}) | port ${PORT}: $( ((listening)) && echo ouvert || echo FERME ) | /tmp: ${tmp_pct}%"
+    body+=$'\n'"Diagnostic : journalctl -u ${SERVICE} -e"
+    notify CRITICAL "Orca en panne sur $(hostname)" "$body"
+    prev_notified=$now
+  fi
+elif (( ${#warnings[@]} > 0 )); then
+  status="warning"
+  if [[ "$prev_status" == "ok" ]] || (( now - prev_notified >= RENOTIFY_SECONDS )); then
+    notify WARNING "Orca — avertissement sur $(hostname)" "$(printf '%s\n' "${warnings[@]}")"
+    prev_notified=$now
+  fi
+else
+  status="ok"
+  # Retour a la normale apres un incident : on le signale une fois.
+  if [[ "$prev_status" != "ok" ]]; then
+    notify WARNING "Orca est revenu a la normale sur $(hostname)" \
+      "Port ${PORT} ouvert, service actif, ${nrestarts} redemarrages au total."
+    prev_notified=0
+  fi
+fi
+
+# --- Persistance --------------------------------------------------------------
+cat > "$STATE" <<EOF
+prev_restarts=${nrestarts}
+prev_status=${status}
+prev_notified=${prev_notified}
+EOF
+
+# Sortie non-zero si probleme : l'unite apparait dans systemctl --failed
+[[ "$status" == "problem" ]] && exit 1
+exit 0
