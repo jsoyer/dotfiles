@@ -2,6 +2,7 @@
 # Managed by breww. Do not edit manually.
 brew "sdl2-compat"
 brew "herdr"
+cask "fluidvoice"
 cask "grok-bot"
 mas "djay Pro", id: 450527929
 mas "FaceScreen", id: 6702028512
