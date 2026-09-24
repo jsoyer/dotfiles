@@ -1,0 +1,17 @@
+# Host overlay for JeromeSrsMiniM6 — extras beyond the shared base.
+# Managed by breww. Do not edit manually.
+brew "sdl2-compat"
+brew "herdr"
+cask "grok-bot"
+mas "djay Pro", id: 450527929
+mas "FaceScreen", id: 6702028512
+mas "Keynote", id: 361285480
+mas "KeyScreen", id: 6753302381
+mas "MindNode", id: 6446116532
+mas "Numbers", id: 361304891
+mas "Obsidian Web Clipper", id: 6720708363
+mas "Pages", id: 361309726
+mas "Presentify", id: 1507246666
+mas "Raycast Companion", id: 6738274497
+mas "Save to Raindrop.io", id: 1549370672
+mas "Tripsy", id: 1429967544
