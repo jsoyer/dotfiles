@@ -17,7 +17,7 @@
 | Command | Action |
 |---------|--------|
 | `sysup` | Update all packages + flatpak + brew + AI tools |
-| `update-ai` | Update Claude Code, Copilot, Codex |
+| `update-ai` | Update AI CLIs (Claude Code, Copilot, Codex, Grok, cursor-agent, pi, omp, Antigravity) |
 | `dcua` | Docker compose pull + up + prune |
 
 ## Monitoring (cm* commands)

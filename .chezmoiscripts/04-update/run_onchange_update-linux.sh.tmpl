@@ -79,6 +79,16 @@ if command -v copilot-cli &>/dev/null; then
     curl -fsSL https://gh.io/copilot-install | bash 2>/dev/null || true
 fi
 
+# Antigravity CLI (agy): official installer on Linux, updated by `agy update`.
+# The installer exits early when agy exists, so it only runs when missing.
+if command -v agy &>/dev/null; then
+    echo "🤖 Updating Antigravity CLI..."
+    agy update 2>/dev/null || true
+else
+    echo "🤖 Installing Antigravity CLI..."
+    curl -fsSL https://antigravity.google/cli/install.sh | bash 2>/dev/null || echo "  ⚠️  failed: antigravity-cli"
+fi
+
 if command -v npm &>/dev/null; then
     echo "📦 Updating global npm packages..."
     # `npm update -g` is a no-op for 0.x packages (caret pins the minor), so

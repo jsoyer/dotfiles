@@ -3,17 +3,19 @@
 # install-ai — Install the mandatory AI CLIs, one official one-liner each.
 #
 # Mandatory set: claude, copilot-cli, codex, grok, cursor-agent, pi (pi.dev),
-# omp (omp.sh). Idempotent: anything already present is left alone (update-ai
+# omp (omp.sh), agy (Antigravity CLI). Idempotent: anything already present is left alone (update-ai
 # handles upgrades). Deliberately NOT in the Linux Brewfiles: each of these
 # ships its own installer/self-updater, and a brew/npm copy fights it (pi
 # ended up installed twice, once per channel, before this script existed).
 # omp is a seventh CLI, not a replacement for pi. On macOS, omp stays on
 # Homebrew (can1357/tap/omp); elsewhere it uses https://omp.sh/install.
+# agy (Antigravity CLI) follows the same split: macOS keeps the Homebrew cask
+# (antigravity-cli), Linux uses https://antigravity.google/cli/install.sh.
 #
 # Usage:
 #   install-ai               install whatever is missing
 #   install-ai --status      presence + version of each CLI
-#   install-ai --only <cli>  install a single one (claude|copilot|codex|grok|cursor|pi|omp)
+#   install-ai --only <cli>  install a single one (claude|copilot|codex|grok|cursor|pi|omp|agy)
 #   install-ai --dry-run     print without executing
 #
 set -uo pipefail
@@ -149,6 +151,35 @@ migrate_omp() {
   fi
 }
 
+# agy (Antigravity CLI). macOS: the Homebrew cask antigravity-cli is the
+# channel (bup upgrades it); leave it alone. Linux: the official installer
+# (~/.local/bin/agy, self-updating). A Linuxbrew cask copy counts as missing
+# so migrate_agy clears it — the installer exits early while any agy exists
+# at its target, and a brew copy on PATH would shadow the official one.
+has_agy() {
+  local tgt bp
+  command -v agy >/dev/null 2>&1 || return 1
+  [[ "$(uname -s)" == "Darwin" ]] && return 0
+  tgt="$(readlink -f "$(command -v agy)" 2>/dev/null || true)"
+  bp="$(brew --prefix 2>/dev/null || true)"
+  [[ -n "$bp" && "$tgt" == "$bp"/* ]] && return 1
+  return 0
+}
+
+migrate_agy() {
+  [[ "$(uname -s)" == "Darwin" ]] && return 0
+  command -v brew >/dev/null 2>&1 || return 0
+  if brew list --cask antigravity-cli >/dev/null 2>&1; then
+    log "agy: Linuxbrew cask found — uninstalling before the official installer…"
+    [[ "$DRY_RUN" -eq 1 ]] || brew uninstall --cask --force antigravity-cli >/dev/null 2>&1 || true
+  fi
+  local bp; bp="$(brew --prefix 2>/dev/null || true)"
+  if [[ -n "$bp" && ( -e "$bp/bin/agy" || -L "$bp/bin/agy" ) ]]; then
+    log "agy: removing Linuxbrew copy ${bp}/bin/agy"
+    [[ "$DRY_RUN" -eq 1 ]] || rm -f "$bp/bin/agy"
+  fi
+}
+
 ver() { "$@" 2>/dev/null | head -1 | tr -d '\r'; }
 
 do_status() {
@@ -160,6 +191,7 @@ do_status() {
   printf '  %-13s %s\n' "cursor-agent" "$(has_cursor  && ver cursor-agent --version      || echo missing)"
   printf '  %-13s %s\n' "pi"           "$(has_pi      && ver pi --version                || echo missing)"
   printf '  %-13s %s\n' "omp"          "$(has_omp     && ver omp --version               || echo missing)"
+  printf '  %-13s %s\n' "agy"          "$(has_agy     && ver agy --version               || echo missing)"
 }
 
 [[ "$ACTION" == "status" ]] && { do_status; exit 0; }
@@ -193,6 +225,13 @@ want pi && ! has_pi && migrate_pi
 step pi      "pi (pi.dev)"  has_pi      'curl -fsSL https://pi.dev/install.sh | bash'
 want omp && ! has_omp && migrate_omp
 step omp     "omp (omp.sh)" has_omp     'curl -fsSL https://omp.sh/install | sh'
+# agy on macOS is Homebrew's job (cask antigravity-cli via the Brewfile).
+if [[ "$(uname -s)" == "Darwin" ]]; then
+  want agy && ! has_agy && warn "Antigravity: macOS uses Homebrew — brew install --cask antigravity-cli"
+else
+  want agy && ! has_agy && migrate_agy
+  step agy   "Antigravity"  has_agy     'curl -fsSL https://antigravity.google/cli/install.sh | bash'
+fi
 
 echo
 if [[ "$missing" -gt 0 ]]; then

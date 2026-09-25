@@ -723,6 +723,15 @@ function update-ai
             omp update 2>/dev/null; or curl -fsSL https://omp.sh/install | sh 2>/dev/null; or true
         end
     end
+    # agy (Antigravity CLI): macOS Homebrew cask (bup). Linux: `agy update`.
+    if command -q agy
+        if _ai_brew_owned agy
+            echo "  🤖 Antigravity CLI: brew-managed — bup handles it"
+        else
+            echo "  🤖 Updating Antigravity CLI..."
+            agy update 2>/dev/null; or true
+        end
+    end
 end
 
 function _update_herdr_if_present

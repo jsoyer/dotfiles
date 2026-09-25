@@ -794,6 +794,13 @@ if ! command -v rtk &>/dev/null; then
     fi
 fi
 
+# Antigravity CLI (agy) — official installer on Linux, cask on macOS.
+# Installs to ~/.local/bin/agy and self-updates in the background.
+if ! command -v agy &>/dev/null && [[ ! -x "${HOME}/.local/bin/agy" ]]; then
+    echo "🤖 Installing Antigravity CLI..."
+    curl -fsSL https://antigravity.google/cli/install.sh | bash || _pkgfail "antigravity-cli: install script"
+fi
+
 # OpenCode CLI — handled by brew bundle (Brewfile_brew_only)
 {{- end }}
 

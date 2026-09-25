@@ -1388,6 +1388,15 @@ def update-ai [] {
             }
         }
     }
+    # agy (Antigravity CLI): macOS Homebrew cask (bup). Linux: `agy update`.
+    if (which agy | is-not-empty) {
+        if (_ai_brew_owned agy) {
+            print "  🤖 Antigravity CLI: brew-managed — bup handles it"
+        } else {
+            print "  🤖 Updating Antigravity CLI..."
+            try { ^agy update } catch { }
+        }
+    }
 }
 
 def _update_herdr_if_present [] {
