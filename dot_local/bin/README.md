@@ -503,12 +503,15 @@ Custom Chezmoi status indicator in prompt:
 
 ## Mandatory AI CLIs
 
-`install-ai` installs the seven mandatory AI CLIs, one official one-liner each,
+`install-ai` installs the eight mandatory AI CLIs, one official one-liner each,
 idempotently: **claude, copilot-cli, codex, grok, cursor-agent, pi (pi.dev),
-omp (omp.sh)**. `update-ai` (shell function, runs inside `sysup`) upgrades the
-same seven. omp is a separate product from pi — different binary (`omp`).
-**macOS** keeps Homebrew `can1357/tap/omp` (`bup`); **Linux and the rest** use
-`https://omp.sh/install`.
+omp (omp.sh), agy (Antigravity CLI)**. `update-ai` (shell function, runs inside
+`sysup`) upgrades the same eight. omp is a separate product from pi — different
+binary (`omp`). **macOS** keeps Homebrew `can1357/tap/omp` (`bup`); **Linux and
+the rest** use `https://omp.sh/install`. agy follows the same split: **macOS**
+keeps the Homebrew cask `antigravity-cli` (`install-ai` never touches it there),
+**Linux** uses `https://antigravity.google/cli/install.sh` (`~/.local/bin/agy`,
+upgraded with `agy update`); a Linuxbrew cask copy is uninstalled first.
 
 ```bash
 install-ai              # install whatever is missing
@@ -518,8 +521,8 @@ install-ai --only grok  # a single one
 
 Two rules learned the hard way:
 
-- **These CLIs never go in a Brewfile** (except **omp on macOS**, which stays
-  on `can1357/tap/omp`). Each ships its own installer and self-updater; a
+- **These CLIs never go in a Brewfile** (except **omp and agy on macOS**, which
+  stay on `can1357/tap/omp` and cask `antigravity-cli`). Each ships its own installer and self-updater; a
   brew/npm copy fights it. pi ended up installed through two channels at once
   (`~/.npmrc` sets `prefix=~/.npm-global`, so the system npm and Linuxbrew's
   npm share one global prefix — what looks like two installs may be one).

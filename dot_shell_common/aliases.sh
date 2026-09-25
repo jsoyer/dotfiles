@@ -605,6 +605,20 @@ update-ai() {
       omp update 2>/dev/null || curl -fsSL https://omp.sh/install | sh 2>/dev/null || true
     fi
   fi
+  # agy (Antigravity CLI): macOS Homebrew cask is the channel (bup). Linux:
+  # official installer, updated in place by `agy update`.
+  if command -v agy &>/dev/null; then
+    if _ai_brew_owned agy; then
+      if [[ "$(uname -s)" == "Darwin" ]]; then
+        echo "  🤖 Antigravity CLI: brew-managed — bup handles it"
+      else
+        echo "  ⚠️  Antigravity CLI: Linuxbrew copy — run 'install-ai --only agy' to migrate to the official install"
+      fi
+    else
+      echo "  🤖 Updating Antigravity CLI..."
+      agy update 2>/dev/null || true
+    fi
+  fi
 }
 
 # mise owns toolchains Homebrew cannot pour on this host (rust on Intel macOS is
