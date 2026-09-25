@@ -1391,7 +1391,11 @@ def update-ai [] {
     # agy (Antigravity CLI): macOS Homebrew cask (bup). Linux: `agy update`.
     if (which agy | is-not-empty) {
         if (_ai_brew_owned agy) {
-            print "  🤖 Antigravity CLI: brew-managed — bup handles it"
+            if $nu.os-info.name == "macos" {
+                print "  🤖 Antigravity CLI: brew-managed — bup handles it"
+            } else {
+                print "  ⚠️  Antigravity CLI: Linuxbrew copy — run 'install-ai --only agy' to migrate to the official install"
+            }
         } else {
             print "  🤖 Updating Antigravity CLI..."
             try { ^agy update } catch { }

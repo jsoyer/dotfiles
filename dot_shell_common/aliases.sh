@@ -609,7 +609,11 @@ update-ai() {
   # official installer, updated in place by `agy update`.
   if command -v agy &>/dev/null; then
     if _ai_brew_owned agy; then
-      echo "  🤖 Antigravity CLI: brew-managed — bup handles it"
+      if [[ "$(uname -s)" == "Darwin" ]]; then
+        echo "  🤖 Antigravity CLI: brew-managed — bup handles it"
+      else
+        echo "  ⚠️  Antigravity CLI: Linuxbrew copy — run 'install-ai --only agy' to migrate to the official install"
+      fi
     else
       echo "  🤖 Updating Antigravity CLI..."
       agy update 2>/dev/null || true

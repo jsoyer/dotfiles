@@ -726,7 +726,11 @@ function update-ai
     # agy (Antigravity CLI): macOS Homebrew cask (bup). Linux: `agy update`.
     if command -q agy
         if _ai_brew_owned agy
-            echo "  🤖 Antigravity CLI: brew-managed — bup handles it"
+            if test (uname -s) = Darwin
+                echo "  🤖 Antigravity CLI: brew-managed — bup handles it"
+            else
+                echo "  ⚠️  Antigravity CLI: Linuxbrew copy — run 'install-ai --only agy' to migrate to the official install"
+            end
         else
             echo "  🤖 Updating Antigravity CLI..."
             agy update 2>/dev/null; or true

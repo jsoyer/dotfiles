@@ -81,6 +81,22 @@ fi
 
 # Antigravity CLI (agy): official installer on Linux, updated by `agy update`.
 # The installer exits early when agy exists, so it only runs when missing.
+# A Linuxbrew cask copy (antigravity-cli) is migrated to the official
+# install: it shadows ~/.local/bin/agy and `agy update` would rewrite a binary
+# brew owns. Inline (not install-ai): this script runs before chezmoi deploys
+# ~/.local/bin, so install-ai may not exist yet on a fresh machine.
+_agy_migrate_linuxbrew() {
+    local bp tgt
+    command -v agy &>/dev/null && command -v brew &>/dev/null || return 0
+    bp="$(brew --prefix 2>/dev/null)" || return 0
+    tgt="$(readlink -f "$(command -v agy)" 2>/dev/null)" || return 0
+    [[ -n "$bp" && "$tgt" == "$bp"/* ]] || return 0
+    echo "🤖 Antigravity CLI: Linuxbrew copy found — migrating to the official installer..."
+    brew uninstall --cask --force antigravity-cli >/dev/null 2>&1 || true
+    rm -f "$bp/bin/agy"
+    hash -r
+}
+_agy_migrate_linuxbrew
 if command -v agy &>/dev/null; then
     echo "🤖 Updating Antigravity CLI..."
     agy update 2>/dev/null || true
