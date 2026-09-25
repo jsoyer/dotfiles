@@ -46,6 +46,11 @@ tools/
 .ssh/config
 {{- end }}
 
+{{/* Tailscale CLI shim: only on macOS with the Tailscale app (Linux has a real CLI) */}}
+{{- if or (ne .chezmoi.os "darwin") (not (stat "/Applications/Tailscale.app/Contents/MacOS/Tailscale")) }}
+.local/bin/tailscale
+{{- end }}
+
 {{/* Scripts, CI, and project-local directories - never apply to $HOME */}}
 scripts/
 .github/

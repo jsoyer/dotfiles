@@ -168,6 +168,12 @@ cmupgrade --yes
 2. Updates selected developer tools when present (`uv`, `claude`).
 3. Requires confirmation unless `--yes` or `--dry-run` is used.
 
+### tailscale (macOS shim)
+
+**Purpose:** Put the Tailscale CLI on PATH on macOS. The App Store and standalone apps ship it inside the bundle only, so `ts`, `tss`, `tsnet` and the other Tailscale aliases stayed undefined on the Macs.
+
+**Behavior:** Runs `/Applications/Tailscale.app/Contents/MacOS/Tailscale` with the given arguments, like the app's own "Install CLI" setting. Deployed only on macOS when that binary exists; Linux keeps its native `tailscale`.
+
 ### chezmoi-test-scripts
 
 **Purpose:** Render `.chezmoiscripts/**/*.tmpl` and syntax-check rendered shell scripts.
