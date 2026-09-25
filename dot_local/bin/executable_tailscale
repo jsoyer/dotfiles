@@ -1,0 +1,8 @@
+#!/bin/sh
+# tailscale — CLI shim for the macOS Tailscale app (App Store / standalone).
+#
+# The app ships its CLI inside the bundle and does not put `tailscale` on
+# PATH, so every ts* alias (tss, tsnet, …) stayed undefined on the Macs.
+# Same wrapper the app's own "Install CLI" setting would create.
+# Deployed only on macOS when the app exists (see .chezmoiignore.tmpl).
+exec /Applications/Tailscale.app/Contents/MacOS/Tailscale "$@"
