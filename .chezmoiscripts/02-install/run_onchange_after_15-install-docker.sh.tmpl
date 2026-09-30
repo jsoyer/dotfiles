@@ -1,0 +1,13 @@
+{{- if and (ne .chezmoi.os "windows") (index . "install_docker") (or (eq .chezmoi.os "darwin") (eq (includeTemplate "can-sudo" .) "true")) -}}
+#!/usr/bin/env bash
+# =============================================================================
+# Container engine — opt-in per machine (install_docker in chezmoi.toml).
+# Delegates to ~/.local/bin/install-docker (Docker Engine, Podman on Fedora,
+# Colima on macOS). `after` so the script is already deployed; reruns when it
+# changes. A failure must never abort the rest of the apply.
+# install-docker: {{ include "dot_local/bin/executable_install-docker" | sha256sum }}
+# =============================================================================
+
+"$HOME/.local/bin/install-docker" \
+    || echo "⚠️  install-docker failed — fix the cause and re-run: install-docker (your dotfiles config was still applied)" >&2
+{{- end }}
