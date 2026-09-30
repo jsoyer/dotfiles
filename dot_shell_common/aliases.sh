@@ -19,13 +19,16 @@ alias http='xh'
 alias asr='atuin scripts run'
 [[ "${IS_MACOS:-false}" == "true" ]] && alias as='aerospace'
 
-# Eza (modern ls replacement)
-alias ls='eza --color=always --icons=auto'
-alias ll='eza -l --color=always --icons=auto --git -a'
-alias l='eza -l --icons=auto --git -a'
-alias lt='eza --tree --level=2 --long --icons=auto --git'
-alias ltree='eza --tree --level=2 --icons=auto --git'
-alias zl='eza -lagX --icons=auto --color=always'
+# Eza (modern ls replacement) — only when installed, so a machine where it
+# failed to install keeps a working `ls`.
+if command -v eza >/dev/null 2>&1; then
+  alias ls='eza --color=always --icons=auto'
+  alias ll='eza -l --color=always --icons=auto --git -a'
+  alias l='eza -l --icons=auto --git -a'
+  alias lt='eza --tree --level=2 --long --icons=auto --git'
+  alias ltree='eza --tree --level=2 --icons=auto --git'
+  alias zl='eza -lagX --icons=auto --color=always'
+fi
 
 # ============================================================================
 # System
