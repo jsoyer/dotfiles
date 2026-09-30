@@ -17,6 +17,8 @@ chezmoi re-add ~/.config/tool/x   # Re-add file to the source tree
 
 Note: broad `chezmoi.toml` Git automation is opt-in via `CHEZMOI_AUTO_GIT=1`; package wrappers commit their owned manifests explicitly.
 
+Linux system-level scripts (packages, repos, Tailscale, 1Password, Linuxbrew, updates) are gated by `.chezmoitemplates/can-sudo`: when the user cannot use sudo they render empty (so run_once/run_onchange stay pending) and `run_before_00-sudo-preflight` explains the fix. `CHEZMOI_ASSUME_SUDO=1` forces the gate for sudo granted by an explicit sudoers entry.
+
 ## Chezmoi File Naming
 
 - `dot_` → dotfile (`dot_zshrc` → `~/.zshrc`)

@@ -1,7 +1,7 @@
 {{- $mp := index . "machine_profile" -}}
 {{- $skipProfiles := list "fedora-server" "ubuntu-server" "arch-server" "debian" "windows" -}}
 {{- $isOMV := or (hasPrefix "omv-" .chezmoi.hostname) (hasPrefix "bbh-network" .chezmoi.hostname) -}}
-{{- if and (eq .chezmoi.os "linux") (not (has $mp $skipProfiles)) (not $isOMV) -}}
+{{- if and (eq .chezmoi.os "linux") (not (has $mp $skipProfiles)) (not $isOMV) (eq (includeTemplate "can-sudo" .) "true") -}}
 #!/usr/bin/env bash
 # =============================================================================
 # Linuxbrew (Homebrew for Linux) Installation

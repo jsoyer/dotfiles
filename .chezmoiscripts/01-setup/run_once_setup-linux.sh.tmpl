@@ -1,4 +1,4 @@
-{{- if eq .chezmoi.os "linux" -}}
+{{- if and (eq .chezmoi.os "linux") (eq (includeTemplate "can-sudo" .) "true") -}}
 {{- $mp              := index . "machine_profile" -}}
 {{- $isRPi           := eq $mp "rpi" -}}
 {{- $isDebian        := eq $mp "debian" -}}
@@ -155,9 +155,12 @@ fi
 # Debian/Ubuntu/RPi - Tailscale via official apt repo
 if ! command -v tailscale &>/dev/null; then
     echo "🔒 Installing Tailscale..."
-    curl -fsSL https://tailscale.com/install.sh | sh || _pkgfail "tailscale: install script (debian/ubuntu/rpi)"
-    sudo systemctl enable --now tailscaled || true
-    echo "🔒 Tailscale installed. Run 'sudo tailscale up' to authenticate."
+    if curl -fsSL https://tailscale.com/install.sh | sh; then
+        sudo systemctl enable --now tailscaled || true
+        echo "🔒 Tailscale installed. Run 'sudo tailscale up' to authenticate."
+    else
+        _pkgfail "tailscale: install script (debian/ubuntu/rpi)"
+    fi
 else
     sudo systemctl enable --now tailscaled 2>/dev/null || true
     echo "🔒 Tailscale already installed"

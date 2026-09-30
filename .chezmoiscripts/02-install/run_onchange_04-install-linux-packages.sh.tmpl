@@ -1,4 +1,4 @@
-{{- if eq .chezmoi.os "linux" -}}
+{{- if and (eq .chezmoi.os "linux") (eq (includeTemplate "can-sudo" .) "true") -}}
 {{- $mp              := index . "machine_profile" -}}
 {{- $isRPi           := eq $mp "rpi" -}}
 {{- $isDebian        := eq $mp "debian" -}}
