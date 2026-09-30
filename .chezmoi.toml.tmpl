@@ -54,7 +54,7 @@
 {{- if or (eq $mp "mac-personal") (eq $mp "mac-pro") }}
     install_mas = {{ promptBoolOnce . "install_mas" "Install Mac App Store apps via mas" false }}
 {{- end }}
-{{- if ne $mp "toolbox" }}
+{{- if and (ne $mp "toolbox") (not (env "CI")) }}
     install_docker = {{ promptBoolOnce . "install_docker" "Install a container engine (Docker; Podman on Fedora; Colima on macOS)" false }}
 {{- end }}
 
