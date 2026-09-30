@@ -1,0 +1,27 @@
+{{- if and (eq .chezmoi.os "linux") (ne (includeTemplate "can-sudo" .) "true") -}}
+#!/usr/bin/env bash
+# =============================================================================
+# Sudo preflight - Linux
+# Renders only when sudo is unusable (see .chezmoitemplates/can-sudo). The
+# system-level scripts are skipped in that case; this explains how to fix it.
+# =============================================================================
+
+_group=sudo
+command -v pacman &>/dev/null || command -v dnf &>/dev/null && _group=wheel
+_user="$(id -un)"
+
+echo "⚠️  sudo is not available for ${_user}: system packages, repositories,"
+echo "   Tailscale and 1Password are skipped. Your dotfiles are still applied."
+echo ""
+if ! command -v sudo &>/dev/null; then
+    echo "   Install sudo, then grant it (as root):"
+    command -v apt-get &>/dev/null && echo "     su -c 'apt-get install -y sudo'"
+    echo "     su -c 'usermod -aG ${_group} ${_user}'"
+else
+    echo "   Grant it (as root):"
+    echo "     su -c 'usermod -aG ${_group} ${_user}'"
+fi
+echo "   Then re-run: chezmoi apply"
+echo "   (sudo via an explicit sudoers entry? CHEZMOI_ASSUME_SUDO=1 chezmoi apply)"
+echo ""
+{{- end -}}

@@ -1,4 +1,4 @@
-{{- if eq .chezmoi.os "linux" -}}
+{{- if and (eq .chezmoi.os "linux") (eq (includeTemplate "can-sudo" .) "true") -}}
 {{- $mp              := index . "machine_profile" -}}
 {{- $isRPi           := eq $mp "rpi" -}}
 {{- $isDebian        := eq $mp "debian" -}}
@@ -115,17 +115,17 @@ _install_starship() {
     local platform_arg=()
     case "$arch" in
         x86_64)
-            platform_arg=(--platform x86_64-unknown-linux-musl)
+            platform_arg=(--platform unknown-linux-musl)
             ;;
         aarch64|arm64)
-            platform_arg=(--platform aarch64-unknown-linux-musl)
+            platform_arg=(--platform unknown-linux-musl)
             ;;
     esac
 
     local installer
     installer="$(_cached_fetch "https://starship.rs/install.sh")"
 
-    if ! sh "$installer" -s -- -y "${platform_arg[@]}"; then
+    if ! sh "$installer" -y "${platform_arg[@]}"; then
         echo "Starship install script failed, falling back to cargo..." >&2
         if command -v cargo &>/dev/null; then
             cargo install --locked starship && return 0
@@ -750,9 +750,17 @@ fi
 # codex has a brew formula that may work on Linux.
 
 # Claude Code (cask only on macOS — script on Linux)
+# The official x86_64 binary needs x86-64-v2 (SSE4.2/POPCNT). On a v1 CPU (VM
+# with CPU type kvm64/qemu64) it hits an illegal instruction and
+# `claude install` spins at 100% CPU forever, blocking the apply.
 if ! command -v claude &>/dev/null; then
-    echo "🤖 Installing Claude Code..."
-    curl -fsSL https://claude.ai/install.sh | bash
+    if [[ "$(uname -m)" == x86_64 ]] && ! grep -qw sse4_2 /proc/cpuinfo; then
+        echo "⚠️  Claude Code skipped: this CPU is below x86-64-v2 (no SSE4.2; VM CPU type kvm64/qemu64?)." >&2
+        echo "   Set the VM CPU type to 'host' (or x86-64-v2-AES), then run: install-ai --only claude" >&2
+    else
+        echo "🤖 Installing Claude Code..."
+        curl -fsSL https://claude.ai/install.sh | bash
+    fi
 fi
 
 # GitHub Copilot CLI (cask only on macOS — script on Linux)
@@ -811,10 +819,11 @@ _agy_migrate_linuxbrew() {
     rm -f "$bp/bin/agy"
     hash -r
 }
+{{ template "agy-install" }}
 _agy_migrate_linuxbrew
 if ! command -v agy &>/dev/null && [[ ! -x "${HOME}/.local/bin/agy" ]]; then
     echo "🤖 Installing Antigravity CLI..."
-    curl -fsSL https://antigravity.google/cli/install.sh | bash || _pkgfail "antigravity-cli: install script"
+    _agy_install || _pkgfail "antigravity-cli: install script"
 fi
 
 # OpenCode CLI — handled by brew bundle (Brewfile_brew_only)

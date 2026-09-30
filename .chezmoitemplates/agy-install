@@ -1,0 +1,22 @@
+{{- /* Defines _agy_install: runs the official Antigravity CLI installer without
+  letting it touch the shell profiles. Its `agy install` step appends
+  `export PATH="$HOME/.local/bin:$PATH"` to these chezmoi-managed files (which
+  already put ~/.local/bin on PATH), so the next apply asks
+  "... has changed since chezmoi last wrote it?". It has no opt-out flag. */ -}}
+_AGY_PROFILES=(.bashrc .zshrc .bash_profile .profile)
+_agy_install() {
+    local f bak rc=0
+    bak="$(mktemp -d)"
+    for f in "${_AGY_PROFILES[@]}"; do
+        [[ -f "$HOME/$f" ]] && cp -p "$HOME/$f" "$bak/$f"
+    done
+    curl -fsSL https://antigravity.google/cli/install.sh | bash || rc=$?
+    # Rewrite in place (not mv) so symlinked profiles keep pointing where they do.
+    for f in "${_AGY_PROFILES[@]}"; do
+        [[ -f "$bak/$f" ]] || continue
+        cat "$bak/$f" > "$HOME/$f"
+        rm -f "$bak/$f"
+    done
+    rmdir "$bak"
+    return "$rc"
+}

@@ -1,0 +1,18 @@
+{{- /* Prints "true" when the current user can use sudo, "false" otherwise.
+  Used to gate the Linux system-level scripts: without it, a fresh Debian whose
+  user is not in the sudo group (root password set at install time) prompts
+  for a password a dozen times, then aborts `chezmoi apply` halfway.
+  Gating at template time (not at runtime) matters: a script that renders empty
+  is neither run nor recorded, so run_once/run_onchange scripts still run on
+  the first apply after sudo is granted.
+  Group membership is read from the group database (id -nG <user>), which is
+  what sudo itself checks, so it is correct right after `usermod -aG` without
+  logging out. A user granted sudo through an explicit sudoers entry (no
+  group, password required) is not detectable: CHEZMOI_ASSUME_SUDO=1 forces it. */ -}}
+{{- output "sh" "-c" `
+if [ "$(id -u)" = 0 ] || [ "${CHEZMOI_ASSUME_SUDO:-}" = 1 ]; then echo true
+elif ! command -v sudo >/dev/null 2>&1; then echo false
+elif sudo -n true 2>/dev/null; then echo true
+elif id -nG "$(id -un)" | tr ' ' '\n' | grep -qxE 'sudo|wheel|admin'; then echo true
+else echo false
+fi` | trim -}}

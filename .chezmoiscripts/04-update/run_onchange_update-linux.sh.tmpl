@@ -1,4 +1,4 @@
-{{- if eq .chezmoi.os "linux" -}}
+{{- if and (eq .chezmoi.os "linux") (eq (includeTemplate "can-sudo" .) "true") -}}
 {{- $mp             := index . "machine_profile" -}}
 {{- $isRPi          := eq $mp "rpi" -}}
 {{- $isUbuntu       := or (eq $mp "ubuntu-server") (eq $mp "ubuntu-desktop") -}}
@@ -97,12 +97,13 @@ _agy_migrate_linuxbrew() {
     hash -r
 }
 _agy_migrate_linuxbrew
+{{ template "agy-install" }}
 if command -v agy &>/dev/null; then
     echo "🤖 Updating Antigravity CLI..."
     agy update 2>/dev/null || true
 else
     echo "🤖 Installing Antigravity CLI..."
-    curl -fsSL https://antigravity.google/cli/install.sh | bash 2>/dev/null || echo "  ⚠️  failed: antigravity-cli"
+    _agy_install 2>/dev/null || echo "  ⚠️  failed: antigravity-cli"
 fi
 
 if command -v npm &>/dev/null; then

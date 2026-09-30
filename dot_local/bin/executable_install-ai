@@ -215,7 +215,15 @@ step() {
   missing=$((missing+1))
 }
 
-step claude  "Claude Code"  has_claude  'curl -fsSL https://claude.ai/install.sh | bash'
+# The official Linux x86_64 binary needs x86-64-v2 (SSE4.2/POPCNT): on a v1
+# CPU (VM CPU type kvm64/qemu64) `claude install` spins at 100% CPU forever.
+if want claude && ! has_claude && [[ "$(uname -s)" == Linux && "$(uname -m)" == x86_64 ]] \
+    && ! grep -qw sse4_2 /proc/cpuinfo; then
+  warn "Claude Code: this CPU is below x86-64-v2 (no SSE4.2; VM CPU type kvm64/qemu64?) — skipped. Set the VM CPU type to 'host' (or x86-64-v2-AES) and re-run."
+  missing=$((missing+1))
+else
+  step claude  "Claude Code"  has_claude  'curl -fsSL https://claude.ai/install.sh | bash'
+fi
 step copilot "Copilot CLI"  has_copilot 'curl -fsSL https://gh.io/copilot-install | bash'
 want codex && ! has_codex && migrate_codex
 step codex   "Codex"        has_codex   'curl -fsSL https://chatgpt.com/codex/install.sh | sh'
@@ -230,7 +238,18 @@ if [[ "$(uname -s)" == "Darwin" ]]; then
   want agy && ! has_agy && warn "Antigravity: macOS uses Homebrew — brew install --cask antigravity-cli"
 else
   want agy && ! has_agy && migrate_agy
+  # `agy install` appends a PATH export to these chezmoi-managed profiles (which
+  # already put ~/.local/bin on PATH), and has no opt-out: restore them after.
+  agy_profiles=(.bashrc .zshrc .bash_profile .profile)
+  agy_bak="$(mktemp -d)"
+  for f in "${agy_profiles[@]}"; do [[ -f "$HOME/$f" ]] && cp -p "$HOME/$f" "$agy_bak/$f"; done
   step agy   "Antigravity"  has_agy     'curl -fsSL https://antigravity.google/cli/install.sh | bash'
+  for f in "${agy_profiles[@]}"; do
+    [[ -f "$agy_bak/$f" ]] || continue
+    cat "$agy_bak/$f" > "$HOME/$f"
+    rm -f "$agy_bak/$f"
+  done
+  rmdir "$agy_bak"
 fi
 
 echo
