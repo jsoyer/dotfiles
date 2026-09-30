@@ -69,9 +69,15 @@ sudo rpm-ostree upgrade
 # =============================================================================
 {{- if not (or (eq $mp "toolbox") $isFedoraAtomic) }}
 
+# Bounded and non-interactive: a stuck `claude update` must never hang the
+# apply. Same x86-64-v2 guard as install-linux-packages (spins on kvm64 VMs).
 if command -v claude &>/dev/null; then
-    echo "🤖 Updating Claude Code..."
-    claude update 2>/dev/null || true
+    if [[ "$(uname -m)" == x86_64 ]] && ! grep -qw sse4_2 /proc/cpuinfo; then
+        echo "⚠️  Claude Code update skipped: this CPU is below x86-64-v2 (no SSE4.2)." >&2
+    else
+        echo "🤖 Updating Claude Code..."
+        timeout 300 claude update < /dev/null || echo "  ⚠️  claude update failed or timed out (5 min)" >&2
+    fi
 fi
 
 if command -v copilot-cli &>/dev/null; then
