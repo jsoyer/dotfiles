@@ -750,9 +750,17 @@ fi
 # codex has a brew formula that may work on Linux.
 
 # Claude Code (cask only on macOS — script on Linux)
+# The official x86_64 binary needs x86-64-v2 (SSE4.2/POPCNT). On a v1 CPU (VM
+# with CPU type kvm64/qemu64) it hits an illegal instruction and
+# `claude install` spins at 100% CPU forever, blocking the apply.
 if ! command -v claude &>/dev/null; then
-    echo "🤖 Installing Claude Code..."
-    curl -fsSL https://claude.ai/install.sh | bash
+    if [[ "$(uname -m)" == x86_64 ]] && ! grep -qw sse4_2 /proc/cpuinfo; then
+        echo "⚠️  Claude Code skipped: this CPU is below x86-64-v2 (no SSE4.2; VM CPU type kvm64/qemu64?)." >&2
+        echo "   Set the VM CPU type to 'host' (or x86-64-v2-AES), then run: install-ai --only claude" >&2
+    else
+        echo "🤖 Installing Claude Code..."
+        curl -fsSL https://claude.ai/install.sh | bash
+    fi
 fi
 
 # GitHub Copilot CLI (cask only on macOS — script on Linux)
