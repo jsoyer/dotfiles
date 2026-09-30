@@ -819,10 +819,11 @@ _agy_migrate_linuxbrew() {
     rm -f "$bp/bin/agy"
     hash -r
 }
+{{ template "agy-install" }}
 _agy_migrate_linuxbrew
 if ! command -v agy &>/dev/null && [[ ! -x "${HOME}/.local/bin/agy" ]]; then
     echo "🤖 Installing Antigravity CLI..."
-    curl -fsSL https://antigravity.google/cli/install.sh | bash || _pkgfail "antigravity-cli: install script"
+    _agy_install || _pkgfail "antigravity-cli: install script"
 fi
 
 # OpenCode CLI — handled by brew bundle (Brewfile_brew_only)

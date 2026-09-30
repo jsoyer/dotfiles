@@ -238,7 +238,18 @@ if [[ "$(uname -s)" == "Darwin" ]]; then
   want agy && ! has_agy && warn "Antigravity: macOS uses Homebrew — brew install --cask antigravity-cli"
 else
   want agy && ! has_agy && migrate_agy
+  # `agy install` appends a PATH export to these chezmoi-managed profiles (which
+  # already put ~/.local/bin on PATH), and has no opt-out: restore them after.
+  agy_profiles=(.bashrc .zshrc .bash_profile .profile)
+  agy_bak="$(mktemp -d)"
+  for f in "${agy_profiles[@]}"; do [[ -f "$HOME/$f" ]] && cp -p "$HOME/$f" "$agy_bak/$f"; done
   step agy   "Antigravity"  has_agy     'curl -fsSL https://antigravity.google/cli/install.sh | bash'
+  for f in "${agy_profiles[@]}"; do
+    [[ -f "$agy_bak/$f" ]] || continue
+    cat "$agy_bak/$f" > "$HOME/$f"
+    rm -f "$agy_bak/$f"
+  done
+  rmdir "$agy_bak"
 fi
 
 echo
