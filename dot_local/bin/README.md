@@ -537,6 +537,33 @@ Two rules learned the hard way:
   name is owned by cursor-agent and has flip-flopped between the two (it is
   what caused the cursor-worker crash-loop).
 
+## Container Engine
+
+`install-docker` installs the engine each platform expects, idempotently (an
+engine already present is kept, never mixed with another source):
+
+| Platform | Engine |
+|---|---|
+| macOS | **Colima** + docker CLI, buildx, compose (Homebrew; plugins linked into `~/.docker/cli-plugins`, Colima started at login) |
+| Debian, Ubuntu, Raspberry Pi | **Docker Engine** from `download.docker.com` (`docker-ce`, compose + buildx plugins); conflicting distro packages removed first |
+| Arch, OmArchy | **Docker** from the Arch repos |
+| Fedora, RHEL-likes, Fedora Atomic | **Podman** (their default) + `podman-docker` (docker CLI shim) + `podman-compose`; user `podman.socket` for Docker-API tools |
+| Windows | **Docker Desktop** via winget (chezmoi script only) |
+| Toolbox | skipped |
+
+On Linux with Docker Engine the user is added to the `docker` group so `docker`
+runs without sudo — that group is **root-equivalent** on the machine.
+
+```bash
+install-docker            # install whatever is missing
+install-docker --status   # engine, versions, service, group
+install-docker --dry-run  # print without executing
+```
+
+Opt-in per machine: `install_docker` in `chezmoi.toml` (asked once by
+`chezmoi init`; absent = off). When true, `run_onchange_after_15-install-docker`
+runs it on every change of the script.
+
 ## Self-hosted Agent Stacks
 
 Three independent stacks, each with an installer, an updater and systemd units.

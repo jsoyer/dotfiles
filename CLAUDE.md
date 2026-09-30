@@ -19,6 +19,8 @@ Note: broad `chezmoi.toml` Git automation is opt-in via `CHEZMOI_AUTO_GIT=1`; pa
 
 Linux system-level scripts (packages, repos, Tailscale, 1Password, Linuxbrew, updates) are gated by `.chezmoitemplates/can-sudo`: when the user cannot use sudo they render empty (so run_once/run_onchange stay pending) and `run_before_00-sudo-preflight` explains the fix. `CHEZMOI_ASSUME_SUDO=1` forces the gate for sudo granted by an explicit sudoers entry.
 
+Container engine: `install-docker` (Docker Engine on Debian/Ubuntu/RPi/Arch, Podman on the Fedora family, Colima on macOS, Docker Desktop via winget on Windows), run by chezmoi only when the per-machine `install_docker` data flag is true.
+
 ## Chezmoi File Naming
 
 - `dot_` → dotfile (`dot_zshrc` → `~/.zshrc`)

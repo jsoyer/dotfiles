@@ -1,0 +1,24 @@
+{{- if and (eq .chezmoi.os "windows") (index . "install_docker") -}}
+# =============================================================================
+# Container engine on Windows — Docker Desktop via winget.
+# Opt-in per machine (install_docker in chezmoi.toml). Never aborts the apply.
+# =============================================================================
+$ErrorActionPreference = 'Continue'
+
+if (Get-Command docker -ErrorAction SilentlyContinue) {
+    Write-Host "🐳 Docker already installed: $(docker --version)"
+    return
+}
+if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
+    Write-Warning "winget not found: install Docker Desktop from https://docs.docker.com/desktop/setup/install/windows-install/"
+    return
+}
+
+Write-Host "🐳 Installing Docker Desktop via winget..." -ForegroundColor Cyan
+winget install --id Docker.DockerDesktop --exact --silent --accept-source-agreements --accept-package-agreements
+if ($LASTEXITCODE -ne 0) {
+    Write-Warning "winget install Docker.DockerDesktop failed (exit $LASTEXITCODE) — re-run chezmoi apply"
+} else {
+    Write-Host "🐳 Docker Desktop installed. Start it once: it may ask to enable WSL 2 and reboot."
+}
+{{- end }}
