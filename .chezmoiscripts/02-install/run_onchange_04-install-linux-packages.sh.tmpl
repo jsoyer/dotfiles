@@ -115,17 +115,17 @@ _install_starship() {
     local platform_arg=()
     case "$arch" in
         x86_64)
-            platform_arg=(--platform x86_64-unknown-linux-musl)
+            platform_arg=(--platform unknown-linux-musl)
             ;;
         aarch64|arm64)
-            platform_arg=(--platform aarch64-unknown-linux-musl)
+            platform_arg=(--platform unknown-linux-musl)
             ;;
     esac
 
     local installer
     installer="$(_cached_fetch "https://starship.rs/install.sh")"
 
-    if ! sh "$installer" -s -- -y "${platform_arg[@]}"; then
+    if ! sh "$installer" -y "${platform_arg[@]}"; then
         echo "Starship install script failed, falling back to cargo..." >&2
         if command -v cargo &>/dev/null; then
             cargo install --locked starship && return 0
