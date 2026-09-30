@@ -17,12 +17,19 @@
 #   install-ai --status      presence + version of each CLI
 #   install-ai --only <cli>  install a single one (claude|copilot|codex|grok|cursor|pi|omp|agy)
 #   install-ai --dry-run     print without executing
+#   install-ai --cursor-desktop | --no-cursor-desktop
+#                            answer the Cursor desktop question up front
+#
+# Cursor desktop (Linux + apt): after the cursor step, asks whether to install
+# the headless desktop Cursor agents drive over VNC (Xfce + TigerVNC + X11
+# tools). Only asked on a TTY when something is missing; skipped otherwise.
 #
 set -uo pipefail
 
 DRY_RUN=0
 ONLY=""
 ACTION="install"
+CURSOR_DESKTOP=""   # "" = ask on a TTY, yes, no
 
 c_b=$'\033[1;34m'; c_g=$'\033[1;32m'; c_y=$'\033[1;33m'; c_r=$'\033[1;31m'; c_0=$'\033[0m'
 log()  { printf '%s[install-ai]%s %s\n' "$c_b" "$c_0" "$*"; }
@@ -37,6 +44,8 @@ while [[ $# -gt 0 ]]; do
     --status)  ACTION="status" ;;
     --only)    ONLY="${2:?cli missing}"; shift ;;
     --dry-run) DRY_RUN=1 ;;
+    --cursor-desktop)    CURSOR_DESKTOP="yes" ;;
+    --no-cursor-desktop) CURSOR_DESKTOP="no" ;;
     -h|--help) usage; exit 0 ;;
     *)         die "Unknown option: $1 (see --help)" ;;
   esac
@@ -180,6 +189,47 @@ migrate_agy() {
   fi
 }
 
+# Headless desktop for Cursor agents (VNC + Xfce). --no-install-recommends
+# keeps lightdm and Xorg out (740 -> ~340 packages on Debian): VNC brings its
+# own X server, a display manager would only run for nothing on a server.
+CURSOR_DESKTOP_PKGS=(dbus-x11 ffmpeg tigervnc-standalone-server x11-utils
+  x11-xserver-utils xdotool xfce4 xfce4-terminal rsync)
+
+cursor_desktop_missing() {
+  local p
+  for p in "${CURSOR_DESKTOP_PKGS[@]}"; do
+    dpkg-query -W -f='${Status}' "$p" 2>/dev/null | grep -q 'install ok installed' || printf '%s\n' "$p"
+  done
+}
+
+cursor_desktop() {
+  want cursor && [[ "$(uname -s)" == Linux && "$CURSOR_DESKTOP" != no ]] || return 0
+  if ! command -v apt-get >/dev/null 2>&1; then
+    [[ "$CURSOR_DESKTOP" == yes ]] && warn "Cursor desktop: package list is Debian/Ubuntu (apt) only — skipped"
+    return 0
+  fi
+  local todo answer="$CURSOR_DESKTOP"
+  todo="$(cursor_desktop_missing | tr '\n' ' ')"; todo="${todo% }"
+  [[ -n "$todo" ]] || return 0
+  if [[ -z "$answer" ]]; then
+    if [[ ! -t 0 ]]; then
+      log "Cursor desktop: not asked (no TTY) — install it with: install-ai --only cursor --cursor-desktop"
+      return 0
+    fi
+    read -r -p "Install the Cursor desktop (VNC + Xfce, ~340 packages: ${todo})? [y/N] " answer
+    [[ "$answer" =~ ^[YyOo] ]] && answer="yes" || answer="no"
+  fi
+  [[ "$answer" == yes ]] || { log "Cursor desktop: skipped"; return 0; }
+
+  local sudo="sudo"; [[ "$(id -u)" -eq 0 ]] && sudo=""
+  log "Cursor desktop: installing…"
+  if run_installer "Cursor desktop" "$sudo env DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends ${todo}"; then
+    ok "Cursor desktop installed."; installed=$((installed+1))
+  else
+    missing=$((missing+1))
+  fi
+}
+
 ver() { "$@" 2>/dev/null | head -1 | tr -d '\r'; }
 
 do_status() {
@@ -192,11 +242,16 @@ do_status() {
   printf '  %-13s %s\n' "pi"           "$(has_pi      && ver pi --version                || echo missing)"
   printf '  %-13s %s\n' "omp"          "$(has_omp     && ver omp --version               || echo missing)"
   printf '  %-13s %s\n' "agy"          "$(has_agy     && ver agy --version               || echo missing)"
+  if [[ "$(uname -s)" == Linux ]] && command -v dpkg-query >/dev/null 2>&1; then
+    local m; m="$(cursor_desktop_missing | tr '\n' ' ')"
+    printf '  %-13s %s\n' "cursor desk." "$([[ -z "$m" ]] && echo installed || echo "missing: ${m% }")"
+  fi
 }
 
 [[ "$ACTION" == "status" ]] && { do_status; exit 0; }
 
 want() { [[ -z "$ONLY" || "$ONLY" == "$1" ]]; }
+
 missing=0; installed=0
 
 step() {
@@ -229,6 +284,7 @@ want codex && ! has_codex && migrate_codex
 step codex   "Codex"        has_codex   'curl -fsSL https://chatgpt.com/codex/install.sh | sh'
 step grok    "Grok CLI"     has_grok    'curl -fsSL https://x.ai/cli/install.sh | bash'
 step cursor  "cursor-agent" has_cursor  'curl -fsS https://cursor.com/install | bash'
+cursor_desktop
 want pi && ! has_pi && migrate_pi
 step pi      "pi (pi.dev)"  has_pi      'curl -fsSL https://pi.dev/install.sh | bash'
 want omp && ! has_omp && migrate_omp

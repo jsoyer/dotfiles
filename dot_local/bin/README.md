@@ -523,7 +523,16 @@ upgraded with `agy update`); a Linuxbrew cask copy is uninstalled first.
 install-ai              # install whatever is missing
 install-ai --status     # presence + version of each
 install-ai --only grok  # a single one
+install-ai --only cursor --cursor-desktop   # + the Cursor desktop, no question
 ```
+
+**Cursor desktop** (Linux + apt): after the cursor step, `install-ai` asks
+whether to install the headless desktop Cursor agents drive over VNC —
+`dbus-x11 ffmpeg tigervnc-standalone-server x11-utils x11-xserver-utils xdotool
+xfce4 xfce4-terminal rsync`, with `--no-install-recommends` (keeps lightdm and
+Xorg out: ~340 packages instead of 740 on Debian). Asked only on a TTY and only
+when something is missing; `--cursor-desktop` / `--no-cursor-desktop` answer it
+up front. `install-ai --status` shows what is missing.
 
 Two rules learned the hard way:
 
