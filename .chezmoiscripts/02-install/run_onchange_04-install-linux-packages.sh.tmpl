@@ -168,6 +168,25 @@ _install_eza() {
         echo "brew install eza failed, falling back..." >&2
     fi
 
+    # Official prebuilt release into ~/.local/bin (no sudo, no compiler): covers
+    # distros whose repos lack eza (Debian 12, Ubuntu 22.04) on a box without cargo.
+    local asset=""
+    case "$(uname -m)" in
+        x86_64)        asset="eza_x86_64-unknown-linux-musl.tar.gz" ;;
+        aarch64|arm64) asset="eza_aarch64-unknown-linux-gnu.tar.gz" ;;
+        armv7l|armv6l) asset="eza_arm-unknown-linux-gnueabihf.tar.gz" ;;
+    esac
+    if [[ -n "$asset" ]]; then
+        echo "Installing eza from the GitHub release (${asset})..."
+        mkdir -p "$HOME/.local/bin"
+        if curl -fsSL "https://github.com/eza-community/eza/releases/latest/download/${asset}" \
+            | tar -xzf - -C "$HOME/.local/bin" --wildcards '*eza' \
+            && chmod +x "$HOME/.local/bin/eza" && "$HOME/.local/bin/eza" --version &>/dev/null; then
+            return 0
+        fi
+        echo "eza release download failed, falling back..." >&2
+    fi
+
     if command -v cargo &>/dev/null; then
         echo "Installing eza via cargo..."
         cargo install eza && return 0
