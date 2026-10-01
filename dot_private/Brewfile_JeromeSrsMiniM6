@@ -7,6 +7,7 @@ brew "rclone"
 cask "chatgpt"
 cask "fluidvoice"
 cask "grok-bot"
+cask "openlogi"
 mas "djay Pro", id: 450527929
 mas "FaceScreen", id: 6702028512
 mas "Keynote", id: 361285480
