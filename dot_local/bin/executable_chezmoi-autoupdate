@@ -337,7 +337,7 @@ fi
 # Build errors JSON array
 ERRORS_JSON="["
 _first=1
-for _err in "${ERRORS[@]}"; do
+for _err in ${ERRORS[@]+"${ERRORS[@]}"}; do
     if [[ ${_first} -eq 1 ]]; then
         _first=0
     else
@@ -390,7 +390,7 @@ if [[ "${STATUS}" == "error" ]]; then
         _ntfy_auth=()
         [[ -n "${CHEZMOI_NTFY_TOKEN:-}" ]] && _ntfy_auth=(-H "Authorization: Bearer ${CHEZMOI_NTFY_TOKEN}")
         curl -s --max-time 10 \
-            "${_ntfy_auth[@]}" \
+            ${_ntfy_auth[@]+"${_ntfy_auth[@]}"} \
             -H "Title: chezmoi-autoupdate error" \
             -H "Priority: high" \
             -H "Tags: warning,${HOSTNAME_SHORT}" \
@@ -417,7 +417,7 @@ if [[ "${STATUS}" == "ok" ]]; then
         _ntfy_auth=()
         [[ -n "${CHEZMOI_NTFY_TOKEN:-}" ]] && _ntfy_auth=(-H "Authorization: Bearer ${CHEZMOI_NTFY_TOKEN}")
         curl -s --max-time 10 \
-            "${_ntfy_auth[@]}" \
+            ${_ntfy_auth[@]+"${_ntfy_auth[@]}"} \
             -H "Title: chezmoi-autoupdate ok" \
             -H "Priority: min" \
             -H "Tags: white_check_mark,${HOSTNAME_SHORT}" \
