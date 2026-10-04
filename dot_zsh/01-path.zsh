@@ -10,16 +10,14 @@ if [[ -d "$HOME/bin" ]] && [[ "$MACHINE_PROFILE" == "rpi" ]]; then
   path=("$HOME/bin" $path)
 fi
 
-path=(
-  # User bins (highest priority)
+# User bins (highest priority) — re-asserted after Homebrew below.
+_user_bins=(
   "${HOME}/.opencode/bin"
   "${HOME}/.npm-global/bin"
   "${HOME}/.local/bin"
   "${HOME}/.cargo/bin"
-
-  # Preserve existing paths
-  "${path[@]}"
 )
+path=("${_user_bins[@]}" "${path[@]}")
 
 # mise shims — appended (lowest priority) on purpose: `mise activate` owns the
 # PATH in interactive shells, the shims are only a fallback for non-interactive
@@ -41,11 +39,19 @@ elif [[ -d "${HOME}/.linuxbrew" ]]; then
 fi
 
 # brew shellenv drops the PATH export once its bin/ is already on PATH, so sbin/
-# never makes it in (mtr, unbound, php-fpm live there). Add it explicitly.
-for _brew_sbin in /opt/homebrew/sbin /usr/local/sbin /home/linuxbrew/.linuxbrew/sbin "${HOME}/.linuxbrew/sbin"; do
-  [[ -d "$_brew_sbin" ]] && path=("$_brew_sbin" "${path[@]}")
+# never makes it in (mtr, unbound, php-fpm live there), and bin/ keeps whatever
+# position it had. On macOS, /etc/zprofile's path_helper (re-run by every nested
+# login shell: tmux, new terminal tabs) moves /usr/bin ahead of it, so python3
+# and bash resolved to Apple's 3.9 / 3.2. Re-prepend both explicitly; typeset -U
+# keeps the first occurrence, so this moves them to the front.
+for _brew_dir in /opt/homebrew /usr/local /home/linuxbrew/.linuxbrew "${HOME}/.linuxbrew"; do
+  [[ -x "$_brew_dir/bin/brew" ]] || continue
+  path=("$_brew_dir/bin" "$_brew_dir/sbin" "${path[@]}")
+  break
 done
-unset _brew_sbin
+unset _brew_dir
+path=("${_user_bins[@]}" "${path[@]}")
+unset _user_bins
 
 # macOS-specific paths
 if [[ "${IS_MACOS}" == "true" ]]; then
