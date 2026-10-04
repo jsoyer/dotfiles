@@ -8,6 +8,8 @@ by a dump. Instead, a per-hostname overlay (Brewfile_<hostname>) receives
 only the delta: installed − base − blacklist.
 """
 
+from __future__ import annotations
+
 import argparse
 import os
 import subprocess
