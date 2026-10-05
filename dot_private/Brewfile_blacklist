@@ -111,7 +111,6 @@ qwen-code
 pi-coding-agent
 @mariozechner/pi-coding-agent
 @openai/codex
-updatest/tap,
 orla
 harvard-cns/orla
 dorcha-inc/orla
@@ -120,3 +119,9 @@ virt-viewer
 coreml-cli
 jeffreywildman/virt-manager
 schappim/coreml-cli
+
+# Taps removed 2026-10-04 (and the formulae they provided)
+khell/srm
+srm
+pulumi/tap
+esc
