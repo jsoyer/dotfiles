@@ -534,6 +534,14 @@ Xorg out: ~340 packages instead of 740 on Debian). Asked only on a TTY and only
 when something is missing; `--cursor-desktop` / `--no-cursor-desktop` answer it
 up front. `install-ai --status` shows what is missing.
 
+Once those packages are there, `cursor-worker.service` (and the drop-in written
+by `cursor-setup`) starts the worker with `--computer-use --share-desktop
+view_and_control`: agents drive the desktop, and "Show desktop" in Cursor lets
+you watch and take control. `--connect-workspace` is always on (files, terminal,
+ports of the agent's workspace from Cursor). Packages installed after the fact:
+`chezmoi apply` then `cursor-setup --worker-dir <dir>` (or restart the worker).
+Check with `cursor-agent worker debug`.
+
 Two rules learned the hard way:
 
 - **These CLIs never go in a Brewfile** (except **omp and agy on macOS**, which
