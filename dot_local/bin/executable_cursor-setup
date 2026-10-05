@@ -103,6 +103,15 @@ have_systemd_user() {
   command -v systemctl >/dev/null 2>&1 && systemctl --user show-environment >/dev/null 2>&1
 }
 
+# Headless desktop driven by --computer-use / --share-desktop (TigerVNC + Xfce).
+# Must match the condition in cursor-worker.service.tmpl.
+have_cursor_desktop() {
+  local b
+  for b in Xtigervnc startxfce4 xdotool ffmpeg; do
+    command -v "$b" >/dev/null 2>&1 || return 1
+  done
+}
+
 agent_path() { [[ -x "$BIN" ]] && echo "$BIN" || command -v cursor-agent 2>/dev/null || true; }
 
 agent_version() { "$1" --version 2>/dev/null | head -1 || echo unknown; }
@@ -301,6 +310,14 @@ elif [[ ${#WORKER_DIRS[@]} -gt 0 || -n "$WORKER_NAME" ]]; then
   for d in "${WORKER_DIRS[@]}"; do
     new_exec+=" --worker-dir ${d}"
   done
+  # Same trap for the cloud-agent parity flags of the base unit: re-emit them,
+  # with the same "desktop packages present" condition as the template.
+  new_exec+=" --connect-workspace"
+  if have_cursor_desktop; then
+    new_exec+=" --computer-use --share-desktop view_and_control"
+  else
+    warn "Cursor desktop packages missing — no computer use / desktop share (install-ai --cursor-desktop)."
+  fi
 
   run mkdir -p "$DROPIN"
   if [[ "$DRY_RUN" -eq 0 ]]; then

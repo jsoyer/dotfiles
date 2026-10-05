@@ -11,7 +11,24 @@ Type=simple
 # WARNING: `cursor-agent`, NOT `agent`: ~/.local/bin/agent is the Grok CLI,
 # which has no `worker` subcommand at all. The previous version of this unit
 # pointed at it and failed 262,957 times without anything flagging it.
-ExecStart=%h/.local/bin/cursor-agent worker start --name {{ .chezmoi.hostname }}-worker
+#
+# Cloud-agent parity (all three are explicit opt-ins, never enabled server-side):
+#   --connect-workspace   open the agent's live workspace (files, changes,
+#                         terminal, ports) from Cursor; starts cursor-server on
+#                         127.0.0.1 on demand. Agents run as trusted workspaces.
+#   --computer-use        agents drive a desktop (screenshot, click, type) on a
+#                         Cursor-managed TigerVNC + Xfce display.
+#   --share-desktop view_and_control
+#                         "Show desktop" in Cursor: watch AND take the mouse and
+#                         keyboard. Pixels leave through the outbound worker
+#                         connection — no inbound port is opened.
+# The desktop flags are only emitted when the packages are present (install-ai
+# --cursor-desktop): otherwise the worker would advertise a desktop it cannot
+# start. Installed them later? `chezmoi apply` again, then restart the worker.
+# Preflight: `cursor-agent worker debug` (sections "Computer use" and
+# "Desktop share" must say yes).
+{{- $desktop := and (lookPath "Xtigervnc") (lookPath "startxfce4") (lookPath "xdotool") (lookPath "ffmpeg") }}
+ExecStart=%h/.local/bin/cursor-agent worker start --name {{ .chezmoi.hostname }}-worker --connect-workspace{{ if $desktop }} --computer-use --share-desktop view_and_control{{ end }}
 WorkingDirectory=%h
 
 # --- Always up ---
