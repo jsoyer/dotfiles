@@ -8,6 +8,7 @@ cask "chatgpt"
 cask "fluidvoice"
 cask "grok-bot"
 cask "penso/tap/herdr-gpui", trusted: true
+cask "mimestream"
 cask "openlogi"
 cask "parallels"
 mas "djay Pro", id: 450527929
