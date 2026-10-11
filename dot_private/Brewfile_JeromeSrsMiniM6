@@ -5,12 +5,14 @@ brew "sdl2-compat"
 brew "herdr"
 brew "rclone"
 cask "chatgpt"
+cask "espanso"
 cask "fluidvoice"
 cask "grok-bot"
 cask "penso/tap/herdr-gpui", trusted: true
 cask "mimestream"
 cask "openlogi"
 cask "parallels"
+cask "vorssaint"
 mas "djay Pro", id: 450527929
 mas "FaceScreen", id: 6702028512
 mas "Keynote", id: 361285480
