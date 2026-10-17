@@ -8,9 +8,16 @@ command = {{ template "brew-prefix" . }}/bin/zsh -l
 command = /usr/bin/zsh -l
 {{ end -}}
 term = xterm-256color
-copy-on-select = true
 window-theme = system
+{{ if eq .chezmoi.os "darwin" -}}
+# window-decoration = none removes the titlebar AND the frame on macOS, so the
+# window can no longer be dragged. A transparent titlebar blends with the
+# background but stays draggable; traffic lights hidden for the minimal look.
+macos-titlebar-style = transparent
+macos-window-buttons = hidden
+{{ else -}}
 window-decoration = none
+{{ end -}}
 background-opacity = 0.9
 window-padding-balance = true
 copy-on-select = clipboard
