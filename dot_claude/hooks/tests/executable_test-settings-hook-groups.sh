@@ -16,6 +16,9 @@ set -uo pipefail
 #   4. Two live groups sharing a matcher collapse into one foreign group
 #   5. The live autocompact value still wins over the baseline
 #   6. Unknown top-level keys still survive
+#   7. env keys added by a tool (moshi-hook: CLAUDE_CODE_PLUGIN_DIRS) survive;
+#      dropping it made moshi report the Claude hooks "out of date" every hour
+#   8. baseline env values still win over live ones
 
 GREEN='\033[0;32m'; RED='\033[0;31m'; NC='\033[0m'
 YELLOW='\033[1;33m'
@@ -50,9 +53,16 @@ check() {
   fi
 }
 
+# Any env key the baseline defines — its value must not be overridden by live.
+read -r BASELINE_ENV_KEY BASELINE_ENV_VALUE < <(python3 -c "
+import json; e=json.load(open('$SOURCE_DIR/.chezmoitemplates/claude-settings.json')).get('env') or {}
+k=next(k for k in e if k!='CLAUDE_AUTOCOMPACT_PCT_OVERRIDE'); print(k, e[k])")
+
 # A live settings.json with a third-party hook sharing the matcher-less slot.
 LIVE='{
-  "env": {"CLAUDE_AUTOCOMPACT_PCT_OVERRIDE": "62"},
+  "env": {"CLAUDE_AUTOCOMPACT_PCT_OVERRIDE": "62",
+          "CLAUDE_CODE_PLUGIN_DIRS": "/home/u/.claude/moshi-plugin",
+          "'"$BASELINE_ENV_KEY"'": "live-value"},
   "somethingNew": true,
   "hooks": {
     "Stop": [
@@ -82,6 +92,12 @@ check "foreign groups collapsed into one" "1" \
 # 5 + 6: pre-existing guarantees still hold
 check "live autocompact value wins" "62" "$(q 'd["env"]["CLAUDE_AUTOCOMPACT_PCT_OVERRIDE"]')"
 check "unknown top-level key survives" "True" "$(q 'd["somethingNew"]')"
+
+# 7 + 8: tool-added env keys survive; baseline env keys keep the baseline value
+check "tool-added env key survives" "/home/u/.claude/moshi-plugin" \
+  "$(q 'd["env"].get("CLAUDE_CODE_PLUGIN_DIRS")')"
+check "baseline env value wins over live" "$BASELINE_ENV_VALUE" \
+  "$(q 'd["env"].get("'"$BASELINE_ENV_KEY"'")')"
 
 printf "\n  passed: %d  failed: %d\n" "$PASSED" "$FAILED"
 [ "$FAILED" -eq 0 ]

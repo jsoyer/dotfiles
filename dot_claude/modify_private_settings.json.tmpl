@@ -49,9 +49,17 @@ def ours(cmd):
 result = json.loads(json.dumps(baseline))   # copie profonde
 
 # ── env : la valeur d'autocompact vivante gagne (écrite par nos hooks) ──
-live_pct = (live.get("env") or {}).get("CLAUDE_AUTOCOMPACT_PCT_OVERRIDE")
+live_env = live.get("env") or {}
+live_pct = live_env.get("CLAUDE_AUTOCOMPACT_PCT_OVERRIDE")
 if live_pct is not None:
     result.setdefault("env", {})["CLAUDE_AUTOCOMPACT_PCT_OVERRIDE"] = live_pct
+
+# ── env : les clés absentes de la baseline sont repassées telles quelles.
+#    moshi-hook ajoute CLAUDE_CODE_PLUGIN_DIRS (~/.claude/moshi-plugin) : la
+#    supprimer lui faisait déclarer les hooks Claude « out of date » à chaque
+#    autoupdate. Les clés de la baseline gardent la valeur de la baseline. ──
+for key, value in live_env.items():
+    result.setdefault("env", {}).setdefault(key, value)
 
 # ── hooks : réinjecter ceux des tiers, en respectant leur matcher ──
 #
