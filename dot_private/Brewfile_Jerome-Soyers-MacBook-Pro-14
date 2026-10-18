@@ -7,11 +7,13 @@ tap "iamrohithrnair/tap"
 tap "mcs-cli/tap", trusted: true
 tap "rjyo/moshi", trusted: true
 tap "teamookla/speedtest", trusted: true
-brew "icu4c@77"
 brew "crane"
 brew "depot"
+brew "icu4c@77"
 brew "sdl2-compat"
+brew "gtk+3"
 brew "icu4c@76"
+brew "gtk-vnc"
 brew "herdr"
 brew "hledger"
 brew "infisical"
@@ -24,6 +26,7 @@ brew "ouch"
 brew "p7zip"
 brew "podcast-dl"
 brew "poetry"
+brew "psqlodbc"
 brew "rclone"
 brew "redis"
 brew "semgrep"
@@ -32,6 +35,7 @@ brew "tuicr"
 brew "unar"
 brew "iamrohithrnair/tap/emeraldian", trusted: true
 brew "mcs-cli/tap/mcs", trusted: true
+brew "pulumi/tap/esc", trusted: true
 brew "rjyo/moshi/moshi-hook", trusted: true
 brew "teamookla/speedtest/speedtest"
 cask "antigravity-cli"
