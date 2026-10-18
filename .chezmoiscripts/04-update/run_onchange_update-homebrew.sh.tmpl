@@ -37,13 +37,15 @@ if [[ -f "$FILTER_PY" ]] && command -v python3 >/dev/null; then
         echo "Upgrading bottled formulae:"
         echo "$bottled"
         # Names are one-per-line; no spaces. bash 3.2 has no mapfile.
+        # One broken keg ("Cellar/<f>/<v> is not a directory") must not abort
+        # the casks, cleanup and npm steps below, nor the whole chezmoi apply.
         # shellcheck disable=SC2086
-        brew upgrade --formula $bottled
+        brew upgrade --formula $bottled || echo "⚠️  formula upgrade failed; continuing."
     else
         echo "No bottled formulae to upgrade (unbottled Tier-3 upgrades skipped)."
     fi
 else
-    brew upgrade --formula || true
+    brew upgrade --formula || echo "⚠️  formula upgrade failed; continuing."
 fi
 {{- if eq (index . "machine_profile") "mac-pro" }}
 brew upgrade --cask || echo "⚠️  cask upgrade failed; continuing."
