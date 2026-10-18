@@ -35,7 +35,6 @@ brew "tuicr"
 brew "unar"
 brew "iamrohithrnair/tap/emeraldian", trusted: true
 brew "mcs-cli/tap/mcs", trusted: true
-brew "pulumi/tap/esc", trusted: true
 brew "rjyo/moshi/moshi-hook", trusted: true
 brew "teamookla/speedtest/speedtest"
 cask "antigravity-cli"
