@@ -3,6 +3,7 @@
 tap "can1357/tap"
 tap "docker/tap", trusted: true
 tap "mcs-cli/tap"
+tap "penso/tap"
 tap "wouterdebie/tap", trusted: { casks: ["davit"] }
 brew "crit"
 brew "sdl2-compat"
@@ -39,10 +40,12 @@ cask "fliqlo"
 cask "fluidvoice"
 cask "grok-bot"
 cask "grok-build"
+cask "penso/tap/herdr-gpui", trusted: true
 cask "logitech-g-hub"
 cask "microsoft-edge"
 cask "paseo"
 cask "plaud"
+cask "t3-code"
 cask "termix-ssh/termix/termix"
 cask "tex-live-utility"
 cask "visual-studio-code"
