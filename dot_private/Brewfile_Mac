@@ -1,0 +1,71 @@
+# Host overlay for Mac — extras beyond the shared base.
+# Managed by breww. Do not edit manually.
+tap "can1357/tap"
+tap "docker/tap", trusted: true
+tap "mcs-cli/tap"
+tap "penso/tap"
+tap "rjyo/moshi", trusted: true
+tap "wouterdebie/tap", trusted: { casks: ["davit"] }
+brew "crit"
+brew "sdl2-compat"
+brew "gtk+3"
+brew "gtk-vnc"
+brew "herdr"
+brew "hledger"
+brew "infisical"
+brew "lazysql"
+brew "mactop"
+brew "mosh"
+brew "podcast-dl"
+brew "poetry"
+brew "psqlodbc"
+brew "pulumi"
+brew "rclone"
+brew "tuicr"
+brew "vcs"
+brew "arimxyer/tap/models"
+brew "can1357/tap/omp", trusted: true
+brew "khell/srm/srm", trusted: true
+brew "mcs-cli/tap/mcs", trusted: true
+brew "pulumi/tap/esc", trusted: true
+brew "rjyo/moshi/moshi-hook"
+brew "siderolabs/tap/omnictl", trusted: true
+cask "anaconda"
+cask "antigravity"
+cask "antigravity-cli"
+cask "antigravity-ide"
+cask "bettercapture"
+cask "chatgpt"
+cask "codex-app"
+cask "davit"
+cask "firefox"
+cask "fliqlo"
+cask "fluidvoice"
+cask "grok-bot"
+cask "grok-build"
+cask "penso/tap/herdr-gpui", trusted: true
+cask "logitech-g-hub"
+cask "microsoft-edge"
+cask "paseo"
+cask "plaud"
+cask "termix-ssh/termix/termix"
+cask "tex-live-utility"
+cask "visual-studio-code"
+cask "vorssaint"
+cask "wispr-flow"
+cask "zoom"
+mas "Amphetamine", id: 937984704
+mas "djay Pro", id: 450527929
+mas "FaceScreen", id: 6702028512
+mas "iCompta", id: 1149778308
+mas "iMovie", id: 408981434
+mas "Keynote", id: 361285480
+mas "KeyScreen", id: 6753302381
+mas "Numbers", id: 361304891
+mas "Pages", id: 361309726
+mas "Parcel", id: 375589283
+mas "Presentify", id: 1507246666
+mas "Raycast Companion", id: 6738274497
+mas "Remote Desktop", id: 409907375
+mas "Save to Raindrop.io", id: 1549370672
+mas "Xcode", id: 497799835
