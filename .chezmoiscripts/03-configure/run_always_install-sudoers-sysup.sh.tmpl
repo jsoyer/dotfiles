@@ -50,6 +50,9 @@ ${RULE_USER} ALL=(root) NOPASSWD: /usr/bin/apt-get autoremove -y
 
 # Arch
 ${RULE_USER} ALL=(root) NOPASSWD: /usr/bin/pacman -Syu --noconfirm
+
+# Flatpak (tous Linux) : applis installees au niveau systeme
+${RULE_USER} ALL=(root) NOPASSWD: /usr/bin/flatpak update --system -y
 EOF
 
 # visudo vit dans /usr/sbin, absent du PATH de beaucoup d'environnements non
