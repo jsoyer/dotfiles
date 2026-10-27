@@ -259,6 +259,7 @@ Updates all package managers for the detected platform. Conditional by machine p
 
 ```bash
 sysup
+sysup --reboot   # Fedora desktop/server: stage the dnf upgrade offline, then reboot into it
 ```
 
 **macOS behavior:**
@@ -271,6 +272,8 @@ sysup
 - **RPi / Ubuntu / Debian:** `sudo apt-get update && dist-upgrade -y && autoremove -y`
 - **Arch / OmArchy:** `sudo pacman -Syu --noconfirm` + AUR via `yay -Sua --noconfirm`
 - **Fedora Desktop/Server/Toolbox:** `sudo dnf upgrade --refresh -y`
+  - With `--reboot` (desktop/server): `dnf offline clean`, `dnf upgrade --refresh --offline -y`, then `dnf offline reboot -y` once the user-level updates are done
+  - Ends with a reboot warning when `dnf needs-restarting` reports one (kernel, glibc, systemd...)
 - **Fedora Atomic:** `rpm-ostree upgrade`
 - **All Linux:** Flatpak updates if installed
 - **All Linux:** Linuxbrew updates if installed

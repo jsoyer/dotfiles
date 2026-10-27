@@ -17,6 +17,7 @@
 | Command | Action |
 |---------|--------|
 | `sysup` | Update all packages + flatpak + brew + AI tools |
+| `sysup --reboot` | Fedora: same, but stage dnf offline and reboot into it |
 | `update-ai` | Update AI CLIs (Claude Code, Copilot, Codex, Grok, cursor-agent, pi, omp, Antigravity) |
 | `dcua` | Docker compose pull + up + prune |
 

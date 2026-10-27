@@ -256,6 +256,17 @@ end
 
 # Disable greeting
 set -g fish_greeting
+{{ if eq .chezmoi.os "linux" -}}
+
+# Newer kernel installed than the one running: remind once per shell.
+# Cheap check (no dnf). Skipped in containers: toolbox shares the host kernel.
+if not test -e /run/.containerenv; and test -d /usr/lib/modules
+    set -l _newest_kernel (path basename /usr/lib/modules/* | sort -V | tail -1)
+    if test -n "$_newest_kernel"; and test "$_newest_kernel" != (uname -r)
+        echo "⚠️  Kernel $_newest_kernel installed, still running "(uname -r)" — reboot to load it (Fedora: sysup --reboot)"
+    end
+end
+{{ end -}}
 
 # Enable vi mode (optional - uncomment if you prefer vi keybindings)
 # fish_vi_key_bindings
@@ -575,8 +586,12 @@ function cdestroy
 end
 
 # Chezmoi update + package updates
+# `sysup --reboot` (Fedora desktop/server): stage the dnf upgrade offline and
+# reboot into it, so nothing is replaced under the running session.
 function sysup
     set os (uname -s | tr '[:upper:]' '[:lower:]')
+    set -l _reboot 0
+    contains -- --reboot $argv; and set _reboot 1
 
     switch $os
         case darwin
@@ -610,8 +625,16 @@ function sysup
                         yay -Sua --noconfirm
                     end
                 case fedora-desktop fedora-server toolbox
-                    echo "📦 Updating dnf packages..."
-                    sudo dnf upgrade --refresh -y
+                    if test $_reboot -eq 1; and test "$_mp" != toolbox
+                        echo "📦 Staging dnf offline upgrade..."
+                        # A stale stored transaction (e.g. left by GNOME Software)
+                        # makes `--offline` refuse to queue a new one.
+                        sudo dnf offline clean
+                        sudo dnf upgrade --refresh --offline -y
+                    else
+                        echo "📦 Updating dnf packages..."
+                        sudo dnf upgrade --refresh -y
+                    end
                 case fedora-atomic
                     echo "🔒 Updating Fedora Atomic..."
                     rpm-ostree upgrade
@@ -642,9 +665,27 @@ function sysup
             update-omz
             update-ai
             _update_herdr_if_present
+
+            if test $_reboot -eq 1; and contains -- $_mp fedora-desktop fedora-server
+                echo "🔄 Rebooting to apply the offline upgrade..."
+                # Fails when nothing was staged (already up to date): fall back to the hint.
+                sudo dnf offline reboot -y; or _sysup_reboot_hint
+            else
+                _sysup_reboot_hint
+            end
         case windows
             echo "🪣 Updating Scoop packages..."
             scoop update --all
+    end
+end
+
+# dnf systems: warn when updated packages (kernel, glibc, systemd...) only take
+# effect after a reboot. --disablerepo: only the rpm database is needed, so it
+# runs as the user, offline, in under a second. Exit code 1 = reboot needed.
+function _sysup_reboot_hint
+    command -q dnf; or return
+    if not dnf needs-restarting --disablerepo='*' >/dev/null 2>&1
+        echo "⚠️  Reboot needed to load the updates (running kernel "(uname -r)") — run: sysup --reboot"
     end
 end
 

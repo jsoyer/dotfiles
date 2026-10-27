@@ -38,6 +38,10 @@ Defaults:${RULE_USER} !requiretty
 
 # Fedora
 ${RULE_USER} ALL=(root) NOPASSWD: /usr/bin/dnf upgrade --refresh -y
+# \`sysup --reboot\` : mise a jour hors ligne appliquee au redemarrage
+${RULE_USER} ALL=(root) NOPASSWD: /usr/bin/dnf offline clean
+${RULE_USER} ALL=(root) NOPASSWD: /usr/bin/dnf upgrade --refresh --offline -y
+${RULE_USER} ALL=(root) NOPASSWD: /usr/bin/dnf offline reboot -y
 
 # Debian / Ubuntu / Raspberry Pi
 ${RULE_USER} ALL=(root) NOPASSWD: /usr/bin/apt-get update
