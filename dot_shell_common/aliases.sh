@@ -432,8 +432,13 @@ mkd() {
   mkdir -p "$@" && cd "${@: -1}" || return
 }
 
+# `sysup --reboot` (Fedora desktop/server): stage the dnf upgrade offline and
+# reboot into it, so nothing is replaced under the running session.
 sysup() {
-  local os
+  local os reboot=0 arg
+  for arg in "$@"; do
+    [[ "$arg" == "--reboot" ]] && reboot=1
+  done
   case "$OSTYPE" in
     darwin*) os="darwin" ;;
     linux*)  os="linux" ;;
@@ -478,8 +483,16 @@ sysup() {
           fi
           ;;
         fedora-desktop|fedora-server|toolbox)
-          echo "📦 Updating dnf packages..."
-          sudo dnf upgrade --refresh -y
+          if [[ "$reboot" == 1 && "${MACHINE_PROFILE}" != toolbox ]]; then
+            echo "📦 Staging dnf offline upgrade..."
+            # A stale stored transaction (e.g. left by GNOME Software) makes
+            # `--offline` refuse to queue a new one.
+            sudo dnf offline clean
+            sudo dnf upgrade --refresh --offline -y
+          else
+            echo "📦 Updating dnf packages..."
+            sudo dnf upgrade --refresh -y
+          fi
           ;;
         fedora-atomic)
           echo "🔒 Updating Fedora Atomic..."
@@ -514,6 +527,14 @@ sysup() {
       update-ai
       _update_mise_if_present
       _update_herdr_if_present
+
+      if [[ "$reboot" == 1 && ( "${MACHINE_PROFILE:-}" == fedora-desktop || "${MACHINE_PROFILE:-}" == fedora-server ) ]]; then
+        echo "🔄 Rebooting to apply the offline upgrade..."
+        # Fails when nothing was staged (already up to date): fall back to the hint.
+        sudo dnf offline reboot -y || _sysup_reboot_hint
+      else
+        _sysup_reboot_hint
+      fi
       ;;
     windows)
       echo "🪣 Updating Scoop packages..."
@@ -521,6 +542,29 @@ sysup() {
       ;;
   esac
 }
+
+# dnf systems: warn when updated packages (kernel, glibc, systemd...) only take
+# effect after a reboot. --disablerepo: only the rpm database is needed, so it
+# runs as the user, offline, in under a second. Exit code 1 = reboot needed.
+_sysup_reboot_hint() {
+  command -v dnf &>/dev/null || return 0
+  if ! dnf needs-restarting --disablerepo='*' &>/dev/null; then
+    echo "⚠️  Reboot needed to load the updates (running kernel $(uname -r)) — run: sysup --reboot"
+  fi
+}
+
+# Newer kernel installed than the one running: remind once per interactive
+# shell. Cheap check (no dnf). Skipped in containers: toolbox shares the host kernel.
+_kernel_reboot_reminder() {
+  [[ "$OSTYPE" == linux* && ! -e /run/.containerenv && -d /usr/lib/modules ]] || return 0
+  local newest
+  # `command`: ls is aliased (eza) earlier in this file.
+  newest="$(command ls /usr/lib/modules 2>/dev/null | sort -V | tail -1)"
+  if [[ -n "$newest" && "$newest" != "$(uname -r)" ]]; then
+    echo "⚠️  Kernel $newest installed, still running $(uname -r) — reboot to load it (Fedora: sysup --reboot)"
+  fi
+}
+[[ $- == *i* ]] && _kernel_reboot_reminder
 
 # Update CLI AI tools (claude-code, copilot-cli, codex)
 # A CLI whose binary resolves under the brew prefix is brew-managed (macOS
