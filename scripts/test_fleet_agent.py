@@ -898,6 +898,45 @@ class InstallScript(unittest.TestCase):
         self.assertNotIn("fleet-master-retired", text)
         self.assertIn("fleet-master-diabolo", text)
 
+    def test_authorized_keys_symlink_is_preserved_and_target_updated_atomically(self):
+        ssh = self.home / ".ssh"
+        ssh.mkdir()
+        store = self.home / "dotfiles-store"
+        store.mkdir()
+        target = store / "authorized_keys"
+        target.write_text("ssh-ed25519 AAAAUSER user@laptop\n")
+        (ssh / "authorized_keys").symlink_to(target)
+        inode_before = target.stat().st_ino
+        (self.root / "op-public-key-diabolo").write_text(self.KEY_A + "\n")
+        proc = self.run_script()
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertTrue((ssh / "authorized_keys").is_symlink(), "the symlink must not be replaced by a file")
+        self.assertEqual((ssh / "authorized_keys").resolve(), target.resolve())
+        text = target.read_text()
+        self.assertIn("ssh-ed25519 AAAAUSER user@laptop", text)
+        self.assertIn("fleet-master-diabolo", text)
+        self.assertEqual(oct(target.stat().st_mode & 0o777), "0o600")
+        self.assertNotEqual(target.stat().st_ino, inode_before, "written through a temp file + rename, not truncated in place")
+        leftovers = [p.name for p in list(store.iterdir()) + list(ssh.iterdir()) if p.name.startswith(".authorized_keys")]
+        self.assertEqual(leftovers, [])
+
+    def test_regular_file_update_uses_rename_not_truncation(self):
+        ssh = self.home / ".ssh"
+        ssh.mkdir()
+        ak = ssh / "authorized_keys"
+        ak.write_text("ssh-ed25519 AAAAUSER user@laptop\n")
+        inode_before = ak.stat().st_ino
+        (self.root / "op-public-key-diabolo").write_text(self.KEY_A + "\n")
+        self.run_script()
+        self.assertIn("fleet-master-diabolo", self.ak())
+        self.assertNotEqual(ak.stat().st_ino, inode_before)
+
+    def test_header_is_honest_about_run_onchange_retry(self):
+        header = INSTALL_TMPL.read_text().split("set -uo pipefail")[0]
+        self.assertNotIn("retentee au prochain changement de l'agent", header)
+        self.assertIn("run_onchange", header)
+        self.assertIn("scriptState", header)
+
     def test_unreadable_key_keeps_the_existing_line(self):
         ssh = self.home / ".ssh"
         ssh.mkdir()

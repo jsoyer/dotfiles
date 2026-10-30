@@ -14,7 +14,15 @@
 #      retiree pour un master dont la cle n'a pas pu etre lue.
 #
 # Ne fait JAMAIS echouer `chezmoi apply` (exit 0 partout) : un probleme est
-# signale sur stderr et l'etape est retentee au prochain changement de l'agent.
+# signale sur stderr.
+#
+# LIMITE (run_onchange) : chezmoi ne rejoue ce script que si son contenu change
+# (donc quand l'agent change). Un exit 0 apres une etape reportee (sudo sans mot
+# de passe, op absent, cle illisible) est enregistre comme "execute" : il n'y a
+# PAS de nouvelle tentative automatique. Pour rejouer a la main :
+#   chezmoi state delete-bucket --bucket=scriptState && chezmoi apply
+# (rejoue AUSSI les autres scripts run_once/run_onchange). Contrairement a run_always_install-sudoers-sysup, ce script n'est pas renomme
+# (INVARIANTS.md reference son chemin).
 #
 # Contenu de l'agent, integre ici (et non lu depuis ~/.local/share/fleet/) pour ne
 # pas dependre de l'ordre d'application des fichiers : empreinte -> rejoue
@@ -122,9 +130,29 @@ done
 if cmp -s "$TMP_DIR/ak.new" "$AK"; then
     say "authorized_keys deja a jour"
 else
-    cat "$TMP_DIR/ak.new" > "$AK"
-    chmod 600 "$AK"
-    say "authorized_keys mis a jour (${fetched} cle(s) master, commande imposee ${AGENT_DEST})"
+    # Ecriture atomique : fichier temporaire dans le MEME repertoire (meme
+    # filesystem), chmod 600, puis rename. Jamais de troncature en place : une
+    # coupure en cours d'ecriture ne peut pas laisser authorized_keys vide ou
+    # tronque (perte d'acces SSH). Si authorized_keys est un lien symbolique
+    # (dotfiles, stow), on ecrit la CIBLE et le lien est conserve.
+    AK_REAL="$AK"
+    if [ -L "$AK" ]; then
+        AK_REAL="$(readlink -f "$AK" 2>/dev/null || true)"
+    fi
+    if [ -z "$AK_REAL" ]; then
+        warn "authorized_keys est un lien symbolique irresoluble : fichier inchange."
+        exit 0
+    fi
+    AK_TMP="$(mktemp "$(dirname "$AK_REAL")/.authorized_keys.XXXXXX" 2>/dev/null || true)"
+    if [ -n "$AK_TMP" ] \
+       && cat "$TMP_DIR/ak.new" > "$AK_TMP" \
+       && chmod 600 "$AK_TMP" \
+       && mv -f "$AK_TMP" "$AK_REAL"; then
+        say "authorized_keys mis a jour (${fetched} cle(s) master, commande imposee ${AGENT_DEST})"
+    else
+        [ -z "$AK_TMP" ] || command rm -f -- "$AK_TMP"
+        warn "ecriture de ${AK_REAL} impossible : authorized_keys inchange."
+    fi
 fi
 exit 0
 {{- end }}
