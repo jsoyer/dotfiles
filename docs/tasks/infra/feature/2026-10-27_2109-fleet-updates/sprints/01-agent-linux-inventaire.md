@@ -178,3 +178,10 @@ Codes : 0 succès, 1 refusé, 2 échec MAJ, 3 busy.
 - C(c). `trap cleanup EXIT` (supprime TMP_DIR, tue le lecteur stderr), `trap 'exit 130' INT`, `trap 'exit 143' TERM` : le répertoire temporaire disparaît sur toutes les sorties. Test : test_temp_dir_removed_when_killed_with_term (killpg TERM en plein ssh, répertoire absent ensuite ; TMPDIR pointé vers un répertoire de test).
 - C(d). `ssh_open` (ping) : sortie ssh bornée par `| head -c 4096`. Test : test_ping_caps_flooded_ssh_output. Hors périmètre non modifié : `dot_local/share/fleet/lib/inventory.py` `read_tailscale` lit la sortie de `tailscale status --json` via `subprocess.run(capture_output=True)` sans plafond (binaire local de confiance, timeout 15 s) ; à plafonner si jugé nécessaire.
 - Environnement : pytest absent des python3 système et linuxbrew ; exécuté via `uvx pytest`.
+
+### Orchestrator (merge + verification, 2026-10-30)
+
+- Merged feat/fleet-sprint1-fixes2 (contains feat/fleet-sprint1-agent + review rounds 1-2) into feat/fleet-plan (merge 6b079eb6).
+- Post-merge run caught a real race in the round-1 lock takeover: test_concurrent_stale_lock_takeover_has_a_single_winner failed 4/6 runs ([0, 0, 3, 3, 3, 3]). Cause: the mv-aside takeover could move another caller's freshly created lock, and `mv stale LOCKDIR` onto a recreated dir nested it, giving two owners. Fix 422534fd: takeover serialized by a second mkdir mutex `update.lock.takeover` (re-check holder, rm stale, mkdir, claim; losers busy; crashed mutex ignored after 2 min). A live lock is never moved or deleted. 12/12 reruns pass; the round-1 residual window is gone.
+- Verification on merged tree: shellcheck rc 0; `uvx pytest` 164 passed + 14 subtests; install + sudoers templates render and `bash -n` OK; `visudo -cf` on rendered rule: parsed OK; INVARIANTS Verify: all exit 0 (schema/selector neutral).
+- Sudoers NOT applied anywhere: awaiting Jérôme's §15 review (diff vs 332b9324: + env_keep scoped to apt-get, apt dist-upgrade line now carries Dpkg confdef/confold options, + `/usr/bin/systemctl reboot`; no wildcards).

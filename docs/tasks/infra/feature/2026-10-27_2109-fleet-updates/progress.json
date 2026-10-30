@@ -6,12 +6,13 @@
       "id": 1,
       "file": "sprints/01-agent-linux-inventaire.md",
       "title": "Agent Linux + inventaire",
-      "status": "not_started",
+      "status": "complete",
       "depends_on": [],
       "batch": 1,
       "model": "sonnet",
-      "branch": null,
-      "merged": false
+      "branch": "feat/fleet-sprint1-fixes2",
+      "merged": true,
+      "notes": "All locally-verifiable tasks/criteria done and verified (shellcheck 0, 164 tests pass, templates bash -n OK, visudo -cf OK, invariants OK). Sudoers change implemented, awaiting Jerome review (spec 15), NOT applied. BLOCKED (requires live infra / user action): multibox test VM + pveversion; kill-SSH-during-update on VM; conffile conflict on VM; critical service down on VM; manual sysup on Fedora zsh/bash/fish; real fleet check on VM/Fedora/Debian/Arch; root 0755 install check; sudo -l. Open: 1Password item Fleet (public-key-diabolo/penelope); deploy ~/.config/fleet-agent/critical-services from fleet.yml; run_onchange install script not retried after a deferred exit 0."
     },
     {
       "id": 2,
