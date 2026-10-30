@@ -1,10 +1,20 @@
 #!/usr/bin/env bash
-# fleet — master-side wrapper of the fleet-updates system (sprint 1: ping, check).
+# fleet — wrapper of the fleet-updates system (ping, check; the rest is lib/orchestrate.py).
 #
 # Usage:
 #   fleet ping  [host[,host]...]   Tailscale state + SSH reachability (no agent call)
 #   fleet check [host[,host]...]   ask each agent for `check` (read-only)
+#   fleet up [-l SEL] [--dry-run] [--critical] [--no-canary]   update by phases
+#   fleet reboot --pending [-l SEL] [--critical]               restart, one confirmation each
+#   fleet report [--last|--run ID]  fleet logs HOST [--run ID]  fleet changes HOST [--since D]
+#   fleet hold HOST --reason R --until D | unhold HOST | holds
+#   fleet reminder                 ntfy if no `fleet up` for 14 days (timer; opens no connection)
 #   fleet help
+#
+# Selector (-l or positional): alias, site=, kind=, tag:, @group, "a,b" union, "!x"
+# exclusion. A selector matching nothing is an error (exit 2), never the whole fleet.
+# On a machine that is not a master, up/reboot/... run on a master (the targets'
+# site master first, failover to the other); the logic lives in lib/orchestrate.py.
 #
 # No host argument = every host of fleet.yml. An unknown host is an error (exit 2),
 # never "everything". Targets are handled one after the other.
@@ -27,6 +37,7 @@ FLEET_YML="${FLEET_YML:-$FLEET_DIR/fleet.yml}"
 FLEET_PYTHON="${FLEET_PYTHON:-python3}"
 FLEET_SSH="${FLEET_SSH:-ssh}"
 INVENTORY="$FLEET_DIR/lib/inventory.py"
+ORCHESTRATE="$FLEET_DIR/lib/orchestrate.py"
 
 die() { printf 'fleet: %s\n' "$1" >&2; exit 2; }
 
@@ -55,6 +66,11 @@ Usage: fleet <command> [host[,host]...]
 Commands:
   ping   Tailscale state + SSH reachability (does not call the agent)
   check  ask each agent for a read-only status (pending updates, health, reboot)
+  up        update the fleet by phases (-l selector, --dry-run, --critical, --no-canary)
+  reboot    --pending: restart hosts that need it, one confirmation per machine
+  report    [--last | --run ID]   logs HOST [--run ID]   changes HOST [--since DATE]
+  hold      HOST --reason TEXT --until DATE ; unhold HOST ; holds
+  reminder  ntfy reminder when no `fleet up` ran for 14 days (used by the timer)
   help   this text
 EOF
 }
@@ -192,6 +208,9 @@ main() {
   case "$cmd" in
     ping) cmd_ping ${1+"$@"} ;;
     check) cmd_check ${1+"$@"} ;;
+    up|reboot|report|logs|changes|hold|unhold|holds|reminder)
+      [ -r "$ORCHESTRATE" ] || die "orchestrator library not found: $ORCHESTRATE"
+      exec "$FLEET_PYTHON" -I "$ORCHESTRATE" "$cmd" ${1+"$@"} ;;
     help|-h|--help) usage ;;
     *) printf 'fleet: unknown command %s\n' "$(clean "$cmd")" >&2; usage >&2; exit 2 ;;
   esac

@@ -263,6 +263,56 @@ def validate(data: Dict[str, Any]) -> List[str]:
                 errors.append("timeouts.%s: unknown kind" % tkind)
             elif not isinstance(minutes, int) or isinstance(minutes, bool) or minutes <= 0:
                 errors.append("timeouts.%s: must be a positive integer" % tkind)
+    errors.extend(_validate_orchestration(data, hosts))
+    return errors
+
+
+def _validate_orchestration(data: Dict[str, Any], hosts: Dict[str, Any]) -> List[str]:
+    """masters / ntfy / parallel / master_priority (all optional, shapes checked)."""
+    errors: List[str] = []
+    masters = data.get("masters")
+    if masters is not None:
+        if not isinstance(masters, list) or not masters or not all(isinstance(m, str) for m in masters):
+            errors.append("masters: must be a non-empty list of aliases")
+        else:
+            for name in masters:
+                if name not in hosts:
+                    errors.append("masters: unknown host %r" % name)
+    ntfy = data.get("ntfy")
+    if ntfy is not None:
+        if not isinstance(ntfy, dict):
+            errors.append("ntfy: must be a mapping")
+        else:
+            for field in ("url", "topic"):
+                if not isinstance(ntfy.get(field), str) or not ntfy.get(field):
+                    errors.append("ntfy.%s: required string" % field)
+            if isinstance(ntfy.get("url"), str) and not ntfy["url"].startswith(("https://", "http://")):
+                errors.append("ntfy.url: must be http(s)")
+            ref = ntfy.get("token_ref")
+            if ref is not None and (not isinstance(ref, str) or not ref.startswith("op://")):
+                errors.append("ntfy.token_ref: must be an op:// reference (the token itself never lives here)")
+            gateway = ntfy.get("gateway")
+            if gateway is not None and gateway not in hosts:
+                errors.append("ntfy.gateway: unknown host %r" % gateway)
+    parallel = data.get("parallel")
+    if parallel is not None:
+        if not isinstance(parallel, dict):
+            errors.append("parallel: must be a mapping")
+        else:
+            for field in ("total", "per_site"):
+                val = parallel.get(field)
+                if val is not None and (not isinstance(val, int) or isinstance(val, bool) or val <= 0):
+                    errors.append("parallel.%s: must be a positive integer" % field)
+    priority = data.get("master_priority")
+    if priority is not None:
+        if not isinstance(priority, dict):
+            errors.append("master_priority: must be a mapping site -> master")
+        else:
+            for site, master in priority.items():
+                if site not in SITES:
+                    errors.append("master_priority.%s: unknown site" % site)
+                if master not in (masters or []):
+                    errors.append("master_priority.%s: %r is not a master" % (site, master))
     return errors
 
 
@@ -352,6 +402,29 @@ def peer_state(tailnet_name: str, peers: Optional[Dict[str, Dict[str, Any]]]) ->
     if peer["online"]:
         return "online", peer["last_seen"]
     return "offline", peer["last_seen"]
+
+
+def online_state(
+    tailnet_name: str,
+    peers: Optional[Dict[str, Dict[str, Any]]],
+    ssh_probe: Optional[Any] = None,
+) -> Tuple[str, Optional[str]]:
+    """('online'|'offline'|'unreachable', last_seen) with the spec definition of "online".
+
+    online      = Tailscale ``Online: true`` AND an SSH connection opened in <= 10 s
+                  (``ssh_probe()`` -> bool; when absent only Tailscale is consulted);
+    offline     = Tailscale ``Online: false`` (LastSeen reported, no connection tried);
+    unreachable = Tailscale online but SSH failed, or the peer is unknown to Tailscale.
+    When Tailscale itself is unavailable (peers is None) only the SSH probe decides.
+    """
+    state, last_seen = peer_state(tailnet_name, peers)
+    if state == "offline":
+        return "offline", last_seen
+    if state == "absent":
+        return "unreachable", None
+    if ssh_probe is not None and not ssh_probe():
+        return "unreachable", last_seen
+    return "online", last_seen
 
 
 # ---------------------------------------------------------------- agent output
