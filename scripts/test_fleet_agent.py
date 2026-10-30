@@ -515,7 +515,7 @@ class LockAndDetach(AgentCase):
         self.assertEqual(codes, [0, 3, 3, 3, 3, 3], results)
         self.sb.wait_final()
         self.assertEqual(self.sb.read("calls.log").count("sysup"), 1)
-        self.assertEqual(list(self.sb.state.glob("update.lock.stale.*")), [], "stale dirs are cleaned up")
+        self.assertEqual(list(self.sb.state.glob("update.lock.*")), [], "takeover mutex and stale dirs are cleaned up")
 
     def test_job_aborts_with_lock_lost_when_it_does_not_own_the_lock(self):
         job = "20260101T000000Z-1"

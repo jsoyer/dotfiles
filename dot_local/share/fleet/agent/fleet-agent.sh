@@ -283,29 +283,29 @@ lock_claim() {
   LOCK_OWNED=1
 }
 
-# lock_acquire: atomic mkdir; a stale lock is taken over by atomically moving it
-# aside (rename(2): exactly one concurrent caller succeeds), then mkdir, then
-# deleting the moved copy. If the moved directory turns out to be live (another
-# caller completed its own takeover between our staleness check and our mv), it
-# is put back and we report busy. run_job additionally verifies ownership.
+# lock_acquire: atomic mkdir. A stale lock is taken over only while holding a
+# second mkdir mutex ($LOCKDIR.takeover), so exactly one caller re-checks the
+# holder, removes the stale lock and recreates it. Nobody else can create
+# $LOCKDIR while the stale one exists, and only the takeover holder removes it,
+# so a live lock is never moved or deleted. Losers report busy. A takeover mutex
+# left by a crashed caller is ignored after 2 minutes. run_job additionally
+# verifies ownership.
 lock_acquire() {
-  local stale
+  local mutex="$LOCKDIR.takeover" rc=1
   mkdir -p "$LOCK_BASE" 2>/dev/null
   if mkdir "$LOCKDIR" 2>/dev/null; then lock_claim; return 0; fi
   lock_holder_alive && return 1
-  stale="$LOCKDIR.stale.$$"
-  mv "$LOCKDIR" "$stale" 2>/dev/null || return 1
-  if lock_dir_alive "$stale"; then
-    mv "$stale" "$LOCKDIR" 2>/dev/null || rm -rf "$stale"
-    return 1
+  if ! mkdir "$mutex" 2>/dev/null; then
+    [ -n "$(find "$mutex" -maxdepth 0 -mmin +2 2>/dev/null)" ] || return 1
+    rm -rf "$mutex"
+    mkdir "$mutex" 2>/dev/null || return 1
   fi
-  if mkdir "$LOCKDIR" 2>/dev/null; then
-    rm -rf "$stale"
-    lock_claim
-    return 0
+  if ! lock_holder_alive; then
+    rm -rf "$LOCKDIR"
+    if mkdir "$LOCKDIR" 2>/dev/null; then lock_claim; rc=0; fi
   fi
-  rm -rf "$stale"
-  return 1
+  rmdir "$mutex" 2>/dev/null
+  return "$rc"
 }
 
 # lock_release: only remove a lock that still carries our pid.
