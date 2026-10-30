@@ -99,7 +99,7 @@ plan_rows() {
 ssh_open() {
   local out
   out="$("$FLEET_SSH" "${SSH_OPTS[@]}" -o PreferredAuthentications=none \
-    -o PubkeyAuthentication=no -o NumberOfPasswordPrompts=0 "$1" true </dev/null 2>&1 \
+    -o PubkeyAuthentication=no -o NumberOfPasswordPrompts=0 -- "$1" true </dev/null 2>&1 \
     | head -c "$ERR_CAP")"
   SSH_NOTE="$(clean "$(printf '%s' "$out" | head -n 1)")"
   case "$out" in
@@ -170,7 +170,7 @@ cmd_check() {
     mkfifo "$tmp/errfifo" || die "cannot create a fifo"
     head -c "$ERR_CAP" <"$tmp/errfifo" >"$tmp/err" &
     ERR_PID=$!
-    "$FLEET_SSH" "${SSH_OPTS[@]}" -T "$target" check </dev/null 2>"$tmp/errfifo" \
+    "$FLEET_SSH" "${SSH_OPTS[@]}" -T -- "$target" check </dev/null 2>"$tmp/errfifo" \
       | head -c "$OUT_CAP" >"$tmp/out"
     src="${PIPESTATUS[0]}"
     wait "$ERR_PID" 2>/dev/null

@@ -12,6 +12,7 @@ the other master's copies arrive by rsync and are merged at read time.
 Everything is 0600 (directories 0700). Stdlib only, Python 3.9 compatible.
 """
 
+import fcntl
 import json
 import os
 import re
@@ -22,8 +23,8 @@ from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 
 RETENTION_DAYS = 31
-SAFE_MASTER = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]*$")
-RUN_ID = re.compile(r"^\d{8}T\d{4}Z-[A-Za-z0-9][A-Za-z0-9_.-]*$")
+SAFE_MASTER = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.-]*")
+RUN_ID = re.compile(r"\d{8}T\d{4}Z-[A-Za-z0-9][A-Za-z0-9_.-]*")
 HISTORY_FIELDS = (
     "run_id", "master", "host", "status", "reason", "packages", "reboot_required",
     "last_seen", "started", "ended",
@@ -59,7 +60,7 @@ def parse_iso(text: Optional[str]) -> Optional[datetime]:
 
 
 def run_id_time(run_id: str) -> Optional[datetime]:
-    match = re.match(r"^(\d{8}T\d{4})Z-", run_id)
+    match = re.match(r"(\d{8}T\d{4})Z-", run_id)
     if not match:
         return None
     return datetime.strptime(match.group(1), "%Y%m%dT%H%M").replace(tzinfo=timezone.utc)
@@ -75,7 +76,7 @@ def default_root(env: Optional[Dict[str, str]] = None) -> Path:
 
 def write_private(path: Path, text: str) -> None:
     """Atomic write, mode 0600, parent 0700 (temp file is created 0600 by mkstemp)."""
-    path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+    make_private_dir(path.parent)
     fd, tmp = tempfile.mkstemp(prefix=".tmp-", dir=str(path.parent))
     try:
         with os.fdopen(fd, "w", encoding="utf-8") as handle:
@@ -89,7 +90,18 @@ def write_private(path: Path, text: str) -> None:
 
 
 def make_private_dir(path: Path) -> None:
-    path.mkdir(parents=True, exist_ok=True, mode=0o700)
+    """mkdir -p where EVERY level created is 0700 (mkdir(parents=True, mode=) only applies to the leaf)."""
+    missing = []
+    current = Path(path)
+    while not current.exists() and current != current.parent:
+        missing.append(current)
+        current = current.parent
+    for level in reversed(missing):
+        try:
+            level.mkdir(mode=0o700)
+        except FileExistsError:
+            pass
+        os.chmod(str(level), 0o700)
     os.chmod(str(path), 0o700)
 
 
@@ -102,7 +114,7 @@ def _read_json(path: Path, default: Any) -> Any:
 
 class State:
     def __init__(self, root: Path, master: str, now: Callable[[], datetime] = utcnow) -> None:
-        if not SAFE_MASTER.match(master):
+        if not SAFE_MASTER.fullmatch(master):
             raise ValueError("invalid master name")
         self.root = Path(root)
         self.master = master
@@ -111,9 +123,33 @@ class State:
 
     # ---------------------------------------------------------- paths
     def run_dir(self, run_id: str) -> Path:
-        if not RUN_ID.match(run_id):
+        if not isinstance(run_id, str) or not RUN_ID.fullmatch(run_id) or ".." in run_id:
             raise ValueError("invalid run id")
         return self.root / "runs" / run_id
+
+    # ---------------------------------------------------------- run lock
+    def try_lock(self) -> Optional[int]:
+        """Non-blocking exclusive lock on <root>/run.lock (one `up`/`reboot` at a time per master).
+
+        Returns a descriptor to hand to unlock(), or None when another run holds it.
+        The kernel drops the lock if the process dies.
+        """
+        make_private_dir(self.root)
+        fd = os.open(str(self.root / "run.lock"), os.O_CREAT | os.O_RDWR, 0o600)
+        os.chmod(str(self.root / "run.lock"), 0o600)
+        try:
+            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except OSError:
+            os.close(fd)
+            return None
+        return fd
+
+    @staticmethod
+    def unlock(fd: int) -> None:
+        try:
+            fcntl.flock(fd, fcntl.LOCK_UN)
+        finally:
+            os.close(fd)
 
     def _own(self, prefix: str, suffix: str) -> Path:
         return self.root / ("%s-%s.%s" % (prefix, self.master, suffix))
@@ -264,5 +300,5 @@ class State:
         runs = self.root / "runs"
         if not runs.is_dir():
             return []
-        names = [c.name for c in runs.iterdir() if c.is_dir() and RUN_ID.match(c.name)]
+        names = [c.name for c in runs.iterdir() if c.is_dir() and RUN_ID.fullmatch(c.name)]
         return sorted(names, key=lambda n: (run_id_time(n) or datetime.min.replace(tzinfo=timezone.utc), n))

@@ -6,7 +6,10 @@ Syntax (spec section 12): ``alias``, ``site=<site>``, ``kind=<kind>``,
 the union). Several tokens are a union too.
 
 A selector that matches nothing is an error (EXIT_EMPTY = 2): it never falls
-back to "every host". An exclusion-only selector is therefore an error as well.
+back to "every host". An exclusion-only selector (``!x`` alone) is therefore an
+error as well: there is nothing to exclude from; write ``site=dijon,!x`` instead.
+Every term must be known (alias, group, site, kind, tag): a typo is an error even
+inside a union, it is never ignored.
 Stdlib only, Python 3.9 compatible.
 """
 
@@ -45,7 +48,10 @@ def _match(data: Dict[str, Any], term: str) -> List[str]:
         return [a for a, h in hosts.items() if h.get("kind") == kind]
     if term.startswith("tag:"):
         tag = term[4:]
-        return [a for a, h in hosts.items() if tag and tag in (h.get("tags") or [])]
+        known = set(t for h in hosts.values() for t in (h.get("tags") or []))
+        if tag not in known:       # a typo inside a union must not be silently ignored
+            raise SelectorError("unknown tag %r" % tag)
+        return [a for a, h in hosts.items() if tag in (h.get("tags") or [])]
     if term in hosts:
         return [term]
     raise SelectorError("unknown host %r" % term)

@@ -55,9 +55,9 @@ HOST_FIELDS = (
     "critical_services", "timeout_min",
 )
 REQUIRED_HOST_FIELDS = ("tailnet_name", "site", "kind", "critical")
-SAFE_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]*$")
-SAFE_SERVICE = re.compile(r"^[A-Za-z0-9_.@:-]+$")
-SAFE_USER = re.compile(r"^[a-z_][a-z0-9_.-]*$")
+SAFE_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.-]*")
+SAFE_SERVICE = re.compile(r"[A-Za-z0-9_.@:-]+")
+SAFE_USER = re.compile(r"[a-z_][a-z0-9_.-]*")
 
 
 class InventoryError(Exception):
@@ -190,7 +190,7 @@ def validate(data: Dict[str, Any]) -> List[str]:
     canary_by_kind: Dict[str, str] = {}
     for alias, host in hosts.items():
         where = "hosts.%s" % alias
-        if not SAFE_NAME.match(str(alias)):
+        if not SAFE_NAME.fullmatch(str(alias)):
             errors.append("%s: invalid alias" % where)
         if not isinstance(host, dict):
             errors.append("%s: must be a mapping" % where)
@@ -217,21 +217,21 @@ def validate(data: Dict[str, Any]) -> List[str]:
                 )
         name = host.get("tailnet_name")
         if name is not None:
-            if not isinstance(name, str) or not SAFE_NAME.match(name):
+            if not isinstance(name, str) or not SAFE_NAME.fullmatch(name):
                 errors.append("%s: invalid tailnet_name" % where)
             elif name.lower() in tailnet_seen:
                 errors.append("%s: tailnet_name also used by %s" % (where, tailnet_seen[name.lower()]))
             else:
                 tailnet_seen[name.lower()] = str(alias)
         user = host.get("ssh_user")
-        if user is not None and (not isinstance(user, str) or not SAFE_USER.match(user)):
+        if user is not None and (not isinstance(user, str) or not SAFE_USER.fullmatch(user)):
             errors.append("%s: invalid ssh_user" % where)
         for listed in ("tags", "critical_services"):
             vals = host.get(listed)
             if vals is not None and (not isinstance(vals, list) or not all(isinstance(v, str) for v in vals)):
                 errors.append("%s: %s must be a list of strings" % (where, listed))
         for svc in host.get("critical_services") or []:
-            if isinstance(svc, str) and not SAFE_SERVICE.match(svc):
+            if isinstance(svc, str) and not SAFE_SERVICE.fullmatch(svc):
                 errors.append("%s: unsafe service name %r" % (where, svc))
         if "canary" in host:
             if not isinstance(host["canary"], bool):

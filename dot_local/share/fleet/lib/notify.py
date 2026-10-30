@@ -10,16 +10,23 @@ The ntfy token is resolved at run time (env FLEET_NTFY_TOKEN, else 1Password
 queue, a report or a log. Messages are masked, bodies are at most 20 lines and
 never carry a raw log_tail. A message that cannot be delivered is queued under
 ``ntfy-queue/`` (0600) and resent, in order, on the next successful contact.
+Delivery failures are told apart: network errors, 5xx, 401/403/408/429 are
+transient (the queue waits); any other HTTP 4xx (400/413/422...) is permanent for
+THAT message, which is moved to ``*.bad`` so it never blocks the ones behind it.
+A token is only ever sent over https (or to a loopback host).
 
 Stdlib only, Python 3.9 compatible. The HTTP sender is injectable (tests never
 touch a network).
 """
 
 import base64
+import http.client
 import json
 import os
 import subprocess
 import threading
+import urllib.error
+import urllib.parse
 import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
@@ -32,6 +39,8 @@ import state as fstate
 MAX_BODY_LINES = 20
 REMINDER_DAYS = 14
 BAD = ("failed", "unreachable", "timeout")
+TRANSIENT_HTTP = (401, 403, 408, 429)
+LOOPBACK = ("localhost", "127.0.0.1", "::1")
 
 
 def message(title: str, priority: int, tags: List[str], body: str) -> Dict[str, Any]:
@@ -118,8 +127,8 @@ def http_sender(url: str, topic: str, headers: Dict[str, str], body: str) -> Non
         resp.read(1024)
 
 
-def default_op_runner(args: List[str]) -> str:
-    cmd = [os.environ.get("FLEET_OP", "op")] + args[1:]
+def default_op_runner(args: List[str], env: Optional[Dict[str, str]] = None) -> str:
+    cmd = [(env if env is not None else os.environ).get("FLEET_OP", "op")] + args[1:]
     proc = subprocess.run(cmd, capture_output=True, text=True, timeout=20, stdin=subprocess.DEVNULL)
     if proc.returncode != 0:
         raise OSError("op read failed")
@@ -141,12 +150,43 @@ def resolve_token(
     return value or None
 
 
+def check_url(url: str, token: Optional[str]) -> None:
+    """ValueError unless the ntfy URL is http(s), and https whenever a token would travel on it."""
+    parts = urllib.parse.urlsplit(url or "")
+    if parts.scheme not in ("http", "https") or not parts.hostname:
+        raise ValueError("ntfy url must be an http(s) URL")
+    if token and parts.scheme != "https" and parts.hostname.lower() not in LOOPBACK:
+        raise ValueError("ntfy url must be https when a token is used")
+
+
+def classify_failure(exc: BaseException) -> str:
+    """'bad' (permanent for this message) or 'retry' (try again later)."""
+    if isinstance(exc, urllib.error.HTTPError):
+        if 400 <= exc.code < 500 and exc.code not in TRANSIENT_HTTP:
+            return "bad"
+    return "retry"
+
+
+def valid_message(msg: Any) -> bool:
+    if not isinstance(msg, dict):
+        return False
+    if not isinstance(msg.get("title"), str) or not isinstance(msg.get("body"), str):
+        return False
+    try:
+        int(msg.get("priority", 3))
+    except (TypeError, ValueError):
+        return False
+    tags = msg.get("tags", [])
+    return isinstance(tags, list) and all(isinstance(t, str) for t in tags)
+
+
 class Notifier:
     def __init__(
         self, url: str, topic: str, token: Optional[str], queue_dir: Path,
         sender: Optional[Callable[[str, str, Dict[str, str], str], None]] = None,
         clock: Callable[[], datetime] = fstate.utcnow,
     ) -> None:
+        check_url(url, token)
         self.url, self.topic, self.token = url, topic, token
         self.queue_dir = Path(queue_dir)
         self.sender = sender or http_sender
@@ -161,21 +201,22 @@ class Notifier:
 
     def _headers(self, msg: Dict[str, Any]) -> Dict[str, str]:
         headers = {
-            "Title": str(msg["title"]), "Priority": str(msg["priority"]),
+            "Title": str(msg["title"]), "Priority": str(int(msg.get("priority", 3))),
             "Tags": ",".join(msg.get("tags") or []),
         }
         if self.token:
             headers["Authorization"] = "Bearer " + self.token
         return headers
 
-    def _deliver(self, msg: Dict[str, Any]) -> bool:
+    def _deliver(self, msg: Dict[str, Any]) -> str:
+        """'ok', 'retry' (transient) or 'bad' (permanent for this message)."""
         try:
             self.sender(self.url, self.topic, self._headers(msg), msg["body"])
-        except (OSError, ValueError):
-            return False
-        return True
+        except (OSError, ValueError, http.client.HTTPException) as exc:
+            return classify_failure(exc)
+        return "ok"
 
-    def _enqueue(self, msg: Dict[str, Any]) -> None:
+    def _enqueue(self, msg: Dict[str, Any], suffix: str = ".json") -> None:
         self._counter += 1
         stamp = self.clock().strftime("%Y%m%dT%H%M%S%f")
         record = dict(msg)
@@ -183,11 +224,17 @@ class Notifier:
         for key in ("title", "body"):
             record[key] = schema.mask_secrets(str(record[key]))
         fstate.make_private_dir(self.queue_dir)
-        fstate.write_private(self.queue_dir / ("%s-%06d.json" % (stamp, self._counter)),
+        fstate.write_private(self.queue_dir / ("%s-%06d%s" % (stamp, self._counter, suffix)),
                              json.dumps(record, sort_keys=True) + "\n")
 
+    def _quarantine(self, path: Path) -> None:
+        try:
+            os.replace(str(path), str(path) + ".bad")
+        except OSError:
+            pass
+
     def flush(self) -> int:
-        """Resend queued messages in order; stop at the first failure. Returns sent count."""
+        """Resend queued messages in order; stop at the first transient failure. Returns sent count."""
         sent = 0
         with self._lock:
             return self._flush_locked(sent)
@@ -196,12 +243,19 @@ class Notifier:
         for path in self.pending():
             try:
                 msg = json.loads(path.read_text(encoding="utf-8"))
-            except (OSError, ValueError):
+            except (OSError, ValueError, RecursionError):
+                msg = None
+            if not valid_message(msg):
+                self._quarantine(path)
                 continue
-            if not self._deliver(msg):
+            verdict = self._deliver(msg)
+            if verdict == "retry":
                 break
-            path.unlink()
-            sent += 1
+            if verdict == "ok":
+                sent += 1
+                path.unlink()
+            else:
+                self._quarantine(path)
         return sent
 
     def send(self, msg: Dict[str, Any]) -> bool:
@@ -211,9 +265,10 @@ class Notifier:
             if self.pending():
                 self._enqueue(msg)
                 return False
-            if self._deliver(msg):
+            verdict = self._deliver(msg)
+            if verdict == "ok":
                 return True
-            self._enqueue(msg)
+            self._enqueue(msg, ".json" if verdict == "retry" else ".json.bad")
             return False
 
 
