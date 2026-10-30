@@ -109,8 +109,9 @@ EOF
 
 cmd_check() {
   local rows alias kind site user tn state seen target rc=0 out line
-  local status reason pkgs reboot
+  local status reason pkgs reboot tmp src errline
   rows="$(plan_rows ${1+"$@"})" || exit 2
+  tmp="$(mktemp -d "${TMPDIR:-/tmp}/fleet.XXXXXX")" || die "cannot create a temp dir"
   while IFS="$(printf '\t')" read -r alias kind site user tn state seen; do
     [ -n "$alias" ] || continue
     case "$state" in
@@ -127,9 +128,20 @@ cmd_check() {
       continue
     fi
     target="$(target_of "$user" "$tn")"
-    out="$("$FLEET_SSH" "${SSH_OPTS[@]}" -T "$target" check </dev/null 2>/dev/null | head -c 65536)"
+    # ssh exit code (PIPESTATUS) and first stderr line are kept so an agent
+    # refusal ("fleet-agent: refused", exit 1) is told apart from no answer.
+    "$FLEET_SSH" "${SSH_OPTS[@]}" -T "$target" check </dev/null 2>"$tmp/err" \
+      | head -c 65536 >"$tmp/out"
+    src="${PIPESTATUS[0]}"
+    out="$(cat "$tmp/out")"
+    errline="$(clean "$(head -n 1 "$tmp/err")")"
     if [ -z "$out" ]; then
-      print_row "$alias" unreachable "no answer from agent"
+      case "$errline" in
+        "fleet-agent: refused"*)
+          print_row "$alias" failed "agent refused the call (ssh exit $src: $errline)" ;;
+        *)
+          print_row "$alias" unreachable "no answer from agent (ssh exit $src${errline:+: $errline})" ;;
+      esac
       rc=1
       continue
     fi
@@ -143,6 +155,7 @@ cmd_check() {
   done <<EOF
 $rows
 EOF
+  rm -rf "$tmp"
   return "$rc"
 }
 

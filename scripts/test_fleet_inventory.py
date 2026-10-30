@@ -329,13 +329,14 @@ class FleetWrapper(unittest.TestCase):
         extra = "".join(
             "  %s:\n    tailnet_name: %s\n    site: nice\n    kind: %s\n    critical: false\n%s"
             % (name, name, kind, "    ssh_user: jerome\n" if user else "")
-            for name, kind, user in (("nouser", "omv", False), ("gone", "chezmoi-linux", True), ("silent", "chezmoi-linux", True))
+            for name, kind, user in (("nouser", "omv", False), ("gone", "chezmoi-linux", True), ("silent", "chezmoi-linux", True), ("refused", "chezmoi-linux", True))
         )
         (fleet / "fleet.yml").write_text(hosts_text + extra + "groups:" + groups_text)
         ts = dict(TS_STATUS)
         ts["Peer"] = dict(TS_STATUS["Peer"])
         ts["Peer"]["k4"] = {"DNSName": "nouser.t.ts.net.", "Online": True}
         ts["Peer"]["k5"] = {"DNSName": "silent.t.ts.net.", "Online": True}
+        ts["Peer"]["k6"] = {"DNSName": "refused.t.ts.net.", "Online": True}
         (self.root / "ts.json").write_text(json.dumps(ts))
         self._stub("tailscale", f'cat "{self.root}/ts.json"\n')
         self._stub(
@@ -345,7 +346,8 @@ class FleetWrapper(unittest.TestCase):
             '  *PreferredAuthentications=none*alpha*) echo "jerome@alpha: Permission denied (publickey)." >&2; exit 255 ;;\n'
             '  *PreferredAuthentications=none*silent*) echo "ssh: connect to host silent port 22: Connection timed out" >&2; exit 255 ;;\n'
             '  *alpha*" check") cat "$STUB_DIR/agent.out"; exit 0 ;;\n'
-            '  *silent*" check") exit 255 ;;\n'
+            '  *silent*" check") echo "ssh: connect to host silent port 22: Connection timed out" >&2; exit 255 ;;\n'
+            '  *refused*" check") printf "fleet-agent: refused\\033[31m\\n" >&2; exit 1 ;;\n'
             'esac\nexit 255\n',
         )
         (self.root / "agent.out").write_text(
@@ -420,6 +422,22 @@ class FleetWrapper(unittest.TestCase):
     def test_check_silent_host_is_unreachable(self):
         proc = self.fleet("check", "silent")
         self.assertIn("unreachable", proc.stdout)
+        self.assertEqual(proc.returncode, 1)
+
+    def test_check_silent_host_reports_ssh_exit_code_and_stderr(self):
+        row = self.rows(self.fleet("check", "silent"))["silent"]
+        self.assertIn("ssh exit 255", row)
+        self.assertIn("timed out", row)
+
+    def test_check_agent_refusal_is_distinguishable_from_no_answer(self):
+        proc = self.fleet("check", "refused,silent")
+        rows = self.rows(proc)
+        self.assertIn("failed", rows["refused"])
+        self.assertIn("agent refused", rows["refused"])
+        self.assertIn("ssh exit 1", rows["refused"])
+        self.assertNotIn("\x1b", proc.stdout, "remote stderr is sanitised")
+        self.assertIn("unreachable", rows["silent"])
+        self.assertNotIn("agent refused", rows["silent"])
         self.assertEqual(proc.returncode, 1)
 
     def test_check_host_without_agent_is_unsupported(self):
