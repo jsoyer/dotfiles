@@ -2,8 +2,10 @@
 """Run reports: terminal, Markdown, JSON; run directory; logs and changes lookups.
 
 Every string that leaves this module (screen, file) has been through
-schema.mask_secrets again, so an unmasked value coming from any caller cannot
-reach runs/ or the terminal. Stdlib only, Python 3.9 compatible.
+schema masking again, so an unmasked value coming from any caller cannot reach
+runs/ or the terminal. JSON is masked on the data structure (strings only) BEFORE
+json.dumps: a regex over serialized JSON would corrupt it. Reports read back from
+disk may come from the other master (rsync): malformed entries are skipped. Stdlib only, Python 3.9 compatible.
 """
 
 import json
@@ -17,11 +19,26 @@ import state as fstate
 
 OK_STATUSES = ("updated", "up-to-date")
 BAD_STATUSES = ("failed", "degraded", "unreachable", "timeout")
-SAFE_HOST = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]*$")
+SAFE_HOST = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.-]*")
+_MD_SPECIAL = re.compile(r"([\\`*_\[\]<>!|])")
+
+
+def valid_entries(entries: Any) -> List[Dict[str, Any]]:
+    """Entries that are objects with a host and a status, from untrusted-shaped data."""
+    if not isinstance(entries, list):
+        return []
+    return [e for e in entries if isinstance(e, dict) and isinstance(e.get("host"), str)
+            and isinstance(e.get("status"), str)]
+
+
+def md_escape(text: Any) -> str:
+    """Neutralize Markdown/HTML syntax in agent-provided text (masking happens before)."""
+    return _MD_SPECIAL.sub(r"\\\1", str(text))
 
 
 def counts(entries: List[Dict[str, Any]]) -> Dict[str, int]:
     out: Dict[str, int] = {}
+    entries = valid_entries(entries)
     for e in entries:
         out[e["status"]] = out.get(e["status"], 0) + 1
     out["reboot"] = sum(1 for e in entries if e.get("reboot_required") is True)
@@ -68,26 +85,35 @@ def _meta(data: Optional[Dict[str, Any]], alias: str) -> str:
     return "%s/%s" % (host.get("kind", "?"), host.get("site", "?"))
 
 
+def _hosts_of(rep: Dict[str, Any]) -> List[Dict[str, Any]]:
+    return valid_entries(rep.get("hosts"))
+
+
 def render_terminal(rep: Dict[str, Any], data: Optional[Dict[str, Any]] = None) -> str:
-    lines = ["fleet %s  run %s  selector: %s" % (rep["master"], rep["run_id"], rep.get("selector") or "(all)")]
-    for e in rep["hosts"]:
-        lines.append("%-22s %-12s %s" % (e["host"], e["status"], _detail(e)))
-    lines.append(summary_line(rep["hosts"]))
+    lines = ["fleet %s  run %s  selector: %s" % (
+        schema.clean_text(rep.get("master", "?"), 60), schema.clean_text(rep.get("run_id", "?"), 60),
+        schema.clean_text(rep.get("selector") or "(all)", 300))]
+    for e in _hosts_of(rep):
+        lines.append("%-22s %-12s %s" % (schema.clean_text(e["host"], 80), schema.clean_text(e["status"], 20),
+                                         _detail(e)))
+    lines.append(summary_line(_hosts_of(rep)))
     return schema.mask_secrets("\n".join(lines)) + "\n"
 
 
 def render_markdown(rep: Dict[str, Any], data: Optional[Dict[str, Any]] = None) -> str:
     lines = [
-        "# fleet run %s" % rep["run_id"], "",
-        "- master: %s" % rep["master"],
-        "- selector: %s" % (rep.get("selector") or "(all)"),
-        "- started: %s" % rep.get("started"), "- ended: %s" % rep.get("ended"),
-        "- summary: %s" % summary_line(rep["hosts"]), "",
+        "# fleet run %s" % md_escape(schema.clean_text(rep.get("run_id", "?"), 60)), "",
+        "- master: %s" % md_escape(schema.clean_text(rep.get("master", "?"), 60)),
+        "- selector: %s" % md_escape(schema.clean_text(rep.get("selector") or "(all)", 300)),
+        "- started: %s" % md_escape(schema.clean_text(rep.get("started"), 40)),
+        "- ended: %s" % md_escape(schema.clean_text(rep.get("ended"), 40)),
+        "- summary: %s" % summary_line(_hosts_of(rep)), "",
         "| host | kind/site | status | detail |", "| --- | --- | --- | --- |",
     ]
-    for e in rep["hosts"]:
+    for e in _hosts_of(rep):
         lines.append("| %s | %s | %s | %s |" % (
-            e["host"], _meta(data, e["host"]), e["status"], _detail(e).replace("|", "/")))
+            md_escape(schema.clean_text(e["host"], 80)), md_escape(schema.clean_text(_meta(data, e["host"]), 80)),
+            md_escape(schema.clean_text(e["status"], 20)), md_escape(_detail(e))))
     return schema.mask_secrets("\n".join(lines)) + "\n"
 
 
@@ -99,15 +125,14 @@ def write_run(
     run = st.run_dir(rep["run_id"])
     fstate.make_private_dir(run)
     fstate.make_private_dir(run / "raw")
-    fstate.write_private(run / "report.json",
-                         schema.mask_secrets(json.dumps(rep, indent=1, sort_keys=True)) + "\n")
+    fstate.write_private(run / "report.json", json.dumps(schema.mask_data(rep), indent=1, sort_keys=True) + "\n")
     fstate.write_private(run / "report.md", render_markdown(rep, data))
     fstate.write_private(run / "run.log", schema.mask_secrets("\n".join(log_lines)) + "\n")
     for alias, item in raw.items():
-        if not SAFE_HOST.match(alias):
+        if not SAFE_HOST.fullmatch(alias):
             continue
         fstate.write_private(run / "raw" / (alias + ".json"),
-                             schema.mask_secrets(json.dumps(item.get("json"), indent=1, sort_keys=True)) + "\n")
+                             json.dumps(schema.mask_data(item.get("json")), indent=1, sort_keys=True) + "\n")
         fstate.write_private(run / "raw" / (alias + ".log"), schema.mask_secrets(item.get("log") or "") + "\n")
     return run
 
@@ -145,7 +170,7 @@ def latest_run(st: "fstate.State") -> Optional[Tuple[str, Dict[str, Any]]]:
 
 
 def _check_host(alias: str) -> None:
-    if not SAFE_HOST.match(alias):
+    if not SAFE_HOST.fullmatch(alias):
         raise ValueError("invalid host name")
 
 
@@ -153,9 +178,12 @@ def host_logs(st: "fstate.State", alias: str, run_id: Optional[str] = None) -> s
     _check_host(alias)
     ids = [run_id] if run_id else list(reversed(st.list_runs()))
     for rid in ids:
-        path = st.run_dir(rid) / "raw" / (alias + ".log")
-        if path.is_file():
-            return schema.mask_secrets(path.read_text(encoding="utf-8"))
+        path = st.run_dir(rid) / "raw" / (alias + ".log")   # run_dir validates the id
+        try:
+            if path.is_file():
+                return schema.mask_secrets(path.read_text(encoding="utf-8", errors="replace"))
+        except OSError:
+            continue
     return ""
 
 
@@ -171,15 +199,20 @@ def host_changes(st: "fstate.State", alias: str, since: Optional[datetime]) -> s
             item = json.loads(path.read_text(encoding="utf-8"))
         except (OSError, ValueError):
             continue
-        for ch in (item or {}).get("changes") or []:
-            out.append("%s  %s  %s -> %s" % (rid, ch.get("name"), ch.get("from") or "?", ch.get("to") or "?"))
-    return schema.mask_secrets("\n".join(out)) + ("\n" if out else "")
+        changes = item.get("changes") if isinstance(item, dict) else None
+        for ch in changes if isinstance(changes, list) else []:
+            if not isinstance(ch, dict) or not isinstance(ch.get("name"), str):
+                continue
+            out.append("%s  %s  %s -> %s" % (
+                rid, schema.clean_text(ch["name"], 120), schema.clean_text(ch.get("from") or "?", 80),
+                schema.clean_text(ch.get("to") or "?", 80)))
+    return "\n".join(out) + ("\n" if out else "")
 
 
 def list_runs_text(st: "fstate.State", limit: int = 20) -> str:
     lines = []
     for rid in reversed(st.list_runs()[-limit:]):
         rep = read_report(st, rid)
-        lines.append("%s  %s" % (rid, summary_line(rep["hosts"]) if rep else "(unreadable)"))
+        lines.append("%s  %s" % (rid, summary_line(rep.get("hosts")) if rep else "(unreadable)"))
     return "\n".join(lines) + ("\n" if lines else "")
 

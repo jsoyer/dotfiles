@@ -6,6 +6,7 @@ in a tmp dir and the ntfy sender is a fake.
 """
 
 import json
+import os
 import re
 import stat
 import sys
@@ -460,6 +461,289 @@ class TimerUnitsTest(unittest.TestCase):
         self.assertIn("OnCalendar=daily", tmr)
         self.assertIn("Unit=fleet-reminder.service", tmr)
         self.assertNotIn("ssh", svc.lower().replace("fleet_ssh", ""))
+
+
+class ReviewSchemaTest(unittest.TestCase):
+    """Review fixes: masking of structures, hostile JSON, key=value coverage, strict fields."""
+
+    SECRET = "s3cr3tvalue"
+
+    def test_report_json_and_raw_roundtrip_as_valid_json_with_secrets_masked(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            st = fstate.State(Path(tmp) / "fleet", "diabolo")
+            ent, why = schema.parse_agent_output(
+                line(agent(reason="password=x", log_tail="token: x\nline2")), "alpha", "update")
+            self.assertIsNone(why)
+            rep = report.build_report("20261030T2100Z-diabolo", "diabolo", "t", "a", "b", [ent])
+            run = report.write_run(st, rep, {"alpha": {"json": ent, "log": "token: x"}}, ["password=x"])
+            back = json.loads((run / "report.json").read_text())
+            raw = json.loads((run / "raw" / "alpha.json").read_text())
+            self.assertEqual(back["hosts"][0]["reason"], "password=[MASKED]")
+            self.assertEqual(back["hosts"][0]["log_tail"], "token: [MASKED]\nline2")
+            self.assertEqual(raw["log_tail"], "token: [MASKED]\nline2")
+            self.assertIsNotNone(report.read_report(st, "20261030T2100Z-diabolo"))
+
+    def test_report_json_is_valid_even_if_an_unmasked_secret_reaches_write_run(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            st = fstate.State(Path(tmp) / "fleet", "diabolo")
+            e = {"host": "alpha", "status": "failed", "reason": 'password=x", "k": 1', "last_seen": None}
+            rep = report.build_report("20261030T2100Z-diabolo", "diabolo", "t", "a", "b", [e])
+            run = report.write_run(st, rep, {"alpha": {"json": e, "log": ""}}, [])
+            json.loads((run / "report.json").read_text())
+            json.loads((run / "raw" / "alpha.json").read_text())
+
+    def test_mask_data_masks_strings_recursively_without_touching_structure(self):
+        out = schema.mask_data({"a": ["password=x", 3, None, True], "b": {"c": "token: y"}})
+        self.assertEqual(out, {"a": ["password=[MASKED]", 3, None, True], "b": {"c": "token: [MASKED]"}})
+
+    def test_hostile_nesting_is_rejected_not_a_crash(self):
+        for text in ("[" * 60000, '{"a":' + "[" * 60000, "{" * 60000, "[1]", " 5", '"x"'):
+            ent, why = schema.parse_agent_output(text, "alpha", "update")
+            self.assertIsNone(ent, msg=text[:20])
+            self.assertTrue(why)
+
+    def test_key_value_secrets_of_every_shape_are_masked(self):
+        s = self.SECRET
+        cases = [
+            "DB_PASSWORD=" + s, "access_token=" + s, "AWS_SECRET_ACCESS_KEY=" + s,
+            "client_secret=" + s, '"password": "%s"' % s, "'passwd': '%s'" % s,
+            "export API_KEY=" + s, "secret: " + s, "my-token = " + s,
+        ]
+        for text in cases:
+            out = schema.mask_secrets(text)
+            self.assertNotIn(s, out, msg=text)
+            self.assertIn(schema.MASK, out)
+
+    def test_quoted_json_secret_keeps_json_valid(self):
+        out = schema.mask_secrets('{"password": "%s", "n": 1}' % self.SECRET)
+        self.assertEqual(json.loads(out)["n"], 1)
+
+    def test_ntfy_token_masked_when_embedded(self):
+        for text in ("NTFY_" + FAKE_TOKEN, "x" + FAKE_TOKEN, "a_b" + FAKE_TOKEN + "z", FAKE_TOKEN):
+            out = schema.mask_secrets(text)
+            self.assertNotRegex(out, SECRET_GREP, msg=text)
+            self.assertNotIn("a1B2c3D4", out)
+
+    def test_url_userinfo_token_masked_but_plain_user_kept(self):
+        out = schema.mask_secrets("https://ghp_abcdefghijklmnopqrstuvwx@github.com/o/r")
+        self.assertNotIn("ghp_abcdef", out)
+        self.assertIn("@github.com/o/r", out)
+        self.assertEqual(schema.mask_secrets("ssh://git@github.com/o/r"), "ssh://git@github.com/o/r")
+
+    def test_control_chars_stripped_before_masking_so_splitting_cannot_hide_a_secret(self):
+        for text in ("pass\x00word=" + self.SECRET, "tok\x1ben=%s" % self.SECRET, "pass​word=" + self.SECRET,
+                     "pass‮word=" + self.SECRET):
+            out = schema.clean_text(text)
+            self.assertNotIn(self.SECRET, out, msg=repr(text))
+
+    def test_surrogates_and_line_separators_are_cleaned(self):
+        out = schema.clean_text("a\ud800b c d‮e‏f⁦g")
+        out.encode("utf-8")   # must not raise
+        for ch in (" ", " ", "‮", "‏", "⁦", "\ud800"):
+            self.assertNotIn(ch, out)
+        schema.clean_text("\ud83d", multiline=True).encode("utf-8")
+
+    def test_masking_is_linear_on_big_inputs(self):
+        import time as _t
+        started = _t.time()
+        schema.mask_secrets("a" * 65000)
+        schema.mask_secrets("a-" * 32000 + "=")
+        self.assertLess(_t.time() - started, 3)
+
+    def test_verb_must_match_the_requested_verb(self):
+        ent, why = schema.parse_agent_output(line(agent(verb="report")), "alpha", "update")
+        self.assertIsNone(ent)
+        ent, _ = schema.parse_agent_output(line(agent(verb="update")), "alpha", "update")
+        self.assertIsNotNone(ent)
+        obj = agent()
+        del obj["verb"]
+        self.assertIsNotNone(schema.parse_agent_output(line(obj), "alpha", "update")[0])
+
+    def test_strict_field_types_and_ranges(self):
+        bad = [
+            agent(schema=True), agent(schema=1.0), agent(schema="1"),
+            agent(packages=100001), agent(packages=1.5),
+            agent(health_after={"disk_free_pct": {"/": 101}}),
+            agent(health_after={"disk_free_pct": {"/": -1}}),
+            agent(health_after={"disk_free_pct": {"/": 12.5}}),
+            agent(health_after={"disk_free_pct": {"/": True}}),
+        ]
+        for obj in bad:
+            ent, why = schema.parse_agent_output(line(obj), "alpha", "update")
+            self.assertIsNone(ent, msg=str(obj)[:80])
+            self.assertTrue(why)
+        ok, _ = schema.parse_agent_output(line(agent(health_after={"disk_free_pct": {"/": 0, "/data": 100}},
+                                                     packages=100000)), "alpha", "update")
+        self.assertIsNotNone(ok)
+
+    def test_names_with_trailing_newline_are_not_safe(self):
+        self.assertIsNone(report.SAFE_HOST.fullmatch("alpha\n"))
+        self.assertIsNone(schema.SAFE_JOB.fullmatch("job\n"))
+        self.assertIsNone(fstate.RUN_ID.fullmatch("20261030T2100Z-diabolo\n"))
+        with self.assertRaises(ValueError):
+            fstate.State(Path("/nonexistent-x"), "diabolo\n")
+        with self.assertRaises(ValueError):
+            report.host_logs(fstate.State(Path(tempfile.mkdtemp()), "d"), "alpha\n")
+
+
+class ReviewReportTest(unittest.TestCase):
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.root = Path(self._tmp.name) / "fleet"
+        self.st = fstate.State(self.root, "diabolo")
+
+    def _run(self, rid, report_obj=None, raw=None):
+        d = self.st.run_dir(rid)
+        fstate.make_private_dir(d / "raw")
+        if report_obj is not None:
+            fstate.write_private(d / "report.json", json.dumps(report_obj))
+        for name, text in (raw or {}).items():
+            fstate.write_private(d / "raw" / name, text)
+
+    def test_host_changes_skips_malformed_entries(self):
+        self._run("20261030T2100Z-diabolo", raw={"alpha.json": json.dumps(
+            {"changes": [1, "x", None, {"name": "ok", "from": "1", "to": "2"}, {"x": 1}]})})
+        self._run("20261030T2101Z-diabolo", raw={"alpha.json": json.dumps([1, 2])})
+        self._run("20261030T2102Z-diabolo", raw={"alpha.json": json.dumps({"changes": "nope"})})
+        self._run("20261030T2103Z-diabolo", raw={"alpha.json": "{broken"})
+        text = report.host_changes(self.st, "alpha", None)
+        self.assertIn("ok  1 -> 2", text)
+
+    def test_list_runs_text_survives_malformed_reports(self):
+        self._run("20261030T2100Z-diabolo", {"hosts": "nope"})
+        self._run("20261030T2101Z-diabolo", {"hosts": [1, None, {"status": "updated"}, {"host": "a"}]})
+        self._run("20261030T2102Z-diabolo", [1])
+        self._run("20261030T2103Z-diabolo", {})
+        out = report.list_runs_text(self.st)
+        self.assertEqual(len(out.strip().splitlines()), 4)
+
+    def test_render_survives_malformed_hosts(self):
+        rep = {"master": "m", "run_id": "r", "hosts": [1, {"status": "updated"}, {"host": "a", "status": "failed"}]}
+        self.assertIn("a", report.render_terminal(rep))
+        self.assertIn("a", report.render_markdown(rep))
+
+    def test_run_id_is_validated_before_any_path_is_built(self):
+        for bad in ("../x", "20261030T2100Z-d/../../x", "20261030T2100Z-a..b", "20261030T2100Z-d\n", ""):
+            with self.assertRaises(ValueError, msg=bad):
+                self.st.run_dir(bad)
+            if bad:
+                with self.assertRaises(ValueError, msg=bad):
+                    report.host_logs(self.st, "alpha", bad)
+
+    def test_markdown_cells_escape_agent_text(self):
+        e = {"host": "alpha", "status": "failed",
+             "reason": "[click](http://evil) <b>x</b> ![i](u) a*b*c `c` _u_ \\ |", "last_seen": None}
+        rep = report.build_report("r", "m", "[sel](x)", "s", "e", [e])
+        md = report.render_markdown(rep)
+        row = [ln for ln in md.splitlines() if ln.startswith("| alpha")][0]
+        for raw in ("[click]", "<b>", "![i]", "a*b", "`c`", "_u_"):
+            self.assertNotIn(raw, row)
+        self.assertEqual(row.count("|") - row.count("\\|"), 5)   # only the real column separators
+        self.assertNotIn("[sel](x)", md)
+
+    def test_modes_of_every_state_file_and_directory(self):
+        old = os.umask(0o022)
+        self.addCleanup(os.umask, old)
+        st = fstate.State(Path(self._tmp.name) / "a" / "b" / "fleet", "diabolo")
+        e = schema.master_entry("alpha", "update", "held", "r", None, "s", "e")
+        rid = "20261030T2100Z-diabolo"
+        rep = report.build_report(rid, "diabolo", "", "s", "e", [e])
+        report.write_run(st, rep, {"alpha": {"json": e, "log": "x"}}, ["l"])
+        st.append_history(rid, e)
+        st.set_last_success("alpha", "2026-10-30T20:00:00Z")
+        st.add_hold("alpha", "why", "2026-12-01")
+
+        def down(*a):
+            raise OSError("down")
+
+        n = notify.Notifier("https://ntfy.invalid", "fleet", None, st.root / "ntfy-queue", sender=down)
+        n.send(notify.message("t", 2, [], "b"))
+        seen = 0
+        for p in [st.root] + list(st.root.rglob("*")):
+            mode = stat.S_IMODE(p.stat().st_mode)
+            self.assertEqual(mode, 0o700 if p.is_dir() else 0o600, str(p))
+            seen += 1
+        self.assertGreaterEqual(seen, 12)
+
+
+class ReviewNotifyTest(unittest.TestCase):
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.qdir = Path(self._tmp.name) / "q"
+        self.sent = []
+        self.fail = None
+
+        def sender(url, topic, headers, body):
+            if self.fail is not None:
+                raise self.fail
+            self.sent.append(body)
+
+        self.n = notify.Notifier("https://ntfy.invalid", "fleet", FAKE_TOKEN, self.qdir, sender=sender)
+
+    def _http(self, code):
+        import urllib.error
+        return urllib.error.HTTPError("https://ntfy.invalid/fleet", code, "x", {}, None)
+
+    def test_permanent_http_4xx_is_quarantined_and_does_not_block_the_queue(self):
+        for code in (400, 413, 422):
+            self.fail = self._http(code)
+            self.assertFalse(self.n.send(notify.message("bad", 2, [], "b")))
+            self.fail = None
+            self.assertTrue(self.n.send(notify.message("good", 2, [], "g%d" % code)))
+            self.assertEqual(self.n.pending(), [])
+        self.assertEqual(len(list(self.qdir.glob("*.bad"))), 3)
+
+    def test_queued_message_rejected_with_4xx_is_quarantined_then_next_is_sent(self):
+        self.fail = OSError("down")
+        self.n.send(notify.message("one", 2, [], "b1"))
+        self.n.send(notify.message("two", 2, [], "b2"))
+        self.assertEqual(len(self.n.pending()), 2)
+        calls = []
+        outer = self
+
+        def sender(url, topic, headers, body):
+            calls.append(body)
+            if body == "b1":
+                raise outer._http(413)
+
+        self.n.sender = sender
+        self.assertEqual(self.n.flush(), 1)
+        self.assertEqual(calls, ["b1", "b2"])
+        self.assertEqual(self.n.pending(), [])
+        self.assertEqual(len(list(self.qdir.glob("*.bad"))), 1)
+
+    def test_transient_http_statuses_and_http_exceptions_keep_the_queue(self):
+        import http.client
+        for exc in (self._http(500), self._http(503), self._http(401), self._http(403), self._http(429),
+                    OSError("down"), http.client.BadStatusLine("x"), http.client.IncompleteRead(b"")):
+            self.fail = exc
+            self.assertFalse(self.n.send(notify.message("t", 2, [], "b")), msg=repr(exc))
+            self.fail = None
+            self.assertEqual(len(self.n.pending()), 1, msg=repr(exc))
+            self.assertEqual(self.n.flush(), 1)
+
+    def test_corrupt_queue_files_are_quarantined_without_exception(self):
+        self.qdir.mkdir(parents=True)
+        (self.qdir / "0001.json").write_text("{not json")
+        (self.qdir / "0002.json").write_text(json.dumps({"title": "only"}))
+        (self.qdir / "0003.json").write_text(json.dumps([1, 2]))
+        (self.qdir / "0004.json").write_text(json.dumps({"title": 1, "body": ["x"], "priority": "p"}))
+        self.assertTrue(self.n.send(notify.message("ok", 2, [], "fine")))
+        self.assertEqual(self.sent, ["fine"])
+        self.assertEqual(len(list(self.qdir.glob("*.bad"))), 4)
+        self.assertEqual(self.n.pending(), [])
+
+    def test_http_url_with_token_is_refused_except_for_loopback(self):
+        with self.assertRaises(ValueError):
+            notify.Notifier("http://ntfy.example.org", "fleet", FAKE_TOKEN, self.qdir)
+        with self.assertRaises(ValueError):
+            notify.Notifier("ftp://ntfy.example.org", "fleet", FAKE_TOKEN, self.qdir)
+        notify.Notifier("http://localhost:8080", "fleet", FAKE_TOKEN, self.qdir)
+        notify.Notifier("http://127.0.0.1:8080", "fleet", FAKE_TOKEN, self.qdir)
+        notify.Notifier("http://ntfy.example.org", "fleet", None, self.qdir)
+        notify.Notifier("https://ntfy.example.org", "fleet", FAKE_TOKEN, self.qdir)
 
 
 if __name__ == "__main__":
