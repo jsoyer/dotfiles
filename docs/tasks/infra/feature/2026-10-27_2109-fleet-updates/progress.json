@@ -1,0 +1,69 @@
+{
+  "prd": "spec.md",
+  "created": "2026-10-30T07:50:44Z",
+  "sprints": [
+    {
+      "id": 1,
+      "file": "sprints/01-agent-linux-inventaire.md",
+      "title": "Agent Linux + inventaire",
+      "status": "not_started",
+      "depends_on": [],
+      "batch": 1,
+      "model": "sonnet",
+      "branch": null,
+      "merged": false
+    },
+    {
+      "id": 2,
+      "file": "sprints/02-orchestrateur-reporting.md",
+      "title": "Orchestrateur + reporting + ntfy",
+      "status": "not_started",
+      "depends_on": [
+        1
+      ],
+      "batch": 2,
+      "model": "sonnet",
+      "branch": null,
+      "merged": false
+    },
+    {
+      "id": 3,
+      "file": "sprints/03-appliances.md",
+      "title": "Appliances (PiKVM, OPNsense, Home Assistant, OMV, Proxmox)",
+      "status": "not_started",
+      "depends_on": [
+        2
+      ],
+      "batch": 3,
+      "model": "sonnet",
+      "branch": null,
+      "merged": false
+    },
+    {
+      "id": 4,
+      "file": "sprints/04-finitions-mise-en-service.md",
+      "title": "Finitions et mise en service (Linux + appliances)",
+      "status": "not_started",
+      "depends_on": [
+        3
+      ],
+      "batch": 4,
+      "model": "sonnet",
+      "branch": null,
+      "merged": false
+    },
+    {
+      "id": 5,
+      "file": "sprints/05-postes-de-travail.md",
+      "title": "Postes de travail (Windows, macOS, WSL) + mode pull",
+      "status": "not_started",
+      "depends_on": [
+        4
+      ],
+      "batch": 5,
+      "model": "sonnet",
+      "branch": null,
+      "merged": false
+    }
+  ]
+}
