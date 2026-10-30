@@ -1,0 +1,160 @@
+#!/usr/bin/env bash
+# fleet — master-side wrapper of the fleet-updates system (sprint 1: ping, check).
+#
+# Usage:
+#   fleet ping  [host[,host]...]   Tailscale state + SSH reachability (no agent call)
+#   fleet check [host[,host]...]   ask each agent for `check` (read-only)
+#   fleet help
+#
+# No host argument = every host of fleet.yml. An unknown host is an error (exit 2),
+# never "everything". Targets are handled one after the other.
+#
+# `ping` is a command of THIS wrapper, not an agent verb: it only opens an SSH
+# connection (host key verified, authentication deliberately not attempted) so
+# the agent is never invoked and never logs a refusal.
+#
+# Statuses decided here (never by an agent): offline (Tailscale says the peer is
+# down, no connection tried), unreachable (peer online but SSH fails).
+#
+# Environment: FLEET_DIR (default ~/.local/share/fleet), FLEET_YML, FLEET_PYTHON,
+# FLEET_SSH, FLEET_SSH_IDENTITY (private key path; default = ssh config/agent).
+# Must run on stock macOS bash 3.2 / Python 3.9.
+
+set -u
+
+FLEET_DIR="${FLEET_DIR:-${XDG_DATA_HOME:-$HOME/.local/share}/fleet}"
+FLEET_YML="${FLEET_YML:-$FLEET_DIR/fleet.yml}"
+FLEET_PYTHON="${FLEET_PYTHON:-python3}"
+FLEET_SSH="${FLEET_SSH:-ssh}"
+INVENTORY="$FLEET_DIR/lib/inventory.py"
+
+die() { printf 'fleet: %s\n' "$1" >&2; exit 2; }
+
+# One printable, bounded line (remote or ssh text goes through this).
+clean() { printf '%s' "$1" | LC_ALL=C tr -cd '[:print:]' | cut -c1-120; }
+
+usage() {
+  cat <<'EOF'
+Usage: fleet <command> [host[,host]...]
+
+Commands:
+  ping   Tailscale state + SSH reachability (does not call the agent)
+  check  ask each agent for a read-only status (pending updates, health, reboot)
+  help   this text
+EOF
+}
+
+# ssh options shared by every connection. StrictHostKeyChecking=yes: known_hosts
+# is frozen at bootstrap, an unknown or changed key is a failure, never a prompt.
+SSH_OPTS=(-o BatchMode=yes -o ConnectTimeout=10 -o StrictHostKeyChecking=yes
+  -o ServerAliveInterval=5 -o ServerAliveCountMax=3)
+if [ -n "${FLEET_SSH_IDENTITY:-}" ]; then
+  SSH_OPTS=("${SSH_OPTS[@]}" -i "$FLEET_SSH_IDENTITY" -o IdentitiesOnly=yes)
+fi
+
+# target_of <user> <tailnet_name>: user@name, or name alone when user is "-".
+target_of() {
+  if [ "$1" = "-" ]; then printf '%s' "$2"; else printf '%s@%s' "$1" "$2"; fi
+}
+
+# plan_rows <host...>: TSV rows alias kind site user tailnet state last_seen.
+plan_rows() {
+  [ -r "$INVENTORY" ] || die "inventory library not found: $INVENTORY"
+  "$FLEET_PYTHON" -I "$INVENTORY" plan --file "$FLEET_YML" ${1+"$@"}
+}
+
+# ssh_open <target>: 0 when an SSH connection could be opened (host key OK).
+# Authentication is not attempted, so no command ever reaches the agent.
+ssh_open() {
+  local out
+  out="$("$FLEET_SSH" "${SSH_OPTS[@]}" -o PreferredAuthentications=none \
+    -o PubkeyAuthentication=no -o NumberOfPasswordPrompts=0 "$1" true </dev/null 2>&1)"
+  SSH_NOTE="$(clean "$(printf '%s' "$out" | head -n 1)")"
+  case "$out" in
+    *"Permission denied"*) return 0 ;;
+  esac
+  return 1
+}
+
+print_row() { # alias status detail
+  printf '%-22s %-12s %s\n' "$1" "$2" "$3"
+}
+
+cmd_ping() {
+  local rows alias kind site user tn state seen target rc=0
+  rows="$(plan_rows ${1+"$@"})" || exit 2
+  while IFS="$(printf '\t')" read -r alias kind site user tn state seen; do
+    [ -n "$alias" ] || continue
+    case "$state" in
+      offline)
+        print_row "$alias" offline "last seen $seen"
+        continue ;;
+      absent)
+        print_row "$alias" unreachable "not in tailscale status"
+        rc=1
+        continue ;;
+    esac
+    target="$(target_of "$user" "$tn")"
+    if ssh_open "$target"; then
+      print_row "$alias" ok "ssh open ($kind, $site)"
+    else
+      print_row "$alias" unreachable "${SSH_NOTE:-ssh failed}"
+      rc=1
+    fi
+  done <<EOF
+$rows
+EOF
+  return "$rc"
+}
+
+cmd_check() {
+  local rows alias kind site user tn state seen target rc=0 out line
+  local status reason pkgs reboot
+  rows="$(plan_rows ${1+"$@"})" || exit 2
+  while IFS="$(printf '\t')" read -r alias kind site user tn state seen; do
+    [ -n "$alias" ] || continue
+    case "$state" in
+      offline)
+        print_row "$alias" offline "last seen $seen"
+        continue ;;
+      absent)
+        print_row "$alias" unreachable "not in tailscale status"
+        rc=1
+        continue ;;
+    esac
+    if [ "$user" = "-" ]; then
+      print_row "$alias" unsupported "no agent for kind $kind yet"
+      continue
+    fi
+    target="$(target_of "$user" "$tn")"
+    out="$("$FLEET_SSH" "${SSH_OPTS[@]}" -T "$target" check </dev/null 2>/dev/null | head -c 65536)"
+    if [ -z "$out" ]; then
+      print_row "$alias" unreachable "no answer from agent"
+      rc=1
+      continue
+    fi
+    line="$(printf '%s' "$out" | "$FLEET_PYTHON" -I "$INVENTORY" agent-line)"
+    status="$(printf '%s' "$line" | cut -f1)"
+    reason="$(printf '%s' "$line" | cut -f2)"
+    pkgs="$(printf '%s' "$line" | cut -f3)"
+    reboot="$(printf '%s' "$line" | cut -f4)"
+    print_row "$alias" "$status" "packages=${pkgs:-?} reboot=${reboot:-?}${reason:+ ($reason)}"
+    case "$status" in failed|degraded) rc=1 ;; esac
+  done <<EOF
+$rows
+EOF
+  return "$rc"
+}
+
+main() {
+  local cmd="${1:-help}"
+  [ "$#" -gt 0 ] && shift
+  case "$cmd" in
+    ping) cmd_ping ${1+"$@"} ;;
+    check) cmd_check ${1+"$@"} ;;
+    help|-h|--help) usage ;;
+    *) printf 'fleet: unknown command %s\n' "$(clean "$cmd")" >&2; usage >&2; exit 2 ;;
+  esac
+}
+
+main ${1+"$@"}
