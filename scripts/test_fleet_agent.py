@@ -915,6 +915,101 @@ class InstallScript(unittest.TestCase):
         self.assertEqual(self.ak(), "")
 
 
+def sysup_function(name):
+    """Source text of one shell function of sysup (running the whole script would update this machine)."""
+    m = re.search(r"^%s\(\) \{\n.*?^\}\n" % re.escape(name), SYSUP.read_text(), re.M | re.S)
+    assert m, name
+    return m.group(0)
+
+
+@unittest.skipUnless(LINUX, "sysup helpers are exercised on Linux")
+class SysupHelpers(unittest.TestCase):
+    def setUp(self):
+        self.root = Path(tempfile.mkdtemp(prefix="sysup-test-"))
+        self.addCleanup(shutil.rmtree, self.root, True)
+        self.bin = self.root / "bin"
+        self.bin.mkdir()
+        sudo = self.bin / "sudo"
+        sudo.write_text('#!/usr/bin/env bash\necho "$*" >> "$STUB_DIR/sudo.log"\nexit "${STUB_SUDO_RC:-0}"\n')
+        sudo.chmod(0o755)
+
+    def profile(self, os_release, ostree=False, preset=None):
+        rel = self.root / "os-release"
+        rel.write_text(os_release)
+        flag = self.root / "ostree-booted"
+        if ostree:
+            flag.write_text("")
+        env = {"PATH": os.environ["PATH"], "SYSUP_OS_RELEASE": str(rel), "SYSUP_OSTREE_FLAG": str(flag),
+               "OSTYPE": "linux-gnu"}
+        if preset:
+            env["MACHINE_PROFILE"] = preset
+        script = "OSTYPE=linux-gnu\n" + sysup_function("_sysup_detect_profile") + '_sysup_detect_profile; printf %s "${MACHINE_PROFILE:-}"\n'
+        out = subprocess.run(["bash", "-c", script], env=env, capture_output=True, text=True, timeout=20)
+        self.assertEqual(out.returncode, 0, out.stderr)
+        return out.stdout
+
+    def test_ostree_flag_wins_over_os_release(self):
+        self.assertEqual(self.profile('ID=fedora\nVARIANT_ID=silverblue\n', ostree=True), "fedora-atomic")
+        self.assertEqual(self.profile('ID=debian\n', ostree=True), "fedora-atomic")
+
+    def test_regular_fedora_is_not_atomic(self):
+        self.assertEqual(self.profile('ID=fedora\n'), "fedora-server")
+
+    def test_id_like_matched_as_whole_words(self):
+        self.assertEqual(self.profile('ID=arch\n'), "arch-server")
+        self.assertEqual(self.profile('ID=endeavouros\nID_LIKE=arch\n'), "arch-server")
+        self.assertEqual(self.profile('ID=raspbian\nID_LIKE=debian\n'), "debian")
+        self.assertEqual(self.profile('ID=pop\nID_LIKE="ubuntu debian"\n'), "debian")
+        self.assertEqual(self.profile('ID=rocky\nID_LIKE="rhel centos fedora"\n'), "fedora-server")
+
+    def test_substring_of_a_word_does_not_match(self):
+        # "*arch*" used to match "monarch", "*fedora*" "fedorable"...
+        self.assertEqual(self.profile('ID=monarchos\n'), "")
+        self.assertEqual(self.profile('ID=searchlinux\nID_LIKE=searchy\n'), "")
+        self.assertEqual(self.profile('ID=fedorable\n'), "")
+
+    def test_preset_machine_profile_is_kept(self):
+        self.assertEqual(self.profile('ID=debian\n', preset="omarchy"), "omarchy")
+
+    def run_sudo_helper(self, tty):
+        script = sysup_function("_sysup_sudo") + '_sysup_sudo apt-get update; echo "rc=$?"\n'
+        env = {"PATH": f"{self.bin}:{os.environ['PATH']}", "STUB_DIR": str(self.root)}
+        if tty:
+            import pty
+            master, slave = pty.openpty()
+            self.addCleanup(os.close, master)
+            self.addCleanup(os.close, slave)
+            stdin = slave
+        else:
+            stdin = subprocess.DEVNULL
+        out = subprocess.run(["bash", "-c", script], env=env, stdin=stdin, capture_output=True, text=True, timeout=20)
+        log = (self.root / "sudo.log").read_text().strip()
+        return log, out
+
+    def test_sudo_is_non_blocking_without_a_tty(self):
+        log, _ = self.run_sudo_helper(tty=False)
+        self.assertEqual(log, "-n apt-get update")
+
+    def test_sudo_keeps_prompting_with_a_tty(self):
+        log, _ = self.run_sudo_helper(tty=True)
+        self.assertEqual(log, "apt-get update")
+
+    def test_sudo_failure_without_tty_gives_a_clear_message(self):
+        script = sysup_function("_sysup_sudo") + '_sysup_sudo apt-get update; echo "rc=$?"\n'
+        env = {"PATH": f"{self.bin}:{os.environ['PATH']}", "STUB_DIR": str(self.root), "STUB_SUDO_RC": "1"}
+        out = subprocess.run(["bash", "-c", script], env=env, stdin=subprocess.DEVNULL, capture_output=True,
+                             text=True, timeout=20)
+        self.assertIn("rc=1", out.stdout)
+        self.assertIn("sudoers", out.stderr)
+        self.assertIn("/etc/sudoers.d/sysup", out.stderr)
+
+    def test_no_bare_sudo_left_in_sysup(self):
+        code = "\n".join(ln for ln in SYSUP.read_text().splitlines() if not ln.lstrip().startswith("#"))
+        helper = sysup_function("_sysup_sudo")
+        rest = code.replace(helper, "")
+        self.assertNotRegex(rest, r"(^|[\s;&|(])sudo\s")
+
+
 class StaticContracts(unittest.TestCase):
     """Source-level invariants (INVARIANTS.md) that no behaviour test would notice."""
 

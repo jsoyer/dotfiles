@@ -35,23 +35,47 @@ export HOMEBREW_NO_ASK=1
 export NONINTERACTIVE=1
 
 # MACHINE_PROFILE is exported by the interactive shell config; detached runs do
-# not have it, so derive it from /etc/os-release when unset.
+# not have it, so derive it: an ostree-booted system (/run/ostree-booted) is
+# fedora-atomic first (its os-release says plain "fedora"), then ID / ID_LIKE
+# are matched as WHOLE words (a "*arch*" substring would match "monarch").
+# SYSUP_OS_RELEASE / SYSUP_OSTREE_FLAG exist for tests only.
 _sysup_detect_profile() {
   [[ -n "${MACHINE_PROFILE:-}" ]] && return 0
   [[ "$OSTYPE" == linux* ]] || return 0
-  local id="" like=""
-  if [[ -r /etc/os-release ]]; then
-    # shellcheck disable=SC1091
-    id="$(. /etc/os-release; printf '%s' "${ID:-}")"
-    # shellcheck disable=SC1091
-    like="$(. /etc/os-release; printf '%s' "${ID_LIKE:-}")"
+  local id="" like="" rel="${SYSUP_OS_RELEASE:-/etc/os-release}"
+  if [[ -e "${SYSUP_OSTREE_FLAG:-/run/ostree-booted}" ]]; then
+    MACHINE_PROFILE=fedora-atomic
+    export MACHINE_PROFILE
+    return 0
   fi
-  case "$id $like" in
-    *fedora*|*rhel*)   MACHINE_PROFILE=fedora-server ;;
-    *arch*)            MACHINE_PROFILE=arch-server ;;
-    *debian*|*ubuntu*) MACHINE_PROFILE=debian ;;
+  if [[ -r "$rel" ]]; then
+    # shellcheck disable=SC1090
+    id="$(. "$rel"; printf '%s' "${ID:-}")"
+    # shellcheck disable=SC1090
+    like="$(. "$rel"; printf '%s' "${ID_LIKE:-}")"
+  fi
+  case " $id $like " in
+    *" fedora "*|*" rhel "*)   MACHINE_PROFILE=fedora-server ;;
+    *" arch "*)                MACHINE_PROFILE=arch-server ;;
+    *" debian "*|*" ubuntu "*) MACHINE_PROFILE=debian ;;
   esac
   export MACHINE_PROFILE
+}
+
+# sudo that never blocks on a password prompt when there is no terminal (fleet
+# agent, systemd --user, cron): -n makes a missing sudoers rule fail at once
+# with a clear message instead of hanging until the job is killed.
+_sysup_sudo() {
+  if [[ -t 0 ]]; then
+    sudo "$@"
+    return $?
+  fi
+  local rc=0
+  sudo -n "$@" || rc=$?
+  if [[ "$rc" != 0 ]]; then
+    echo "sysup: 'sudo -n $*' failed (exit $rc). If sudo asked for a password, the rule in /etc/sudoers.d/sysup is missing or outdated: run 'chezmoi apply' on this host (sudoers) and retry." >&2
+  fi
+  return "$rc"
 }
 
 # dnf systems: warn when updated packages (kernel, glibc, systemd...) only take
@@ -240,13 +264,13 @@ sysup() {
           echo "📦 Updating apt packages..."
           # --force-confdef/--force-confold: never ask about a modified conffile
           # (the new one is kept next to it as .dpkg-dist and reported).
-          sudo apt-get update \
-            && sudo apt-get dist-upgrade -y -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold \
-            && sudo apt-get autoremove -y || _sysup_rc=1
+          _sysup_sudo apt-get update \
+            && _sysup_sudo apt-get dist-upgrade -y -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold \
+            && _sysup_sudo apt-get autoremove -y || _sysup_rc=1
           ;;
         arch-desktop|arch-server|omarchy)
           echo "📦 Updating pacman packages..."
-          sudo pacman -Syu --noconfirm || _sysup_rc=1
+          _sysup_sudo pacman -Syu --noconfirm || _sysup_rc=1
           if command -v yay &>/dev/null; then
             echo "📦 Updating AUR packages..."
             yay -Sua --noconfirm
@@ -257,11 +281,11 @@ sysup() {
             echo "📦 Staging dnf offline upgrade..."
             # A stale stored transaction (e.g. left by GNOME Software) makes
             # `--offline` refuse to queue a new one.
-            sudo dnf offline clean
-            sudo dnf upgrade --refresh --offline -y || _sysup_rc=1
+            _sysup_sudo dnf offline clean
+            _sysup_sudo dnf upgrade --refresh --offline -y || _sysup_rc=1
           else
             echo "📦 Updating dnf packages..."
-            sudo dnf upgrade --refresh -y || _sysup_rc=1
+            _sysup_sudo dnf upgrade --refresh -y || _sysup_rc=1
           fi
           ;;
         fedora-atomic)
@@ -278,7 +302,7 @@ sysup() {
         # then makes the whole command exit non-zero.
         flatpak update --user -y || true
         if flatpak list --system --columns=application 2>/dev/null | grep -q .; then
-          sudo flatpak update --system -y || true
+          _sysup_sudo flatpak update --system -y || true
         fi
       fi
 
@@ -301,7 +325,7 @@ sysup() {
       if [[ "$reboot" == 1 && ( "${MACHINE_PROFILE:-}" == fedora-desktop || "${MACHINE_PROFILE:-}" == fedora-server ) ]]; then
         echo "🔄 Rebooting to apply the offline upgrade..."
         # Fails when nothing was staged (already up to date): fall back to the hint.
-        sudo dnf offline reboot -y || _sysup_reboot_hint
+        _sysup_sudo dnf offline reboot -y || _sysup_reboot_hint
       else
         _sysup_reboot_hint
       fi
