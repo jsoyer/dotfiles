@@ -518,6 +518,47 @@ class ReviewSchemaTest(unittest.TestCase):
         out = schema.mask_secrets('{"password": "%s", "n": 1}' % self.SECRET)
         self.assertEqual(json.loads(out)["n"], 1)
 
+    def _assert_masked(self, text, gone, kept=()):
+        out = schema.mask_secrets(text)
+        for g in gone:
+            self.assertNotIn(g, out, msg=text)
+        for k in kept:
+            self.assertIn(k, out, msg=text)
+        return out
+
+    def test_quoted_value_with_space_and_comma_is_fully_masked(self):
+        self._assert_masked('password="ab,cd ef" next=1', ["ab", "cd", "ef"], ["next=1"])
+
+    def test_single_quoted_value_with_semicolon_and_space_is_fully_masked(self):
+        self._assert_masked("token='x;y z' ok", ["x;y", "y", "z"], ["ok"])
+
+    def test_quoted_value_containing_the_other_quote_is_fully_masked(self):
+        self._assert_masked('DB_PASSWORD="a\'b;c"', ["a'b", "b;c", "c"], [schema.MASK])
+        self._assert_masked("secret='a\"b,c'", ['a"b', "b,c"], [schema.MASK])
+
+    def test_json_style_pair_masks_only_its_own_value(self):
+        out = self._assert_masked('{"password": "p,q r", "user": "bob"}', ["p,q", "q r"], ["user", "bob"])
+        self.assertEqual(json.loads(out)["user"], "bob")
+
+    def test_unterminated_quote_masks_to_end_of_line(self):
+        self._assert_masked('password="abc def', ["abc", "def"])
+        self._assert_masked("pw token='abc def\nnext line", ["abc", "def"], ["next line"])
+
+    def test_unquoted_value_is_masked_through_commas(self):
+        self._assert_masked("password=abc,def", ["abc", "def"])
+
+    def test_url_userinfo_with_slash_and_at_in_password(self):
+        self._assert_masked("https://u:p/a@b@host/x", ["p/a@b"], ["host/x"])
+
+    def test_truncated_pem_body_is_masked(self):
+        self._assert_masked(PEM_TRUNC, ["b3BlbnNzaC1", "AAAAB3NzaC1lZDI1"])
+
+    def test_tokens_and_jwt_still_masked(self):
+        for text in ("tk_" + "a1B2c3D4e5F6g7H8i9J0k1L2", "NTFY_tk_" + "a1B2c3D4e5F6g7H8i9J0k1L2",
+                     "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.abcdefghijk"):
+            self.assertNotRegex(schema.mask_secrets(text), SECRET_GREP, msg=text)
+            self.assertIn(schema.MASK, schema.mask_secrets(text))
+
     def test_ntfy_token_masked_when_embedded(self):
         for text in ("NTFY_" + FAKE_TOKEN, "x" + FAKE_TOKEN, "a_b" + FAKE_TOKEN + "z", FAKE_TOKEN):
             out = schema.mask_secrets(text)

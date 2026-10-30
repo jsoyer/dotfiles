@@ -58,9 +58,21 @@ _BEARER = re.compile(r"(?i)\b(bearer|basic)\s+[A-Za-z0-9._~+/=-]{8,}")
 _KEYVAL = re.compile(
     r"(?i)(?<![A-Za-z0-9_.-])"
     r"([A-Za-z0-9_.-]*(?:password|passwd|passphrase|secret|token|api[_-]?key)[A-Za-z0-9_.-]*[\"']?)"
-    r"(\s*[=:]\s*)([\"']?)[^\s\"',;]+"
+    r"(\s*[=:]\s*)(\"[^\"\n]*\"?|'[^'\n]*'?|\S+)"
 )
 MASK = "[MASKED]"
+
+
+def _mask_keyval(match: "re.Match[str]") -> str:
+    """Mask the whole value: a quoted string (even unterminated, to end of line) or a bare word.
+
+    Choice: surrounding quotes are kept ("[MASKED]") so masked JSON-ish text stays parseable;
+    only the content between them is replaced, so no secret character survives.
+    """
+    value = match.group(3)
+    quote = value[0] if value[0] in "\"'" else ""
+    closing = quote if quote and len(value) > 1 and value[-1] == quote else ""
+    return match.group(1) + match.group(2) + quote + MASK + closing
 
 
 def _mask_userinfo(match: "re.Match[str]") -> str:
@@ -78,7 +90,7 @@ def mask_secrets(text: str) -> str:
     out = _JWT.sub(MASK, out)
     out = _NTFY_TOKEN.sub(MASK, out)
     out = _BEARER.sub(lambda m: m.group(1) + " " + MASK, out)
-    out = _KEYVAL.sub(lambda m: m.group(1) + m.group(2) + m.group(3) + MASK, out)
+    out = _KEYVAL.sub(_mask_keyval, out)
     return out
 
 
