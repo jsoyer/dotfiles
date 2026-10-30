@@ -23,7 +23,7 @@ trap cleanup EXIT
 
 cat > "$TMP" <<EOF
 # Genere par chezmoi
-# (.chezmoiscripts/03-configure/run_onchange_install-sudoers-sysup.sh.tmpl)
+# (.chezmoiscripts/03-configure/run_always_install-sudoers-sysup.sh.tmpl)
 # NE PAS EDITER A LA MAIN : toute modification sera ecrasee au prochain apply.
 #
 # Permet a \`sysup\` de tourner sans surveillance. Portee volontairement etroite :
@@ -36,10 +36,11 @@ cat > "$TMP" <<EOF
 # malveillante.
 Defaults:${RULE_USER} !requiretty
 # \`sysup\` (via fleet-agent, sans tty) exporte ces deux variables pour qu'apt
-# ne pose jamais de question ; sudo les garde au lieu de les effacer. Elles ne
-# donnent aucun droit supplementaire : seules les commandes ci-dessous sont
-# autorisees.
-Defaults:${RULE_USER} env_keep += "DEBIAN_FRONTEND NEEDRESTART_MODE"
+# ne pose jamais de question ; sudo les garde au lieu de les effacer, mais
+# UNIQUEMENT pour /usr/bin/apt-get (aucune autre commande sudo ne les herite).
+# Elles ne donnent aucun droit supplementaire : seules les commandes
+# ci-dessous sont autorisees.
+Defaults!/usr/bin/apt-get env_keep += "DEBIAN_FRONTEND NEEDRESTART_MODE"
 
 # Fedora
 ${RULE_USER} ALL=(root) NOPASSWD: /usr/bin/dnf upgrade --refresh -y

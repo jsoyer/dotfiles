@@ -1010,6 +1010,42 @@ class SysupHelpers(unittest.TestCase):
         self.assertNotRegex(rest, r"(^|[\s;&|(])sudo\s")
 
 
+def render_sudoers_rule(user="fleetuser"):
+    """Heredoc of the sudoers template, expanded by bash exactly like the real script does."""
+    text = SUDOERS_TMPL.read_text().replace("{{ .chezmoi.username }}", user)
+    m = re.search(r'cat > "\$TMP" <<EOF\n(.*?)\nEOF\n', text, re.S)
+    assert m, "heredoc not found"
+    script = 'RULE_USER="%s"\ncat <<EOF\n%s\nEOF\n' % (user, m.group(1))
+    out = subprocess.run(["bash", "-c", script], capture_output=True, text=True, timeout=20)
+    assert out.returncode == 0, out.stderr
+    return out.stdout
+
+
+class SudoersRule(unittest.TestCase):
+    def test_env_keep_is_scoped_to_apt_get_only(self):
+        rule = render_sudoers_rule()
+        keeps = [ln for ln in rule.splitlines() if "env_keep" in ln and not ln.lstrip().startswith("#")]
+        self.assertEqual(keeps, ['Defaults!/usr/bin/apt-get env_keep += "DEBIAN_FRONTEND NEEDRESTART_MODE"'])
+        # The scoped Defaults targets the very path the NOPASSWD apt-get rules use.
+        self.assertIn("NOPASSWD: /usr/bin/apt-get update", rule)
+
+    def test_header_does_not_cite_a_nonexistent_script_name(self):
+        text = SUDOERS_TMPL.read_text()
+        self.assertNotIn("run_onchange_install-sudoers-sysup", text)
+        self.assertIn("run_always_install-sudoers-sysup", text)
+
+    @unittest.skipUnless(shutil.which("visudo"), "visudo not available")
+    def test_rendered_rule_passes_visudo(self):
+        rule = render_sudoers_rule()
+        tmp = Path(tempfile.mkdtemp(prefix="sudoers-test-"))
+        self.addCleanup(shutil.rmtree, tmp, True)
+        f = tmp / "sysup"
+        f.write_text(rule)
+        f.chmod(0o440)
+        out = subprocess.run([shutil.which("visudo"), "-cf", str(f)], capture_output=True, text=True, timeout=20)
+        self.assertEqual(out.returncode, 0, out.stdout + out.stderr)
+
+
 class StaticContracts(unittest.TestCase):
     """Source-level invariants (INVARIANTS.md) that no behaviour test would notice."""
 
