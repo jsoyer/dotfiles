@@ -1,0 +1,13 @@
+[Unit]
+Description=fleet reminder (ntfy if no fleet up for 14 days; history only, opens no connection)
+
+[Service]
+Type=oneshot
+ExecStart=%h/.local/bin/fleet reminder
+TimeoutStartSec=60
+Environment="PATH=%h/.local/bin:%h/bin:/home/linuxbrew/.linuxbrew/bin:/usr/local/bin:/usr/bin:/bin"
+# Optional, outside the repo: FLEET_NTFY_TOKEN=... or the 1Password session for `op read`.
+EnvironmentFile=-%h/.config/fleet/env
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=fleet-reminder
