@@ -759,6 +759,34 @@ class HealthAndConflicts(AgentCase):
         self.assertIn("after", tail)
         self.assertIn("git.example.com", tail, "only the credential is masked, not the host")
 
+    def test_url_password_with_slash_and_at_is_fully_masked(self):
+        url = "https://user:" + "p/a@ss" + "@host.example.com/path"
+        url2 = "ssh://bob:" + "x@y/z@" + "h2.example.org:22/r"
+        out = "\\n".join(["start", "clone " + url, "also " + url2, "end"])
+        self.sb.run("update", {"STUB_SYSUP_OUTPUT": out})
+        _, final = self.sb.wait_final()
+        tail = final["log_tail"]
+        for leaked in ("p/a", "a@ss", "ss@", "x@y", "y/z", "z@"):
+            self.assertNotIn(leaked, tail)
+        self.assertIn("host.example.com/path", tail)
+        self.assertIn("h2.example.org:22/r", tail)
+        self.assertIn("user:", tail)
+
+    def test_truncated_pem_tail_masks_all_key_body_lines(self):
+        end = "-----" + "END OPENSSH PRIV" + "ATE KEY-----"
+        body = ["QyNTUxOQAAACDfakefakefakefakefakefakefakefakefakeAAAAAAxx",
+                "shortBody1",
+                "b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtzc2gtZW",
+                "QyNTUx+/ab",
+                "abcdEF=="]
+        out = "\\n".join([*body, end, "done now"])
+        self.sb.run("update", {"STUB_SYSUP_OUTPUT": out})
+        _, final = self.sb.wait_final()
+        tail = final["log_tail"]
+        for leaked in (*body, "END OPENSSH"):
+            self.assertNotIn(leaked, tail)
+        self.assertIn("done now", tail)
+
 
 class RebootVerbs(AgentCase):
     def test_flag_file_means_required_with_since(self):

@@ -156,21 +156,32 @@ mask_secrets() {
   esc="$(printf '\033')"
   sed -E "s/${esc}\\[[0-9;?]*[A-Za-z]//g" \
     | awk '
-        /-----BEGIN [A-Z ]*PRIVATE KEY-----/ {
-          print "[MASKED PRIVATE KEY]"
-          if ($0 !~ /-----END [A-Z ]*PRIVATE KEY-----/) inkey = 1
-          next
+        # Two passes (buffered): a tail cut mid-key can start with key body lines
+        # BEFORE the END marker, so once any key marker exists in the text every
+        # base64-looking line (8+ chars) is masked, wherever it is.
+        { line[NR] = $0 }
+        /-----(BEGIN|END) [A-Z ]*PRIVATE KEY-----/ { haskey = 1 }
+        END {
+          for (i = 1; i <= NR; i++) {
+            l = line[i]
+            if (l ~ /-----BEGIN [A-Z ]*PRIVATE KEY-----/) {
+              print "[MASKED PRIVATE KEY]"
+              if (l !~ /-----END [A-Z ]*PRIVATE KEY-----/) inkey = 1
+              continue
+            }
+            if (inkey) { if (l ~ /-----END [A-Z ]*PRIVATE KEY-----/) inkey = 0; continue }
+            if (l ~ /-----END [A-Z ]*PRIVATE KEY-----/) { print "[MASKED PRIVATE KEY]"; continue }
+            if (haskey && l ~ /^[A-Za-z0-9+\/=]{8,}$/) { print "[MASKED]"; continue }
+            if (l ~ /^[A-Za-z0-9+\/=]{40,}$/) { print "[MASKED]"; continue }
+            print l
+          }
         }
-        inkey { if ($0 ~ /-----END [A-Z ]*PRIVATE KEY-----/) inkey = 0; next }
-        /-----END [A-Z ]*PRIVATE KEY-----/ { print "[MASKED PRIVATE KEY]"; next }
-        /^[A-Za-z0-9+\/=]{40,}$/ { print "[MASKED]"; next }
-        { print }
       ' \
     | sed -E \
         -e 's/tk_[A-Za-z0-9]{20,}/[MASKED]/g' \
         -e 's/eyJ[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_.-]*/[MASKED]/g' \
         -e 's/AKIA[0-9A-Z]{16}/[MASKED]/g' \
-        -e 's#([A-Za-z][A-Za-z0-9+.-]*://[^/:@ ]+):[^@/ ]+@#\1:[MASKED]@#g' \
+        -e 's#([A-Za-z][A-Za-z0-9+.-]*://[^/:@ ]+):[^ ]*@#\1:[MASKED]@#g' \
     | awk '{
         l = tolower($0)
         if (l ~ /(password|passwd|passphrase|token|secret|api[_-]?key|authorization|credential)[a-z_]*[ ]*[=:]/) print "[MASKED LINE]"
