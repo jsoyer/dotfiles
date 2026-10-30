@@ -58,8 +58,13 @@ _BEARER = re.compile(r"(?i)\b(bearer|basic)\s+[A-Za-z0-9._~+/=-]{8,}")
 _KEYVAL = re.compile(
     r"(?i)(?<![A-Za-z0-9_.-])"
     r"([A-Za-z0-9_.-]*(?:password|passwd|passphrase|secret|token|api[_-]?key)[A-Za-z0-9_.-]*[\"']?)"
-    r"(\s*[=:]\s*)(\"[^\"\n]*\"?|'[^'\n]*'?|\S+)"
+    r"(\s*[=:]\s*)((\"(?:[^\"\\\n]|\\.)*\"?|'(?:[^'\\\n]|\\.)*'?)[^\s,;]*|\S+)"
 )
+# Quoted values honour backslash escapes (so \" does not end the value early). Chars glued to the
+# closing quote (token="ab"cd) are part of the secret and are consumed, but the glue stops at
+# whitespace , ; so JSON-ish text ("p", "user": ...) keeps its following fields. Residual: a glued
+# tail after a comma (token="ab"cd,ef) leaves ef; the comma is an ambiguous delimiter.
+# The alternations are disjoint per char, so matching stays linear (no catastrophic backtracking).
 MASK = "[MASKED]"
 
 
@@ -69,9 +74,9 @@ def _mask_keyval(match: "re.Match[str]") -> str:
     Choice: surrounding quotes are kept ("[MASKED]") so masked JSON-ish text stays parseable;
     only the content between them is replaced, so no secret character survives.
     """
-    value = match.group(3)
-    quote = value[0] if value[0] in "\"'" else ""
-    closing = quote if quote and len(value) > 1 and value[-1] == quote else ""
+    quoted = match.group(4)
+    quote = quoted[0] if quoted else ""
+    closing = quote if quoted and len(quoted) > 1 and quoted[-1] == quote else ""
     return match.group(1) + match.group(2) + quote + MASK + closing
 
 
