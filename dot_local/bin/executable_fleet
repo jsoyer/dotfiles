@@ -30,6 +30,21 @@ INVENTORY="$FLEET_DIR/lib/inventory.py"
 
 die() { printf 'fleet: %s\n' "$1" >&2; exit 2; }
 
+# Resource caps on everything read from a remote host.
+OUT_CAP=65536   # bytes of agent stdout kept
+ERR_CAP=4096    # bytes of ssh stderr kept / examined
+
+# Temp dir + background stderr reader are removed on every exit path.
+TMP_DIR=""
+ERR_PID=""
+cleanup() {
+  if [ -n "$ERR_PID" ]; then kill "$ERR_PID" 2>/dev/null; fi
+  if [ -n "$TMP_DIR" ]; then rm -rf "$TMP_DIR"; fi
+}
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+
 # One printable, bounded line (remote or ssh text goes through this).
 clean() { printf '%s' "$1" | LC_ALL=C tr -cd '[:print:]' | cut -c1-120; }
 
@@ -68,7 +83,8 @@ plan_rows() {
 ssh_open() {
   local out
   out="$("$FLEET_SSH" "${SSH_OPTS[@]}" -o PreferredAuthentications=none \
-    -o PubkeyAuthentication=no -o NumberOfPasswordPrompts=0 "$1" true </dev/null 2>&1)"
+    -o PubkeyAuthentication=no -o NumberOfPasswordPrompts=0 "$1" true </dev/null 2>&1 \
+    | head -c "$ERR_CAP")"
   SSH_NOTE="$(clean "$(printf '%s' "$out" | head -n 1)")"
   case "$out" in
     *"Permission denied"*) return 0 ;;
@@ -112,6 +128,7 @@ cmd_check() {
   local status reason pkgs reboot tmp src errline
   rows="$(plan_rows ${1+"$@"})" || exit 2
   tmp="$(mktemp -d "${TMPDIR:-/tmp}/fleet.XXXXXX")" || die "cannot create a temp dir"
+  TMP_DIR="$tmp"
   while IFS="$(printf '\t')" read -r alias kind site user tn state seen; do
     [ -n "$alias" ] || continue
     case "$state" in
@@ -130,11 +147,20 @@ cmd_check() {
     target="$(target_of "$user" "$tn")"
     # ssh exit code (PIPESTATUS) and first stderr line are kept so an agent
     # refusal ("fleet-agent: refused", exit 1) is told apart from no answer.
-    "$FLEET_SSH" "${SSH_OPTS[@]}" -T "$target" check </dev/null 2>"$tmp/err" \
-      | head -c 65536 >"$tmp/out"
+    # stderr goes through a FIFO into `head -c ERR_CAP`: the file on disk is
+    # bounded at the source. If the host floods stderr, head exits and ssh gets
+    # SIGPIPE (exit 141), which is reported as such.
+    rm -f "$tmp/errfifo" "$tmp/err" "$tmp/out"
+    mkfifo "$tmp/errfifo" || die "cannot create a fifo"
+    head -c "$ERR_CAP" <"$tmp/errfifo" >"$tmp/err" &
+    ERR_PID=$!
+    "$FLEET_SSH" "${SSH_OPTS[@]}" -T "$target" check </dev/null 2>"$tmp/errfifo" \
+      | head -c "$OUT_CAP" >"$tmp/out"
     src="${PIPESTATUS[0]}"
+    wait "$ERR_PID" 2>/dev/null
+    ERR_PID=""
     out="$(cat "$tmp/out")"
-    errline="$(clean "$(head -n 1 "$tmp/err")")"
+    errline="$(clean "$(head -c "$ERR_CAP" "$tmp/err" | head -n 1)")"
     if [ -z "$out" ]; then
       case "$errline" in
         "fleet-agent: refused"*)
@@ -156,6 +182,7 @@ cmd_check() {
 $rows
 EOF
   rm -rf "$tmp"
+  TMP_DIR=""
   return "$rc"
 }
 

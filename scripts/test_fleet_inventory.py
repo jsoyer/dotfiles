@@ -457,6 +457,98 @@ class FleetWrapper(unittest.TestCase):
         self.assertEqual(proc.returncode, 2)
         self.assertEqual(self.ssh_log(), "")
 
+    def _flood_env(self):
+        tdir = self.root / "tmpd"
+        tdir.mkdir(exist_ok=True)
+        self.env["TMPDIR"] = str(tdir)
+        return tdir
+
+    def test_check_caps_flooded_stderr_and_removes_temp_dir(self):
+        tdir = self._flood_env()
+        self._stub(
+            "ssh",
+            'case "$*" in\n'
+            '  *PreferredAuthentications=none*) exit 255 ;;\n'
+            '  *" check") head -c 1500000 /dev/zero | tr "\\0" "E" >&2\n'
+            '     exit 255 ;;\n'
+            'esac\nexit 255\n',
+        )
+        proc = self.fleet("check", "alpha")
+        self.assertEqual(proc.returncode, 1, proc.stderr)
+        self.assertIn("unreachable", proc.stdout)
+        self.assertLess(len(proc.stdout), 1000, "flood must not reach the output")
+        self.assertEqual(list(tdir.iterdir()), [], "temp dir removed")
+
+    def test_check_stderr_file_is_bounded(self):
+        tdir = self._flood_env()
+        self._stub(
+            "ssh",
+            'case "$*" in\n'
+            '  *" check")\n'
+            '     head -c 1500000 /dev/zero | tr "\\0" "E" >&2\n'
+            '     for f in "$TMPDIR"/fleet.*/err; do wc -c < "$f" > "$STUB_DIR/errsize"; done\n'
+            '     exit 255 ;;\n'
+            'esac\nexit 255\n',
+        )
+        self.fleet("check", "alpha")
+        size = int((self.root / "errsize").read_text())
+        self.assertLessEqual(size, 4096, "stderr kept on disk is capped")
+        self.assertGreater(size, 0)
+        self.assertEqual(list(tdir.iterdir()), [])
+
+    def test_check_flood_on_stdout_and_stderr_completes(self):
+        tdir = self._flood_env()
+        self._stub(
+            "ssh",
+            'case "$*" in\n'
+            '  *" check")\n'
+            '     head -c 1500000 /dev/zero | tr "\\0" "E" >&2\n'
+            '     head -c 300000 /dev/zero | tr "\\0" "x"\n'
+            '     exit 0 ;;\n'
+            'esac\nexit 255\n',
+        )
+        proc = self.fleet("check", "alpha")
+        self.assertIn(proc.returncode, (0, 1))
+        self.assertLess(len(proc.stdout), 2000)
+        self.assertEqual(list(tdir.iterdir()), [])
+
+    def test_ping_caps_flooded_ssh_output(self):
+        self._stub(
+            "ssh",
+            'head -c 1500000 /dev/zero | tr "\\0" "E" >&2\nexit 255\n',
+        )
+        proc = self.fleet("ping", "alpha")
+        self.assertLess(len(proc.stdout), 1000)
+        self.assertIn("unreachable", proc.stdout)
+
+    def test_temp_dir_removed_when_killed_with_term(self):
+        import signal
+        import time
+        tdir = self._flood_env()
+        self._stub(
+            "ssh",
+            'case "$*" in\n'
+            '  *" check") touch "$STUB_DIR/started"; sleep 30; exit 0 ;;\n'
+            'esac\nexit 255\n',
+        )
+        p = subprocess.Popen(
+            ["bash", str(FLEET_BIN), "check", "alpha"],
+            env=self.env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, start_new_session=True,
+        )
+        try:
+            for _ in range(100):
+                if (self.root / "started").exists():
+                    break
+                time.sleep(0.1)
+            self.assertTrue((self.root / "started").exists())
+            self.assertEqual(len(list(tdir.iterdir())), 1, "temp dir exists mid-run")
+            os.killpg(p.pid, signal.SIGTERM)
+            p.communicate(timeout=20)
+        finally:
+            if p.poll() is None:
+                os.killpg(p.pid, signal.SIGKILL)
+        self.assertEqual(list(tdir.iterdir()), [], "temp dir removed after TERM")
+
     def test_ping_is_a_wrapper_command_not_an_agent_verb(self):
         agent = (FLEET_DIR / "agent/fleet-agent.sh").read_text()
         self.assertNotRegex(agent, re.compile(r"^\s*'?ping'?\)", re.M | re.I))
