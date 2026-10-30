@@ -35,6 +35,11 @@ cat > "$TMP" <<EOF
 # L'enumeration exacte bloque l'installation arbitraire, pas une mise a jour
 # malveillante.
 Defaults:${RULE_USER} !requiretty
+# \`sysup\` (via fleet-agent, sans tty) exporte ces deux variables pour qu'apt
+# ne pose jamais de question ; sudo les garde au lieu de les effacer. Elles ne
+# donnent aucun droit supplementaire : seules les commandes ci-dessous sont
+# autorisees.
+Defaults:${RULE_USER} env_keep += "DEBIAN_FRONTEND NEEDRESTART_MODE"
 
 # Fedora
 ${RULE_USER} ALL=(root) NOPASSWD: /usr/bin/dnf upgrade --refresh -y
@@ -45,11 +50,18 @@ ${RULE_USER} ALL=(root) NOPASSWD: /usr/bin/dnf offline reboot -y
 
 # Debian / Ubuntu / Raspberry Pi
 ${RULE_USER} ALL=(root) NOPASSWD: /usr/bin/apt-get update
-${RULE_USER} ALL=(root) NOPASSWD: /usr/bin/apt-get dist-upgrade -y
+# Mise a jour non interactive : un conffile modifie est conserve (--force-confold).
+# Les ':' et '=' des arguments doivent etre echappes en sudoers.
+${RULE_USER} ALL=(root) NOPASSWD: /usr/bin/apt-get dist-upgrade -y -o Dpkg\:\:Options\:\:\=--force-confdef -o Dpkg\:\:Options\:\:\=--force-confold
 ${RULE_USER} ALL=(root) NOPASSWD: /usr/bin/apt-get autoremove -y
 
 # Arch
 ${RULE_USER} ALL=(root) NOPASSWD: /usr/bin/pacman -Syu --noconfirm
+
+# Verbe \`reboot\` de fleet-agent (kinds chezmoi-linux, proxmox, guardian, spec
+# fleet-updates §10) : commande EXACTE, aucun joker, jamais systemd-run en sudo.
+# L'agent ne redemarre que si un redemarrage est requis.
+${RULE_USER} ALL=(root) NOPASSWD: /usr/bin/systemctl reboot
 
 # Flatpak (tous Linux) : applis installees au niveau systeme
 ${RULE_USER} ALL=(root) NOPASSWD: /usr/bin/flatpak update --system -y
