@@ -591,6 +591,31 @@ class ReviewSchemaTest(unittest.TestCase):
         schema.mask_secrets("a-" * 32000 + "=")
         self.assertLess(_t.time() - started, 3)
 
+    def test_escaped_quotes_and_glued_tails_are_fully_masked(self):
+        out = schema.mask_secrets('password="ab\\"cd ef" next=1')
+        for leak in ("ab", "cd", "ef"):
+            self.assertNotIn(leak, out)
+        self.assertIn("next=1", out)
+        out = schema.mask_secrets("secret='ab\\'cd ef' ok")
+        for leak in ("cd", "ef"):
+            self.assertNotIn(leak, out)
+        self.assertIn("ok", out)
+        out = schema.mask_secrets('token="ab"cd tail')
+        self.assertNotIn("ab", out)
+        self.assertNotIn("cd", out)
+        self.assertIn("tail", out)
+        self.assertNotIn("cd", schema.mask_secrets("token='ab'cd;x"))
+        out = schema.mask_secrets('{"password": "p\\"q r", "user": "bob"}')
+        self.assertNotIn("q r", out)
+        self.assertIn('"user": "bob"', out)
+
+    def test_masking_hostile_quoted_input_is_fast(self):
+        import time as _t
+        for text in ('password="' + '\\"' * 30000, "token=" + '"a' * 30000):
+            started = _t.time()
+            schema.mask_secrets(text)
+            self.assertLess(_t.time() - started, 0.5)
+
     def test_verb_must_match_the_requested_verb(self):
         ent, why = schema.parse_agent_output(line(agent(verb="report")), "alpha", "update")
         self.assertIsNone(ent)
