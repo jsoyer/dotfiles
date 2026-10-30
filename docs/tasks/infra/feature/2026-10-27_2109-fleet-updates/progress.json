@@ -18,14 +18,15 @@
       "id": 2,
       "file": "sprints/02-orchestrateur-reporting.md",
       "title": "Orchestrateur + reporting + ntfy",
-      "status": "not_started",
+      "status": "complete",
       "depends_on": [
         1
       ],
       "batch": 2,
       "model": "sonnet",
-      "branch": null,
-      "merged": false
+      "branch": "sprint/02-orchestrateur (+ fix/fleet-sprint2-review, fix/fleet-mask-quoted, fix/fleet-mask-escaped, fix/fleet-review3)",
+      "merged": true,
+      "notes": "All 20 tasks and 11/12 acceptance criteria done in simulation (fakes for ssh/tailscale/rsync/ntfy/op); 355 tests pass, 20x concurrency loops clean, shellcheck 0, systemd-analyze verify 0 (scratch HOME), 8/8 invariants 0. Code review: 3 fix rounds (JSON-corrupting double mask, hostile JSON crash, secret-key coverage, quoted/escaped values, ntfy 4xx/redirect/auth, 0700 dirs, run lock, stderr cap, ssh '--', ReDoS bounds). BLOCKED (requires live infra): first real run fleet up -l site=garage. Open for user: --critical VM list needs an agent verb or stays generic; master-to-master rsync needs a dedicated key; ntfy.url placeholder; reminder timer not enabled; orchestrate.py ~850+ lines. Deferred masking limits: basic/bearer prose over-mask, dotted-user@host over-mask, token=\"ab\"cd,ef tail, unbounded ntfy queue."
     },
     {
       "id": 3,
