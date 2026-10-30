@@ -1,0 +1,158 @@
+{{- if and (eq .chezmoi.os "linux") (eq (includeTemplate "can-sudo" .) "true") -}}
+#!/usr/bin/env bash
+# Installe l'agent fleet (spec fleet-updates, sprint 1) sur cette machine Linux :
+#
+#   1. /usr/local/libexec/fleet-agent  root:root 0755 (non modifiable par
+#      l'utilisateur SSH ; seul chemin reference par command=)
+#   2. loginctl enable-linger          (systemd-run --user survit a la fin de la
+#      session SSH : la MAJ detachee ne s'arrete pas si la connexion saute)
+#   3. ~/.ssh/authorized_keys          une ligne par master :
+#        restrict,command="/usr/local/libexec/fleet-agent" <cle publique> fleet-master-<master>
+#      Les cles PUBLIQUES viennent de 1Password, item "Fleet", champs
+#      public-key-<master>. Sans `op` (ou sans acces), cette etape est sautee
+#      avec un message : l'agent reste installe, aucune cle n'est ajoutee ni
+#      retiree pour un master dont la cle n'a pas pu etre lue.
+#
+# Ne fait JAMAIS echouer `chezmoi apply` (exit 0 partout) : un probleme est
+# signale sur stderr.
+#
+# LIMITE (run_onchange) : chezmoi ne rejoue ce script que si son contenu change
+# (donc quand l'agent change). Un exit 0 apres une etape reportee (sudo sans mot
+# de passe, op absent, cle illisible) est enregistre comme "execute" : il n'y a
+# PAS de nouvelle tentative automatique. Pour rejouer a la main :
+#   chezmoi state delete-bucket --bucket=scriptState && chezmoi apply
+# (rejoue AUSSI les autres scripts run_once/run_onchange). Contrairement a run_always_install-sudoers-sysup, ce script n'est pas renomme
+# (INVARIANTS.md reference son chemin).
+#
+# Contenu de l'agent, integre ici (et non lu depuis ~/.local/share/fleet/) pour ne
+# pas dependre de l'ordre d'application des fichiers : empreinte -> rejoue
+# automatiquement quand l'agent change.
+#   agent sha256: {{ include "dot_local/share/fleet/agent/fleet-agent.sh" | sha256sum }}
+#   1Password CLI present au rendu : {{ if lookPath "op" }}oui{{ else }}non{{ end }}
+
+set -uo pipefail
+
+AGENT_DEST="/usr/local/libexec/fleet-agent"
+FORCED='restrict,command="/usr/local/libexec/fleet-agent"'
+MASTERS="diabolo penelope"
+OP_ITEM="op://Private/Fleet"
+
+say() { printf 'fleet-agent: %s\n' "$*"; }
+warn() { printf 'fleet-agent: %s\n' "$*" >&2; }
+
+TMP_DIR="$(mktemp -d)"
+cleanup() { [ -n "${TMP_DIR:-}" ] && [ -d "$TMP_DIR" ] && command rm -rf -- "$TMP_DIR"; }
+trap cleanup EXIT
+
+# ---- 1. agent root:root 0755 -------------------------------------------------
+cat > "$TMP_DIR/fleet-agent" <<'FLEET_AGENT_EOF'
+{{ include "dot_local/share/fleet/agent/fleet-agent.sh" }}
+FLEET_AGENT_EOF
+
+# Mot de passe sudo requis et pas de terminal : on reporte sans bruit ni echec.
+if ! sudo -n true 2>/dev/null && [ ! -t 0 ]; then
+    warn "sudo demande un mot de passe et il n'y a pas de terminal, installation reportee."
+    warn "  Lancer une fois a la main :  sudo -v && chezmoi apply"
+    exit 0
+fi
+
+if sudo cmp -s "$TMP_DIR/fleet-agent" "$AGENT_DEST" 2>/dev/null \
+   && [ "$(sudo stat -c '%U:%G %a' "$AGENT_DEST" 2>/dev/null)" = "root:root 755" ]; then
+    say "agent deja a jour (${AGENT_DEST})"
+else
+    if sudo install -d -o root -g root -m 0755 "$(dirname "$AGENT_DEST")" \
+       && sudo install -o root -g root -m 0755 "$TMP_DIR/fleet-agent" "$AGENT_DEST"; then
+        say "agent installe dans ${AGENT_DEST} (root:root 0755)"
+        # SELinux (Fedora) : etiquette par defaut du chemin, non fatal.
+        if command -v restorecon >/dev/null 2>&1; then
+            sudo restorecon "$AGENT_DEST" 2>/dev/null || true
+        fi
+    else
+        warn "installation de l'agent impossible, etape reportee."
+        exit 0
+    fi
+fi
+
+# ---- 2. linger ---------------------------------------------------------------
+if command -v loginctl >/dev/null 2>&1; then
+    if [ "$(loginctl show-user "$(id -un)" -p Linger --value 2>/dev/null || true)" != "yes" ]; then
+        sudo loginctl enable-linger "$(id -un)" 2>/dev/null \
+            && say "linger active pour $(id -un)" \
+            || warn "loginctl enable-linger a echoue (MAJ detachees limitees a la session)."
+    fi
+else
+    warn "loginctl absent : pas de linger (agent sans systemd, nohup utilise)."
+fi
+
+# ---- 3. cles des masters -----------------------------------------------------
+if ! command -v op >/dev/null 2>&1; then
+    warn "1Password CLI (op) absent : cles des masters non installees (authorized_keys inchange)."
+    exit 0
+fi
+
+SSH_DIR="${HOME}/.ssh"
+AK="${SSH_DIR}/authorized_keys"
+mkdir -p "$SSH_DIR" && chmod 700 "$SSH_DIR"
+[ -f "$AK" ] || : > "$AK"
+chmod 600 "$AK"
+cp "$AK" "$TMP_DIR/ak.new"
+
+# drop_suffix <fichier> <suffixe> : retire les lignes se terminant par <suffixe>.
+drop_suffix() {
+    awk -v suffix="$2" '{ n = length($0); s = length(suffix); if (n >= s && substr($0, n - s + 1) == suffix) next; print }' "$1" > "$1.tmp" \
+        && mv "$1.tmp" "$1"
+}
+
+# Revocation : un master retire de MASTERS perd sa ligne (rien d'autre n'est touche).
+for known in $(sed -n 's/.* fleet-master-\([A-Za-z0-9_-]*\)$/\1/p' "$TMP_DIR/ak.new" | sort -u); do
+    case " $MASTERS " in
+        *" $known "*) ;;
+        *) drop_suffix "$TMP_DIR/ak.new" " fleet-master-${known}"; say "cle du master retire '${known}' supprimee" ;;
+    esac
+done
+
+fetched=0
+for master in $MASTERS; do
+    key="$(op read "${OP_ITEM}/public-key-${master}" 2>/dev/null || true)"
+    # Seule une cle publique ed25519 bien formee est acceptee : type + blob.
+    # Le commentaire eventuel est ecarte (il est remplace par fleet-master-<master>).
+    type="$(printf '%s' "$key" | awk 'NR == 1 { print $1 }')"
+    blob="$(printf '%s' "$key" | awk 'NR == 1 { print $2 }')"
+    if [ "$type" != "ssh-ed25519" ] || ! printf '%s' "$blob" | grep -Eq '^[A-Za-z0-9+/]+={0,2}$'; then
+        warn "cle publique de '${master}' introuvable ou invalide dans 1Password (${OP_ITEM}/public-key-${master}) : ligne existante conservee."
+        continue
+    fi
+    drop_suffix "$TMP_DIR/ak.new" " fleet-master-${master}"
+    printf '%s %s %s fleet-master-%s\n' "$FORCED" "$type" "$blob" "$master" >> "$TMP_DIR/ak.new"
+    fetched=$((fetched + 1))
+done
+
+if cmp -s "$TMP_DIR/ak.new" "$AK"; then
+    say "authorized_keys deja a jour"
+else
+    # Ecriture atomique : fichier temporaire dans le MEME repertoire (meme
+    # filesystem), chmod 600, puis rename. Jamais de troncature en place : une
+    # coupure en cours d'ecriture ne peut pas laisser authorized_keys vide ou
+    # tronque (perte d'acces SSH). Si authorized_keys est un lien symbolique
+    # (dotfiles, stow), on ecrit la CIBLE et le lien est conserve.
+    AK_REAL="$AK"
+    if [ -L "$AK" ]; then
+        AK_REAL="$(readlink -f "$AK" 2>/dev/null || true)"
+    fi
+    if [ -z "$AK_REAL" ]; then
+        warn "authorized_keys est un lien symbolique irresoluble : fichier inchange."
+        exit 0
+    fi
+    AK_TMP="$(mktemp "$(dirname "$AK_REAL")/.authorized_keys.XXXXXX" 2>/dev/null || true)"
+    if [ -n "$AK_TMP" ] \
+       && cat "$TMP_DIR/ak.new" > "$AK_TMP" \
+       && chmod 600 "$AK_TMP" \
+       && mv -f "$AK_TMP" "$AK_REAL"; then
+        say "authorized_keys mis a jour (${fetched} cle(s) master, commande imposee ${AGENT_DEST})"
+    else
+        [ -z "$AK_TMP" ] || command rm -f -- "$AK_TMP"
+        warn "ecriture de ${AK_REAL} impossible : authorized_keys inchange."
+    fi
+fi
+exit 0
+{{- end }}
