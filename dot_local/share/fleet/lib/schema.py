@@ -36,19 +36,27 @@ MAX_PACKAGES = 100000
 SAFE_JOB = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.:-]{0,63}")
 _CTRL = re.compile(r"[\x00-\x08\x0b-\x1f\x7f-\x9f]")
 # zero-width, bidi controls, line/paragraph separators, BOM
-_INVISIBLE = re.compile("[\u200b-\u200f\u2028-\u202e\u2060-\u206f\ufeff]")
+_INVISIBLE = re.compile(
+    "[\u00ad\u061c\u180e\u200b-\u200f\u2028-\u202e\u2060-\u206f\ufe00-\ufe0f\ufeff"
+    "\U000e0000-\U000e007f]"
+)
 _ANSI = re.compile(r"\x1b\[[0-9;?]*[ -/]*[@-~]")
 
 # ------------------------------------------------------------------ masking
 
 _PEM = re.compile(
-    r"(?:-----)?BEGIN [A-Z ]*PRIVATE KEY(?:-----)?.*?"
-    r"(?:(?:-----)?END [A-Z ]*PRIVATE KEY(?:-----)?|\Z)",
+    r"(?:-----)?BEGIN [A-Z ]{0,40}PRIVATE KEY(?:-----)?.*?"
+    r"(?:(?:-----)?END [A-Z ]{0,40}PRIVATE KEY(?:-----)?|\Z)",
     re.DOTALL,
 )
-_URL_PASSWORD = re.compile(r"(?<![A-Za-z0-9+.-])([A-Za-z][A-Za-z0-9+.-]*://[^\s:/@]+:)\S+@")
+_URL_PASSWORD = re.compile(
+    r"(?<![A-Za-z0-9+.-])([A-Za-z][A-Za-z0-9+.-]{0,31}://[^\s:/@]{1,256}:)\S{1,512}@"
+)
 # scheme://TOKEN@host (no colon): a plain lowercase login (git, root, jerome) is kept
-_URL_USERINFO = re.compile(r"(?<![A-Za-z0-9+.-])([A-Za-z][A-Za-z0-9+.-]*://)([^\s:/@]+)@")
+_URL_USERINFO = re.compile(
+    r"(?<![A-Za-z0-9+.-])([A-Za-z][A-Za-z0-9+.-]{0,31}://)([^\s:/@]{1,256})@"
+)
+_SECRET_KEY = re.compile(r"(?i)password|passwd|passphrase|secret|token|api[_-]?key")
 _PLAIN_LOGIN = re.compile(r"[a-z][a-z-]{0,15}")
 # no left boundary: NTFY_tk_xxx and xtk_xxx are masked too
 _NTFY_TOKEN = re.compile(r"tk_[A-Za-z0-9_-]{6,}")
@@ -87,16 +95,31 @@ def _mask_userinfo(match: "re.Match[str]") -> str:
     return match.group(1) + MASK + "@"
 
 
-def mask_secrets(text: str) -> str:
-    """Hide private keys (even truncated), URL passwords, ntfy tokens, JWTs, key=value secrets."""
+def mask_secrets(text: str, keyval: bool = True) -> str:
+    """Hide private keys (even truncated), URL passwords, ntfy tokens, JWTs, key=value secrets.
+
+    ``keyval=False`` skips the key=value pass (for text built as ``host: status`` lines whose
+    free-text fields were already masked one by one).
+    """
     out = _PEM.sub("[MASKED PRIVATE KEY]", text)
     out = _URL_PASSWORD.sub(lambda m: m.group(1) + MASK + "@", out)
     out = _URL_USERINFO.sub(_mask_userinfo, out)
     out = _JWT.sub(MASK, out)
     out = _NTFY_TOKEN.sub(MASK, out)
     out = _BEARER.sub(lambda m: m.group(1) + " " + MASK, out)
-    out = _KEYVAL.sub(_mask_keyval, out)
+    if keyval:
+        out = _KEYVAL.sub(_mask_keyval, out)
     return out
+
+
+def _mask_item(key: Any, value: Any) -> Any:
+    """A value whose KEY names a secret (db_password, access_token...) is replaced when scalar."""
+    if isinstance(key, str) and _SECRET_KEY.search(_INVISIBLE.sub("", _CTRL.sub("", key))):
+        if isinstance(value, str) and value:
+            return MASK
+        if isinstance(value, (int, float)) and not isinstance(value, bool):
+            return MASK
+    return mask_data(value)
 
 
 def mask_data(value: Any) -> Any:
@@ -104,7 +127,7 @@ def mask_data(value: Any) -> Any:
     if isinstance(value, str):
         return mask_secrets(value)
     if isinstance(value, dict):
-        return {(mask_secrets(k) if isinstance(k, str) else k): mask_data(v) for k, v in value.items()}
+        return {(mask_secrets(k) if isinstance(k, str) else k): _mask_item(k, v) for k, v in value.items()}
     if isinstance(value, (list, tuple)):
         return [mask_data(v) for v in value]
     return value
@@ -274,6 +297,8 @@ def parse_agent_output(text: str, alias: str, verb: str) -> Tuple[Optional[Dict[
         return _build(obj, alias, verb), None
     except _Invalid as exc:
         return None, "invalid agent output: %s" % exc
+    except Exception:  # noqa: BLE001 (untrusted input must never crash the master)
+        return None, "invalid agent output: unexpected structure"
 
 
 def failed_entry(alias: str, verb: str, reason: str, now_iso: str) -> Dict[str, Any]:

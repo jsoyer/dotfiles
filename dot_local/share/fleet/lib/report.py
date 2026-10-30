@@ -20,6 +20,7 @@ import state as fstate
 OK_STATUSES = ("updated", "up-to-date")
 BAD_STATUSES = ("failed", "degraded", "unreachable", "timeout")
 SAFE_HOST = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.-]*")
+MAX_RAW_LOG = 262144   # bytes kept per raw host log (write and read)
 _MD_SPECIAL = re.compile(r"([\\`*_\[\]<>!|])")
 
 
@@ -97,7 +98,7 @@ def render_terminal(rep: Dict[str, Any], data: Optional[Dict[str, Any]] = None) 
         lines.append("%-22s %-12s %s" % (schema.clean_text(e["host"], 80), schema.clean_text(e["status"], 20),
                                          _detail(e)))
     lines.append(summary_line(_hosts_of(rep)))
-    return schema.mask_secrets("\n".join(lines)) + "\n"
+    return "\n".join(lines) + "\n"
 
 
 def render_markdown(rep: Dict[str, Any], data: Optional[Dict[str, Any]] = None) -> str:
@@ -114,7 +115,13 @@ def render_markdown(rep: Dict[str, Any], data: Optional[Dict[str, Any]] = None) 
         lines.append("| %s | %s | %s | %s |" % (
             md_escape(schema.clean_text(e["host"], 80)), md_escape(schema.clean_text(_meta(data, e["host"]), 80)),
             md_escape(schema.clean_text(e["status"], 20)), md_escape(_detail(e))))
-    return schema.mask_secrets("\n".join(lines)) + "\n"
+    return "\n".join(lines) + "\n"
+
+
+def clean_log(text: Any) -> str:
+    """Raw host log, safe to store or show: control/ANSI stripped, THEN masked, byte-bounded."""
+    out = schema.clean_text(str(text)[: MAX_RAW_LOG * 2], MAX_RAW_LOG, multiline=True)
+    return out.encode("utf-8")[:MAX_RAW_LOG].decode("utf-8", "ignore")
 
 
 def write_run(
@@ -133,7 +140,7 @@ def write_run(
             continue
         fstate.write_private(run / "raw" / (alias + ".json"),
                              json.dumps(schema.mask_data(item.get("json")), indent=1, sort_keys=True) + "\n")
-        fstate.write_private(run / "raw" / (alias + ".log"), schema.mask_secrets(item.get("log") or "") + "\n")
+        fstate.write_private(run / "raw" / (alias + ".log"), clean_log(item.get("log") or "") + "\n")
     return run
 
 
@@ -181,7 +188,9 @@ def host_logs(st: "fstate.State", alias: str, run_id: Optional[str] = None) -> s
         path = st.run_dir(rid) / "raw" / (alias + ".log")   # run_dir validates the id
         try:
             if path.is_file():
-                return schema.mask_secrets(path.read_text(encoding="utf-8", errors="replace"))
+                with path.open("rb") as fh:
+                    raw = fh.read(MAX_RAW_LOG + 1)
+                return clean_log(raw.decode("utf-8", errors="replace"))
         except OSError:
             continue
     return ""

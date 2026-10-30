@@ -812,5 +812,242 @@ class ReviewNotifyTest(unittest.TestCase):
         notify.Notifier("https://ntfy.example.org", "fleet", FAKE_TOKEN, self.qdir)
 
 
+class Review3Test(unittest.TestCase):
+    """Review round 3: redirects, key-based masking, log sanitizing, ReDoS, queue locking."""
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.root = Path(self._tmp.name) / "fleet"
+        self.st = fstate.State(self.root, "diabolo")
+        self.qdir = Path(self._tmp.name) / "q"
+
+    def _serve(self, handler):
+        import http.server
+        import threading
+        srv = http.server.HTTPServer(("127.0.0.1", 0), handler)
+        threading.Thread(target=srv.serve_forever, daemon=True).start()
+        self.addCleanup(srv.server_close)
+        self.addCleanup(srv.shutdown)
+        return srv.server_address[1]
+
+    def _servers(self):
+        import http.server
+        seen = []
+
+        class Target(http.server.BaseHTTPRequestHandler):
+            def do_POST(self):
+                seen.append(self.headers.get("Authorization"))
+                self.send_response(200)
+                self.end_headers()
+
+            def log_message(self, *a):
+                pass
+
+        tport = self._serve(Target)
+
+        class Redirector(http.server.BaseHTTPRequestHandler):
+            def do_POST(self):
+                self.send_response(302)
+                self.send_header("Location", "http://127.0.0.1:%d/fleet" % tport)
+                self.end_headers()
+
+            def log_message(self, *a):
+                pass
+
+        return self._serve(Redirector), seen
+
+    def test_redirect_is_refused_and_authorization_never_follows_it(self):
+        rport, seen = self._servers()
+        n = notify.Notifier("http://127.0.0.1:%d" % rport, "fleet", FAKE_TOKEN, self.qdir)
+        self.assertFalse(n.send(notify.message("t", 2, [], "b")))
+        self.assertEqual(seen, [])
+        self.assertEqual(n.pending(), [])
+        self.assertEqual(len(list(self.qdir.glob("*.bad"))), 1)
+
+    def test_classify_3xx_is_permanent(self):
+        import urllib.error
+        for code in (301, 302, 303, 307, 308):
+            exc = urllib.error.HTTPError("http://x/", code, "r", {}, None)
+            self.assertEqual(notify.classify_failure(exc), "bad")
+
+    def test_mask_data_masks_values_of_secret_keys(self):
+        item = {"password": "hunter2", "token": "x", "detail": "ok", "db_password": "p",
+                "Access_Token": 12345, "api-key": "k", "empty_secret": "", "nested": [{"passphrase": "z"}]}
+        out = schema.mask_data(item)
+        self.assertEqual(out["detail"], "ok")
+        for key in ("password", "token", "db_password", "Access_Token", "api-key"):
+            self.assertEqual(out[key], "[MASKED]", key)
+        self.assertEqual(out["empty_secret"], "")
+        self.assertEqual(out["nested"][0]["passphrase"], "[MASKED]")
+        self.assertEqual(list(schema.mask_data({"pass\u00adword": "hunter2"}).values()), ["[MASKED]"])
+
+    def test_raw_json_masks_secret_keys(self):
+        rep = report.build_report("20261030T2100Z-diabolo", "diabolo", "", "s", "e", [])
+        raw = {"alpha": {"json": agent(password="hunter2", token="x", detail="ok"), "log": ""}}
+        run = report.write_run(self.st, rep, raw, [])
+        text = (run / "raw" / "alpha.json").read_text()
+        self.assertNotIn("hunter2", text)
+        data = json.loads(text)
+        self.assertEqual((data["password"], data["token"], data["detail"]), ("[MASKED]", "[MASKED]", "ok"))
+
+    def test_raw_log_ansi_split_secret_is_masked_on_write_and_read(self):
+        log = "x tk_abc\x1b[0mdefghijklmnopqrstuvwx y\x07\x00"
+        rep = report.build_report("20261030T2100Z-diabolo", "diabolo", "", "s", "e", [])
+        run = report.write_run(self.st, rep, {"alpha": {"json": {}, "log": log}}, [])
+        written = (run / "raw" / "alpha.log").read_text()
+        self.assertNotIn("\x1b", written)
+        self.assertNotIn("defghij", written)
+        (run / "raw" / "alpha.log").write_text(log)
+        out = report.host_logs(self.st, "alpha", "20261030T2100Z-diabolo")
+        self.assertNotIn("\x1b", out)
+        self.assertNotIn("defghij", out)
+        self.assertIn("[MASKED]", out)
+
+    def test_raw_log_is_bounded(self):
+        rep = report.build_report("20261030T2100Z-diabolo", "diabolo", "", "s", "e", [])
+        run = report.write_run(self.st, rep, {"alpha": {"json": {}, "log": "a" * (report.MAX_RAW_LOG * 3)}}, [])
+        self.assertLessEqual(len((run / "raw" / "alpha.log").read_bytes()), report.MAX_RAW_LOG + 1)
+        (run / "raw" / "alpha.log").write_text("b" * (report.MAX_RAW_LOG * 3))
+        self.assertLessEqual(len(report.host_logs(self.st, "alpha", "20261030T2100Z-diabolo")),
+                             report.MAX_RAW_LOG)
+
+    def test_redos_inputs_are_fast(self):
+        import time
+        for text in ("a://b:" * 10000, "BEGIN " * 10000):
+            t0 = time.monotonic()
+            schema.mask_secrets(text)
+            self.assertLess(time.monotonic() - t0, 0.5, msg=text[:12])
+        self.assertNotIn("p/w@x", schema.mask_secrets("postgres://u:p/w@x@db/x"))
+        self.assertNotIn("AAAA", schema.mask_secrets(PEM_TRUNC))
+
+    def test_invalid_header_and_invalid_url_are_permanent(self):
+        import http.client
+        for exc in (ValueError("Invalid header value"), http.client.InvalidURL("bad")):
+            def sender(*a, _e=exc):
+                raise _e
+            n = notify.Notifier("https://ntfy.invalid", "fleet", FAKE_TOKEN, self.qdir, sender=sender)
+            self.assertFalse(n.send(notify.message("t", 2, [], "b")))
+            self.assertEqual(n.pending(), [], msg=repr(exc))
+        self.assertEqual(len(list(self.qdir.glob("*.bad"))), 2)
+
+    def test_newline_in_title_with_real_sender_is_quarantined(self):
+        import http.server
+
+        class H(http.server.BaseHTTPRequestHandler):
+            def do_POST(self):
+                self.send_response(200)
+                self.end_headers()
+
+            def log_message(self, *a):
+                pass
+
+        port = self._serve(H)
+        n = notify.Notifier("http://127.0.0.1:%d" % port, "fleet", None, self.qdir)
+        self.assertFalse(n.send({"title": "a\nb", "priority": 3, "tags": [], "body": "x"}))
+        self.assertEqual(n.pending(), [])
+        self.assertEqual(len(list(self.qdir.glob("*.bad"))), 1)
+
+    def test_valid_message_rejects_infinite_priority(self):
+        self.assertFalse(notify.valid_message({"title": "t", "body": "b", "priority": float("inf")}))
+        self.assertFalse(notify.valid_message({"title": "t", "body": "b", "priority": float("nan")}))
+        self.assertTrue(notify.valid_message({"title": "t", "body": "b", "priority": 3}))
+
+    def test_infinity_priority_in_queue_file_is_quarantined(self):
+        self.qdir.mkdir(parents=True)
+        (self.qdir / "0001.json").write_text('{"title": "t", "body": "b", "priority": Infinity}')
+        n = notify.Notifier("https://ntfy.invalid", "fleet", FAKE_TOKEN, self.qdir, sender=lambda *a: None)
+        self.assertEqual(n.flush(), 0)
+        self.assertEqual(len(list(self.qdir.glob("*.bad"))), 1)
+
+    def test_host_status_line_keeps_status_when_host_looks_secret(self):
+        msg = notify.summary_message("diabolo", [
+            {"host": "secret-nas", "status": "failed", "reason": "token=abc123"},
+            {"host": "token-box", "status": "updated"}])
+        self.assertIn("secret-nas: failed", msg["body"])
+        self.assertIn("token-box: updated", msg["body"])
+        self.assertNotIn("abc123", msg["body"])
+
+        def down(*a):
+            raise OSError("down")
+        n = notify.Notifier("https://ntfy.invalid", "fleet", None, self.qdir, sender=down)
+        n.send(msg)
+        queued = json.loads(n.pending()[0].read_text())
+        self.assertIn("secret-nas: failed", queued["body"])
+        self.assertNotIn("abc123", queued["body"])
+        self.assertNotIn(FAKE_TOKEN, notify.message("t", 2, [], "x " + FAKE_TOKEN)["body"])
+
+    def test_rendered_report_masks_per_field_and_cell_ending_in_token_keeps_pipe(self):
+        e = [{"host": "alpha", "status": "failed", "reason": "boom token:"},
+             {"host": "beta", "status": "failed", "reason": "password=hunter2 " + FAKE_TOKEN}]
+        rep = report.build_report("20261030T2100Z-diabolo", "diabolo", "all", "s", "e", e)
+        md = report.render_markdown(rep)
+        row = [ln for ln in md.splitlines() if ln.startswith("| alpha")][0]
+        self.assertTrue(row.endswith("boom token: |"), row)
+        for text in (md, report.render_terminal(rep)):
+            self.assertNotIn("hunter2", text)
+            self.assertNotIn(FAKE_TOKEN, text)
+        rep["hosts"][0]["reason"] = "api_key=zzz"
+        rep["hosts"][0]["last_seen"] = "token=qqq"
+        out = report.render_markdown(rep) + report.render_terminal(rep)
+        self.assertNotIn("zzz", out)
+        self.assertNotIn("qqq", out)
+
+    def test_parse_agent_output_never_raises(self):
+        orig = schema._build
+        self.addCleanup(setattr, schema, "_build", orig)
+
+        def boom(*a):
+            raise RuntimeError("x")
+
+        schema._build = boom
+        ent, why = schema.parse_agent_output(line(agent()), "alpha", "update")
+        self.assertIsNone(ent)
+        self.assertIn("invalid agent output", why)
+
+    def test_soft_hyphen_and_tag_chars_cannot_split_a_keyword(self):
+        for sep in ("\u00ad", "\u061c", "\u180e", "\ufe0f", "\U000e0041"):
+            out = schema.clean_text("pass%sword=hunter2" % sep)
+            self.assertNotIn("hunter2", out, msg=repr(sep))
+
+    def test_concurrent_flushes_send_each_message_once(self):
+        import threading
+        import time
+        for round_no in range(20):
+            qdir = Path(self._tmp.name) / ("race%d" % round_no)
+            sent = []
+            lock = threading.Lock()
+
+            def sender(url, topic, headers, body):
+                time.sleep(0.002)
+                with lock:
+                    sent.append(body)
+
+            def down(*a):
+                raise OSError("down")
+
+            seed = notify.Notifier("https://ntfy.invalid", "fleet", None, qdir, sender=down)
+            for i in range(5):
+                seed.send(notify.message("t%d" % i, 2, [], "m%d" % i))
+            self.assertEqual(len(seed.pending()), 5)
+            errors = []
+
+            def run(n):
+                try:
+                    n.flush()
+                except Exception as exc:  # noqa: BLE001
+                    errors.append(exc)
+
+            threads = [threading.Thread(target=run, args=(
+                notify.Notifier("https://ntfy.invalid", "fleet", None, qdir, sender=sender),))
+                for _ in range(2)]
+            for t in threads:
+                t.start()
+            for t in threads:
+                t.join()
+            self.assertEqual(errors, [])
+            self.assertEqual(sorted(sent), ["m0", "m1", "m2", "m3", "m4"], msg="round %d" % round_no)
+
+
 if __name__ == "__main__":
     unittest.main()
