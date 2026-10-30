@@ -27,14 +27,29 @@
 # commands. This file never takes free-form arguments.
 #
 # Test hooks: FLEET_AGENT_* environment variables (state dir, lock dir, sysup
-# path, etc dir, ...) override defaults. sshd with `restrict` and no
-# PermitUserEnvironment gives the SSH client no way to set them.
+# path, etc dir, ...) override defaults, but ONLY when FLEET_AGENT_TEST=1. In the
+# forced-command path (SSH_ORIGINAL_COMMAND or SSH_CONNECTION set) without that
+# flag they are all unset at startup, so an inherited variable can never swap an
+# executed binary or a decision input (defence in depth: sshd with `restrict`
+# and no PermitUserEnvironment already gives the client no way to set them).
 #
 # Must run on stock macOS bash 3.2: no associative arrays, no mapfile, no
 # ${var,,}, empty arrays guarded.
 
 set -u
 umask 077
+
+# Production hardening: drop every FLEET_AGENT_* override in an SSH context
+# unless the explicit test flag is on. FLEET_AGENT_JOB_ID is kept here so main()
+# can refuse it explicitly (and log it) instead of silently ignoring it.
+if [ "${FLEET_AGENT_TEST:-}" != 1 ] && [ -n "${SSH_ORIGINAL_COMMAND+x}${SSH_CONNECTION+x}" ]; then
+  for _fa_var in $(env | sed -n 's/^\(FLEET_AGENT_[A-Za-z0-9_]*\)=.*/\1/p'); do
+    [ "$_fa_var" = FLEET_AGENT_JOB_ID ] || unset "$_fa_var"
+  done
+  unset _fa_var
+fi
+CLIENT_IP="${SSH_CONNECTION:-none}"
+CLIENT_IP="${CLIENT_IP%% *}"
 
 # Appended (never prepended): a detached/minimal environment still finds tools.
 PATH="${PATH:-/usr/bin:/bin}:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:${HOME:-/nonexistent}/.local/bin:/home/linuxbrew/.linuxbrew/bin:/opt/homebrew/bin"
@@ -65,7 +80,7 @@ TAB="$(printf '\t')"
 
 # Environment variables handed to the detached job (systemd --user units do not
 # inherit the caller's environment).
-PASSTHROUGH_VARS="PATH FLEET_AGENT_STATE_DIR FLEET_AGENT_LOCK_DIR FLEET_AGENT_SYSUP FLEET_AGENT_ETC_DIR FLEET_AGENT_CRITICAL_FILE FLEET_AGENT_REBOOT_FLAG FLEET_AGENT_MODULES_DIR FLEET_AGENT_POWER_DIR FLEET_AGENT_OS_RELEASE FLEET_AGENT_HOST FLEET_AGENT_PKGMGR FLEET_AGENT_KERNEL FLEET_AGENT_LOG_FILE FLEET_AGENT_REBOOT_DELAY"
+PASSTHROUGH_VARS="PATH FLEET_AGENT_STATE_DIR FLEET_AGENT_LOCK_DIR FLEET_AGENT_SYSUP FLEET_AGENT_ETC_DIR FLEET_AGENT_CRITICAL_FILE FLEET_AGENT_REBOOT_FLAG FLEET_AGENT_MODULES_DIR FLEET_AGENT_POWER_DIR FLEET_AGENT_OS_RELEASE FLEET_AGENT_HOST FLEET_AGENT_PKGMGR FLEET_AGENT_KERNEL FLEET_AGENT_LOG_FILE FLEET_AGENT_REBOOT_DELAY FLEET_AGENT_TEST"
 
 # ---------------------------------------------------------------- utilities
 
@@ -131,17 +146,35 @@ list_json() {
 }
 
 # mask_secrets: stdin -> stdout, ANSI stripped and secrets masked (log_tail).
+# 1. awk state machine: a whole PEM private key block (BEGIN..END, any number of
+#    lines) collapses to one marker; an END without BEGIN (tail cut the block)
+#    masks the marker and long base64-only lines.
+# 2. sed: token / JWT / AWS key id / URL credentials.
+# 3. awk: whole lines carrying a password-like assignment or flag.
 mask_secrets() {
   local esc
   esc="$(printf '\033')"
   sed -E "s/${esc}\\[[0-9;?]*[A-Za-z]//g" \
+    | awk '
+        /-----BEGIN [A-Z ]*PRIVATE KEY-----/ {
+          print "[MASKED PRIVATE KEY]"
+          if ($0 !~ /-----END [A-Z ]*PRIVATE KEY-----/) inkey = 1
+          next
+        }
+        inkey { if ($0 ~ /-----END [A-Z ]*PRIVATE KEY-----/) inkey = 0; next }
+        /-----END [A-Z ]*PRIVATE KEY-----/ { print "[MASKED PRIVATE KEY]"; next }
+        /^[A-Za-z0-9+\/=]{40,}$/ { print "[MASKED]"; next }
+        { print }
+      ' \
     | sed -E \
-        -e 's/-----BEGIN [A-Z ]*PRIVATE KEY-----.*/[MASKED PRIVATE KEY]/' \
         -e 's/tk_[A-Za-z0-9]{20,}/[MASKED]/g' \
         -e 's/eyJ[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_.-]*/[MASKED]/g' \
+        -e 's/AKIA[0-9A-Z]{16}/[MASKED]/g' \
+        -e 's#([A-Za-z][A-Za-z0-9+.-]*://[^/:@ ]+):[^@/ ]+@#\1:[MASKED]@#g' \
     | awk '{
         l = tolower($0)
         if (l ~ /(password|passwd|passphrase|token|secret|api[_-]?key|authorization|credential)[a-z_]*[ ]*[=:]/) print "[MASKED LINE]"
+        else if (l ~ /--?(password|passwd|passphrase|token|secret)[ =]+[^ ]/) print "[MASKED LINE]"
         else print $0
       }'
 }
@@ -208,7 +241,7 @@ finish() { # finish <verb>: print and exit with the status-derived code
 # ---------------------------------------------------------------- refusal
 
 refuse() { # refuse <what>
-  log auth.warning "REFUSED: $1 client=${SSH_CONNECTION%% *}"
+  log auth.warning "REFUSED: $1 client=${CLIENT_IP}"
   echo "fleet-agent: refused" >&2
   exit 1
 }
@@ -219,38 +252,55 @@ refuse() { # refuse <what>
 # job (handoff marker) and released by it.
 LOCK_OWNED=0
 
-lock_holder_alive() {
-  local pid
-  [ -d "$LOCKDIR" ] || return 1
-  pid="$(cat "$LOCKDIR/pid" 2>/dev/null)"
+# lock_dir_alive <dir>: is the holder of that lock directory still live?
+lock_dir_alive() {
+  local dir="$1" pid
+  [ -d "$dir" ] || return 1
+  pid="$(cat "$dir/pid" 2>/dev/null)"
   if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then return 0; fi
   # Parent exited, job not started yet: a fresh handoff still holds the lock.
-  if [ -f "$LOCKDIR/handoff" ] && [ -z "$(find "$LOCKDIR/handoff" -mmin +2 2>/dev/null)" ]; then return 0; fi
+  if [ -f "$dir/handoff" ] && [ -z "$(find "$dir/handoff" -mmin +2 2>/dev/null)" ]; then return 0; fi
   # Lock dir just created, pid not written yet.
-  if [ -z "$pid" ] && [ -z "$(find "$LOCKDIR" -maxdepth 0 -mmin +2 2>/dev/null)" ]; then return 0; fi
+  if [ -z "$pid" ] && [ -z "$(find "$dir" -maxdepth 0 -mmin +2 2>/dev/null)" ]; then return 0; fi
   return 1
 }
 
+lock_holder_alive() { lock_dir_alive "$LOCKDIR"; }
+
+lock_claim() {
+  printf '%s\n' "$$" >"$LOCKDIR/pid"
+  LOCK_OWNED=1
+}
+
+# lock_acquire: atomic mkdir; a stale lock is taken over by atomically moving it
+# aside (rename(2): exactly one concurrent caller succeeds), then mkdir, then
+# deleting the moved copy. If the moved directory turns out to be live (another
+# caller completed its own takeover between our staleness check and our mv), it
+# is put back and we report busy. run_job additionally verifies ownership.
 lock_acquire() {
+  local stale
   mkdir -p "$LOCK_BASE" 2>/dev/null
-  if mkdir "$LOCKDIR" 2>/dev/null; then
-    printf '%s\n' "$$" >"$LOCKDIR/pid"
-    LOCK_OWNED=1
-    return 0
-  fi
+  if mkdir "$LOCKDIR" 2>/dev/null; then lock_claim; return 0; fi
   lock_holder_alive && return 1
-  rm -rf "$LOCKDIR"
+  stale="$LOCKDIR.stale.$$"
+  mv "$LOCKDIR" "$stale" 2>/dev/null || return 1
+  if lock_dir_alive "$stale"; then
+    mv "$stale" "$LOCKDIR" 2>/dev/null || rm -rf "$stale"
+    return 1
+  fi
   if mkdir "$LOCKDIR" 2>/dev/null; then
-    printf '%s\n' "$$" >"$LOCKDIR/pid"
-    LOCK_OWNED=1
+    rm -rf "$stale"
+    lock_claim
     return 0
   fi
+  rm -rf "$stale"
   return 1
 }
 
+# lock_release: only remove a lock that still carries our pid.
 lock_release() {
   if [ "$LOCK_OWNED" = 1 ]; then
-    rm -rf "$LOCKDIR"
+    if [ "$(cat "$LOCKDIR/pid" 2>/dev/null)" = "$$" ]; then rm -rf "$LOCKDIR"; fi
     LOCK_OWNED=0
   fi
 }
@@ -392,23 +442,46 @@ pkg_manager() {
   fi
 }
 
-# pending_count: packages with an update available (empty when unknown).
+# pending_count: prints the number of packages with an update available.
+# Return codes: 0 ok, 1 the check itself failed (do NOT treat as up-to-date),
+# 3 no package manager (unsupported).
 pending_count() {
+  local out rc
   case "$(pkg_manager)" in
     dnf)
-      dnf -q check-update 2>/dev/null \
-        | awk '/^Obsoleting/ { exit } NF == 3 && $1 ~ /\./ { n++ } END { print n + 0 }' ;;
+      out="$(dnf -q check-update 2>/dev/null)"; rc=$?
+      case "$rc" in
+        0|100) printf '%s\n' "$out" \
+                 | awk '/^Obsoleting/ { exit } NF == 3 && $1 ~ /\./ { n++ } END { print n + 0 }' ;;
+        *) return 1 ;;
+      esac ;;
     apt)
-      apt-get -s -o Debug::NoLocking=1 dist-upgrade 2>/dev/null | grep -c '^Inst ' ;;
+      out="$(apt-get -s -o Debug::NoLocking=1 dist-upgrade 2>/dev/null)"; rc=$?
+      [ "$rc" = 0 ] || return 1
+      printf '%s\n' "$out" | grep -c '^Inst ' || true ;;
     pacman)
       if command -v checkupdates >/dev/null 2>&1; then
-        checkupdates 2>/dev/null | grep -c .
+        out="$(checkupdates 2>/dev/null)"; rc=$?
+        # checkupdates: 0 updates available, 2 none, 1 error.
+        case "$rc" in
+          0) printf '%s\n' "$out" | grep -c . || true ;;
+          2) printf '0\n' ;;
+          *) return 1 ;;
+        esac
       else
-        pacman -Qu 2>/dev/null | grep -c .
+        out="$(pacman -Qu 2>/dev/null)"; rc=$?
+        # pacman -Qu: 0 updates, 1 none or error (stdout empty either way).
+        case "$rc" in
+          0) printf '%s\n' "$out" | grep -c . || true ;;
+          1) printf '0\n' ;;
+          *) return 1 ;;
+        esac
       fi ;;
     brew)
-      brew outdated -q 2>/dev/null | grep -c . ;;
-    *) ;;
+      out="$(brew outdated -q 2>/dev/null)"; rc=$?
+      [ "$rc" = 0 ] || return 1
+      printf '%s\n' "$out" | grep -c . || true ;;
+    *) return 3 ;;
   esac
 }
 
@@ -492,7 +565,7 @@ refresh_reboot_fields() {
 # ---------------------------------------------------------------- verbs
 
 verb_check() {
-  local hdir pending
+  local hdir pending prc
   reset_fields
   V_job=""
   if lock_holder_alive; then
@@ -511,9 +584,12 @@ verb_check() {
   rm -f "$STATE_DIR/.conflicts.$$"
   refresh_reboot_fields
   if [ "$V_status" != running ]; then
-    pending="$(pending_count)"
-    if [ -z "$pending" ]; then
+    pending="$(pending_count)"; prc=$?
+    if [ "$prc" = 3 ]; then
       V_status="unsupported"; V_reason="no_package_manager"
+    elif [ "$prc" != 0 ] || ! printf '%s' "$pending" | grep -Eq '^[0-9]+$'; then
+      # The check itself broke (repo error, lock, network): never "up-to-date".
+      V_status="failed"; V_reason="check_failed"; V_packages="null"
     else
       V_packages="$pending"
       if [ "$pending" -eq 0 ]; then
@@ -581,12 +657,13 @@ launch_detached() { # launch_detached <job> <jobdir>
     for var in $PASSTHROUGH_VARS; do
       if [ -n "${!var+x}" ]; then sargs+=("--setenv=$var=${!var}"); fi
     done
-    systemd-run --user --quiet --collect --unit="fleet-update-$job" \
+    env -u SSH_CONNECTION -u SSH_ORIGINAL_COMMAND \
+      systemd-run --user --quiet --collect --unit="fleet-update-$job" \
       --setenv="FLEET_AGENT_JOB_ID=$job" ${sargs[@]+"${sargs[@]}"} \
       -- bash "$AGENT_PATH" >"$jobdir/launcher.log" 2>&1
     return $?
   fi
-  FLEET_AGENT_JOB_ID="$job" nohup bash "$AGENT_PATH" >"$jobdir/launcher.log" 2>&1 </dev/null &
+  env -u SSH_CONNECTION -u SSH_ORIGINAL_COMMAND FLEET_AGENT_JOB_ID="$job" nohup bash "$AGENT_PATH" >"$jobdir/launcher.log" 2>&1 </dev/null &
   return 0
 }
 
@@ -623,7 +700,9 @@ verb_update() {
     write_state "$jobdir"
     finish update
   fi
-  # The detached job now owns the lock; do not release it on exit.
+  # The detached job now owns the lock; do not release it on exit. The lock
+  # names the job so the job can verify it still owns it (lock_lost otherwise).
+  printf '%s\n' "$job" >"$LOCKDIR/job"
   : >"$LOCKDIR/handoff"
   LOCK_OWNED=0
   trap - EXIT
@@ -640,10 +719,17 @@ run_job() {
   reset_fields
   V_job="$job"
   V_started="$(cat "$jobdir/started" 2>/dev/null || now)"
-  if [ -d "$LOCKDIR" ]; then
+  # Ownership check: the lock must be the one verb_update handed to THIS job. If
+  # a stale-lock takeover replaced it, abort without touching the other lock.
+  if [ -d "$LOCKDIR" ] && [ "$(cat "$LOCKDIR/job" 2>/dev/null)" = "$job" ]; then
     printf '%s\n' "$$" >"$LOCKDIR/pid"
     rm -f "$LOCKDIR/handoff"
     LOCK_OWNED=1
+  else
+    V_status="failed"; V_reason="lock_lost"; V_ended="$(now)"
+    write_state "$jobdir"
+    log auth.warning "update job $job aborted: lock_lost"
+    exit 2
   fi
   trap lock_release EXIT
   V_health_before="$(health_json "$jobdir/hb")"
@@ -729,6 +815,11 @@ main() {
   # Internal entry of the detached job (see launch_detached); not reachable from
   # SSH_ORIGINAL_COMMAND.
   if [ -n "${FLEET_AGENT_JOB_ID:-}" ]; then
+    # launch_detached clears SSH_CONNECTION / SSH_ORIGINAL_COMMAND for the job, so
+    # seeing either here means the call came through sshd: refuse.
+    if [ -n "${SSH_CONNECTION+x}${SSH_ORIGINAL_COMMAND+x}" ]; then
+      refuse "internal job entry reached through ssh"
+    fi
     run_job
   fi
 
@@ -741,7 +832,7 @@ main() {
     "") refuse "no command (interactive shell attempt)" ;;
     *) refuse "verb not allowed: $verb" ;;
   esac
-  log auth.notice "call verb=$verb client=${SSH_CONNECTION%% *}"
+  log auth.notice "call verb=$verb client=${CLIENT_IP}"
 
   mkdir -p "$STATE_DIR" 2>/dev/null || true
 

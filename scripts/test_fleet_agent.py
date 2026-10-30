@@ -58,6 +58,7 @@ STUBS = {
     "dnf": (
         'echo "dnf $*" >> "$STUB_DIR/calls.log"\n'
         'if [ "$2" = check-update ]; then\n'
+        '  [ -n "${STUB_DNF_RC:-}" ] && { echo "dnf: error" >&2; exit "$STUB_DNF_RC"; }\n'
         '  i=0; while [ "$i" -lt "${STUB_DNF_PENDING:-0}" ]; do echo "pkg$i.x86_64 1.$i-1 updates"; i=$((i+1)); done\n'
         '  [ "${STUB_DNF_PENDING:-0}" -gt 0 ] && exit 100\nfi\nexit 0\n'
     ),
@@ -150,6 +151,7 @@ class Sandbox:
             "FLEET_AGENT_PKGMGR": "dnf",
             "FLEET_AGENT_REBOOT_DELAY": "0",
             "SSH_CONNECTION": "100.64.0.9 50000 100.64.0.1 22",
+            "FLEET_AGENT_TEST": "1",
         }
         self.env.pop("SSH_ORIGINAL_COMMAND", None)
 
@@ -249,6 +251,47 @@ class Whitelist(AgentCase):
         # The job runner is selected by environment, never by the command text.
         self.assert_refused("run-job")
 
+    def test_job_entry_refused_when_reached_through_ssh(self):
+        # FLEET_AGENT_JOB_ID selects the internal runner; with an SSH context
+        # (SSH_CONNECTION / SSH_ORIGINAL_COMMAND) it must be refused, even with
+        # the test flag, and run nothing.
+        job = "20260101T000000Z-1"
+        (self.sb.state / "jobs" / job).mkdir(parents=True)
+        for cmd in (None, "check"):
+            with self.subTest(cmd=cmd):
+                proc = self.sb.run(cmd, {"FLEET_AGENT_JOB_ID": job})
+                self.assertEqual(proc.returncode, 1, (proc.stdout, proc.stderr))
+                self.assertEqual(proc.stdout, "")
+                self.assertFalse((self.sb.stub_dir / "sysup.started").exists())
+
+    def test_overrides_ignored_in_production_forced_command_path(self):
+        # No FLEET_AGENT_TEST: sshd context. FLEET_AGENT_SYSUP / STATE_DIR etc.
+        # must be ignored so an inherited variable can never swap the binary.
+        evil = self.sb.root / "evil-sysup"
+        marker = self.sb.root / "evil.ran"
+        Sandbox._script(evil, f"#!/usr/bin/env bash\ntouch {marker}\n")
+        evil_state = self.sb.root / "evil-state"
+        env = {"FLEET_AGENT_TEST": "", "FLEET_AGENT_SYSUP": str(evil),
+               "FLEET_AGENT_STATE_DIR": str(evil_state),
+               "FLEET_AGENT_LOCK_DIR": str(self.sb.root / "evil-lock")}
+        proc = self.sb.run("update", env)
+        self.assertIn(proc.returncode, (0, 2, 3), proc.stderr)
+        real_state = self.sb.home / ".local/state/fleet-agent"
+        for _ in range(100):
+            if not (real_state / "update.lock").exists():
+                break
+            time.sleep(0.1)
+        self.assertFalse(marker.exists(), "overridden SYSUP binary was executed")
+        self.assertFalse(evil_state.exists(), "overridden state dir was honoured")
+        self.assertFalse((self.sb.root / "evil-lock").exists())
+        self.assertTrue(real_state.exists(), "default state dir is used instead")
+
+    def test_overrides_still_honoured_with_test_flag(self):
+        proc = self.sb.run("update", {"FLEET_AGENT_TEST": "1"})
+        self.assertEqual(self.sb.json_of(proc)["status"], "started")
+        self.sb.wait_final()
+        self.assertTrue((self.sb.stub_dir / "sysup.started").exists())
+
     def test_every_verb_is_accepted(self):
         for verb in ("check", "reboot-status", "report"):
             proc = self.sb.run(verb)
@@ -308,6 +351,31 @@ class SchemaV1(AgentCase):
         self.assertEqual(data["status"], "skipped")
         self.assertEqual(data["reason"], "updates_pending")
         self.assertFalse((self.sb.stub_dir / "sysup.started").exists(), "check must be read-only")
+
+    def test_check_failure_is_not_up_to_date_dnf(self):
+        proc = self.sb.run("check", {"STUB_DNF_RC": "1"})
+        data = self.sb.json_of(proc)
+        self.assert_v1(data, "check")
+        self.assertEqual((data["status"], data["reason"], data["packages"]), ("failed", "check_failed", None))
+        self.assertEqual(proc.returncode, 2)
+
+    def test_check_failure_is_not_up_to_date_apt(self):
+        self.sb._script(self.sb.bin / "apt-get", "#!/usr/bin/env bash\necho 'E: broken' >&2\nexit 100\n")
+        data = self.sb.json_of(self.sb.run("check", {"FLEET_AGENT_PKGMGR": "apt"}))
+        self.assertEqual((data["status"], data["reason"], data["packages"]), ("failed", "check_failed", None))
+
+    def test_check_failure_is_not_up_to_date_pacman(self):
+        self.sb._script(self.sb.bin / "checkupdates", "#!/usr/bin/env bash\necho 'cannot sync' >&2\nexit 1\n")
+        data = self.sb.json_of(self.sb.run("check", {"FLEET_AGENT_PKGMGR": "pacman"}))
+        self.assertEqual((data["status"], data["reason"], data["packages"]), ("failed", "check_failed", None))
+
+    def test_check_healthy_apt_and_pacman_still_work(self):
+        self.sb._script(self.sb.bin / "apt-get", "#!/usr/bin/env bash\necho 'Inst a [1] (2 x)'\necho 'Inst b [1] (2 x)'\nexit 0\n")
+        data = self.sb.json_of(self.sb.run("check", {"FLEET_AGENT_PKGMGR": "apt"}))
+        self.assertEqual((data["status"], data["packages"]), ("skipped", 2))
+        self.sb._script(self.sb.bin / "checkupdates", "#!/usr/bin/env bash\nexit 2\n")  # 2 = no updates
+        data = self.sb.json_of(self.sb.run("check", {"FLEET_AGENT_PKGMGR": "pacman"}))
+        self.assertEqual((data["status"], data["packages"]), ("up-to-date", 0))
 
     def test_check_without_package_manager_is_unsupported(self):
         data = self.sb.json_of(self.sb.run("check", {"FLEET_AGENT_PKGMGR": "none"}))
@@ -430,6 +498,45 @@ class LockAndDetach(AgentCase):
         proc = self.sb.run("update")
         self.assertEqual(self.sb.json_of(proc)["status"], "started")
         self.sb.wait_final()
+
+    def test_concurrent_stale_lock_takeover_has_a_single_winner(self):
+        lock = self.sb.state / "update.lock"
+        lock.mkdir(parents=True)
+        (lock / "pid").write_text("999999\n")
+        old = time.time() - 3600
+        os.utime(lock, (old, old))
+        env = dict(self.sb.env, SSH_ORIGINAL_COMMAND="update", STUB_SYSUP_SLEEP="2")
+        procs = [
+            subprocess.Popen(["bash", str(AGENT)], env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            for _ in range(6)
+        ]
+        results = [p.communicate(timeout=30) + (p.returncode,) for p in procs]
+        codes = sorted(r[2] for r in results)
+        self.assertEqual(codes, [0, 3, 3, 3, 3, 3], results)
+        self.sb.wait_final()
+        self.assertEqual(self.sb.read("calls.log").count("sysup"), 1)
+        self.assertEqual(list(self.sb.state.glob("update.lock.stale.*")), [], "stale dirs are cleaned up")
+
+    def test_job_aborts_with_lock_lost_when_it_does_not_own_the_lock(self):
+        job = "20260101T000000Z-1"
+        jobdir = self.sb.state / "jobs" / job
+        jobdir.mkdir(parents=True)
+        (jobdir / "started").write_text("2026-01-01T00:00:00Z\n")
+        # Lock taken over by someone else: it names another job.
+        lock = self.sb.state / "update.lock"
+        lock.mkdir()
+        (lock / "pid").write_text(f"{os.getpid()}\n")
+        (lock / "job").write_text("20260101T000000Z-999\n")
+        env = dict(self.sb.env, FLEET_AGENT_JOB_ID=job)
+        env.pop("SSH_CONNECTION", None)
+        env.pop("SSH_ORIGINAL_COMMAND", None)
+        proc = subprocess.run(["bash", str(AGENT)], env=env, capture_output=True, text=True,
+                              timeout=30, stdin=subprocess.DEVNULL)
+        self.assertEqual(proc.returncode, 2, (proc.stdout, proc.stderr))
+        state = json.loads((jobdir / "state.json").read_text())
+        self.assertEqual((state["status"], state["reason"]), ("failed", "lock_lost"))
+        self.assertFalse((self.sb.stub_dir / "sysup.started").exists(), "sysup must not run")
+        self.assertTrue(lock.exists(), "the other owner's lock is left alone")
 
     def test_ssh_killed_during_update_does_not_stop_the_job(self):
         env = dict(self.sb.env, SSH_ORIGINAL_COMMAND="update", STUB_SYSUP_SLEEP="2",
@@ -630,6 +737,27 @@ class HealthAndConflicts(AgentCase):
             self.assertNotIn(leaked, tail)
         self.assertIn("[MASKED", tail)
         self.assertNotRegex(json.dumps(final), r"BEGIN [A-Z ]*PRIVATE KEY|tk_[A-Za-z0-9]{20,}|eyJ[A-Za-z0-9_-]{20,}\.")
+
+
+    def test_multiline_private_key_block_is_fully_masked(self):
+        begin = "-----" + "BEGIN OPENSSH PRIV" + "ATE KEY-----"
+        end = "-----" + "END OPENSSH PRIV" + "ATE KEY-----"
+        body = ["b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtzc2gtZW",
+                "QyNTUxOQAAACDfakefakefakefakefakefakefakefakefakefakeAAAAAA==",
+                "short+body"]
+        pw1 = "--pass" + "word hunter2xyz"
+        pw2 = "db pass" + "word=s3cretvalue"
+        url = "https://deploy:" + "s3cr3tpw" + "@git.example.com/repo.git"
+        aws = "AKI" + "AIOSFODNN7EXAMPLE"
+        out = "\\n".join(["before", begin, *body, end, "after", pw1, pw2, "clone " + url, "id " + aws])
+        self.sb.run("update", {"STUB_SYSUP_OUTPUT": out})
+        _, final = self.sb.wait_final()
+        tail = final["log_tail"]
+        for leaked in (*body, "BEGIN OPENSSH", "END OPENSSH", "hunter2xyz", "s3cretvalue", "s3cr3tpw", aws):
+            self.assertNotIn(leaked, tail)
+        self.assertIn("before", tail)
+        self.assertIn("after", tail)
+        self.assertIn("git.example.com", tail, "only the credential is masked, not the host")
 
 
 class RebootVerbs(AgentCase):
