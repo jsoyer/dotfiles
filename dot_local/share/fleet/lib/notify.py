@@ -20,6 +20,7 @@ touch a network).
 """
 
 import base64
+import contextlib
 import http.client
 import json
 import os
@@ -30,7 +31,12 @@ import urllib.parse
 import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
+from typing import Any, Callable, Dict, Iterator, List, Optional, Sequence, Tuple
+
+try:
+    import fcntl
+except ImportError:  # pragma: no cover (non-POSIX: in-process lock only)
+    fcntl = None  # type: ignore
 
 import report
 import schema
@@ -44,7 +50,9 @@ LOOPBACK = ("localhost", "127.0.0.1", "::1")
 
 
 def message(title: str, priority: int, tags: List[str], body: str) -> Dict[str, Any]:
-    lines = schema.mask_secrets(body).splitlines()[:MAX_BODY_LINES]
+    # Free-text fields are masked individually by the builders; the strong-pattern pass here
+    # skips key=value so a host named "secret-nas" keeps its "failed" status.
+    lines = schema.mask_secrets(body, keyval=False).splitlines()[:MAX_BODY_LINES]
     return {
         "title": schema.clean_text(title, 200), "priority": int(priority),
         "tags": list(tags), "body": "\n".join(lines),
@@ -119,11 +127,21 @@ def encode_header(value: str) -> str:
         return "=?UTF-8?B?%s?=" % base64.b64encode(value.encode("utf-8")).decode("ascii")
 
 
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    """Never follow a redirect: the Authorization header must not leave the configured URL."""
+
+    def redirect_request(self, *args: Any, **kwargs: Any) -> None:
+        return None
+
+
+_OPENER = urllib.request.build_opener(_NoRedirect)
+
+
 def http_sender(url: str, topic: str, headers: Dict[str, str], body: str) -> None:
     req = urllib.request.Request(
         url.rstrip("/") + "/" + topic, data=body.encode("utf-8"),
         headers={k: encode_header(v) for k, v in headers.items()}, method="POST")
-    with urllib.request.urlopen(req, timeout=10) as resp:  # noqa: S310 (https URL from fleet.yml)
+    with _OPENER.open(req, timeout=10) as resp:  # noqa: S310 (URL from fleet.yml, no redirects)
         resp.read(1024)
 
 
@@ -162,8 +180,13 @@ def check_url(url: str, token: Optional[str]) -> None:
 def classify_failure(exc: BaseException) -> str:
     """'bad' (permanent for this message) or 'retry' (try again later)."""
     if isinstance(exc, urllib.error.HTTPError):
+        if 300 <= exc.code < 400:     # redirects are refused: a misconfigured URL never heals
+            return "bad"
         if 400 <= exc.code < 500 and exc.code not in TRANSIENT_HTTP:
             return "bad"
+        return "retry"
+    if isinstance(exc, (ValueError, http.client.InvalidURL)):   # invalid header value or URL
+        return "bad"
     return "retry"
 
 
@@ -174,7 +197,7 @@ def valid_message(msg: Any) -> bool:
         return False
     try:
         int(msg.get("priority", 3))
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError):
         return False
     tags = msg.get("tags", [])
     return isinstance(tags, list) and all(isinstance(t, str) for t in tags)
@@ -221,8 +244,8 @@ class Notifier:
         stamp = self.clock().strftime("%Y%m%dT%H%M%S%f")
         record = dict(msg)
         record["created"] = fstate.iso(self.clock())
-        for key in ("title", "body"):
-            record[key] = schema.mask_secrets(str(record[key]))
+        record["title"] = schema.mask_secrets(str(record["title"]))
+        record["body"] = schema.mask_secrets(str(record["body"]), keyval=False)
         fstate.make_private_dir(self.queue_dir)
         fstate.write_private(self.queue_dir / ("%s-%06d%s" % (stamp, self._counter, suffix)),
                              json.dumps(record, sort_keys=True) + "\n")
@@ -235,9 +258,22 @@ class Notifier:
 
     def flush(self) -> int:
         """Resend queued messages in order; stop at the first transient failure. Returns sent count."""
-        sent = 0
-        with self._lock:
-            return self._flush_locked(sent)
+        with self._lock, self._queue_lock():
+            return self._flush_locked(0)
+
+    @contextlib.contextmanager
+    def _queue_lock(self) -> Iterator[None]:
+        """Cross-process exclusion (flock) so two fleet processes never resend the same message."""
+        if fcntl is None:
+            yield
+            return
+        fstate.make_private_dir(self.queue_dir)
+        fd = os.open(str(self.queue_dir / ".lock"), os.O_RDWR | os.O_CREAT, 0o600)
+        try:
+            fcntl.flock(fd, fcntl.LOCK_EX)
+            yield
+        finally:
+            os.close(fd)   # closing releases the lock
 
     def _flush_locked(self, sent: int) -> int:
         for path in self.pending():
@@ -253,14 +289,15 @@ class Notifier:
                 break
             if verdict == "ok":
                 sent += 1
-                path.unlink()
+                with contextlib.suppress(FileNotFoundError):
+                    path.unlink()
             else:
                 self._quarantine(path)
         return sent
 
     def send(self, msg: Dict[str, Any]) -> bool:
         """Deliver now (after the backlog) or queue. True if delivered immediately."""
-        with self._lock:
+        with self._lock, self._queue_lock():
             self._flush_locked(0)
             if self.pending():
                 self._enqueue(msg)
