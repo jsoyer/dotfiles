@@ -94,5 +94,28 @@ class SelectorTest(unittest.TestCase):
         self.assertEqual(selector.EXIT_EMPTY, 2)
 
 
+class SelectorReviewTest(unittest.TestCase):
+    def test_unknown_or_empty_tag_in_a_union_is_an_error_not_silently_ignored(self):
+        d = data()
+        for bad in (["alpha,tag:infrra"], ["tag:infra,tag:"], ["tag:"], ["alpha,!tag:nope"], ["alpha", "tag:typo"]):
+            with self.assertRaises(selector.SelectorError, msg=str(bad)):
+                selector.resolve(d, bad)
+
+    def test_typos_never_widen_to_all_hosts(self):
+        d = data()
+        for bad in (["alpah"], ["site=nic"], ["kind=om"], ["!"], ["!ghost"], ["alpha,!ghost"], ["@"], [" "],
+                    ["site = nice"], ["Site=nice"]):
+            with self.assertRaises(selector.SelectorError, msg=str(bad)):
+                selector.resolve(d, bad)
+
+    def test_exclusion_alone_is_documented_as_an_error(self):
+        self.assertIn("exclusion-only", selector.__doc__)
+        with self.assertRaises(selector.SelectorError):
+            selector.resolve(data(), ["!alpha,!beta"])
+
+    def test_known_tag_in_exclusion_still_works(self):
+        self.assertEqual(selector.resolve(data(), ["kind=omv,!tag:infra"]), ["beta"])
+
+
 if __name__ == "__main__":
     unittest.main()

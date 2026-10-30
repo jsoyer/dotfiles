@@ -58,8 +58,10 @@ def run_capped(
 ) -> Tuple[int, str, str]:
     """Run an argument list (no shell), keep at most out_cap / err_cap bytes of each stream.
 
-    A stream that exceeds its cap kills the whole process group (a flooding host
-    cannot fill memory or disk); so does the timeout. Returns (rc, stdout, stderr).
+    A stdout flood or the timeout kills the whole process group (a flooding host
+    cannot fill memory or disk). Excess stderr is only drained and discarded (the
+    returned text ends with a truncation marker): chatty ssh warnings must not turn
+    a good answer into a failure. Returns (rc, stdout, stderr).
     """
     proc = subprocess.Popen(
         list(argv), stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
@@ -72,15 +74,21 @@ def run_capped(
             pass
 
     store: Dict[str, bytes] = {}
+    truncated: set = set()
 
-    def pump(name: str, stream: Any, cap: int) -> None:
+    def pump(name: str, stream: Any, cap: int, fatal: bool) -> None:
         data = stream.read(cap)
-        if len(data) >= cap and stream.read(1):
-            kill()
         store[name] = data
+        if len(data) >= cap and stream.read(1):
+            if fatal:
+                kill()
+                return
+            truncated.add(name)
+            while stream.read(65536):
+                pass
 
-    threads = [threading.Thread(target=pump, args=("out", proc.stdout, out_cap)),
-               threading.Thread(target=pump, args=("err", proc.stderr, err_cap))]
+    threads = [threading.Thread(target=pump, args=("out", proc.stdout, out_cap, True)),
+               threading.Thread(target=pump, args=("err", proc.stderr, err_cap, False))]
     timer = threading.Timer(timeout, kill)
     timer.start()
     for t in threads:
@@ -90,8 +98,10 @@ def run_capped(
     rc = proc.wait()
     timer.cancel()
     kill()  # reap background children that outlived the shell
-    return (rc, store.get("out", b"").decode("utf-8", "replace"),
-            store.get("err", b"").decode("utf-8", "replace"))
+    proc.stdout.close()
+    proc.stderr.close()
+    err_text = store.get("err", b"").decode("utf-8", "replace") + (" [truncated]" if "err" in truncated else "")
+    return rc, store.get("out", b"").decode("utf-8", "replace"), err_text
 
 
 class SshTransport:
@@ -108,9 +118,14 @@ class SshTransport:
         self.opts = opts
 
     def _target(self, alias: str) -> str:
+        """user@host. Never starts with '-' (would be read as an ssh option): validated here too."""
         host = self.data["hosts"][alias]
-        user = host.get("ssh_user")
-        return "%s@%s" % (user, host["tailnet_name"]) if user else host["tailnet_name"]
+        name, user = host["tailnet_name"], host.get("ssh_user")
+        if not isinstance(name, str) or not inv.SAFE_NAME.fullmatch(name):
+            raise ValueError("unsafe ssh host name")
+        if user is not None and (not isinstance(user, str) or not inv.SAFE_USER.fullmatch(user)):
+            raise ValueError("unsafe ssh user")
+        return "%s@%s" % (user, name) if user else name
 
     def peers(self) -> Optional[Dict[str, Dict[str, Any]]]:
         return inv.read_tailscale()
@@ -119,7 +134,7 @@ class SshTransport:
         """SSH opens within 10 s (authentication deliberately not attempted: no agent call)."""
         argv = [self.ssh] + self.opts + [
             "-o", "PreferredAuthentications=none", "-o", "PubkeyAuthentication=no",
-            "-o", "NumberOfPasswordPrompts=0", self._target(alias), "true"]
+            "-o", "NumberOfPasswordPrompts=0", "--", self._target(alias), "true"]
         try:
             _, out, err = run_capped(argv, 15)
         except OSError:
@@ -129,7 +144,7 @@ class SshTransport:
     def call(self, alias: str, verb: str, timeout: float = CALL_TIMEOUT) -> Tuple[int, str, str]:
         if verb not in schema.VERBS:
             raise ValueError("not an agent verb: %r" % (verb,))
-        argv = [self.ssh] + self.opts + ["-T", self._target(alias), verb]
+        argv = [self.ssh] + self.opts + ["-T", "--", self._target(alias), verb]
         try:
             return run_capped(argv, timeout)
         except OSError as exc:
@@ -164,11 +179,11 @@ class SshTransport:
                 "--include=history-%s.jsonl" % master, "--include=last-success-%s.json" % master,
                 "--include=holds-%s.json" % master, "--include=runs/",
                 "--include=runs/*-%s/" % master, "--include=runs/*-%s/***" % master, "--exclude=*"]
-            argv = [rsync, "-a", "-e", " ".join(shlex.quote(p) for p in [self.ssh] + self.opts)] + filters + [
-                str(root) + "/", self._target(peer) + ":.local/state/fleet/"]
             try:
+                argv = [rsync, "-a", "-e", " ".join(shlex.quote(p) for p in [self.ssh] + self.opts)] + filters + [
+                    "--", str(root) + "/", self._target(peer) + ":.local/state/fleet/"]
                 rc, _, _ = run_capped(argv, 120)
-            except OSError:
+            except (OSError, ValueError):
                 rc = 255
             ok = ok and rc == 0
         return ok
@@ -178,7 +193,7 @@ class SshTransport:
         if not self.probe(master):
             return None
         remote = "fleet " + " ".join(shlex.quote(a) for a in argv)
-        proc = subprocess.run([self.ssh] + self.opts + ["-t", self._target(master), remote])
+        proc = subprocess.run([self.ssh] + self.opts + ["-t", "--", self._target(master), remote])
         return None if proc.returncode == 255 else proc.returncode
 
 
@@ -286,10 +301,10 @@ class Orchestrator:
         for alias, host in self.hosts.items():
             if alias not in wanted:
                 continue
-            if alias == self.master:
-                last = alias
-            elif host.get("critical"):
+            if host.get("critical"):          # even the current master: --critical is never bypassed
                 crit.append(alias)
+            elif alias == self.master:
+                last = alias
             elif alias == gateway:
                 p3.append(alias)
             elif host["kind"] in PHASE2_KINDS or set(host.get("tags") or []) & set(PHASE2_TAGS):
@@ -299,7 +314,8 @@ class Orchestrator:
             else:
                 p2.append(alias)
         # critical order: OPNsense first, then the hypervisor (multibox)
-        crit.sort(key=lambda a: 0 if self.hosts[a]["kind"] == "opnsense" else 1)
+        # (a critical current master goes last of all and is updated locally)
+        crit.sort(key=lambda a: (1 if a == self.master else 0, 0 if self.hosts[a]["kind"] == "opnsense" else 1))
         return Plan([p1, p2, p3], crit, last)
 
     def describe_plan(self, plan: Plan) -> str:
@@ -309,6 +325,22 @@ class Orchestrator:
             lines.append("critical (needs --critical + confirmation): %s" % ", ".join(plan.critical))
         if plan.last:
             lines.append("current master, last and local: %s" % plan.last)
+        return "\n".join(lines) + "\n"
+
+    def describe_reboot(self, aliases: Sequence[str]) -> str:
+        ask: List[str] = []
+        skip: List[str] = []
+        for alias in aliases:
+            if alias == self.master:
+                skip.append("%s (current master: restart it by hand)" % alias)
+            elif self.hosts[alias].get("critical") and not self.opt.critical:
+                skip.append("%s (critical: needs --critical)" % alias)
+            else:
+                ask.append(alias)
+        lines = ["reboot (one at a time, each confirmed; only hosts reporting a pending reboot): %s"
+                 % (", ".join(ask) if ask else "none")]
+        if skip:
+            lines.append("skipped: " + "; ".join(skip))
         return "\n".join(lines) + "\n"
 
     # ------------------------------------------------------------ gates
@@ -391,7 +423,6 @@ class Orchestrator:
         ent, kind, info = self._call(alias, "update", local, raw)
         if ent is None:
             return self._no_answer(alias, "update", kind, info, t0)
-        silent = 0
         while ent["status"] in ("started", "running"):
             if self.now() - began >= timedelta(minutes=timeout_min):
                 job = ent.get("job") or "?"
@@ -402,8 +433,7 @@ class Orchestrator:
             if polled is None:
                 if kind in ("refused", "invalid"):
                     return self._no_answer(alias, "report", kind, info, t0)
-                silent += 1   # ssh cut (tailscale/openssh restarting): the detached job continues
-                continue
+                continue      # ssh cut (tailscale/openssh restarting): the detached job continues
             ent = polled
         return ent
 
@@ -491,7 +521,7 @@ class Orchestrator:
             if not self._confirm("Update critical host %s? [y/N] " % alias):
                 self._store(alias, self._skip(alias, verb, "critical update not confirmed", t0))
                 continue
-            self._safe_process(alias)
+            self._safe_process(alias, local=(alias == self.master))
 
     def _store(self, alias: str, entry: Dict[str, Any]) -> None:
         entry.setdefault("last_seen", None)
@@ -529,8 +559,13 @@ class Orchestrator:
         return rep, rc
 
     def _notify(self, msg: Dict[str, Any]) -> None:
-        if self.notifier is not None:
+        """A notification problem (any exception) is logged, never allowed to abort the run."""
+        if self.notifier is None:
+            return
+        try:
             self.notifier.send(msg)
+        except Exception as exc:  # noqa: BLE001
+            self._log("notification error %s" % exc.__class__.__name__)
 
     def _sync_and_purge(self) -> None:
         peers = [m for m in (self.data.get("masters") or []) if m != self.master]
@@ -592,6 +627,8 @@ class Orchestrator:
         sent, kind, info = self._call(alias, "reboot", False, raw)
         if sent is None and kind in ("refused", "invalid"):
             return self._no_answer(alias, "reboot", kind, info, t0)
+        if sent is not None and sent["status"] in ("failed", "busy", "skipped", "unsupported"):
+            return sent                    # the agent said no: it is not going to reboot, do not wait for it
         wait = timedelta(minutes=self.opt.reboot_wait_min * (2 if host.get("critical") else 1))
         began = self.now()
         while self.now() - began < wait:
@@ -684,10 +721,16 @@ def _tokens(args: argparse.Namespace) -> Optional[List[str]]:
     return given if (given or getattr(args, "label", None) is not None) else None
 
 
-def _make_notifier(data: Dict[str, Any], st: "fstate.State", env: Dict[str, str]) -> "notify.Notifier":
+def _make_notifier(data: Dict[str, Any], st: "fstate.State", env: Dict[str, str],
+                   err: Any) -> Optional["notify.Notifier"]:
+    """Built only when a notification may actually be sent (never for --dry-run: no `op read`)."""
     cfg = data.get("ntfy") or {}
-    token = notify.resolve_token(cfg.get("token_ref"), env, notify.default_op_runner)
-    return notify.Notifier(cfg.get("url", ""), cfg.get("topic", "fleet"), token, st.root / "ntfy-queue")
+    token = notify.resolve_token(cfg.get("token_ref"), env, lambda args: notify.default_op_runner(args, env))
+    try:
+        return notify.Notifier(cfg.get("url", ""), cfg.get("topic", "fleet"), token, st.root / "ntfy-queue")
+    except ValueError as exc:
+        err.write("fleet: notifications disabled: %s\n" % exc)
+        return None
 
 
 def main(
@@ -749,8 +792,10 @@ def main(
     transport = transport or SshTransport(data, env)
     if master is None:   # console: hand over to the master of the targets' site, fail over
         if getattr(args, "dry_run", False):
-            probe = Orchestrator(data, None, "console", transport, None)  # type: ignore[arg-type]
-            out.write(probe.describe_plan(probe.plan(aliases)))
+            probe = Orchestrator(data, None, "console", transport, None,  # type: ignore[arg-type]
+                                 Options(critical=getattr(args, "critical", False)))
+            out.write(probe.describe_reboot(aliases) if args.cmd == "reboot"
+                      else probe.describe_plan(probe.plan(aliases)))
             return 0
         for candidate in choose_masters(data, aliases):
             rc = transport.run_on_master(candidate, list(argv))
@@ -765,6 +810,21 @@ def main(
                         out, err, sleep, confirm)
 
 
+def _sync_holds(transport: Any, data: Dict[str, Any], master: str, err: Any) -> int:
+    """Push the hold files to the other master. A failure is loud: it would not honour the hold."""
+    peers = [m for m in data.get("masters") or [] if m != master]
+    try:
+        ok = transport.sync(master, peers) if peers else True
+    except Exception:  # noqa: BLE001
+        ok = False
+    if ok:
+        return 0
+    err.write("fleet: WARNING: hold state not synchronized to %s; recorded here only, that master "
+              "will NOT honour it until a sync succeeds (re-run this command when it is reachable)\n"
+              % ", ".join(peers))
+    return 1
+
+
 def _run_command(args, data, st, master, aliases, selector_text, transport, notifier, env,  # type: ignore[no-untyped-def]
                  out, err, sleep, confirm) -> int:
     if args.cmd == "holds":
@@ -775,14 +835,12 @@ def _run_command(args, data, st, master, aliases, selector_text, transport, noti
         for alias in aliases:
             st.add_hold(alias, schema.clean_text(args.reason, 200), args.until)
             out.write("held %s until %s\n" % (alias, args.until))
-        transport.sync(master, [m for m in data.get("masters") or [] if m != master])
-        return 0
+        return _sync_holds(transport, data, master, err)
     if args.cmd == "unhold":
         for alias in aliases:
             st.lift_hold(alias)
             out.write("unheld %s\n" % alias)
-        transport.sync(master, [m for m in data.get("masters") or [] if m != master])
-        return 0
+        return _sync_holds(transport, data, master, err)
     if args.cmd == "report":
         if args.run:
             try:
@@ -826,21 +884,33 @@ def _run_command(args, data, st, master, aliases, selector_text, transport, noti
         out.write(report.host_changes(st, args.host, since))
         return 0
 
-    notifier = notifier or _make_notifier(data, st, env)
     if args.cmd == "reminder":
+        notifier = notifier or _make_notifier(data, st, env, err)
+        if notifier is None:
+            return 1
         notify.reminder_check(st, notifier)
         return 0
     opts = Options(critical=args.critical, no_canary=getattr(args, "no_canary", False),
                    dry_run=args.dry_run, confirm=confirm or tty_confirm,
                    say=lambda text: err.write(text + "\n"), sleep=sleep)
-    orch = Orchestrator(data, st, master, transport, notifier, opts)
-    if args.dry_run:
-        out.write(orch.describe_plan(orch.plan(aliases)))
+    if args.dry_run:      # plans only: no lock, no notifier, no 1Password, no connection
+        preview = Orchestrator(data, st, master, transport, None, opts)
+        out.write(preview.describe_reboot(aliases) if args.cmd == "reboot"
+                  else preview.describe_plan(preview.plan(aliases)))
         return 0
-    if args.cmd == "up":
-        rep, rc = orch.run_up(aliases, selector_text)
-    else:
-        rep, rc = orch.run_reboot(aliases, selector_text)
+    lock = st.try_lock()
+    if lock is None:
+        err.write("fleet: another run in progress\n")
+        return 3
+    try:
+        notifier = notifier or _make_notifier(data, st, env, err)
+        orch = Orchestrator(data, st, master, transport, notifier, opts)
+        if args.cmd == "up":
+            rep, rc = orch.run_up(aliases, selector_text)
+        else:
+            rep, rc = orch.run_reboot(aliases, selector_text)
+    finally:
+        fstate.State.unlock(lock)
     out.write(report.render_terminal(rep, data))
     return rc
 

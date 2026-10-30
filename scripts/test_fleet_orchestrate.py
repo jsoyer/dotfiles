@@ -108,6 +108,8 @@ class FakeTransport:
         self.synced = []
         self.on_master = []
         self.master_up = {}
+        self.sync_ok = True
+        self.timeline = []   # (alias, verb, 'begin'|'end')
 
     def _touch(self):
         with self.lock:
@@ -139,6 +141,7 @@ class FakeTransport:
         with self.lock:
             self.calls.append((alias, verb, local))
             n = self.counts[(alias, verb)] = self.counts.get((alias, verb), 0) + 1
+            self.timeline.append((alias, verb, "begin"))
             if verb == "update":
                 self.active_site[self.sites[alias]] = self.active_site.get(self.sites[alias], 0) + 1
                 self.active[alias] = 1
@@ -149,6 +152,8 @@ class FakeTransport:
             time.sleep(self.delay)
         fn = self.script.get(alias)
         res = fn(verb, n) if fn else self._default(alias, verb, n)
+        with self.lock:
+            self.timeline.append((alias, verb, "end"))
         try:
             status = json.loads(res[1])["status"]
         except (ValueError, KeyError, TypeError):
@@ -170,7 +175,7 @@ class FakeTransport:
 
     def sync(self, master, peers):
         self.synced.append((master, list(peers)))
-        return True
+        return self.sync_ok
 
     def run_on_master(self, master, argv):
         self.on_master.append((master, list(argv)))
@@ -435,11 +440,12 @@ class ConcurrencyTest(Env):
         extra = "".join(host("c%02d" % i, site) for i, site in per_site_hosts)
         self.yml.write_text(fleet_text(extra))
         self.data = inv.load_inventory(str(self.yml))
-        self.tr = FakeTransport(self.data, delay=0.004)
+        self.tr = FakeTransport(self.data, delay=0.05)   # >= 50 ms: overlap does not depend on scheduling luck
+
+    LAYOUT = [(i, "dijon" if i < 16 else "nice" if i < 24 else "garage") for i in range(30)]
 
     def test_caps_total_10_and_site_4(self):
-        layout = [(i, "dijon" if i < 16 else "nice" if i < 24 else "garage") for i in range(30)]
-        self.many(layout)
+        self.many(self.LAYOUT)
         names = ["c%02d" % i for i in range(30)]
         by, rc, _ = self.run_up(names)
         self.assertTrue(all(by[n]["status"] == "updated" for n in names))
@@ -448,6 +454,14 @@ class ConcurrencyTest(Env):
             self.assertLessEqual(peak, 4, site)
         self.assertGreater(self.tr.max_total, 1)       # it really ran in parallel
         self.assertEqual(self.tr.max_site["dijon"], 4)  # and the per-site cap was actually reached
+
+    def test_caps_negative_control_the_measurement_sees_raised_caps(self):
+        self.many(self.LAYOUT)
+        self.data["parallel"] = {"total": 30, "per_site": 30}
+        names = ["c%02d" % i for i in range(30)]
+        self.run_up(names)
+        self.assertGreater(self.tr.max_total, 10)       # the same test would fail with raised caps
+        self.assertGreater(self.tr.max_site["dijon"], 4)
 
     def test_detached_jobs_tracked_independently_in_parallel(self):
         self.many([(i, "dijon" if i % 2 else "nice") for i in range(12)])
@@ -491,13 +505,27 @@ class OutcomeTest(Env):
         self.run_up(["l2"])
         self.assertEqual([p for _, p, _, _ in self.sent], [2])
 
-    def test_stale_alert_from_last_success_after_history_purge(self):
-        self.st.set_last_success("l3", fstate.iso(START - timedelta(days=40)))
+    def test_stale_alert_survives_the_real_31_day_purge(self):
+        old = START - timedelta(days=40)
+        old_id = old.strftime("%Y%m%dT%H%MZ") + "-diabolo"
+        self.st.append_history(old_id, {"host": "l3", "status": "updated", "started": fstate.iso(old),
+                                        "ended": fstate.iso(old)})
+        self.st.set_last_success("l3", fstate.iso(old))
+        self.assertEqual(len(self.st.history()), 1)
+        self.st.purge(START)                                 # the REAL purge, 31 days
+        self.assertEqual(self.st.history(), [])             # the history is really gone...
+        self.assertEqual(self.st.last_success()["l3"], fstate.iso(old))   # ...last-success is not
         self.run_up(["l2"])
         stale = [s for s in self.sent if "without update" in s[0]]
         self.assertEqual(len(stale), 1)
         self.assertEqual(stale[0][1], 4)
         self.assertIn("l3", stale[0][3])
+        self.assertNotIn("l2", stale[0][3])
+
+    def test_no_stale_alert_for_a_recently_updated_host(self):       # negative control
+        self.st.set_last_success("l3", fstate.iso(START - timedelta(days=2)))
+        self.run_up(["l2"])
+        self.assertEqual([s for s in self.sent if "without update" in s[0]], [])
 
     def test_history_and_last_success_written_and_secrets_masked(self):
         self.tr.script["l2"] = lambda v, n: (0, agent_line("l2", v, "updated", log_tail="k " + FAKE_TOKEN), "")
@@ -684,13 +712,51 @@ class SshTransportTest(unittest.TestCase):
         data = inv.parse_yaml_subset(fleet_text())
         return orchestrate.SshTransport(data, {"FLEET_SSH": ssh, "FLEET_LOCAL_AGENT": str(self.tmp / "agent")})
 
-    def test_stdout_and_stderr_are_byte_capped(self):
-        t = self.transport(self.fake_ssh('(yes E >&2) & yes O; wait'))
+    def test_stdout_flood_is_byte_capped_and_the_process_killed(self):
+        marker = self.tmp / "survived"
+        body = ('(head -c 400000 /dev/zero | tr "\\0" E >&2) & head -c 400000 /dev/zero | tr "\\0" O; '
+                'wait; sleep 1; touch %s' % marker)
+        t = self.transport(self.fake_ssh(body))
         started = time.time()
-        rc, out, err = t.call("l2", "check", timeout=20)
+        rc, out, err = t.call("l2", "check", timeout=8)
         self.assertLessEqual(len(out), orchestrate.OUT_CAP)
-        self.assertLessEqual(len(err), orchestrate.ERR_CAP)
-        self.assertLess(time.time() - started, 15)
+        self.assertLessEqual(len(err), orchestrate.ERR_CAP + 64)
+        self.assertLess(time.time() - started, 7)
+        time.sleep(1.5)
+        self.assertFalse(marker.exists())      # killed with its process group, did not run to the end
+        self.assertNotEqual(rc, 0)
+
+    def test_stderr_over_cap_does_not_kill_the_call(self):
+        t = self.transport(self.fake_ssh(
+            'head -c 300000 /dev/zero | tr "\\0" E >&2; echo \'{"ok":1}\'; exit 0'))
+        rc, out, err = t.call("l2", "check", timeout=10)
+        self.assertEqual(rc, 0)
+        self.assertEqual(out.strip(), '{"ok":1}')
+        self.assertLessEqual(len(err), orchestrate.ERR_CAP + 64)
+        self.assertTrue(err.startswith("E" * 100))
+        self.assertIn("truncated", err)
+
+    def test_timeout_kills_a_silent_process(self):
+        t = self.transport(self.fake_ssh("sleep 30"))
+        started = time.time()
+        rc, out, err = t.call("l2", "check", timeout=1)
+        self.assertLess(time.time() - started, 10)
+        self.assertNotEqual(rc, 0)
+
+    def test_argument_after_double_dash_and_leading_dash_refused(self):
+        log = self.tmp / "argv2"
+        t = self.transport(self.fake_ssh('printf "%%s\\n" "$@" > %s; echo ok' % log))
+        t.call("l2", "check")
+        argv = [a for a in log.read_text().split("\n") if a]
+        self.assertEqual(argv[-3:], ["--", "j@l2", "check"])
+        t.data["hosts"]["l2"]["tailnet_name"] = "-oProxyCommand=evil"
+        with self.assertRaises(ValueError):
+            t.call("l2", "check")
+        with self.assertRaises(ValueError):
+            t.probe("l2")
+        t.data["hosts"]["l2"].update({"tailnet_name": "l2", "ssh_user": "-oProxyCommand=evil"})
+        with self.assertRaises(ValueError):
+            t.call("l2", "check")
 
     def test_only_whitelisted_verbs_reach_ssh(self):
         t = self.transport(self.fake_ssh("exit 0"))
@@ -782,6 +848,277 @@ class SyncTest(unittest.TestCase):
             self.assertIn("--exclude=*", argv)
             self.assertNotIn("--include=history-penelope.jsonl", argv)
             self.assertIn("j@penelope:.local/state/fleet/", argv)
+
+
+class ReviewCliTest(Env):
+    def env(self, **extra):
+        e = {"FLEET_YML": str(self.yml), "FLEET_STATE_DIR": str(self.root), "FLEET_MASTER": "diabolo"}
+        e.update(extra)
+        return e
+
+    def main(self, argv, **kw):
+        out, err = io.StringIO(), io.StringIO()
+        env = kw.pop("env", self.env())
+        rc = orchestrate.main(argv, env=env, transport=kw.pop("transport", self.tr),
+                              notifier=kw.pop("notifier", self.notifier), out=out, err=err,
+                              sleep=self.clock.advance, **kw)
+        return rc, out.getvalue(), err.getvalue()
+
+    # -- hold / unhold: a failed sync is loud
+    def test_hold_with_failed_sync_warns_on_stderr_exits_1_but_records_the_hold(self):
+        self.tr.sync_ok = False
+        rc, out, err = self.main(["hold", "l3", "--reason", "demo", "--until", "2026-12-31"])
+        self.assertEqual(rc, 1)
+        self.assertIn("WARNING", err)
+        self.assertIn("not synchronized", err)
+        self.assertIn("l3", self.st.active_holds(START))      # recorded locally anyway
+
+    def test_unhold_with_failed_sync_warns_and_exits_1(self):
+        self.main(["hold", "l3", "--reason", "demo", "--until", "2026-12-31"])
+        self.tr.sync_ok = False
+        rc, _, err = self.main(["unhold", "l3"])
+        self.assertEqual(rc, 1)
+        self.assertIn("WARNING", err)
+        self.assertNotIn("l3", self.st.active_holds(START))
+
+    def test_hold_with_working_sync_exits_0(self):
+        rc, _, err = self.main(["hold", "l3", "--reason", "demo", "--until", "2026-12-31"])
+        self.assertEqual((rc, err), (0, ""))
+
+    # -- run lock
+    def test_second_run_is_refused_with_exit_3_and_contacts_nothing(self):
+        fd = self.st.try_lock()
+        self.addCleanup(lambda: fstate.State.unlock(fd) if fd is not None else None)
+        for argv in (["up", "-l", "l2"], ["reboot", "--pending", "-l", "l2"]):
+            rc, out, err = self.main(argv)
+            self.assertEqual(rc, 3, msg=str(argv))
+            self.assertIn("fleet: another run in progress", err)
+        self.assertEqual(self.tr.connects, 0)
+        self.assertEqual(self.sent, [])
+
+    def test_lock_is_released_after_the_run_and_dry_run_ignores_it(self):
+        self.assertEqual(self.main(["up", "-l", "l2"])[0], 0)
+        self.assertEqual(self.main(["up", "-l", "l2"])[0], 0)
+        fd = self.st.try_lock()
+        self.addCleanup(lambda: fstate.State.unlock(fd) if fd is not None else None)
+        self.assertEqual(self.main(["up", "--dry-run", "-l", "l2"])[0], 0)
+        self.assertEqual(self.main(["holds"])[0], 0)
+
+    def test_two_concurrent_runs_exactly_one_wins_20_times(self):
+        for i in range(20):
+            self.tr = FakeTransport(self.data, delay=0.05)
+            gate = threading.Barrier(2)
+            results = []
+
+            def attempt():
+                gate.wait()
+                results.append(self.main(["up", "-l", "l2"])[0])
+
+            threads = [threading.Thread(target=attempt) for _ in range(2)]
+            for t in threads:
+                t.start()
+            for t in threads:
+                t.join()
+            self.assertEqual(sorted(results), [0, 3], msg="iteration %d" % i)
+            self.assertEqual(self.tr.counts.get(("l2", "update")), 1, msg="iteration %d" % i)
+
+    # -- dry-run must not resolve the ntfy token
+    def _op_stub(self):
+        trip = self.tmp / "op-called"
+        stub = self.tmp / "op"
+        stub.write_text("#!/usr/bin/env bash\necho called >> %s\necho tk_%s\n" % (trip, "z" * 24))
+        stub.chmod(0o700)
+        return trip, str(stub)
+
+    def test_dry_run_never_calls_op_read(self):
+        trip, stub = self._op_stub()
+        env = self.env(FLEET_OP=stub)
+        for argv in (["up", "--dry-run", "-l", "l2"], ["reboot", "--pending", "--dry-run", "-l", "l2"],
+                     ["up", "--dry-run"]):
+            rc, _, _ = self.main(argv, env=env, notifier=None)
+            self.assertEqual(rc, 0, msg=str(argv))
+        self.assertFalse(trip.exists())
+
+    def test_positive_control_building_the_notifier_does_call_op(self):
+        trip, stub = self._op_stub()
+        notifier = orchestrate._make_notifier(self.data, self.st, {"FLEET_OP": stub}, io.StringIO())
+        self.assertIsNotNone(notifier)
+        self.assertTrue(trip.exists())
+        self.assertTrue(notifier.token.startswith("tk_"))
+
+    def test_http_ntfy_url_with_a_token_gives_no_notifier_and_a_warning(self):
+        self.data["ntfy"]["url"] = "http://ntfy.example.org"
+        err = io.StringIO()
+        notifier = orchestrate._make_notifier(self.data, self.st, {"FLEET_NTFY_TOKEN": FAKE_TOKEN}, err)
+        self.assertIsNone(notifier)
+        self.assertIn("https", err.getvalue())
+
+    # -- reboot dry-run
+    def test_reboot_dry_run_prints_reboot_targets_not_the_update_plan(self):
+        rc, out, _ = self.main(["reboot", "--pending", "--dry-run", "-l", "l2,l3,fw,diabolo"], notifier=None)
+        self.assertEqual(rc, 0)
+        self.assertEqual(self.tr.connects, 0)
+        self.assertNotIn("phase", out)
+        self.assertRegex(out, r"reboot[^\n]*: l2, l3")
+        self.assertRegex(out, r"fw[^\n]*--critical")
+        self.assertRegex(out, r"diabolo[^\n]*master")
+        rc, out, _ = self.main(["reboot", "--pending", "--dry-run", "--critical", "-l", "fw"], notifier=None)
+        self.assertRegex(out, r"reboot[^\n]*: fw")
+
+    def test_console_reboot_dry_run_also_prints_reboot_targets(self):
+        env = self.env(FLEET_HOSTNAME="laptop")
+        env.pop("FLEET_MASTER")
+        rc, out, _ = self.main(["reboot", "--pending", "--dry-run", "-l", "l2"], env=env, notifier=None)
+        self.assertEqual(rc, 0)
+        self.assertNotIn("phase", out)
+        self.assertIn("l2", out)
+
+    # -- modes of everything a real run leaves behind
+    def test_every_file_and_directory_left_by_a_run_is_private(self):
+        old = os.umask(0o022)
+        self.addCleanup(os.umask, old)
+        self.ntfy_up = False
+        self.assertEqual(self.main(["up", "-l", "l2"])[0], 0)
+        self.main(["hold", "l3", "--reason", "x", "--until", "2026-12-31"])
+        names = set()
+        for p in [self.root] + list(self.root.rglob("*")):
+            self.assertEqual(stat.S_IMODE(p.stat().st_mode), 0o700 if p.is_dir() else 0o600, str(p))
+            names.add(p.name)
+        for needed in ("runs", "raw", "report.md", "report.json", "run.log", "run.lock", "ntfy-queue",
+                       "history-diabolo.jsonl", "last-success-diabolo.json", "holds-diabolo.json"):
+            self.assertIn(needed, names)
+
+    # -- the real fleet.yml
+    def test_real_inventory_garage_plan_contains_every_garage_host(self):
+        real = ROOT / "dot_local/share/fleet/fleet.yml"
+        data = inv.load_inventory(str(real))
+        garage = [a for a, h in data["hosts"].items() if h["site"] == "garage"]
+        self.assertGreaterEqual(len(garage), 2)
+        out, err = io.StringIO(), io.StringIO()
+        rc = orchestrate.main(["up", "--dry-run", "-l", "site=garage"], env={
+            "FLEET_YML": str(real), "FLEET_STATE_DIR": str(self.root), "FLEET_MASTER": "diabolo"},
+            transport=FakeTransport(data), notifier=None, out=out, err=err)
+        self.assertEqual(rc, 0, err.getvalue())
+        for alias in garage:
+            self.assertIn(alias, out.getvalue())
+        # omv-garage is kind omv (phase 1 by kind) but carries the site-router tag: phase 2, serial.
+        self.assertEqual(data["hosts"]["omv-garage"]["kind"], "omv")
+        self.assertIn("site-router", data["hosts"]["omv-garage"]["tags"])
+        self.assertIn("phase 2 (serial): omv-garage, ha-garage", out.getvalue())
+        self.assertNotIn("phase 1", out.getvalue())
+
+
+class ReviewOrchestrateTest(Env):
+    def test_a_notifier_exception_never_aborts_the_run(self):
+        class Broken:
+            def send(self, msg):
+                raise RuntimeError("ntfy exploded")
+
+        self.tr.script["l2"] = lambda v, n: (1, "", "fleet-agent: refused (verb)")
+        orch = orchestrate.Orchestrator(self.data, self.st, "diabolo", self.tr, Broken(),
+                                        orchestrate.Options(sleep=self.clock.advance), now=self.clock.now)
+        self.st.set_last_success("l3", fstate.iso(START - timedelta(days=40)))
+        rep, rc = orch.run_up(["l2", "l3"], "t")
+        self.assertEqual(rc, 1)
+        self.assertTrue((self.st.run_dir(rep["run_id"]) / "report.json").is_file())
+        self.assertEqual(self.tr.synced, [("diabolo", ["penelope"])])       # sync + purge still ran
+        self.assertTrue(any("notification" in line for line in orch.log_lines))
+
+    def test_a_valid_failed_reply_to_reboot_is_returned_at_once(self):
+        def script(v, n):
+            if v == "reboot-status":
+                return 0, agent_line("l2", v, "up-to-date", reboot_required=True), ""
+            return 0, agent_line("l2", v, "failed", reason="sudo denied"), ""
+
+        self.tr.script["l2"] = script
+        rep, rc = self.orch(confirm=lambda p: True).run_reboot(["l2"], "t")
+        self.assertEqual(rep["hosts"][0]["status"], "failed")
+        self.assertIn("sudo denied", rep["hosts"][0]["reason"])
+        self.assertEqual(self.tr.counts[("l2", "reboot-status")], 1)      # no polling for a return
+        self.assertEqual(rc, 1)
+        self.assertEqual(self.sent, [])                                   # not a "did not come back"
+
+    def test_a_critical_master_still_needs_the_critical_flag(self):
+        self.data["hosts"]["diabolo"]["critical"] = True
+        by, _, _ = self.run_up(["diabolo"])
+        self.assertEqual(by["diabolo"]["status"], "skipped")
+        self.assertIn("--critical", by["diabolo"]["reason"])
+        self.assertEqual(self.tr.calls, [])
+        asked = []
+        by, _, _ = self.run_up(["diabolo"], critical=True, confirm=lambda p: asked.append(p) or True)
+        self.assertEqual(by["diabolo"]["status"], "updated")
+        self.assertEqual(len(asked), 1)
+        self.assertTrue(all(local for a, v, local in self.tr.calls))      # the master is still updated locally
+
+    def test_canary_finishes_before_the_other_hosts_of_its_kind_start(self):
+        self.tr = FakeTransport(self.data, delay=0.03)
+        self.run_up(["l1", "l2", "l3"])
+        events = self.tr.timeline
+        last_canary = max(i for i, (a, v, k) in enumerate(events) if a == "l1")
+        first_other = min(i for i, (a, v, k) in enumerate(events) if a in ("l2", "l3"))
+        self.assertLess(last_canary, first_other)
+
+    def test_canary_negative_control_without_canary_they_overlap(self):
+        self.tr = FakeTransport(self.data, delay=0.03)
+        self.run_up(["l1", "l2", "l3"], no_canary=True)
+        events = self.tr.timeline
+        last_canary = max(i for i, (a, v, k) in enumerate(events) if a == "l1")
+        first_other = min(i for i, (a, v, k) in enumerate(events) if a in ("l2", "l3"))
+        self.assertGreater(last_canary, first_other)
+
+    def test_phases_2_and_3_are_strictly_serial(self):
+        self.tr = FakeTransport(self.data, delay=0.03)
+        by, _, _ = self.run_up(["omvn", "ha1", "g1", "g2", "gw"])
+        self.assertTrue(all(e["status"] == "updated" for e in by.values()))
+        self.assertEqual(self.tr.max_total, 1)
+
+    def test_phase_1_negative_control_runs_in_parallel(self):
+        self.tr = FakeTransport(self.data, delay=0.03)
+        self.run_up(["penelope", "l2", "l3", "m1"])
+        self.assertGreater(self.tr.max_total, 1)
+
+    def test_no_secret_anywhere_in_the_state_dir_even_with_ntfy_down(self):
+        pem = "-----BEGIN OPENSSH " + "PRIVATE KEY-----\nb3BlbnNzaC1rZXk"
+        jwt = "eyJ" + "hbGciOiJIUzI1NiJ9" + "xx.payloadpayloadpayload.sigsig"
+        self.ntfy_up = False
+        self.tr.script["l2"] = lambda v, n: (
+            0, agent_line("l2", v, "failed", reason="token " + FAKE_TOKEN, log_tail="k " + FAKE_TOKEN + "\n" + pem),
+            "stderr " + FAKE_TOKEN + " " + jwt)
+        self.tr.script["l3"] = lambda v, n: (1, "", "fleet-agent: refused " + FAKE_TOKEN + " " + jwt)
+        self.tr.script["m1"] = lambda v, n: (255, "", "ssh: " + pem.replace("\n", " ") + " " + FAKE_TOKEN)
+        self.run_up(["l2", "l3", "m1"])
+        self.assertGreaterEqual(len(self.notifier.pending()), 1)          # ntfy down: queue files exist
+        scanned = 0
+        for p in self.root.rglob("*"):
+            if p.is_file():
+                scanned += 1
+                self.assertNotRegex(p.read_text(), SECRET_GREP, str(p))
+        self.assertGreater(scanned, 8)
+        self.assertNotIn(FAKE_TOKEN[3:12], "".join(p.read_text() for p in self.root.rglob("*") if p.is_file()))
+
+
+class ReviewInventoryNamesTest(unittest.TestCase):
+    def load(self, host_extra="", alias="alpha", name="alpha", user="j"):
+        text = ("hosts:\n  %s:\n    tailnet_name: %s\n    site: dijon\n    kind: chezmoi-linux\n"
+                "    critical: false\n    ssh_user: %s\n%s" % (alias, name, user, host_extra))
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "fleet.yml"
+            path.write_text(text)
+            return inv.load_inventory(str(path))
+
+    def test_valid_names_load(self):
+        self.assertIn("alpha", self.load()["hosts"])
+
+    def test_leading_dash_in_alias_tailnet_name_or_user_is_rejected(self):
+        for kwargs in ({"alias": "-oProxyCommand=x"}, {"name": "-oProxyCommand=x"}, {"user": "-oProxyCommand=x"},
+                       {"name": "-x"}, {"user": "-j"}):
+            with self.assertRaises(inv.InventoryError, msg=str(kwargs)):
+                self.load(**kwargs)
+
+    def test_name_patterns_do_not_accept_a_trailing_newline(self):
+        self.assertIsNone(inv.SAFE_NAME.fullmatch("alpha\n"))
+        self.assertIsNone(inv.SAFE_USER.fullmatch("j\n"))
+        self.assertIsNone(inv.SAFE_SERVICE.fullmatch("kvmd\n"))
 
 
 if __name__ == "__main__":
