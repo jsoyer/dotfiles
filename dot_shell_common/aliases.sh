@@ -432,126 +432,17 @@ mkd() {
   mkdir -p "$@" && cd "${@: -1}" || return
 }
 
-# `sysup --reboot` (Fedora desktop/server): stage the dnf upgrade offline and
-# reboot into it, so nothing is replaced under the running session.
+# `sysup [--reboot]`: the implementation lives in ~/.local/bin/sysup
+# (dot_local/bin/executable_sysup) so bash, zsh, fish, nushell and the fleet
+# agent all run the same code. `--reboot` (Fedora desktop/server) stages the dnf
+# upgrade offline and reboots into it.
 sysup() {
-  local os reboot=0 arg
-  for arg in "$@"; do
-    [[ "$arg" == "--reboot" ]] && reboot=1
-  done
-  case "$OSTYPE" in
-    darwin*) os="darwin" ;;
-    linux*)  os="linux" ;;
-    cygwin*|msys*|mingw*) os="windows" ;;
-    *) return ;;
-  esac
-
-  case "$os" in
-    darwin)
-      bup
-      bcu
-      if command -v mas &>/dev/null; then
-        echo "📱 Updating App Store apps..."
-        mas upgrade
-      fi
-      # bup/bcu upgrade but never reclaim: do it explicitly. See the Linux
-      # branch below for what --prune=all -s actually removes.
-      if command -v brew &>/dev/null; then
-        echo "🍺 Cleaning up Homebrew cache..."
-        brew cleanup --prune=all -s
-      fi
-      echo "🐚 Updating oh-my-zsh..."
-      update-omz
-      # The AI CLIs update on macOS too — this call only existed in the
-      # Linux branch, so Macs never updated any of them through sysup.
-      update-ai
-      _update_mise_if_present
-      _update_herdr_if_present
-      ;;
-    linux)
-      case "${MACHINE_PROFILE:-}" in
-        rpi|ubuntu-desktop|ubuntu-server|debian)
-          echo "📦 Updating apt packages..."
-          sudo apt-get update && sudo apt-get dist-upgrade -y && sudo apt-get autoremove -y
-          ;;
-        arch-desktop|arch-server|omarchy)
-          echo "📦 Updating pacman packages..."
-          sudo pacman -Syu --noconfirm
-          if command -v yay &>/dev/null; then
-            echo "📦 Updating AUR packages..."
-            yay -Sua --noconfirm
-          fi
-          ;;
-        fedora-desktop|fedora-server|toolbox)
-          if [[ "$reboot" == 1 && "${MACHINE_PROFILE}" != toolbox ]]; then
-            echo "📦 Staging dnf offline upgrade..."
-            # A stale stored transaction (e.g. left by GNOME Software) makes
-            # `--offline` refuse to queue a new one.
-            sudo dnf offline clean
-            sudo dnf upgrade --refresh --offline -y
-          else
-            echo "📦 Updating dnf packages..."
-            sudo dnf upgrade --refresh -y
-          fi
-          ;;
-        fedora-atomic)
-          echo "🔒 Updating Fedora Atomic..."
-          rpm-ostree upgrade
-          ;;
-      esac
-
-      if command -v flatpak &>/dev/null; then
-        echo "📦 Updating Flatpak apps..."
-        # Split by scope. A bare `flatpak update` also targets system-scope
-        # installs, and polkit refuses a non-interactive deploy for a normal
-        # user: "Flatpak system operation Deploy not allowed for user", which
-        # then makes the whole command exit non-zero.
-        flatpak update --user -y || true
-        if flatpak list --system --columns=application 2>/dev/null | grep -q .; then
-          sudo flatpak update --system -y || true
-        fi
-      fi
-
-      if command -v brew &>/dev/null; then
-        eval "$(brew shellenv)"
-        echo "🍺 Updating Linuxbrew packages..."
-        brew update && brew upgrade
-        # --prune=all removes ALL cached downloads (not just those older than 120
-        # days), -s also clears the download cache itself. On a Pi with a small
-        # SD card this is the difference between a few hundred MB and a few GB.
-        brew cleanup --prune=all -s
-      fi
-
-      echo "🐚 Updating oh-my-zsh..."
-      update-omz
-      update-ai
-      _update_mise_if_present
-      _update_herdr_if_present
-
-      if [[ "$reboot" == 1 && ( "${MACHINE_PROFILE:-}" == fedora-desktop || "${MACHINE_PROFILE:-}" == fedora-server ) ]]; then
-        echo "🔄 Rebooting to apply the offline upgrade..."
-        # Fails when nothing was staged (already up to date): fall back to the hint.
-        sudo dnf offline reboot -y || _sysup_reboot_hint
-      else
-        _sysup_reboot_hint
-      fi
-      ;;
-    windows)
-      echo "🪣 Updating Scoop packages..."
-      scoop update --all
-      ;;
-  esac
+  command sysup "$@"
 }
 
-# dnf systems: warn when updated packages (kernel, glibc, systemd...) only take
-# effect after a reboot. --disablerepo: only the rpm database is needed, so it
-# runs as the user, offline, in under a second. Exit code 1 = reboot needed.
-_sysup_reboot_hint() {
-  command -v dnf &>/dev/null || return 0
-  if ! dnf needs-restarting --disablerepo='*' &>/dev/null; then
-    echo "⚠️  Reboot needed to load the updates (running kernel $(uname -r)) — run: sysup --reboot"
-  fi
-}
+# `fup`: update the whole fleet from a master or any console (see docs/FLEET.md).
+# Extra flags pass through: `fup --dry-run`, `fup -l site=dijon`.
+alias fup='fleet up'
 
 # Newer kernel installed than the one running: remind once per interactive
 # shell. Cheap check (no dnf). Skipped in containers: toolbox shares the host kernel.

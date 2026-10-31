@@ -79,3 +79,48 @@
 - **LOGIC:** `orca-setup` now mkdir + writes `{"port":6768}` as the service user BEFORE start, waits up to 40s, rewrites+restarts if needed. `update-orca` mkdir -p instead of skipping when the profile dir is missing.
 - **Verify:** `python3 scripts/test_orca_headless.py`
 
+
+## 2026-10-30 — fleet-updates batch 1 (Sprint 1) complete, local scope
+- Status: Sprint 1 complete locally (merged on feat/fleet-plan up to 5f5f5ba4); batches 2-5 not_started. Live-infra acceptance items BLOCKED (multibox VM, real fleet check, sudo -l); sudoers diff awaiting user review (§15).
+- [ENV] shellcheck/pytest not installed: use `uvx --from shellcheck-py shellcheck` and `uvx pytest`.
+- [LOGIC] Concurrency tests must be run repeatedly: a single run hid a stale-lock takeover race (fixed with a second mkdir mutex).
+- [CONFIG] Sudoers command args need `:` and `=` escaped.
+- [ENV] Worktree sprint-executors may start on an unrelated commit: first step `git checkout -b <new> <base-branch>`.
+- [SECURITY] Remote output read by `fleet` must be byte-capped on stdout AND stderr; log_tail masking must handle URL passwords with `/`/`@` and truncated PEM bodies.
+
+## 2026-10-31 — fleet-updates batch 2 (Sprint 2) complete, simulated
+- Status: Sprint 2 complete and merged on feat/fleet-plan (HEAD 4db99a88); 355 tests pass, shellcheck 0, systemd-analyze verify 0. First real `fleet up -l site=garage` BLOCKED (live infra, sudoers review §15, real ntfy URL). Batches 3-5 not_started.
+- [ENV] Something outside git (unknown formatter) rewrites fleet Python files in the main checkout after merges (format-only). Check `git status` right before each merge; verify on a `git archive` export. Rewrites parked in stash@{0}-{4}; source not yet found.
+- [CONFIG] Read-limit hook stops code-reviewer agents after 4 files: give each reviewer at most 4 files.
+- [SECURITY] Mask secrets on the data structure (keys too), never on serialized output. Cover quoted, escaped and glued values, ANSI-split secrets and ReDoS.
+- [LOGIC] Worktree agents can't commit into the shared checkout: merge their fix branches.
+
+## 2026-10-31 — fleet-updates batch 3 (Sprint 3) complete, simulated
+- Status: Sprint 3 merged on feat/fleet-plan (HEAD 4276455f); 476 tests pass, shellcheck 0, visudo -cf OK on OMV/PiKVM fragments, 8/8 invariants 0. BLOCKED (live infra): real check per type, real update on OMV/PiKVM, OPNsense 403 probe, HA non-owner check, exact OPNsense endpoints. Sudoers fragments still await user review. Batches 4-5 not_started.
+- [SECURITY] Sudoers lines for no-arg commands need an explicit `""` (otherwise any args allowed). Grant the canonical `readlink -f` path that was verified (lstat every ancestor: root-owned, no g/o write, no symlink component); the agent must call that same canonical path.
+- [SECURITY] Root installs from a user-owned temp dir: stage as root (`.name.new`), visudo + sha256 there, then `mv` into place.
+- [ENV] PreToolUse hook blocks Bash commands containing the shutdown/reboot string even inside heredoc text: reword.
+- [LOGIC] A sprint branch still checked out in a finished worktree can't be checked out by the next executor: branch off it for each fix round.
+- [ENV] Formatter rewrites again: stash@{0} (pre-sprint3-merge) and stash@{1} (pre-sprint3) hold AST-identical rewrites.
+- Open decisions (user): cloudflared auto-rollback only as root (§14 widening?); `qm list` non-root ⇒ generic VM warning; allow https to literal 100.64/10 IPs or `*.ts.net` only; OPNsense minor detection in state `upgrade`; HA Core failure `failed` vs `degraded`; no CLI verb for API-host check/verify_privileges; placeholder `api:` URLs; env_keep + !requiretty on omv-upgrade.
+
+## 2026-10-31 — fleet-updates batch 4 (Sprint 4) complete, local part
+- Status: Sprint 4 merged on feat/fleet-plan (merge 8676a707, HEAD 699b6dee): docs/FLEET.md, `fup` alias (zsh+bash), ALIASES/CHEZMOISCRIPTS docs, drafted tailscale-acl.hujson (NOT applied). 476 tests pass, 8/8 invariants 0, shellcheck aliases.sh 145 pre-existing findings (none new). BLOCKED (live infra + user): real `fleet up`, real `--critical` (OPNsense, multibox), fleet.yml fixes, report in .artifacts/reports/. Batch 5 not_started.
+- [CONFIG] 1Password mismatch: spec says vault "Fleet", code reads `op://Private/Fleet/<field>`; FLEET.md follows code. User to decide.
+- [SECURITY] Tailscale ACLs are additive: an existing `* -> *:*` rule must be replaced or port 22 stays open; Tailscale SSH must stay off on targets (bypasses forced command).
+- [ENV] Formatter rewrote 16 fleet .py/test files again (uncommitted, cosmetic). Leftover unmerged branch `worktree-agent-a2fe06e0e08a7989c` (unrelated start commit) not force-deleted.
+
+## 2026-10-31 — fleet-updates batch 5 (Sprint 5) complete, simulated — ALL BATCHES DONE
+- Status: Sprint 5 (Windows/macOS/WSL + pull mode) merged on feat/fleet-plan (merges 0304e8d7, 59470356; docs cc81e877). 560 tests pass, shellcheck 0, 8/8 invariants 0. BLOCKED (live infra/tooling): winget/Scoop via scheduled task, real check/update on PC+Mac, real >7d pull, Event Log refusal, plutil -lint (no Mac), PSScriptAnalyzer (no pwsh; container run denied by permissions — user decision).
+- [SECURITY] Windows: never lock with `Global\`/`Local\` named mutexes (squattable by any local user); use a FileShare None lock file in the admin-only state dir. Verify agent dir owner = Administrators and refuse reparse points.
+- [SECURITY] Windows sshd bootstrap: firewall rule scoped to the Tailscale adapter + 100.64/10; PasswordAuthentication no + AllowUsers, backup and `sshd -t` before restart.
+- [LOGIC] launchd kills the job's process group on exit: detached work needs `AbandonProcessGroup`; watchdogs kill the group, not `pkill -P`.
+- [ENV] Formatter also rewrites dot_aictx/skills/*.py and freshly merged tests: AST-compare every modified .py vs HEAD and stash before each merge. New stashes: "pre-lockfile-merge", "pre-sprint5-merge".
+- [ENV] zsh doesn't word-split `$F`: run multi-path git commands via `bash -c`.
+- [PROCESS] A subagent's permission denial is surfaced to the user, never retried by the orchestrator.
+- Open (user): fleet.yml ntfy.url = https://ntfy.sh (public third party — token would leave the tailnet); macOS sudoers draft not applied; per-Mac manual install + ssh_user; per-PC fleet-bootstrap.ps1 as admin (AllowUsers locks out other SSH accounts); Linux pull mode opt-in (marker, pull.conf, systemctl --user enable, linger). Leftover locked worktree .claude/worktrees/agent-aebecc6d33a56cf69 (merged branch).
+
+## Ship Pipeline State — 2026-10-31
+- Branch feat/fleet-plan pushed (HEAD db4fc8bf), PR #44 open, CI `validate` PASS (run 41225691696).
+- Phase: HELD before merge by user decision. Merging = fleet-wide deploy via chezmoi-autoupdate (sudoers run_always incl. `systemctl reboot` + apt env_keep, fleet agent install, pull/reminder units).
+- Before merge: user reviews sudoers diff (§15) and replaces ntfy.url (currently public https://ntfy.sh). No staging/prod/Lighthouse for this repo (no Execution Config).

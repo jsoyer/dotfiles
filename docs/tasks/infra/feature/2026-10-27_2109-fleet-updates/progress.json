@@ -1,0 +1,74 @@
+{
+  "prd": "spec.md",
+  "created": "2026-10-30T07:50:44Z",
+  "sprints": [
+    {
+      "id": 1,
+      "file": "sprints/01-agent-linux-inventaire.md",
+      "title": "Agent Linux + inventaire",
+      "status": "complete",
+      "depends_on": [],
+      "batch": 1,
+      "model": "sonnet",
+      "branch": "feat/fleet-sprint1-fixes2",
+      "merged": true,
+      "notes": "All locally-verifiable tasks/criteria done and verified (shellcheck 0, 164 tests pass, templates bash -n OK, visudo -cf OK, invariants OK). Sudoers change implemented, awaiting Jerome review (spec 15), NOT applied. BLOCKED (requires live infra / user action): multibox test VM + pveversion; kill-SSH-during-update on VM; conffile conflict on VM; critical service down on VM; manual sysup on Fedora zsh/bash/fish; real fleet check on VM/Fedora/Debian/Arch; root 0755 install check; sudo -l. Open: 1Password item Fleet (public-key-diabolo/penelope); deploy ~/.config/fleet-agent/critical-services from fleet.yml; run_onchange install script not retried after a deferred exit 0."
+    },
+    {
+      "id": 2,
+      "file": "sprints/02-orchestrateur-reporting.md",
+      "title": "Orchestrateur + reporting + ntfy",
+      "status": "complete",
+      "depends_on": [
+        1
+      ],
+      "batch": 2,
+      "model": "sonnet",
+      "branch": "sprint/02-orchestrateur (+ fix/fleet-sprint2-review, fix/fleet-mask-quoted, fix/fleet-mask-escaped, fix/fleet-review3)",
+      "merged": true,
+      "notes": "All 20 tasks and 11/12 acceptance criteria done in simulation (fakes for ssh/tailscale/rsync/ntfy/op); 355 tests pass, 20x concurrency loops clean, shellcheck 0, systemd-analyze verify 0 (scratch HOME), 8/8 invariants 0. Code review: 3 fix rounds (JSON-corrupting double mask, hostile JSON crash, secret-key coverage, quoted/escaped values, ntfy 4xx/redirect/auth, 0700 dirs, run lock, stderr cap, ssh '--', ReDoS bounds). BLOCKED (requires live infra): first real run fleet up -l site=garage. Open for user: --critical VM list needs an agent verb or stays generic; master-to-master rsync needs a dedicated key; ntfy.url placeholder; reminder timer not enabled; orchestrate.py ~850+ lines. Deferred masking limits: basic/bearer prose over-mask, dotted-user@host over-mask, token=\"ab\"cd,ef tail, unbounded ntfy queue."
+    },
+    {
+      "id": 3,
+      "file": "sprints/03-appliances.md",
+      "title": "Appliances (PiKVM, OPNsense, Home Assistant, OMV, Proxmox)",
+      "status": "complete",
+      "depends_on": [
+        2
+      ],
+      "batch": 3,
+      "model": "sonnet",
+      "branch": "sprint/03-appliances (+ fix/fleet-sudoers-noargs, fix/fleet-sprint3-review, fix/fleet-sprint3-canonical)",
+      "merged": true,
+      "notes": "All 8 tasks implemented and simulated-tested; 476 tests pass (export of HEAD), shellcheck 0, real visudo -cf OK on OMV/PiKVM fragments, 8/8 invariants 0. Review: 3 reviewers, 6 HIGH fixed (bootstrap trusted paths + staged root-verified install, cloudflared rollback by rename, VM-line terminal injection, tailnet-only API URLs, verify_privileges catch-all) plus MEDIUMs; sudoers no-arg commands render with an explicit empty argument list \"\"; the fragment grants the canonical readlink -f path, verified root-owned with no symlink component. BLOCKED (requires live infra): real check on each type; real update on OMV or PiKVM; real OPNsense 403 probe and HA non-owner check; exact OPNsense/HA Supervisor endpoints on installed versions. Sudoers fragments NOT applied: Stop and review by Jerome. Open for user: cloudflared rollback automatic only as root (closed list has no write command); qm list as non-root usually fails (generic VM warning); https to literal tailnet IPs accepted; OPNsense updates>0 treated as minor even in state 'upgrade' (confirm on real box); HA Core failure reported failed (not degraded); fleet check CLI shows unsupported for API hosts (run('check')/verify_privileges have no CLI verb); fleet.yml api URLs are placeholders (example-tailnet.ts.net)."
+    },
+    {
+      "id": 4,
+      "file": "sprints/04-finitions-mise-en-service.md",
+      "title": "Finitions et mise en service (Linux + appliances)",
+      "status": "complete",
+      "depends_on": [
+        3
+      ],
+      "batch": 4,
+      "model": "sonnet",
+      "branch": "sprint/04-finitions",
+      "merged": true,
+      "notes": "Complete by the Sprints 1-3 convention (all locally doable tasks done and verified; live items BLOCKED). Done: docs/FLEET.md (every command/option, selectors, statuses, prerequisites per kind, key revocation, manual procedure, manual actions checklist, known limitations), fup alias (zsh+bash verified), ALIASES.md and CHEZMOISCRIPTS.md, tailscale-acl.hujson drafted NOT applied. Merge 8676a707; 476 tests pass on git-archive export, bash -n 0, shellcheck 0 new findings (145 pre-existing, exit 1), 8/8 invariants 0, ACL parses. Review: 2 reviewers PASS with minor fixes, all fixed. BLOCKED (live infra, requires Jerome): first real fleet up; real fleet up --critical (OPNsense then multibox); fleet.yml corrections from real runs; real-run report archived in .artifacts/reports/. Open: apply ACL (replace any allow-all rule, tag masters with both tags, keep Tailscale SSH off on targets); 1Password item is op://Private/Fleet (vault Private), not a vault Fleet; fleet.yml api URLs and ntfy.url still placeholders."
+    },
+    {
+      "id": 5,
+      "file": "sprints/05-postes-de-travail.md",
+      "title": "Postes de travail (Windows, macOS, WSL) + mode pull",
+      "status": "complete",
+      "depends_on": [
+        4
+      ],
+      "batch": 5,
+      "model": "sonnet",
+      "branch": "sprint/05-postes (+ fix/fleet-sprint5-review, fix/fleet-sprint5-review2, fix/fleet-sprint5-lockfile)",
+      "merged": true,
+      "notes": "Complete by the Sprints 1-4 convention (all locally doable tasks done and verified; live items BLOCKED). Windows agent + bootstrap (PS 5.1), pull mode (systemd user timer, launchd, scheduled task; local-only entry, >7 days, ntfy prio 2, never reboots, never critical/guardian, 24h backoff, hard timeout), macOS auto-update check, contract + pull tests, FLEET.md section. Merges 0304e8d7, 59470356; 560 tests pass on git-archive export, shellcheck 0, bash -n 0, 8/8 invariants 0, plist parses. Review: 4 reviewers, 2 HIGH + ~20 MEDIUM fixed in 2 rounds, plus 3 coordinator security findings (agent dir owner/reparse, Tailscale-interface firewall + sshd_config hardening, global mutex squatting replaced by state-dir lock file). BLOCKED: real PC/Mac check+update, winget/Scoop scheduled-task validation, real 7-day pull, live Event Log, PSScriptAnalyzer (no pwsh; container run denied by permission check), plutil -lint (no Mac). Open: ntfy url https://ntfy.sh is a real public server (pre-existing placeholder); macOS sudoers draft not applied; agent install on Macs manual; set ssh_user for workstations; run fleet-bootstrap.ps1 -SshUser as admin on each PC."
+    }
+  ]
+}

@@ -1,0 +1,320 @@
+# fleet.yml — fleet-updates inventory (one entry per tailnet machine that gets updates).
+#
+# Format: restricted YAML subset, see dot_local/share/fleet/lib/inventory.py
+# (block mappings, one-line [a, b] lists and {k: v} maps, no block sequences).
+# Validated by `fleet` on every run; a bad value rejects the whole file.
+#
+# kind : chezmoi-linux chezmoi-macos omv pikvm homeassistant opnsense proxmox windows guardian
+# site : dijon nice garage cloud mobile
+# critical: true if and only if kind is opnsense or proxmox (validator enforces it)
+# Do NOT put a trailing comment on kind:/site: lines (INVARIANTS.md greps them);
+# uncertain values are flagged by a "# UNCERTAIN" comment on the line above.
+#
+# Built from `tailscale status --json` on 2026-10-30. iOS devices are not part of
+# the fleet and are left out. ssh_user is provisional (fleet bootstrap / sprint 3
+# and 5 set it for omv, pikvm, windows, macOS); a host without ssh_user has no
+# agent yet and `fleet check` reports it unsupported.
+# critical_services is read on the target by the agent from
+# ~/.config/fleet-agent/critical-services (deployed by a later sprint).
+
+version: 1
+masters: [diabolo, penelope]
+# ntfy: server reached through the `gateway` host (phase 3, treated alone); the token
+# is only an op:// reference, read at run time, never stored here. The server runs
+# in a Docker container on bbh-network; url is its external address.
+ntfy: {url: "https://ntfy.bbhome.wf", topic: fleet, token_ref: "op://Private/Fleet/ntfy-token", gateway: bbh-network}
+# Console -> master choice per site of the targets (default: the first master, diabolo).
+master_priority: {nice: penelope}
+parallel: {total: 10, per_site: 4}
+# API-only hosts (no agent, no ssh_user): lib/api_opnsense.py and lib/api_homeassistant.py.
+# url: https://<name>.ts.net, or a literal tailnet IP (100.64.0.0/10, http allowed). Credentials are op:// references
+# read at run time, never stored here or on disk. UNCERTAIN: the tailnet domain below is a
+# placeholder, and the 1Password item fields must be created (dedicated minimal users:
+# OPNsense user `fleet` with the single privilege "System: Firmware"; Home Assistant
+# dedicated non-owner user with a long-lived token).
+api:
+  opnsense-amd64: {url: "https://opnsense-amd64.example-tailnet.ts.net", key_ref: "op://Private/Fleet/opnsense-api-key", secret_ref: "op://Private/Fleet/opnsense-api-secret"}
+  ha-dijon: {url: "https://ha-dijon.example-tailnet.ts.net", token_ref: "op://Private/Fleet/ha-dijon-token"}
+  ha-nice: {url: "https://ha-nice.example-tailnet.ts.net", token_ref: "op://Private/Fleet/ha-nice-token"}
+  ha-garage: {url: "https://ha-garage.example-tailnet.ts.net", token_ref: "op://Private/Fleet/ha-garage-token"}
+
+timeouts:
+  chezmoi-linux: 30
+  chezmoi-macos: 30
+  omv: 30
+  pikvm: 20
+  homeassistant: 45
+  windows: 120
+  opnsense: 30
+  proxmox: 45
+  guardian: 30
+
+hosts:
+  # UNCERTAIN: site inferred (master workstation)
+  diabolo:
+    tailnet_name: diabolo
+    site: dijon
+    kind: chezmoi-linux
+    critical: false
+    ssh_user: jeromesoyer
+  # UNCERTAIN: site inferred (master workstation)
+  penelope:
+    tailnet_name: penelope
+    site: dijon
+    kind: chezmoi-linux
+    critical: false
+    ssh_user: jeromesoyer
+  # UNCERTAIN: site inferred
+  looping:
+    tailnet_name: looping
+    site: dijon
+    kind: chezmoi-linux
+    critical: false
+    ssh_user: jeromesoyer
+  # UNCERTAIN: site inferred
+  docker:
+    tailnet_name: docker
+    site: dijon
+    kind: chezmoi-linux
+    critical: false
+    ssh_user: jeromesoyer
+  # UNCERTAIN: site inferred
+  satanas:
+    tailnet_name: satanas
+    site: dijon
+    kind: chezmoi-linux
+    critical: false
+    ssh_user: jeromesoyer
+  # UNCERTAIN: site inferred; currently offline
+  synapse:
+    tailnet_name: synapse
+    site: dijon
+    kind: chezmoi-linux
+    critical: false
+    ssh_user: jeromesoyer
+  # UNCERTAIN: site inferred (bot host)
+  noxysdevbot:
+    tailnet_name: noxysdevbot
+    site: cloud
+    kind: chezmoi-linux
+    critical: false
+    ssh_user: jeromesoyer
+  # UNCERTAIN: site inferred (CI runner)
+  gha-runner:
+    tailnet_name: gha-runner
+    site: cloud
+    kind: chezmoi-linux
+    critical: false
+    ssh_user: jeromesoyer
+  # UNCERTAIN: site inferred; probably a VM on a Proxmox host
+  fedora-pve:
+    tailnet_name: fedora-pve
+    site: dijon
+    kind: chezmoi-linux
+    critical: false
+    ssh_user: jeromesoyer
+  # UNCERTAIN: site inferred; canary for chezmoi-linux
+  fedora-rawhide:
+    tailnet_name: fedora-rawhide
+    site: dijon
+    kind: chezmoi-linux
+    critical: false
+    ssh_user: jeromesoyer
+    canary: true
+  # UNCERTAIN: site inferred (laptop)
+  omarchy-macbookpro:
+    tailnet_name: omarchy-macbookpro
+    site: mobile
+    kind: chezmoi-linux
+    critical: false
+    ssh_user: jeromesoyer
+  # UNCERTAIN: site inferred (VPS)
+  vmi3622893:
+    tailnet_name: vmi3622893
+    site: cloud
+    kind: chezmoi-linux
+    critical: false
+    ssh_user: jeromesoyer
+  # UNCERTAIN: site inferred (OVH VPS); tailnet HostName is vps-e4b88509-vps-ovh-net
+  vps-noxys-ovh:
+    tailnet_name: vps-noxys-ovh
+    site: cloud
+    kind: chezmoi-linux
+    critical: false
+    ssh_user: jeromesoyer
+  # UNCERTAIN: site inferred; ntfy gateway, treated alone in phase 3
+  bbh-network:
+    tailnet_name: bbh-network
+    site: nice
+    kind: chezmoi-linux
+    critical: false
+    ssh_user: jeromesoyer
+    tags: [infra]
+  bbh-dij-guardian:
+    tailnet_name: bbh-dij-guardian
+    site: dijon
+    kind: guardian
+    critical: false
+    ssh_user: jeromesoyer
+    tags: [infra]
+    canary: true
+  bbh-nce-guardian:
+    tailnet_name: bbh-nce-guardian
+    site: nice
+    kind: guardian
+    critical: false
+    ssh_user: jeromesoyer
+    tags: [infra]
+  # ssh_user set by fleet bootstrap (sprint 3)
+  omv-dijon:
+    tailnet_name: omv-dijon
+    site: dijon
+    kind: omv
+    critical: false
+    tags: [site-router]
+  # ssh_user set by fleet bootstrap (sprint 3)
+  omv-nice:
+    tailnet_name: omv-nice
+    site: nice
+    kind: omv
+    critical: false
+    tags: [site-router]
+    canary: true
+  # ssh_user set by fleet bootstrap (sprint 3)
+  omv-garage:
+    tailnet_name: omv-garage
+    site: garage
+    kind: omv
+    critical: false
+    tags: [site-router]
+  # no SSH agent, API only (sprint 3)
+  ha-dijon:
+    tailnet_name: ha-dijon
+    site: dijon
+    kind: homeassistant
+    critical: false
+    tags: [infra]
+  # no SSH agent, API only (sprint 3)
+  ha-nice:
+    tailnet_name: ha-nice
+    site: nice
+    kind: homeassistant
+    critical: false
+    tags: [infra]
+    canary: true
+  # no SSH agent, API only (sprint 3)
+  ha-garage:
+    tailnet_name: ha-garage
+    site: garage
+    kind: homeassistant
+    critical: false
+    tags: [infra]
+  # UNCERTAIN: site inferred; ssh_user set by fleet bootstrap (sprint 3)
+  pikvm:
+    tailnet_name: pikvm
+    site: dijon
+    kind: pikvm
+    critical: false
+    critical_services: [kvmd, cloudflared]
+  # UNCERTAIN: site inferred; API only (sprint 3)
+  opnsense-amd64:
+    tailnet_name: opnsense-amd64
+    site: dijon
+    kind: opnsense
+    critical: true
+  # UNCERTAIN: site inferred; Proxmox host (apt dist-upgrade via sysup)
+  multibox:
+    tailnet_name: multibox
+    site: dijon
+    kind: proxmox
+    critical: true
+    ssh_user: jeromesoyer
+  # ---- WORKSTATIONS (macOS), sprint 5: low priority, often off, updated by hand until now.
+  # No ssh_user yet: set it after installing the agent on the Mac (Remote Login on, sudoers
+  # limited to the restart command, see docs/FLEET.md). macOS itself is updated by the native
+  # automatic updates; the agent only runs sysup and reports. Pull mode: launchd agent
+  # com.jsoyer.fleet-pull (opt-in marker ~/.config/fleet-agent/pull-enabled).
+  # UNCERTAIN: site inferred (laptop); ssh_user set in sprint 5
+  macbook-pro-14:
+    tailnet_name: jerome-soyers-macbook-pro-14
+    site: mobile
+    kind: chezmoi-macos
+    critical: false
+  # UNCERTAIN: site inferred; ssh_user set in sprint 5
+  macos-jsoyer:
+    tailnet_name: jsoyer-macos
+    site: mobile
+    kind: chezmoi-macos
+    critical: false
+  # UNCERTAIN: site inferred; ssh_user set in sprint 5
+  macmini-m6:
+    tailnet_name: jerome-soyers-mac-mini-m6
+    site: dijon
+    kind: chezmoi-macos
+    critical: false
+  # UNCERTAIN: site inferred; ssh_user set in sprint 5; canary for chezmoi-macos
+  macmini-m4:
+    tailnet_name: jerome-soyers-macmini-m4
+    site: dijon
+    kind: chezmoi-macos
+    critical: false
+    canary: true
+  # UNCERTAIN: site inferred; ssh_user set in sprint 5
+  macmini-intel:
+    tailnet_name: jerome-soyers-macmini-intel
+    site: dijon
+    kind: chezmoi-macos
+    critical: false
+  # UNCERTAIN: site inferred
+  tablet-9ujku4kb:
+    tailnet_name: tablet-9ujku4kb
+    site: mobile
+    kind: windows
+    critical: false
+  # UNCERTAIN: site inferred; Windows agent arrives in sprint 5
+  desktop-9nk57ug:
+    tailnet_name: desktop-9nk57ug
+    site: mobile
+    kind: windows
+    critical: false
+    canary: true
+  # UNCERTAIN: site inferred
+  desktop-0krapln:
+    tailnet_name: desktop-0krapln
+    site: mobile
+    kind: windows
+    critical: false
+  # UNCERTAIN: site inferred
+  # ---- WORKSTATIONS (Windows), sprint 5: low priority, often off. No ssh_user yet: set it
+  # after running fleet-bootstrap.ps1 as Administrator on the PC (placeholder entries, UNCERTAIN
+  # names/sites). WSL distributions on these PCs are updated by the same agent.
+  # UNCERTAIN: site inferred
+  windows-se337kv:
+    tailnet_name: windows-se337kv
+    site: mobile
+    kind: windows
+    critical: false
+  desktop-leeevpo:
+    tailnet_name: desktop-leeevpo
+    site: mobile
+    kind: windows
+    critical: false
+  # UNCERTAIN: site inferred
+  desktop-164dccc:
+    tailnet_name: desktop-164dccc
+    site: mobile
+    kind: windows
+    critical: false
+  # UNCERTAIN: site inferred
+  desktop-6kqjroo:
+    tailnet_name: desktop-6kqjroo
+    site: mobile
+    kind: windows
+    critical: false
+
+groups:
+  masters: [diabolo, penelope]
+  nas: [omv-dijon, omv-nice, omv-garage]
+  homeassistant: [ha-dijon, ha-nice, ha-garage]
+  guardians: [bbh-dij-guardian, bbh-nce-guardian]
+  macs: [macbook-pro-14, macos-jsoyer, macmini-m6, macmini-m4, macmini-intel]

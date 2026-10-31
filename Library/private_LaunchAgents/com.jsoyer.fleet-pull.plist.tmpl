@@ -1,0 +1,53 @@
+{{- if eq .chezmoi.os "darwin" -}}
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.jsoyer.fleet-pull</string>
+
+    <!-- Local-only pull entry of the fleet agent (FLEET_AGENT_PULL=1, no SSH
+         context). Not an SSH verb; never restarts the Mac. Inert unless
+         ~/.config/fleet-agent/pull-enabled exists. -->
+    <key>ProgramArguments</key>
+    <array>
+        <string>/usr/local/libexec/fleet-agent</string>
+    </array>
+
+    <!-- launchd coalesces missed intervals after sleep, RunAtLoad covers login -->
+    <key>StartInterval</key>
+    <integer>21600</integer>
+
+    <key>RunAtLoad</key>
+    <true/>
+
+    <!-- The detached update (nohup + watchdog) must outlive this short run: launchd
+         would otherwise kill the leftover process group when the agent exits. -->
+    <key>AbandonProcessGroup</key>
+    <true/>
+
+    <key>ProcessType</key>
+    <string>Background</string>
+
+    <key>LowPriorityIO</key>
+    <true/>
+
+    <key>StandardOutPath</key>
+    <string>{{ .chezmoi.homeDir }}/Library/Logs/fleet-pull.log</string>
+
+    <key>StandardErrorPath</key>
+    <string>{{ .chezmoi.homeDir }}/Library/Logs/fleet-pull.log</string>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>FLEET_AGENT_PULL</key>
+        <string>1</string>
+        <key>PATH</key>
+        <string>{{ .chezmoi.homeDir }}/.local/bin:/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+        <key>HOME</key>
+        <string>{{ .chezmoi.homeDir }}</string>
+    </dict>
+</dict>
+</plist>
+{{- end }}

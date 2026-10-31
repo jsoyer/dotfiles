@@ -1,0 +1,11 @@
+[Unit]
+Description=fleet reminder - daily
+
+[Timer]
+OnCalendar=daily
+RandomizedDelaySec=30min
+Persistent=true
+Unit=fleet-reminder.service
+
+[Install]
+WantedBy=timers.target

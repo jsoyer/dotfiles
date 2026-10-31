@@ -1224,85 +1224,11 @@ def cdestroy [] {
     }
 }
 
-def sysup [] {
-    let os = (^uname | str trim)
-
-    match $os {
-        "Darwin" => {
-            bup
-            bcu
-            if (which mas | is-not-empty) {
-                print "📱 Updating App Store apps..."
-                ^mas upgrade
-            }
-            # bup/bcu upgrade but never reclaim: do it explicitly.
-            if (which brew | is-not-empty) {
-                print "🍺 Cleaning up Homebrew cache..."
-                ^brew cleanup --prune=all -s
-            }
-            print "🐚 Updating oh-my-zsh..."
-            update-omz
-            # AI CLIs update on macOS too (was Linux-only by omission).
-            update-ai
-            _update_herdr_if_present
-        }
-        "Linux" => {
-            let mp = ($env.MACHINE_PROFILE? | default "")
-            match $mp {
-                "rpi" | "ubuntu-desktop" | "ubuntu-server" | "debian" => {
-                    print "📦 Updating apt packages..."
-                    ^sudo apt-get update
-                    ^sudo apt-get dist-upgrade -y
-                    ^sudo apt-get autoremove -y
-                }
-                "arch-desktop" | "arch-server" | "omarchy" => {
-                    print "📦 Updating pacman packages..."
-                    ^sudo pacman -Syu --noconfirm
-                    if (which yay | is-not-empty) {
-                        print "📦 Updating AUR packages..."
-                        ^yay -Sua --noconfirm
-                    }
-                }
-                "fedora-desktop" | "fedora-server" | "toolbox" => {
-                    print "📦 Updating dnf packages..."
-                    ^sudo dnf upgrade --refresh -y
-                }
-                "fedora-atomic" => {
-                    print "🔒 Updating Fedora Atomic..."
-                    ^rpm-ostree upgrade
-                }
-                _ => { }
-            }
-
-            if (which flatpak | is-not-empty) {
-                print "📦 Updating Flatpak apps..."
-                # Split by scope: a bare `flatpak update` also targets
-                # system-scope installs, and polkit refuses a non-interactive
-                # deploy for a normal user ("Deploy not allowed for user"),
-                # which makes the whole command exit non-zero.
-                (^flatpak update --user -y) | complete | ignore
-                let _sys = (^flatpak list --system --columns=application | complete)
-                if ($_sys.exit_code == 0 and ($_sys.stdout | str trim | is-not-empty)) {
-                    (^sudo flatpak update --system -y) | complete | ignore
-                }
-            }
-
-            if (which brew | is-not-empty) {
-                print "🍺 Updating Linuxbrew packages..."
-                ^brew update
-                ^brew upgrade
-                # --prune=all removes ALL cached downloads (not just >120 days),
-                # -s clears the download cache itself.
-                ^brew cleanup --prune=all -s
-            }
-
-            print "🐚 Updating oh-my-zsh..."
-            update-omz
-            update-ai
-            _update_herdr_if_present
-        }
-        _ => { }
-    }
+# `sysup [--reboot]`: the implementation lives in ~/.local/bin/sysup
+# (dot_local/bin/executable_sysup) so every shell and the fleet agent run the
+# same code.
+def --wrapped sysup [...rest] {
+    ^sysup ...$rest
 }
 
 # Update CLI AI tools (claude-code, copilot-cli, codex)
