@@ -26,6 +26,17 @@ ntfy: {url: "https://ntfy.sh", topic: fleet, token_ref: "op://Private/Fleet/ntfy
 # Console -> master choice per site of the targets (default: the first master, diabolo).
 master_priority: {nice: penelope}
 parallel: {total: 10, per_site: 4}
+# API-only hosts (no agent, no ssh_user): lib/api_opnsense.py and lib/api_homeassistant.py.
+# url: https, or a tailnet host (*.ts.net / 100.64.0.0/10). Credentials are op:// references
+# read at run time, never stored here or on disk. UNCERTAIN: the tailnet domain below is a
+# placeholder, and the 1Password item fields must be created (dedicated minimal users:
+# OPNsense user `fleet` with the single privilege "System: Firmware"; Home Assistant
+# dedicated non-owner user with a long-lived token).
+api:
+  opnsense-amd64: {url: "https://opnsense-amd64.example-tailnet.ts.net", key_ref: "op://Private/Fleet/opnsense-api-key", secret_ref: "op://Private/Fleet/opnsense-api-secret"}
+  ha-dijon: {url: "https://ha-dijon.example-tailnet.ts.net", token_ref: "op://Private/Fleet/ha-dijon-token"}
+  ha-nice: {url: "https://ha-nice.example-tailnet.ts.net", token_ref: "op://Private/Fleet/ha-nice-token"}
+  ha-garage: {url: "https://ha-garage.example-tailnet.ts.net", token_ref: "op://Private/Fleet/ha-garage-token"}
 
 timeouts:
   chezmoi-linux: 30

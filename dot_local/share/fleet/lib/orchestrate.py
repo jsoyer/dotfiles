@@ -32,6 +32,8 @@ _LIB = os.path.dirname(os.path.abspath(__file__))
 if _LIB not in sys.path:
     sys.path.insert(0, _LIB)
 
+import api_homeassistant  # noqa: E402
+import api_opnsense  # noqa: E402
 import inventory as inv  # noqa: E402
 import notify  # noqa: E402
 import report  # noqa: E402
@@ -46,6 +48,8 @@ PHASE1_KINDS = ("chezmoi-linux", "chezmoi-macos", "omv", "pikvm", "windows")
 PHASE2_KINDS = ("homeassistant", "guardian")
 PHASE2_TAGS = ("infra", "site-router")
 CANARY_BLOCKING = ("failed", "degraded", "timeout")
+# Kinds with no agent: handled by lib/api_*.py when the host has no ssh_user.
+API_KINDS = ("opnsense", "homeassistant")
 YES = ("y", "yes", "o", "oui")
 
 
@@ -163,7 +167,18 @@ class SshTransport:
             return 255, "", "cannot run local agent: %s" % exc.__class__.__name__
 
     def list_vms(self, alias: str) -> Optional[List[str]]:
-        return None  # no agent verb lists VMs (closed whitelist): the warning says so
+        """VMs a hypervisor reports in the log_tail of its read-only `check` (no new verb)."""
+        try:
+            rc, out, _ = self.call(alias, "check")
+        except (OSError, ValueError):
+            return None
+        entry, _ = schema.parse_agent_output(out or "", alias, "check") if (out or "").strip() else (None, None)
+        return vm_lines(entry)
+
+    def api(self, alias: str, verb: str, ctx: Any) -> Dict[str, Any]:
+        """check/update of an API-only host (OPNsense, Home Assistant)."""
+        ctx.env = self.env
+        return run_api(self.data["hosts"][alias]["kind"], verb, alias, self.data, ctx)
 
     def sync(self, master: str, peers: List[str]) -> bool:
         """rsync this master's own files to each peer master (best effort)."""
@@ -195,6 +210,18 @@ class SshTransport:
         remote = "fleet " + " ".join(shlex.quote(a) for a in argv)
         proc = subprocess.run([self.ssh] + self.opts + ["-t", "--", self._target(master), remote])
         return None if proc.returncode == 255 else proc.returncode
+
+
+def vm_lines(entry: Optional[Dict[str, Any]]) -> Optional[List[str]]:
+    """``vm: <id> <name> <status>`` lines of a check entry's log_tail, or None when there are none."""
+    tail = (entry or {}).get("log_tail") or ""
+    vms = [ln[4:].strip() for ln in tail.splitlines() if ln.startswith("vm: ")]
+    return vms or None
+
+
+def run_api(kind: str, verb: str, alias: str, data: Dict[str, Any], ctx: Any) -> Dict[str, Any]:
+    module = api_opnsense if kind == "opnsense" else api_homeassistant
+    return module.run(verb, alias, data, ctx)
 
 
 # ---------------------------------------------------------------- selection helpers
@@ -378,7 +405,7 @@ class Orchestrator:
                 return self._master_entry(alias, verb, "offline", "tailscale offline", t0, seen)
             if state == "absent":
                 return self._master_entry(alias, verb, "unreachable", "not in tailscale status", t0)
-            if not host.get("ssh_user"):
+            if not host.get("ssh_user") and not self._is_api(alias):
                 return {"schema": 1, "host": alias, "verb": verb, "status": "unsupported",
                         "reason": "no agent for kind %s yet" % host["kind"], "started": t0, "ended": self._iso()}
         return None
@@ -417,7 +444,27 @@ class Orchestrator:
             t0, self._last_seen(alias))
 
     # ------------------------------------------------------------ update
+    def _is_api(self, alias: str) -> bool:
+        """API-only host: an API kind with no ssh_user (OPNsense, Home Assistant)."""
+        host = self.hosts[alias]
+        return host["kind"] in API_KINDS and not host.get("ssh_user")
+
+    def _update_api(self, alias: str, t0: str, raw: List[str]) -> Dict[str, Any]:
+        host = self.hosts[alias]
+        ctx = api_opnsense.ApiContext(
+            master=self.master, sleep=self.opt.sleep, now=self.now, notifier=self._notify,
+            tailnet_name=host["tailnet_name"], deadline_min=inv.timeout_for(self.data, alias),
+            poll_interval=self.opt.poll_interval)
+        try:
+            entry = self.transport.api(alias, "update", ctx)
+        except (OSError, ValueError, AttributeError) as exc:
+            entry = schema.failed_entry(alias, "update", "API run failed: %s" % exc.__class__.__name__, t0)
+        raw.append("== update (api) %s" % entry.get("status"))
+        return entry
+
     def _update(self, alias: str, local: bool, t0: str, raw: List[str]) -> Dict[str, Any]:
+        if self._is_api(alias):
+            return self._update_api(alias, t0, raw)
         timeout_min = inv.timeout_for(self.data, alias)
         began = self.now()
         ent, kind, info = self._call(alias, "update", local, raw)
@@ -500,12 +547,12 @@ class Orchestrator:
 
     # ------------------------------------------------------------ critical hosts
     def _critical_warning(self, alias: str, action: str) -> str:
-        vms = self.transport.list_vms(alias)
+        vms = None if self._is_api(alias) else self.transport.list_vms(alias)
         host = self.hosts[alias]
         if vms:
             listing = "VMs that will be interrupted: " + ", ".join(vms)
         else:
-            listing = "VM list unavailable (no agent verb): assume every VM/service behind it is interrupted"
+            listing = "VM list unavailable: assume every VM/service behind it is interrupted"
         return "WARNING: %s (%s) is critical. %s %s." % (alias, host["kind"], action, listing)
 
     def _confirm(self, prompt: str) -> bool:
@@ -612,6 +659,8 @@ class Orchestrator:
             return self._skip(alias, "reboot", "current master: restart it by hand", t0)
         if host.get("critical") and not self.opt.critical:
             return self._skip(alias, "reboot", "critical host: --critical required", t0)
+        if self._is_api(alias):
+            return self._skip(alias, "reboot", "API host: no reboot verb", t0)
         gate = self._gate(alias, "reboot", t0, False)
         if gate is not None:
             return gate
