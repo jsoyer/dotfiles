@@ -5,8 +5,6 @@ ConditionPathExists=%h/.config/fleet-agent/pull-enabled
 ConditionPathExists=/usr/local/libexec/fleet-agent
 # Laptops: never on battery
 ConditionACPower=true
-After=network-online.target
-Wants=network-online.target
 
 [Service]
 Type=oneshot
@@ -14,6 +12,8 @@ Type=oneshot
 Environment=FLEET_AGENT_PULL=1
 ExecStart=/usr/local/libexec/fleet-agent
 TimeoutStartSec=120
+Nice=19
+IOSchedulingClass=idle
 StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=fleet-pull

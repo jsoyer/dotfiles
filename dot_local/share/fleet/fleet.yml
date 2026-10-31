@@ -288,12 +288,12 @@ hosts:
   # ---- WORKSTATIONS (Windows), sprint 5: low priority, often off. No ssh_user yet: set it
   # after running fleet-bootstrap.ps1 as Administrator on the PC (placeholder entries, UNCERTAIN
   # names/sites). WSL distributions on these PCs are updated by the same agent.
+  # UNCERTAIN: site inferred
   windows-se337kv:
     tailnet_name: windows-se337kv
     site: mobile
     kind: windows
     critical: false
-  # UNCERTAIN: site inferred
   desktop-leeevpo:
     tailnet_name: desktop-leeevpo
     site: mobile

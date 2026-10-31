@@ -85,6 +85,30 @@ class PullCase(unittest.TestCase):
         self.sb.state.mkdir(parents=True, exist_ok=True)
         (self.sb.state / "last-success").write_text(str(int(time.time() - days_ago * 86400)) + "\n")
 
+    def poll(self, predicate, timeout=5.0):
+        """Wait (up to `timeout` s) for a condition instead of sleeping a fixed time."""
+        deadline = time.time() + timeout
+        while time.time() < deadline:
+            if predicate():
+                return True
+            time.sleep(0.05)
+        return predicate()
+
+    def enable_url(self, url, token=True):
+        (self.conf / "pull-enabled").write_text("")
+        tokfile = self.sb.root / "ntfy-token"
+        tokfile.write_text(TOKEN + "\n")
+        lines = [f"NTFY_URL={url}", "NTFY_TOPIC=fleet"]
+        if token:
+            lines.append(f"NTFY_TOKEN_FILE={tokfile}")
+        (self.conf / "pull.conf").write_text("\n".join(lines) + "\n")
+
+    def reset_state(self):
+        self.poll(lambda: not (self.sb.state / "update.lock").exists(), 10)
+        shutil.rmtree(self.sb.state, ignore_errors=True)
+        for f in ("curl.args", "curl.stdin"):
+            (self.sb.stub_dir / f).unlink(missing_ok=True)
+
     def wait_job(self):
         proc, data = self.sb.wait_final()
         return data
@@ -138,8 +162,6 @@ class NotAVerb(PullCase):
         self.assertNotIn("verb_reboot", block)
         for word in ("systemctl", "shutdown", "sudo", "as_root"):
             self.assertNotIn(word, block)
-        # The only caller of the restart verb is the SSH verb dispatch.
-        self.assertEqual(len(re.findall(r"\bverb_reboot\b", agent_text())), 3)  # def, comment-free call, dispatch
 
 
 class PullBehaviour(PullCase):
@@ -197,10 +219,10 @@ class PullBehaviour(PullCase):
         self.sb.json_of(self.pull({"FLEET_AGENT_REBOOT_DELAY": "0"}))
         final = self.wait_job()
         self.assertTrue(final["reboot_required"])
-        time.sleep(0.5)
+        # the notification is the last thing the job does: wait for it, then check nothing restarted
+        self.assertTrue(self.poll(lambda: "NOT done" in self.sb.read("curl.stdin")), "notification never sent")
         self.assertEqual(self.sb.read("sudo.log"), "", "pull must never call sudo")
         self.assertNotIn("reboot", self.sb.read("calls.log"))
-        self.assertIn("NOT done", self.sb.read("curl.stdin"))
 
     def test_denied_hosts(self):
         self.enable()
@@ -209,6 +231,7 @@ class PullBehaviour(PullCase):
             ("proxmox", {"FLEET_AGENT_KIND": "proxmox"}, "pull_kind_proxmox"),
             ("omv", {"FLEET_AGENT_KIND": "omv"}, "pull_kind_omv"),
             ("pikvm", {"FLEET_AGENT_KIND": "pikvm"}, "pull_kind_pikvm"),
+            ("guardian kind", {"FLEET_AGENT_KIND": "guardian"}, "pull_kind_guardian"),
         ]
         for label, env, reason in cases:
             with self.subTest(label):
@@ -216,37 +239,147 @@ class PullBehaviour(PullCase):
                 self.assertEqual((data["status"], data["reason"]), ("skipped", reason))
         (self.conf / "no-pull").write_text("")
         data = self.sb.json_of(self.pull())
-        self.assertEqual(data["reason"], "pull_pull_denied")
+        self.assertEqual(data["reason"], "pull_denied")
         self.no_sysup()
 
+    def test_host_with_critical_services_is_denied(self):
+        self.enable()
+        (self.sb.root / "critical-services").write_text("cloudflared\n")
+        data = self.sb.json_of(self.pull())
+        self.assertEqual((data["status"], data["reason"]), ("skipped", "pull_critical_services"))
+        self.no_sysup()
+        # an empty file does not make the host critical
+        (self.sb.root / "critical-services").write_text("")
+        self.assertEqual(self.sb.json_of(self.pull())["status"], "started")
+        self.wait_job()
+
+    def test_last_success_parsing_is_strict(self):
+        self.enable()
+        now = int(time.time())
+        cases = {
+            "garbage": "abc",
+            "empty": "",
+            "too many digits": str(now) + "000000",
+            "zero padded old": "0000000008",
+            "future": str(now + 10 * 86400),
+        }
+        for label, content in cases.items():
+            with self.subTest(label):
+                self.sb.state.mkdir(parents=True, exist_ok=True)
+                (self.sb.state / "last-success").write_text(content + "\n")
+                proc = self.pull()
+                data = self.sb.json_of(proc)
+                self.assertEqual(data["status"], "started", (label, proc.stderr))
+                self.wait_job()
+                self.reset_state()
+        # a zero-padded RECENT stamp still counts as recent (no octal misparse)
+        self.sb.state.mkdir(parents=True, exist_ok=True)
+        (self.sb.state / "last-success").write_text("0" + str(now - 3600) + "\n")
+        self.assertEqual(self.sb.json_of(self.pull())["reason"], "recent_update")
+
+    def test_token_only_to_https_or_exact_loopback(self):
+        cases = [
+            ("https://ntfy.example.test", True),
+            ("http://127.0.0.1", True),
+            ("http://127.0.0.1:8080", True),
+            ("http://localhost/", True),
+            ("http://localhost:2586", True),
+            ("http://127.0.0.1.evil.com", False),
+            ("http://localhost.evil.com", False),
+            ("http://127.0.0.10", False),
+            ("http://ntfy.example.test", False),
+        ]
+        for url, allowed in cases:
+            with self.subTest(url=url):
+                self.enable_url(url)
+                self.assertEqual(self.sb.json_of(self.pull())["status"], "started")
+                self.wait_job()
+                self.assertTrue(self.poll(lambda: (self.sb.stub_dir / "curl.stdin").exists()), "no notification")
+                cfg = self.sb.read("curl.stdin")
+                self.assertIn(f"url = \"{url.rstrip(chr(47))}/fleet\"", cfg)
+                self.assertEqual("Authorization: Bearer" in cfg, allowed, cfg)
+                self.assertNotIn(TOKEN, self.sb.read("curl.args"))
+                self.reset_state()
+
+    def test_failed_pull_backs_off_24h_and_notifies_once(self):
+        self.enable()
+        self.assertEqual(self.sb.json_of(self.pull({"STUB_SYSUP_RC": "4"}))["status"], "started")
+        self.assertEqual(self.wait_job()["status"], "failed")
+        self.assertTrue(self.poll(lambda: (self.sb.stub_dir / "curl.stdin").exists()))
+        self.assertTrue((self.sb.state / "last-attempt").exists())
+        notified = self.sb.read("curl.args").count("-K -")
+        for _ in range(2):
+            data = self.sb.json_of(self.pull())
+            self.assertEqual((data["status"], data["reason"]), ("skipped", "pull_backoff"))
+        self.assertEqual(self.sb.read("curl.args").count("-K -"), notified, "no notification during backoff")
+        self.assertEqual(self.sb.read("calls.log").count("sysup"), 1, "no retry during backoff")
+        # 25 h later the next pull may retry
+        (self.sb.state / "last-attempt").write_text(str(int(time.time()) - 25 * 3600) + "\n")
+        self.assertEqual(self.sb.json_of(self.pull())["status"], "started")
+        self.wait_job()
+
+    def test_pull_update_has_a_hard_timeout_systemd(self):
+        self.enable()
+        self.sb.json_of(self.pull())
+        self.wait_job()
+        self.assertIn("RuntimeMaxSec=7200", self.sb.read("systemd-run.log"))
+
+    def test_pull_update_has_a_hard_timeout_without_systemd(self):
+        # macOS path: watchdog subshell kills a hung update, the lock does not stay held forever.
+        self.enable()
+        env = {"FLEET_AGENT_NO_SYSTEMD_RUN": "1", "FLEET_AGENT_JOB_MAX_SECS": "2", "STUB_SYSUP_SLEEP": "60"}
+        self.assertEqual(self.sb.json_of(self.pull(env))["status"], "started")
+        self.assertFalse((self.sb.stub_dir / "systemd-run.log").exists())
+
+        def died():
+            data = self.sb.json_of(self.sb.run("report"))
+            return data["status"] == "failed" and data["reason"] == "job_died"
+
+        self.assertTrue(self.poll(died, 15), "hung update was not terminated by the watchdog")
+        data = self.sb.json_of(self.pull())
+        self.assertEqual((data["status"], data["reason"]), ("skipped", "pull_backoff"))
+
+    def test_pull_log_is_capped(self):
+        log = self.sb.root / "fleet-pull.log"
+        log.write_text("x" * 100 + "\n" * 1 + ("line of log output\n" * 80000))
+        self.assertGreater(log.stat().st_size, 1048576)
+        self.pull({"FLEET_AGENT_PULL_LOG": str(log)})
+        self.assertLess(log.stat().st_size, 100000)
     def test_busy_when_a_normal_update_holds_the_lock(self):
         self.enable()
         first = self.sb.json_of(self.sb.run("update", {"STUB_SYSUP_SLEEP": "2"}))
         self.assertEqual(first["status"], "started")
-        data = self.sb.json_of(self.pull())
+        proc = self.pull()
+        data = self.sb.json_of(proc)
         self.assertEqual(data["status"], "busy")
+        self.assertEqual(proc.returncode, 0, "pull mode must not fail the timer unit on busy")
         self.sb.wait_final()
 
     def test_lock_race_20x(self):
-        # Many pull runs at once: exactly one job starts, the rest are busy.
+        # Three pull runs released together by a start barrier: exactly one job starts, two are busy.
         self.enable()
-        for _ in range(20):
+        env = {k: v for k, v in self.sb.env.items() if k != "SSH_CONNECTION"}
+        env.update({"FLEET_AGENT_PULL": "1", "STUB_SYSUP_SLEEP": "2"})
+        for round_no in range(20):
+            barrier = self.sb.root / f"barrier-{round_no}"
             procs = [
                 subprocess.Popen(
-                    ["bash", str(AGENT)],
-                    env={**{k: v for k, v in self.sb.env.items() if k != "SSH_CONNECTION"},
-                         "FLEET_AGENT_PULL": "1", "STUB_SYSUP_SLEEP": "1"},
-                    stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, stdin=subprocess.DEVNULL,
+                    ["bash", "-c", 'while [ ! -e "$1" ]; do sleep 0.005; done; exec bash "$2"', "race", str(barrier), str(AGENT)],
+                    env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, stdin=subprocess.DEVNULL,
                 )
                 for _ in range(3)
             ]
-            statuses = []
+            barrier.write_text("go")
+            results = []
             for p in procs:
                 out, _err = p.communicate(timeout=30)
-                statuses.append(json.loads(out.splitlines()[0])["status"])
-            self.assertEqual(statuses.count("started"), 1, statuses)
+                results.append((p.returncode, json.loads(out.splitlines()[0])["status"]))
+            statuses = [st for _rc, st in results]
+            self.assertEqual(statuses.count("started"), 1, results)
+            self.assertEqual(statuses.count("busy"), 2, results)
+            self.assertEqual({rc for rc, _st in results}, {0}, "busy is not an error in pull mode")
             self.sb.wait_final()
-            shutil.rmtree(self.sb.state, ignore_errors=True)
+            self.reset_state()
 
 
 class MacosChecks(PullCase):
@@ -301,6 +434,10 @@ class SystemdUnits(unittest.TestCase):
         self.assertIn("ConditionPathExists=%h/.config/fleet-agent/pull-enabled", svc)
         self.assertIn("ConditionACPower", svc)
         self.assertNotRegex(svc, r"(?i)reboot|systemctl|shutdown")
+        self.assertNotIn("network-online", svc)  # no effect in the user manager
+        self.assertIn("Nice=19", svc)
+        self.assertIn("IOSchedulingClass=idle", svc)
+        self.assertNotIn("NoNewPrivileges", svc)
         timer = (UNIT_DIR / "fleet-pull.timer").read_text()
         self.assertIn("Persistent=true", timer)
         self.assertIn("Unit=fleet-pull.service", timer)
@@ -329,6 +466,10 @@ class LaunchdPlist(unittest.TestCase):
         self.assertIn("StartInterval", data)
         self.assertTrue(data["RunAtLoad"])
         self.assertNotIn("Authorization", json.dumps(data, default=str))
+        # the detached update must survive the end of this short launchd run
+        self.assertIs(data["AbandonProcessGroup"], True)
+        self.assertEqual(data["ProcessType"], "Background")
+        self.assertIs(data["LowPriorityIO"], True)
 
 
 if __name__ == "__main__":

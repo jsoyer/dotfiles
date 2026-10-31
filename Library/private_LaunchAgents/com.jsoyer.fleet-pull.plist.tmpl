@@ -22,6 +22,17 @@
     <key>RunAtLoad</key>
     <true/>
 
+    <!-- The detached update (nohup + watchdog) must outlive this short run: launchd
+         would otherwise kill the leftover process group when the agent exits. -->
+    <key>AbandonProcessGroup</key>
+    <true/>
+
+    <key>ProcessType</key>
+    <string>Background</string>
+
+    <key>LowPriorityIO</key>
+    <true/>
+
     <key>StandardOutPath</key>
     <string>{{ .chezmoi.homeDir }}/Library/Logs/fleet-pull.log</string>
 

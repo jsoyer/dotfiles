@@ -238,7 +238,31 @@ statuses and exit codes (0/1/2/3) as the Unix agent. `ping` is not an agent verb
   `administrators_authorized_keys` with `restrict,command="powershell.exe ... -File <agent>"`
   (same ACL; non-fleet lines are kept), creates the Event Log source `fleet-agent` and the
   scheduled tasks, and reports whether winget is present.
-- **Tailscale SSH must stay OFF** on the PC: it bypasses the forced command.
+- **Bootstrap hardening** (all checked before anything is trusted):
+  - `-SshUser <account>` is required: it becomes `AllowUsers <account>` in `sshd_config`, so every
+    other account (including other administrators) can no longer log in over SSH. Pass the
+    account the masters connect as. `-TaskUser` (default: the current account) must be a member
+    of the local Administrators group (`-RunLevel Highest`, admin-only state dir), else the
+    script stops.
+  - The agent directory (`C:\ProgramData\fleet-agent`) is refused when it already exists with an
+    owner other than BUILTIN\Administrators / NT AUTHORITY\SYSTEM, or when it or any ancestor is
+    a reparse point (junction / symlink). The owner is then set to Administrators, inheritance
+    is disabled, only Administrators + SYSTEM get FullControl, recursively on existing children
+    (a child reparse point is refused). `Assert-AclAdminOnly` re-checks owner, reparse points
+    and ACL entries. This covers the state dir, `pull.conf` and the token file as well.
+  - Firewall: TCP 22 from `100.64.0.0/10` **and** only on the `Tailscale` network interface
+    (the script stops if no adapter has that name); the rule is replaced by name (idempotent).
+  - `sshd_config`: backed up as `sshd_config.fleet-bak-<timestamp>`, then `PasswordAuthentication no`,
+    `KbdInteractiveAuthentication no`, `AllowUsers <SshUser>` are set (idempotent) and the
+    `Match Group administrators` / `AuthorizedKeysFile __PROGRAMDATA__/ssh/administrators_authorized_keys`
+    block is kept. The result is validated with `sshd.exe -t` BEFORE `Restart-Service sshd`;
+    on failure the backup is restored and the script aborts.
+  - Forced command and scheduled tasks use the full path
+    `%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe` and a quoted `-File "<agent>"`
+    (in `authorized_keys` the inner quotes are written `\"`). The update task runs with
+    `-WindowStyle Hidden`.
+- **Tailscale SSH must stay OFF** on the PC: it bypasses the forced command. The same holds for
+  macOS and Linux pull targets (and any host with the forced-command agent): keep it off there too.
 - **Refusals** (unknown verb, extra argument, empty command) exit 1, print `fleet-agent: refused`
   and write an Event Log warning (Application, source `fleet-agent`, event 4001).
 - **`update`** returns `started` + job id and starts the scheduled task `fleet-agent-update`
@@ -281,8 +305,12 @@ logged) if `SSH_CONNECTION` or `SSH_ORIGINAL_COMMAND` is set. It only ever reach
 update code: there is no restart code path from pull mode.
 
 Rules: opt-in marker `~/.config/fleet-agent/pull-enabled` (Windows: `C:\ProgramData\fleet-agent\pull-enabled`);
-`no-pull` marker, guardians (host name contains `guardian`) and OMV / PiKVM / Proxmox kinds are
-refused; updates only if the last successful update is older than 7 days (state file
+`no-pull` marker, guardians (host name contains `guardian`, or kind `guardian`), OMV / PiKVM /
+Proxmox kinds and hosts with a non-empty `critical-services` file are refused (reasons
+`pull_denied`, `pull_kind_<kind>`, `pull_critical_services`, `pull_guardian`); a failed, degraded or
+hung pull update is not retried (and not notified again) for 24 h (`last-attempt` newer than
+`last-success`, reason `pull_backoff`); a pull-launched update is killed after 2 h
+(`RuntimeMaxSec=7200` under systemd, a watchdog subshell on macOS); `busy` exits 0 in pull mode; updates only if the last successful update is older than 7 days (state file
 `last-success`); notifies ntfy with priority 2 when the job ends, and mentions that a restart
 is required but not done. Settings in `~/.config/fleet-agent/pull.conf` (never sourced):
 `NTFY_URL`, `NTFY_TOPIC`, `NTFY_TOKEN_FILE` (the token is read from that file, sent to curl on
@@ -291,8 +319,19 @@ stdin / as an HTTPS header, never in argv or logs; sent over https only).
 | Platform | Mechanism |
 |----------|-----------|
 | Linux laptops | `dot_config/systemd/user/fleet-pull.{service,timer}` (daily 12:00 + 20 min after boot, `Persistent=true`, `ConditionACPower`); enable with `systemctl --user enable --now fleet-pull.timer` |
-| macOS | `Library/LaunchAgents/com.jsoyer.fleet-pull.plist` (every 6 h + at load) |
+| macOS | `Library/LaunchAgents/com.jsoyer.fleet-pull.plist` (every 6 h + at load; `AbandonProcessGroup` so the detached update outlives the launchd run; `~/Library/Logs/fleet-pull.log` is trimmed to 200 lines past 1 MB by the agent) |
 | Windows | scheduled task `fleet-agent-pull` (SYSTEM, daily 12:00 + at logon, starts the update task) |
+
+Headless Linux hosts (no login session) need `loginctl enable-linger <user>` for the user timer
+to fire. The unit has no `network-online.target` ordering (it has no effect in the user
+manager); it runs at `Nice=19` / `IOSchedulingClass=idle`.
+
+Windows pull: the ntfy token is read from `NTFY_TOKEN_FILE` and only ever sent in an
+`Authorization` header (https only), never in a URL, argv or log; `last-success` future values count
+as stale. A job that exceeds 120 min is stopped (`taskkill /T`) and reported as `failed` with
+reason `timeout` (`timeout` itself is a master-only status). Test overrides
+(`FLEET_AGENT_TEST`, `FLEET_AGENT_STATE_DIR`, `FLEET_AGENT_CONF_DIR`) are honoured only with
+`FLEET_AGENT_TEST=1` and a path under `%TEMP%`.
 
 ## Where things live
 

@@ -83,6 +83,12 @@ REBOOT_DELAY="${FLEET_AGENT_REBOOT_DELAY:-3}"
 case "$REBOOT_DELAY" in *[!0-9]*|"") REBOOT_DELAY=3 ;; esac
 CONF_DIR="${FLEET_AGENT_CONF_DIR:-${HOME:-/nonexistent}/.config/fleet-agent}"
 PULL_DAYS="${FLEET_AGENT_PULL_DAYS:-7}"
+# Hard limit of one detached update (systemd RuntimeMaxSec / watchdog); backoff after a failed pull.
+JOB_MAX_SECS="${FLEET_AGENT_JOB_MAX_SECS:-7200}"
+case "$JOB_MAX_SECS" in *[!0-9]*|"") JOB_MAX_SECS=7200 ;; esac
+PULL_BACKOFF_SECS=86400
+PULL_LOG_FILE="${FLEET_AGENT_PULL_LOG:-${HOME:-/nonexistent}/Library/Logs/fleet-pull.log}"
+PULL_LOG_MAX_BYTES=1048576
 case "$PULL_DAYS" in *[!0-9]*|"") PULL_DAYS=7 ;; esac
 TAB="$(printf '\t')"
 
@@ -253,6 +259,8 @@ exit_code_for() {
 
 finish() { # finish <verb>: print and exit with the status-derived code
   emit "$1"
+  # Pull mode runs from a timer: another update in progress is not an error.
+  if [ -n "${FLEET_AGENT_PULL:-}" ] && [ "$V_status" = busy ]; then exit 0; fi
   exit_code_for "$V_status"
   exit $?
 }
@@ -855,17 +863,35 @@ write_state() {
 launch_detached() { # launch_detached <job> <jobdir>
   local job="$1" jobdir="$2" var
   local sargs=()
-  if [ "$OS_KERNEL" = Linux ] && command -v systemd-run >/dev/null 2>&1; then
+  if [ "$OS_KERNEL" = Linux ] && command -v systemd-run >/dev/null 2>&1 && { [ "${FLEET_AGENT_TEST:-}" != 1 ] || [ -z "${FLEET_AGENT_NO_SYSTEMD_RUN:-}" ]; }; then
     for var in $PASSTHROUGH_VARS; do
       if [ -n "${!var+x}" ]; then sargs+=("--setenv=$var=${!var}"); fi
     done
     env -u SSH_CONNECTION -u SSH_ORIGINAL_COMMAND \
       systemd-run --user --quiet --collect --unit="fleet-update-$job" \
+      -p "RuntimeMaxSec=$JOB_MAX_SECS" \
       --setenv="FLEET_AGENT_JOB_ID=$job" ${sargs[@]+"${sargs[@]}"} \
       -- bash "$AGENT_PATH" >"$jobdir/launcher.log" 2>&1
     return $?
   fi
-  env -u SSH_CONNECTION -u SSH_ORIGINAL_COMMAND FLEET_AGENT_JOB_ID="$job" nohup bash "$AGENT_PATH" >"$jobdir/launcher.log" 2>&1 </dev/null &
+  # No systemd-run (macOS, bash 3.2, no coreutils timeout): a watchdog subshell next to the job
+  # terminates it (and its children) after JOB_MAX_SECS so a hung update cannot hold the lock.
+  (
+    env -u SSH_CONNECTION -u SSH_ORIGINAL_COMMAND FLEET_AGENT_JOB_ID="$job" nohup bash "$AGENT_PATH" >"$jobdir/launcher.log" 2>&1 </dev/null &
+    jpid=$!
+    (
+      sleep "$JOB_MAX_SECS"
+      pkill -TERM -P "$jpid" 2>/dev/null
+      kill -TERM "$jpid" 2>/dev/null
+      sleep 5
+      pkill -KILL -P "$jpid" 2>/dev/null
+      kill -KILL "$jpid" 2>/dev/null
+    ) >/dev/null 2>&1 </dev/null &
+    wpid=$!
+    wait "$jpid"
+    pkill -P "$wpid" 2>/dev/null
+    kill "$wpid" 2>/dev/null
+  ) >/dev/null 2>&1 </dev/null &
   return 0
 }
 
@@ -906,6 +932,7 @@ verb_update() {
   # names the job so the job can verify it still owns it (lock_lost otherwise).
   printf '%s\n' "$job" >"$LOCKDIR/job"
   : >"$LOCKDIR/handoff"
+  if [ "${FLEET_AGENT_PULL_JOB:-}" = 1 ]; then date +%s >"$STATE_DIR/last-attempt" 2>/dev/null; fi
   LOCK_OWNED=0
   trap - EXIT
   finish update
@@ -1027,13 +1054,49 @@ conf_value() {
 # guardians, critical hosts and appliances are refused.
 pull_denied_reason() {
   if [ ! -f "$CONF_DIR/pull-enabled" ]; then printf not_enabled; return 0; fi
-  if [ -e "$CONF_DIR/no-pull" ]; then printf pull_denied; return 0; fi
+  if [ -e "$CONF_DIR/no-pull" ]; then printf denied; return 0; fi
   case "$(agent_kind)" in
-    omv|pikvm|proxmox) printf 'kind_%s' "$(agent_kind)"; return 0 ;;
+    omv|pikvm|proxmox|guardian) printf 'kind_%s' "$(agent_kind)"; return 0 ;;
   esac
+  # A host with critical services (cloudflared, ...) is not updated unattended.
+  if [ -s "$CRITICAL_FILE" ]; then printf critical_services; return 0; fi
   case "$(printf '%s' "$HOST" | tr '[:upper:]' '[:lower:]')" in
     *guardian*) printf guardian ;;
   esac
+}
+
+# token_url_ok <url>: a token travels over https, or plain http to exactly 127.0.0.1 / localhost
+# (followed by ':' '/' or end of string; http://127.0.0.1.evil.com is refused).
+token_url_ok() {
+  case "$1" in
+    https://*) return 0 ;;
+    http://127.0.0.1|http://127.0.0.1:*|http://127.0.0.1/*) return 0 ;;
+    http://localhost|http://localhost:*|http://localhost/*) return 0 ;;
+  esac
+  return 1
+}
+
+# pull_log_cap: fleet-pull.log (launchd stdout/stderr) is trimmed to its last 200 lines past 1 MB.
+pull_log_cap() {
+  local size
+  [ -f "$PULL_LOG_FILE" ] || return 0
+  size="$(wc -c <"$PULL_LOG_FILE" 2>/dev/null | tr -d ' ')"
+  case "$size" in ""|*[!0-9]*) return 0 ;; esac
+  if [ "$size" -gt "$PULL_LOG_MAX_BYTES" ]; then
+    tail -n 200 "$PULL_LOG_FILE" >"$PULL_LOG_FILE.tmp" 2>/dev/null && cat "$PULL_LOG_FILE.tmp" >"$PULL_LOG_FILE" 2>/dev/null
+    rm -f "$PULL_LOG_FILE.tmp"
+  fi
+  return 0
+}
+
+# epoch_file <file>: integer epoch stored in a state file; 0 when absent or malformed
+# (digits only, at most 11, leading zeros stripped so bash never reads octal).
+epoch_file() {
+  local v
+  v="$(head -n 1 "$1" 2>/dev/null | tr -d '\r\n ')"
+  case "$v" in ""|*[!0-9]*) printf 0; return 0 ;; esac
+  if [ "${#v}" -gt 11 ]; then printf 0; return 0; fi
+  printf '%s' "$((10#$v))"
 }
 
 # pull_notify: ntfy priority 2. The token (file named in pull.conf) goes through a
@@ -1049,7 +1112,7 @@ pull_notify() {
     tok="$(head -n 1 "$tokfile" | tr -d '\r\n')"
     printf '%s' "$tok" | grep -Eq '^[A-Za-z0-9_.-]+$' || tok=""
     # A token only travels over https (or to loopback).
-    case "$url" in https://*|http://127.0.0.1*|http://localhost*) ;; *) tok="" ;; esac
+    token_url_ok "$url" || tok=
   fi
   msg="$HOST: pull-mode update $V_status"
   if [ -n "${V_packages:-}" ] && [ "$V_packages" != null ]; then msg="$msg ($V_packages packages)"; fi
@@ -1065,23 +1128,32 @@ pull_notify() {
   return 0
 }
 
-# run_pull: update only if the last successful update is older than PULL_DAYS.
+# run_pull: update only if the last successful update is older than PULL_DAYS and the last
+# attempt did not fail / degrade / hang within the last 24 h.
 run_pull() {
-  local why last age
+  local why last age attempt
   reset_fields
   mkdir -p "$STATE_DIR" 2>/dev/null || true
+  pull_log_cap
   why="$(pull_denied_reason)"
   if [ -n "$why" ]; then
     V_status="skipped"; V_reason="pull_$why"
     log auth.notice "pull skipped: $why"
     finish pull
   fi
-  last="$(cat "$STATE_DIR/last-success" 2>/dev/null)"
-  case "$last" in *[!0-9]*|"") last=0 ;; esac
+  last="$(epoch_file "$STATE_DIR/last-success")"
   age=$(( $(date +%s) - last ))
-  if [ "$last" -gt 0 ] && [ "$age" -lt $(( PULL_DAYS * 86400 )) ]; then
+  # A future stamp (age < 0) is stale, never "recent".
+  if [ "$last" -gt 0 ] && [ "$age" -ge 0 ] && [ "$age" -lt $(( PULL_DAYS * 86400 )) ]; then
     V_status="skipped"; V_reason="recent_update"
     log auth.notice "pull skipped: last successful update ${age}s ago"
+    finish pull
+  fi
+  # Backoff: an attempt newer than the last success is a failed / degraded / hung one.
+  attempt="$(epoch_file "$STATE_DIR/last-attempt")"
+  if [ "$attempt" -gt "$last" ] && [ $(( $(date +%s) - attempt )) -ge 0 ] && [ $(( $(date +%s) - attempt )) -lt "$PULL_BACKOFF_SECS" ]; then
+    V_status="skipped"; V_reason="pull_backoff"
+    log auth.notice "pull skipped: previous attempt did not succeed, retry after 24 h"
     finish pull
   fi
   log auth.notice "pull: last successful update older than ${PULL_DAYS} days, updating"
