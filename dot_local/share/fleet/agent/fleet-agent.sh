@@ -876,21 +876,21 @@ launch_detached() { # launch_detached <job> <jobdir>
   fi
   # No systemd-run (macOS, bash 3.2, no coreutils timeout): a watchdog subshell next to the job
   # terminates it (and its children) after JOB_MAX_SECS so a hung update cannot hold the lock.
+  # `set -m` gives the job (and the watchdog) their own process group, so the watchdog can
+  # signal the whole tree (sysup and everything it spawned), not only direct children.
   (
+    set -m
     env -u SSH_CONNECTION -u SSH_ORIGINAL_COMMAND FLEET_AGENT_JOB_ID="$job" nohup bash "$AGENT_PATH" >"$jobdir/launcher.log" 2>&1 </dev/null &
     jpid=$!
     (
       sleep "$JOB_MAX_SECS"
-      pkill -TERM -P "$jpid" 2>/dev/null
-      kill -TERM "$jpid" 2>/dev/null
+      kill -TERM -- "-$jpid" 2>/dev/null
       sleep 5
-      pkill -KILL -P "$jpid" 2>/dev/null
-      kill -KILL "$jpid" 2>/dev/null
+      kill -KILL -- "-$jpid" 2>/dev/null
     ) >/dev/null 2>&1 </dev/null &
     wpid=$!
     wait "$jpid"
-    pkill -P "$wpid" 2>/dev/null
-    kill "$wpid" 2>/dev/null
+    kill -TERM -- "-$wpid" 2>/dev/null
   ) >/dev/null 2>&1 </dev/null &
   return 0
 }
@@ -922,6 +922,9 @@ verb_update() {
   printf '%s\n' "$V_started" >"$jobdir/started"
   write_state "$jobdir"
   printf '%s\n' "$job" >"$STATE_DIR/last-job"
+  # Stamp the attempt BEFORE launching: a job that finishes fast must not race the stamp
+  # (it would otherwise be written after the job's final state, yielding a spurious backoff).
+  if [ "${FLEET_AGENT_PULL_JOB:-}" = 1 ]; then date +%s >"$STATE_DIR/last-attempt" 2>/dev/null; fi
   if ! launch_detached "$job" "$jobdir"; then
     V_status="failed"; V_reason="launch_failed"
     V_log_tail="$(tail_of "$jobdir/launcher.log")"
@@ -932,10 +935,20 @@ verb_update() {
   # names the job so the job can verify it still owns it (lock_lost otherwise).
   printf '%s\n' "$job" >"$LOCKDIR/job"
   : >"$LOCKDIR/handoff"
-  if [ "${FLEET_AGENT_PULL_JOB:-}" = 1 ]; then date +%s >"$STATE_DIR/last-attempt" 2>/dev/null; fi
   LOCK_OWNED=0
   trap - EXIT
   finish update
+}
+
+# TERM from the watchdog (or systemd RuntimeMaxSec): record a final failed/timeout state
+# instead of leaving state.json at "running", then exit 143 (EXIT trap releases the lock).
+job_timeout_exit() { # job_timeout_exit <jobdir>
+  trap - TERM
+  V_status="failed"; V_reason="timeout"; V_ended="$(now)"
+  V_log_tail="$(tail_of "$1/sysup.log")"
+  write_state "$1"
+  log auth.warning "update job $V_job terminated: timeout"
+  exit 143
 }
 
 # Detached job entry: reached only through FLEET_AGENT_JOB_ID, which the SSH
@@ -965,6 +978,8 @@ run_job() {
   V_health_after="$V_health_before"
   V_status="running"
   write_state "$jobdir"
+  # shellcheck disable=SC2064
+  trap "job_timeout_exit '$jobdir'" TERM
   log auth.notice "update job $job started"
 
   pre="$jobdir/pkgs.pre"; post="$jobdir/pkgs.post"

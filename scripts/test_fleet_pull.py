@@ -333,11 +333,58 @@ class PullBehaviour(PullCase):
 
         def died():
             data = self.sb.json_of(self.sb.run("report"))
-            return data["status"] == "failed" and data["reason"] == "job_died"
+            return data["status"] == "failed" and data["reason"] == "timeout"
 
         self.assertTrue(self.poll(died, 15), "hung update was not terminated by the watchdog")
         data = self.sb.json_of(self.pull())
         self.assertEqual((data["status"], data["reason"]), ("skipped", "pull_backoff"))
+
+    def test_watchdog_kills_the_whole_process_group_and_records_timeout(self):
+        # A grandchild of sysup (not a direct child of the job) must die with the watchdog, and the
+        # job must leave a final failed/timeout state rather than "running".
+        self.enable()
+        pidfile = self.sb.root / "grandchild.pid"
+        stub = self.sb.root / "sysup-grandchild"
+        ta.Sandbox._script(
+            stub,
+            '#!/usr/bin/env bash\n'
+            f'( sleep 300 & echo $! > "{pidfile}"; wait ) &\n'
+            'wait\n',
+        )
+        env = {"FLEET_AGENT_NO_SYSTEMD_RUN": "1", "FLEET_AGENT_JOB_MAX_SECS": "2", "FLEET_AGENT_SYSUP": str(stub)}
+        self.assertEqual(self.sb.json_of(self.pull(env))["status"], "started")
+        self.assertTrue(self.poll(lambda: pidfile.exists() and pidfile.read_text().strip(), 5), "grandchild never started")
+        gpid = int(pidfile.read_text().strip())
+
+        def alive():
+            try:
+                with open(f"/proc/{gpid}/stat") as fh:
+                    return fh.read().rsplit(")", 1)[1].split()[0] != "Z"
+            except OSError:
+                return False
+
+        self.assertTrue(alive(), "grandchild should be running before the watchdog fires")
+        self.assertTrue(self.poll(lambda: not alive(), 15), "grandchild survived the watchdog")
+
+        def final():
+            return json.loads(max((self.sb.state / "jobs").glob("*/state.json")).read_text())
+
+        self.assertTrue(self.poll(lambda: final()["status"] != "running", 10), "state.json stayed running")
+        self.assertEqual((final()["status"], final()["reason"]), ("failed", "timeout"))
+        self.assertTrue(self.poll(lambda: not (self.sb.state / "update.lock").exists(), 5), "lock not released")
+
+    def test_last_attempt_is_stamped_before_the_job_starts(self):
+        self.enable()
+        seen = self.sb.root / "attempt-at-start"
+        stub = self.sb.root / "sysup-attempt"
+        ta.Sandbox._script(
+            stub,
+            '#!/usr/bin/env bash\n'
+            f'if [ -e "{self.sb.state}/last-attempt" ]; then echo yes > "{seen}"; else echo no > "{seen}"; fi\n',
+        )
+        self.assertEqual(self.sb.json_of(self.pull({"FLEET_AGENT_SYSUP": str(stub)}))["status"], "started")
+        self.wait_job()
+        self.assertEqual(seen.read_text().strip(), "yes")
 
     def test_pull_log_is_capped(self):
         log = self.sb.root / "fleet-pull.log"
