@@ -18,6 +18,8 @@ Complete reference of all aliases and functions across Zsh, Bash, Fish, and Nush
 | **Editor** | `v` / `vim` | `nvim` | All | Neovim (raises fd limit to 4096) |
 | **Editor** | `cat` | `bat` | All | Syntax-highlighted cat |
 | **HTTP** | `http` | `xh` | All | Modern curl replacement |
+| **Fleet** | `fup` | `fleet up` | Z/B | Update the whole fleet (extra flags pass through: `fup --dry-run`, `fup -l site=dijon`) |
+| **Fleet** | `fleet` | `~/.local/bin/fleet` | All | Fleet updates CLI (`ping`, `check`, `up`, `reboot --pending`, `report`, `hold`...); see [FLEET.md](FLEET.md) |
 
 ---
 
@@ -281,6 +283,24 @@ sysup --reboot   # Fedora desktop/server: stage the dnf upgrade offline, then re
 
 **Windows behavior:**
 - `scoop update --all`
+
+### `fup` / `fleet` — Fleet Updates
+
+`fleet` (`~/.local/bin/fleet`) updates every machine of the tailnet by phases from a
+master (or from any console, which hands over to a master). `fup` is a shared
+bash/zsh alias for `fleet up` (defined in `dot_shell_common/aliases.sh`); it is not
+defined in fish or nushell, where you call `fleet up` directly.
+
+```bash
+fup --dry-run            # print the plan, connect to nothing
+fup -l site=dijon        # one site only
+fleet check omv-dijon    # read-only status of one host
+fleet reboot --pending   # restart hosts that need it, one confirmation each
+fleet report --last      # last run report
+```
+
+Full reference (commands, selectors, statuses, key revocation, manual procedure):
+[FLEET.md](FLEET.md).
 
 ### `update-ai` — Update CLI AI Tools
 
