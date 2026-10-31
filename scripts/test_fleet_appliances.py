@@ -888,6 +888,42 @@ class Routing(RoutingBase):
         garbage = types.SimpleNamespace(call=lambda alias, verb: (0, "not json", ""))
         self.assertIsNone(orchestrate.SshTransport.list_vms(garbage, "px"))
 
+    def test_o2_hostile_log_tail_lines_never_reach_the_warning(self):
+        hostile = ("vm: 100 web running\n"
+                   "vm: 101 \x1b[2J\x1b]0;pwned\x07evil running\n"
+                   "vm: 102 db stopped\x1b[31m\n"
+                   "vm: 103 ok-name_1.x running\n"
+                   "vm: 1234567 toolong running\n"
+                   "vm: 104 spaced name running\n"
+                   "vm: 105 a RUNNING\n"
+                   "\x1b[2Jvm: 106 x running\n")
+        out = to.agent_line("px", "check", "skipped", log_tail=hostile)
+        fake = types.SimpleNamespace(call=lambda alias, verb: (0, out, ""))
+        got = orchestrate.SshTransport.list_vms(fake, "px")
+        # (the agent-line sanitiser already strips escape sequences; the strict shape is the second layer)
+        self.assertTrue(got)
+        for vm in got:
+            self.assertRegex(vm, r"^[0-9]{1,6} [A-Za-z0-9._-]{1,63} [a-z]{1,16}$")
+        joined = " ".join(got)
+        for bad in ("pwned", "evil", "toolong", "spaced", "RUNNING", "\x1b", "\x07"):
+            self.assertNotIn(bad, joined)
+        self.assertIn("100 web running", got)
+        self.assertIn("103 ok-name_1.x running", got)
+
+    def test_o2_vm_lines_are_capped_at_50(self):
+        tail = "\n".join("vm: %d v%d running" % (i, i) for i in range(200))
+        self.assertEqual(len(orchestrate.vm_lines({"log_tail": tail})), 50)
+
+    def test_o2_warning_strips_control_characters_even_from_a_custom_transport(self):
+        self.build()
+        tr = self.transport()
+        tr.list_vms = lambda alias: ["100 we\x1b[2Jb\x1b]0;x\x07 running"]
+        said = []
+        self.orch(tr, critical=True, say=said.append, confirm=lambda p: False).run_up(["px"], "px")
+        warning = next(s for s in said if "critical" in s)
+        self.assertNotIn("\x1b", warning)
+        self.assertNotIn("\x07", warning)
+
     def test_production_transport_routes_api_hosts_through_the_api_modules(self):
         self.build()
         data = self.data
