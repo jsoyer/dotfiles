@@ -48,26 +48,26 @@ peut être reporté sans bloquer le v1.
 
 ## Tasks
 
-- [ ] **Valider d'abord** sur un vrai PC : winget et Scoop via une tâche planifiée dans le contexte de l'utilisateur (winget fonctionne mal sous SSH / SYSTEM)
-- [ ] `fleet-bootstrap.ps1` : OpenSSH Server (capability + service auto) ; pare-feu port 22 limité à 100.64.0.0/10 ; `administrators_authorized_keys` avec commande imposée et ACL Administrators + SYSTEM uniquement ; source Event Log `fleet-agent` ; tâches planifiées (exécution détachée + pull) ; vérification de winget
-- [ ] `fleet-agent.ps1` : mêmes 5 verbes et même JSON ; MAJ dans l'ordre : Windows Update (API COM `Microsoft.Update.Session`), `winget upgrade --all`, Scoop (`scoop update`, `scoop update --all`, `--global` si présent), WSL (`wsl --update`, puis chaque distribution de `wsl -l -q` : `sysup` si présent sinon gestionnaire de paquets en root ; jamais `wsl --shutdown` si session active), Defender (`Update-MpSignature`) ; pas de Chocolatey
-- [ ] Vérifications préalables Windows : `on_battery`, `metered_network`, `user_active` ; délai 120 min
-- [ ] macOS : agent Unix validé (Remote Login, sudoers limité à `/sbin/shutdown -r now` pour le verbe `reboot` (§10, revue par Jérôme), `sysup`, vérification que les MAJ automatiques macOS sont actives ; macOS système jamais installé par l'agent sur Apple Silicon)
-- [ ] Mode pull : timer systemd (portables Linux), launchd (macOS), tâche planifiée (Windows) ; déclenche `update` si dernière MAJ > 7 jours, notifie ntfy priorité 2 ; jamais de redémarrage ; jamais sur `critical` ni guardians
+- [ ] **Valider d'abord** sur un vrai PC : winget et Scoop via une tâche planifiée dans le contexte de l'utilisateur (winget fonctionne mal sous SSH / SYSTEM) (BLOCKED: needs a real PC; design = update runs in scheduled task fleet-agent-update)
+- [x] `fleet-bootstrap.ps1` : OpenSSH Server (capability + service auto) ; pare-feu port 22 limité à 100.64.0.0/10 ; `administrators_authorized_keys` avec commande imposée et ACL Administrators + SYSTEM uniquement ; source Event Log `fleet-agent` ; tâches planifiées (exécution détachée + pull) ; vérification de winget
+- [x] `fleet-agent.ps1` : mêmes 5 verbes et même JSON ; MAJ dans l'ordre : Windows Update (API COM `Microsoft.Update.Session`), `winget upgrade --all`, Scoop (`scoop update`, `scoop update --all`, `--global` si présent), WSL (`wsl --update`, puis chaque distribution de `wsl -l -q` : `sysup` si présent sinon gestionnaire de paquets en root ; jamais `wsl --shutdown` si session active), Defender (`Update-MpSignature`) ; pas de Chocolatey
+- [x] Vérifications préalables Windows : `on_battery`, `metered_network`, `user_active` ; délai 120 min
+- [x] macOS : agent Unix validé (Remote Login, sudoers limité à `/sbin/shutdown -r now` pour le verbe `reboot` (§10, revue par Jérôme), `sysup`, vérification que les MAJ automatiques macOS sont actives ; macOS système jamais installé par l'agent sur Apple Silicon)
+- [x] Mode pull : timer systemd (portables Linux), launchd (macOS), tâche planifiée (Windows) ; déclenche `update` si dernière MAJ > 7 jours, notifie ntfy priorité 2 ; jamais de redémarrage ; jamais sur `critical` ni guardians
 
 ## Acceptance Criteria
 
-- [ ] PSScriptAnalyzer sans erreur
-- [ ] Commande hors liste blanche sur Windows ⇒ refus + Event Log
-- [ ] `check` + `update` réels sur un PC Windows et un Mac
-- [ ] Un poste rallumé après > 7 jours se met à jour et notifie seul
-- [ ] Aucun redémarrage déclenché en mode pull
+- [ ] PSScriptAnalyzer sans erreur (BLOCKED: pwsh absent, container run denied)
+- [x] Commande hors liste blanche sur Windows ⇒ refus + Event Log (verified statically, live Event Log BLOCKED)
+- [ ] `check` + `update` réels sur un PC Windows et un Mac (BLOCKED: live Windows PC and Mac)
+- [ ] Un poste rallumé après > 7 jours se met à jour et notifie seul (BLOCKED live; simulated by test_fleet_pull.py)
+- [x] Aucun redémarrage déclenché en mode pull
 
 ## Verification
 
-- [ ] `pwsh -c "Invoke-ScriptAnalyzer -Path dot_local/share/fleet/agent -Recurse"` (si pwsh disponible, sinon sur le PC Windows)
-- [ ] `python3 -m pytest scripts/test_fleet_windows_contract.py`
-- [ ] `plutil -lint` sur le plist généré (sur un Mac)
+- [ ] `pwsh -c "Invoke-ScriptAnalyzer -Path dot_local/share/fleet/agent -Recurse"` (si pwsh disponible, sinon sur le PC Windows) (BLOCKED: pwsh absent)
+- [x] `python3 -m pytest scripts/test_fleet_windows_contract.py`
+- [ ] `plutil -lint` sur le plist généré (sur un Mac) (BLOCKED: no Mac; plistlib parse OK)
 
 ## Context
 
