@@ -36,7 +36,6 @@ cask "antigravity-ide"
 cask "bettercapture"
 cask "chatgpt"
 cask "codex-app"
-cask "davit"
 cask "grok-bot"
 cask "grok-build"
 cask "anomalyco/tap/hex", trusted: true
