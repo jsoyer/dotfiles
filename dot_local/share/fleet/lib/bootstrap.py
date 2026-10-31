@@ -86,21 +86,30 @@ PROGRAM = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,40}")
 KEY_BLOB = re.compile(r"[A-Za-z0-9+/]+={0,2}")
 HOSTKEY_LINE = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.-]* ssh-ed25519 [A-Za-z0-9+/]+={0,2}")
 REMOTE_TMP = re.compile(r"/(?:var/)?tmp/[A-Za-z0-9._-]{1,100}")
-VERIFY_LINE = re.compile(r"(OK|BAD) (/[A-Za-z0-9_./+-]{1,200})")
-# Run ON the target (read-only, no sudo): every resolved path and all its parents must be
-# owned by uid 0 and not group/other-writable (stat %A: group w is char 6, other w char 9).
-VERIFY_SCRIPT = r'''for p in "$@"; do
+VERIFY_OK = re.compile(r"OK (/[A-Za-z0-9_./+-]{1,200}) (/[A-Za-z0-9_./+-]{1,200})")
+VERIFY_BAD = re.compile(r"BAD (/[A-Za-z0-9_./+-]{1,200})")
+# Run ON the target (read-only, no sudo). Arguments: <root uid> <trust anchor> <path>...
+# (production: "0" and "/"; tests inject their own uid and a tmp anchor). For each path it
+# prints `OK <requested> <canonical>` or `BAD <requested>`, where <canonical> is `readlink -f`.
+# The canonical path must be an absolute regular file; it and EVERY ancestor up to the anchor
+# must be owned by the root uid, not group/other-writable (stat %A: group w is char 6, other
+# w char 9) and not a symlink; `stat -c` and `[ -L ]` do not follow links (lstat semantics).
+VERIFY_SCRIPT = r'''U=$1; T=$2; shift 2
+for p in "$@"; do
   r=$(readlink -f -- "$p" 2>/dev/null) || r=""
-  if [ -z "$r" ]; then echo "BAD $p"; continue; fi
+  case "$r" in /*) ;; *) echo "BAD $p"; continue ;; esac
   ok=1; d=$r
+  { [ -f "$r" ] && [ ! -L "$r" ]; } || ok=0
   while :; do
     s=$(stat -c '%u %A' -- "$d" 2>/dev/null) || s=""
-    case "$s" in "0 "*) ;; *) ok=0 ;; esac
-    case "$s" in "0 "?????w*|"0 "????????w*) ok=0 ;; esac
+    case "$s" in "$U "*) ;; *) ok=0 ;; esac
+    case "$s" in "$U "?????w*|"$U "????????w*) ok=0 ;; esac
+    [ ! -L "$d" ] || ok=0
+    [ "$d" = "$T" ] && break
     [ "$d" = / ] && break
     d=$(dirname -- "$d")
   done
-  if [ "$ok" = 1 ]; then echo "OK $p"; else echo "BAD $p"; fi
+  if [ "$ok" = 1 ]; then echo "OK $p $r"; else echo "BAD $p"; fi
 done'''
 
 Runner = Callable[[List[str], float], Tuple[int, str, str]]
@@ -152,7 +161,9 @@ def render_sudoers(kind: str, user: str, paths: Dict[str, str]) -> str:
 
 
 def _resolve(program: str, paths: Dict[str, str]) -> str:
-    path = program if "/" in program else paths.get(program, "")
+    # `paths` holds the CANONICAL (readlink -f, verified) path of each command; a program with
+    # a fixed path (cloudflared) is also looked up there by that path.
+    path = paths.get(program, program if "/" in program else "")
     if not ABS_PATH.fullmatch(path or "") or ".." in path:
         raise BootstrapError("no absolute path for %s" % program)
     return path
@@ -265,28 +276,37 @@ def resolve_remote_paths(run: Runner, env: Dict[str, str], known_hosts: Path, ta
     return paths
 
 
+def _clean_path(path: str) -> bool:
+    return bool(ABS_PATH.fullmatch(path)) and ".." not in path and "//" not in path
+
+
 def verify_trusted(run: Runner, env: Dict[str, str], known_hosts: Path, target: str,
-                   paths: Sequence[str]) -> None:
-    """Refuse unless every path (after readlink -f) and all its parents are root-owned and not
-    group/other-writable on the target. The target's answer is untrusted: parsed strictly."""
+                   paths: Sequence[str]) -> Dict[str, str]:
+    """{requested path: canonical path}. Refuses unless every canonical path (`readlink -f` on
+    the target) is a regular file and it and all its ancestors are root-owned, not
+    group/other-writable and not symlinks. The target's answer is untrusted: parsed strictly."""
     wanted = sorted(set(paths))
     for path in wanted:
-        if not ABS_PATH.fullmatch(path) or ".." in path:
+        if not _clean_path(path):
             raise BootstrapError("unsafe path %r" % path[:60])
-    remote = "sh -c %s fleet-verify %s" % (shlex.quote(VERIFY_SCRIPT), " ".join(shlex.quote(p) for p in wanted))
+    remote = "sh -c %s fleet-verify 0 / %s" % (shlex.quote(VERIFY_SCRIPT), " ".join(shlex.quote(p) for p in wanted))
     rc, out, _ = run(ssh_argv(env, known_hosts, target, remote), 30)
     seen: Dict[str, str] = {}
     for line in out.splitlines():
-        match = VERIFY_LINE.fullmatch(line.strip())
-        if not match or match.group(2) not in wanted or match.group(2) in seen:
+        ok, bad = VERIFY_OK.fullmatch(line), VERIFY_BAD.fullmatch(line)
+        match = ok or bad
+        if not match or match.group(1) not in wanted or match.group(1) in seen:
             raise BootstrapError("unparseable answer while checking path ownership on the target")
-        seen[match.group(2)] = match.group(1)
+        if ok and not _clean_path(ok.group(2)):
+            raise BootstrapError("unusable canonical path returned for %s" % match.group(1))
+        seen[match.group(1)] = ok.group(2) if ok else ""
     if rc != 0 or set(seen) != set(wanted):
         raise BootstrapError("cannot verify path ownership on the target (rc %d)" % rc)
-    bad = [p for p in wanted if seen[p] != "OK"]
-    if bad:
-        raise BootstrapError("untrusted path on the target (not root-owned, or group/other-writable "
-                             "somewhere in its parents): %s" % ", ".join(bad))
+    untrusted = [p for p in wanted if not seen[p]]
+    if untrusted:
+        raise BootstrapError("untrusted path on the target (not a root-owned regular file, or a symlink, "
+                             "or group/other-writable somewhere in its parents): %s" % ", ".join(untrusted))
+    return seen
 
 
 def sha256_hex(data: bytes) -> str:
@@ -467,7 +487,11 @@ def _bootstrap(args: argparse.Namespace, env: Dict[str, str], run: Runner,
     to_check = [paths[n] for n in programs_needed(kind) + ["visudo"]]
     if kind == "pikvm":
         to_check += [paths["rw"], paths["ro"], CLOUDFLARED]
-    verify_trusted(run, env, known, target, to_check)
+    canonical = verify_trusted(run, env, known, target, to_check)
+    # From here on ONLY the canonical (checked) paths are used: fragment, display, apply script.
+    paths = dict((n, canonical[p]) for n, p in paths.items() if p in canonical)
+    if kind == "pikvm":
+        paths[CLOUDFLARED] = canonical[CLOUDFLARED]
     fragment = render_sudoers(kind, args.user, paths)
     valid, vmsg = validate_fragment(fragment, env, run, workdir)
     keys, missing = authorized_lines(masters, env, op)

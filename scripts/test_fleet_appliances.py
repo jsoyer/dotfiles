@@ -224,7 +224,7 @@ class AgentAppliance(unittest.TestCase):
         calls = re.findall(r"^\s*(?:\w+=\S+ )*as_root (\S+)", text, re.M)
         self.assertTrue(calls)
         for first in calls:
-            self.assertRegex(first, r'^"\$(cf|sc|rw|ro|pk|bin)"$|^"\$@"$', first)
+            self.assertRegex(first, r'^"\$(cf|cfc|sc|rw|ro|pk|bin)"$|^"\$@"$', first)
 
     @unittest.skipIf(hasattr(os, "geteuid") and os.geteuid() == 0, "root can always write the binary")
     def test_pikvm_tunnel_down_without_write_access_asks_for_manual_restore(self):
@@ -1142,8 +1142,12 @@ echo "ssh $*" >> "$FAKE_LOG"
 last="${@: -1}"
 case "$last" in
   *fleet-verify*)
-    for p in ${last##*fleet-verify }; do
-      case " ${FAKE_VERIFY_BAD:-} " in *" $p "*) echo "BAD $p" ;; *) echo "OK $p" ;; esac
+    args="${last##*fleet-verify }"; args="${args#* }"; args="${args#* }"      # drop the uid and anchor arguments
+    for p in $args; do
+      case " ${FAKE_VERIFY_BAD:-} " in *" $p "*) echo "BAD $p"; continue ;; esac
+      canon="$p"
+      for kv in ${FAKE_CANON:-}; do [ "${kv%%=*}" = "$p" ] && canon="${kv#*=}"; done
+      echo "OK $p $canon"
     done
     [ -n "${FAKE_VERIFY_GARBAGE:-}" ] && echo "$FAKE_VERIFY_GARBAGE" ;;
   *"command -v "*)
@@ -1471,23 +1475,138 @@ class BootstrapFlow(BootstrapBase):
         self.assertIn(bootstrap.CLOUDFLARED, verify)
 
     def test_b1_garbage_from_the_target_is_refused(self):
-        for garbage in ("OK /etc/passwd", "evil", "OK /usr/sbin/omv-upgrade"):    # unknown / unparseable / duplicate
+        for garbage in ("OK /etc/passwd /etc/passwd", "evil", "OK /usr/sbin/omv-upgrade /usr/sbin/omv-upgrade",
+                        "BAD /usr/sbin/omv-upgrade"):    # unknown / unparseable / duplicate
             rc, _, err = self.boot(["omv1", "--user", "u"], env={"FAKE_VERIFY_GARBAGE": garbage})
             self.assertEqual(rc, 2, garbage)
 
     def test_b1_verify_script_logic_on_a_real_shell(self):
-        proc = subprocess.run(["sh", "-c", bootstrap.VERIFY_SCRIPT, "fleet-verify", str(self.tmp), "/bin/sh"],
-                              capture_output=True, text=True)
+        proc = self._verify(str(self.tmp), "/bin/sh", uid=os.getuid() + 1, top="/")
         lines = proc.stdout.splitlines()
-        if os.getuid() != 0:
-            self.assertIn("BAD %s" % self.tmp, lines)               # user-owned: untrusted
+        self.assertIn("BAD %s" % self.tmp, lines)                   # not owned by the "root" uid: untrusted
         self.assertTrue(all(re.fullmatch(r"(OK|BAD) /.+", ln) for ln in lines), lines)
         wr = self.tmp / "ww"
         wr.mkdir()
         wr.chmod(0o777)
-        proc = subprocess.run(["sh", "-c", bootstrap.VERIFY_SCRIPT, "fleet-verify", str(wr)],
-                              capture_output=True, text=True)
-        self.assertEqual(proc.stdout.strip(), "BAD %s" % wr)
+        self.assertEqual(self._verify(str(wr), top="/").stdout.strip(), "BAD %s" % wr)
+
+    # ---- canonical path (HIGH): the fragment grants what was checked
+
+    def _verify(self, *paths, uid=None, top=None, path_prefix=None):
+        env = dict(os.environ)
+        if path_prefix:
+            env["PATH"] = "%s:%s" % (path_prefix, env["PATH"])
+        return subprocess.run(
+            ["sh", "-c", bootstrap.VERIFY_SCRIPT, "fleet-verify", str(os.getuid() if uid is None else uid),
+             top if top is not None else os.path.realpath(str(self.tmp))] + list(paths),
+            capture_output=True, text=True, env=env)
+
+    def _fake_tree(self):
+        base = Path(os.path.realpath(str(self.tmp))) / "tree"
+        (base / "real" / "bin").mkdir(parents=True)
+        prog = base / "real" / "bin" / "prog"
+        prog.write_text("#!/bin/sh\n")
+        prog.chmod(0o755)
+        link = base / "link"
+        link.symlink_to(prog)
+        return base, prog, link
+
+    def test_c1_shell_returns_the_canonical_path_of_a_symlinked_command(self):
+        base, prog, link = self._fake_tree()
+        self.assertEqual(self._verify(str(link)).stdout.strip(), "OK %s %s" % (link, prog))
+        self.assertEqual(self._verify(str(prog)).stdout.strip(), "OK %s %s" % (prog, prog))
+
+    def test_c2_shell_rejects_writable_or_foreign_ancestors(self):
+        base, prog, link = self._fake_tree()
+        for mode in (0o775, 0o757):
+            (base / "real" / "bin").chmod(mode)
+            self.assertEqual(self._verify(str(link)).stdout.strip(), "BAD %s" % link, oct(mode))
+        (base / "real" / "bin").chmod(0o755)
+        prog.chmod(0o775)                                             # the file itself
+        self.assertEqual(self._verify(str(prog)).stdout.strip(), "BAD %s" % prog)
+        prog.chmod(0o755)
+        self.assertTrue(self._verify(str(prog)).stdout.startswith("OK "))
+        self.assertEqual(self._verify(str(prog), uid=os.getuid() + 1).stdout.strip(), "BAD %s" % prog)
+
+    def test_c2_shell_rejects_a_symlink_component_and_a_non_regular_file(self):
+        base, prog, link = self._fake_tree()
+        stub = self.tmp / "stubbin"
+        stub.mkdir()
+        (stub / "readlink").write_text('#!/bin/sh\necho "%s"\n' % (base / "link" / "x"))
+        (stub / "readlink").chmod(0o755)
+        (base / "dirlink").symlink_to(base / "real" / "bin")
+        (stub / "readlink").write_text('#!/bin/sh\necho "%s"\n' % (base / "dirlink" / "prog"))
+        out = self._verify(str(prog), path_prefix=str(stub)).stdout.strip()
+        self.assertEqual(out, "BAD %s" % prog)                        # dirlink is a symlink component
+        (stub / "readlink").write_text('#!/bin/sh\necho "%s"\n' % (base / "real" / "bin"))
+        self.assertEqual(self._verify(str(prog), path_prefix=str(stub)).stdout.strip(), "BAD %s" % prog)  # a directory
+
+    def test_c3_shell_rejects_missing_empty_and_relative_resolution(self):
+        base, prog, link = self._fake_tree()
+        self.assertEqual(self._verify(str(base / "nope")).stdout.strip(), "BAD %s" % (base / "nope"))
+        stub = self.tmp / "stubbin"
+        stub.mkdir()
+        for answer in ("", "relative/prog"):
+            (stub / "readlink").write_text('#!/bin/sh\necho "%s"\n' % answer)
+            (stub / "readlink").chmod(0o755)
+            self.assertEqual(self._verify(str(prog), path_prefix=str(stub)).stdout.strip(), "BAD %s" % prog, answer)
+
+    def test_c4_fragment_grants_the_resolved_path_not_the_symlink(self):
+        canon = "/usr/lib/omv/omv-upgrade"
+        rc, out, err = self.boot(["omv1", "--user", "fleetsvc"],
+                                 env={"FAKE_CANON": "/usr/sbin/omv-upgrade=%s /usr/bin/systemctl=/usr/bin/systemctl.real "
+                                                    "/usr/sbin/visudo=/usr/lib/sudo/visudo" % canon})
+        self.assertEqual(rc, 0, err)
+        frag = out.split("--- sudoers fragment", 1)[1].split("--- visudo", 1)[0]
+        self.assertEqual(bootstrap.granted_commands(frag), [canon + ' ""', "/usr/bin/systemctl.real reboot"])
+        self.assertIn('Defaults!%s env_keep' % canon, frag)
+        self.assertNotIn("/usr/sbin/omv-upgrade", frag)
+        self.assertIn("/usr/lib/sudo/visudo -cf", out)               # apply script uses the canonical path too
+
+    def test_c4_pikvm_canonical_everywhere_including_cloudflared(self):
+        rc, out, err = self.boot(["pk", "--user", "root"], env={"FAKE_CANON": (
+            "/usr/local/bin/rw=/usr/bin/rw /usr/local/bin/ro=/usr/bin/ro /usr/local/bin/cloudflared=/opt/cf/cloudflared")})
+        self.assertEqual(rc, 0, err)
+        frag = out.split("--- sudoers fragment", 1)[1].split("--- visudo", 1)[0]
+        self.assertEqual(bootstrap.granted_commands(frag), [
+            '/usr/bin/rw ""', '/usr/bin/ro ""', '/usr/bin/pikvm-update ""', "/opt/cf/cloudflared update",
+            "/usr/bin/systemctl restart cloudflared", "/usr/bin/systemctl reboot"])
+        self.assertIn('RW=/usr/bin/rw', out)
+        self.assertIn('RO=/usr/bin/ro', out)
+
+    def test_c5_override_paths_are_canonicalised_and_checked(self):
+        rc, out, err = self.boot(["omv1", "--user", "u", "--path", "omv-upgrade=/opt/omv/link",
+                                  "--path", "systemctl=/bin/systemctl", "--path", "visudo=/usr/sbin/visudo"],
+                                 env={"FAKE_CANON": "/opt/omv/link=/opt/omv/real"})
+        self.assertEqual(rc, 0, err)
+        self.assertIn('/opt/omv/real ""', out)
+        self.assertNotIn("/opt/omv/link", out.split("--- sudoers fragment", 1)[1].split("--- visudo", 1)[0])
+
+    def test_c6_bad_canonical_answers_refuse_the_whole_bootstrap(self):
+        for canon in ("", "relative/x", "/usr/../etc/x", "/usr/sbin//x"):
+            self.log.write_text("")
+            rc, out, err = self.boot(["omv1", "--user", "fleetsvc", "--apply"], confirm=lambda a: True,
+                                     env={"FAKE_CANON": "/usr/sbin/omv-upgrade=%s" % canon})
+            self.assertEqual(rc, 2, repr(canon))
+            self.assertNotIn("NOPASSWD", out, repr(canon))
+            self.assertNotIn("scp ", "\n".join(self.calls()), repr(canon))
+
+    def test_c6_canonical_with_whitespace_or_control_chars_is_refused(self):
+        for bad in ("/usr/s bin/x", "/usr/sbin/x\t", "/usr/sbin/x\x01"):
+            def run(cmd, timeout, bad=bad):
+                return 0, "OK /usr/sbin/x %s\n" % bad, ""
+            with self.assertRaises(bootstrap.BootstrapError, msg=repr(bad)):
+                bootstrap.verify_trusted(run, {}, Path("/nonexistent"), "u@h", ["/usr/sbin/x"])
+
+    def test_c6_bad_cloudflared_check_refuses_everything(self):
+        rc, out, err = self.boot(["pk", "--user", "root"], env={"FAKE_CANON": "/usr/local/bin/cloudflared="})
+        self.assertEqual(rc, 2)
+        self.assertNotIn("NOPASSWD", out)
+
+    def test_c7_verify_is_asked_for_uid_zero_and_root_anchor(self):
+        self.boot(["omv1", "--user", "fleetsvc"])
+        call = [c for c in self.calls() if "fleet-verify" in c][-1]
+        self.assertRegex(call, r"fleet-verify 0 / ")
 
     def test_b2_everything_is_staged_and_verified_before_any_rename(self):
         for kind in ("omv", "pikvm"):

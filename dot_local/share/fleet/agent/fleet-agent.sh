@@ -587,8 +587,20 @@ agent_kind() {
   fi
 }
 
-# tool_path <name>: absolute path, the same one `fleet bootstrap` put in sudoers.
-tool_path() { command -v "$1" 2>/dev/null; }
+# canon_path <path>: `readlink -f` (symlinks resolved), empty when it cannot be resolved.
+canon_path() {
+  local r
+  r="$(readlink -f -- "$1" 2>/dev/null)" || return 0
+  case "$r" in /*) printf '%s\n' "$r" ;; esac
+}
+
+# tool_path <name>: the CANONICAL absolute path, the same one `fleet bootstrap` put in
+# sudoers (sudo matches by path: a symlinked name such as /bin/systemctl would not match).
+tool_path() {
+  local p
+  p="$(command -v "$1" 2>/dev/null)" || return 0
+  case "$p" in /*) canon_path "$p" ;; esac
+}
 
 # as_root <abs path> [args]: exact sudoers commands only (never a shell, never a
 # free-form argument). Already root (PiKVM logs in as root): run directly.
@@ -634,7 +646,7 @@ cloudflared_ready() {
 # access to the binary: only when the account is root (PiKVM default) because the
 # closed sudoers list (spec section 10) has no command to write /usr/local/bin.
 pikvm_cloudflared() {
-  local cf="${FLEET_AGENT_CF_BIN:-/usr/local/bin/cloudflared}" before after urc sc old
+  local cf="${FLEET_AGENT_CF_BIN:-/usr/local/bin/cloudflared}" before after urc sc old cfc
   if [ ! -x "$cf" ]; then echo "cloudflared not installed: step skipped"; return 0; fi
   sc="$(tool_path systemctl)"
   # never call as_root with an empty program: `sudo -n restart cloudflared` is not what we mean
@@ -651,7 +663,9 @@ pikvm_cloudflared() {
   else
     echo "tunnel not ready before the update and no earlier copy: no rollback possible"
   fi
-  as_root "$cf" update; urc=$?
+  cfc="$(canon_path "$cf")"
+  if [ -z "$cfc" ]; then echo "cloudflared path cannot be resolved: step aborted"; return 42; fi
+  as_root "$cfc" update; urc=$?
   case "$urc" in 0|11) ;; *) echo "cloudflared update failed (exit $urc)"; return 42 ;; esac
   after="$("$cf" --version 2>/dev/null | head -n 1)"
   if [ "$before" = "$after" ]; then echo "cloudflared unchanged: $after"; return 0; fi
