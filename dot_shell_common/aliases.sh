@@ -440,6 +440,10 @@ sysup() {
   command sysup "$@"
 }
 
+# `fup`: update the whole fleet from a master or any console (see docs/FLEET.md).
+# Extra flags pass through: `fup --dry-run`, `fup -l site=dijon`.
+alias fup='fleet up'
+
 # Newer kernel installed than the one running: remind once per interactive
 # shell. Cheap check (no dnf). Skipped in containers: toolbox shares the host kernel.
 _kernel_reboot_reminder() {

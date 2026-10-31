@@ -1,0 +1,110 @@
+// Tailscale ACL excerpt for fleet-updates -- DRAFT, NOT APPLIED.
+//
+// Goal: only the two fleet masters (diabolo, penelope) may open tcp:22 on the fleet
+// targets. Today port 22 is reachable from the whole tailnet (accepted risk
+// 2026-10-27, see docs/FLEET.md "Known limitations").
+//
+// HOW JEROME APPLIES IT (nothing here was applied by the code):
+//   1. Admin console > Access controls (https://login.tailscale.com/admin/acls/file).
+//   2. MERGE the blocks below into the existing policy; do not paste over it.
+//      Replace the "EXISTING RULES" placeholders with your current rules first.
+//   3. Tag the devices (admin console > Machines > ... > Edit ACL tags, or
+//      `tailscale up --advertise-tags=tag:fleet-master` on the machine):
+//        diabolo, penelope  -> tag:fleet-master
+//        every host listed in dot_local/share/fleet/fleet.yml that has an ssh_user
+//        or an SSH agent (Linux, OMV, PiKVM, Proxmox, guardians, later macOS/Windows)
+//                           -> tag:fleet-target
+//      The masters are fleet hosts too (each one is updated from the other, and
+//      they sync state/holds over SSH), so diabolo and penelope carry BOTH tags:
+//      tag:fleet-master and tag:fleet-target.
+//      WARNING: tagging a device REMOVES its user ownership: it is then identified by
+//      its tag only, user-based rules (autogroup:member, user@) no longer match it, and
+//      key expiry is disabled by default. Add rules for any human access you still need
+//      (for example your laptop reaching diabolo) before tagging.
+//   4. Use the "Preview rules" / tests below in the admin console before saving.
+//
+// WARNING (default allow-all ACL): if the tailnet still uses the default policy
+// (one rule: src * -> dst *:*), adding a restrictive acls/grants block here turns
+// everything else OFF. Port 22 to the fleet targets is then only open to
+// tag:fleet-master and every other flow you rely on (HTTP, SMB, Home Assistant API
+// from the masters, ntfy...) must be allowed explicitly in "EXISTING RULES".
+//
+// HOW TO TEST after applying:
+//   from a NON-master machine (for example a laptop):
+//     tailscale ping omv-dijon           # still works (ICMP/disco is not tcp:22)
+//     ssh <user>@<target> true           # must FAIL (timeout / connection refused)
+//   from a master:
+//     fleet ping                         # must show "ok" for the tagged targets
+//     ssh -o BatchMode=yes <user>@<target> true   # reaches sshd (auth refused is fine)
+//   The "tests" section below makes the admin console check the same thing.
+//
+// TAILSCALE SSH vs plain sshd: these rules control the TCP port 22 path used by the
+// OpenSSH sshd (forced-command agent, `fleet ping`/`check`/`up`). If a node runs
+// `tailscale up --ssh`, Tailscale intercepts port 22 itself and the separate "ssh"
+// section of the policy applies (the "acls" below are still needed to reach the
+// port). The fleet design uses plain sshd with forced commands, so Tailscale SSH
+// must stay OFF on the targets (otherwise the authorized_keys forced command is
+// bypassed). No "ssh" section is proposed here on purpose.
+{
+	// Who may apply the tags. Jerome is the tailnet admin; autogroup:admin keeps it
+	// to admins. Use "jeromesoyer@gmail.com" instead if you prefer a named owner.
+	"tagOwners": {
+		"tag:fleet-master": ["autogroup:admin"],
+		"tag:fleet-target": ["autogroup:admin"],
+	},
+
+	// Classic ACLs (use this block OR the "grants" block below, not both for the
+	// same flow).
+	"acls": [
+		// ---- EXISTING RULES: paste your current rules here (placeholder). ----
+		// MUST: an allow-all rule (src * -> dst *:*) has to be REPLACED, not kept.
+		// Tailscale ACLs only ADD permissions (no deny, no port exclusion), so a
+		// kept allow-all rule leaves port 22 of every target open to the whole
+		// tailnet and the fleet rule below restricts nothing.
+		// Narrowed replacement example (list the ports you really use, without 22):
+		// {"action": "accept", "src": ["autogroup:member"], "dst": ["*:80,443,445,8123"]},
+		// Humans who still need SSH to a given box need their own explicit rule, e.g.:
+		// {"action": "accept", "src": ["<your-user>@<domain>"], "dst": ["<host>:22"]},
+		// ----------------------------------------------------------------------
+
+		// Fleet: only the masters reach tcp:22 of the targets.
+		{
+			"action": "accept",
+			"src":    ["tag:fleet-master"],
+			"dst":    ["tag:fleet-target:22"],
+		},
+
+		// The masters also call the OPNsense and Home Assistant HTTPS APIs (443).
+		// Adjust the destination to the real tags/hosts of those boxes.
+		// {
+		//   "action": "accept",
+		//   "src":    ["tag:fleet-master"],
+		//   "dst":    ["opnsense-amd64:443", "ha-dijon:443", "ha-nice:443", "ha-garage:443"],
+		// },
+	],
+
+	// Equivalent in the newer "grants" syntax (alternative to the "acls" rule above):
+	// "grants": [
+	//   {"src": ["tag:fleet-master"], "dst": ["tag:fleet-target"], "ip": ["tcp:22"]},
+	// ],
+
+	// Admin-console checks, run on save: the masters reach port 22, others do not.
+	"tests": [
+		{
+			"src":    "tag:fleet-master",
+			"accept": ["tag:fleet-target:22"],
+		},
+		// Tagged masters are not user-owned, so autogroup:member never matches them:
+		// this test covers every untagged user device. Add a test with a named user
+		// ("src": "<your-user>@<domain>") if you add explicit human SSH rules above.
+		{
+			"src":  "autogroup:member",
+			"deny": ["tag:fleet-target:22"],
+		},
+		// A target must not reach another target's port 22.
+		{
+			"src":  "tag:fleet-target",
+			"deny": ["tag:fleet-target:22"],
+		},
+	],
+}

@@ -94,9 +94,19 @@ Runs once or on manifest changes to configure services, generate configs, and sy
 | `run_once_configure-linux.sh` | Once | Linux Desktop | Install and configure desktop-specific tools (BTRFS snapshots, hypervisor, etc.) |
 | `run_onchange_generate-ssh-config.sh` | Manifest change | macOS, Linux | Generate SSH config from template, read keys from 1Password |
 | `run_onchange_configure-mail.sh` | Manifest change | macOS, Linux | Configure isync (mbsync), msmtp, neomutt using 1Password integration |
+| `run_onchange_install-fleet-agent.sh.tmpl` | Agent content change | Linux with sudo | Install the fleet-updates agent and the masters' forced-command SSH keys (see below) |
+| `run_always_install-sudoers-sysup.sh.tmpl` | Every apply | Linux | Install `/etc/sudoers.d/sysup` (exact `sysup` commands + `systemctl reboot` used by the fleet agent); validated with `visudo -cf`, retried every apply |
 | `run_after_sync-aictx.sh` | Every apply | Non-Windows | Maintain `~/.aictx/{skills,agents,...}` cache and refresh CLI symlinks (`~/.claude`, `~/.qwen`, `~/.vibe`, `~/.codex`, `~/.opencode`, `~/.gemini`) |
 
 **Key functionality:**
+
+**Fleet agent (`run_onchange_install-fleet-agent.sh.tmpl`):**
+- **Gating**: renders only on Linux when `.chezmoitemplates/can-sudo` is true; otherwise the script is empty
+- **Installs**: `/usr/local/libexec/fleet-agent` (`root:root 0755`, content embedded from `dot_local/share/fleet/agent/fleet-agent.sh`, SELinux label restored), then `loginctl enable-linger` for the user (detached updates survive the SSH session)
+- **Keys**: if `op` is available, reads `op://Private/Fleet/public-key-<master>` for `diabolo` and `penelope` and writes one `restrict,command="/usr/local/libexec/fleet-agent" ssh-ed25519 ... fleet-master-<master>` line each into `~/.ssh/authorized_keys` (atomic write, symlink target preserved). A master removed from the script loses its line; an unreadable key keeps the existing line
+- **Reruns**: `run_onchange`, so only when the script content changes (the agent's sha256 is part of it). Never fails `chezmoi apply` (always exit 0)
+- **Deferral**: if sudo needs a password and there is no terminal, `op` is missing or a step cannot complete, it warns on stderr and exits 0; chezmoi records it as executed and does **not** retry. Replay with `sudo -v && chezmoi state delete-bucket --bucket=scriptState && chezmoi apply` (replays other one-shot scripts too)
+- **Not covered**: OMV and PiKVM use `fleet bootstrap`. See [FLEET.md](FLEET.md)
 
 **AICTX Cache + Symlink Sync:**
 - **Source**: `~/.aictx/{skills,agents}` populated from ChezMoi-managed `dot_agents/`
