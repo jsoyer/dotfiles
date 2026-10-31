@@ -436,18 +436,30 @@ function Enter-AgentLock {
         }
         catch [System.IO.IOException] {
             if (Test-LockAlive) { return $false }
-            # Stale takeover, serialized by a machine-wide named mutex: without it, contender A could
-            # move the stale lock aside and create its live lock, and contender B (which judged the
-            # old lock stale earlier) would then move A's LIVE lock away. Staleness is re-checked
-            # inside the mutex, so B sees A's live lock and backs off.
-            $mutex = New-Object System.Threading.Mutex($false, 'Global\fleet-agent-lock-takeover')
-            $held = $false
+            # Stale takeover, serialized by an exclusive lock FILE inside the admin-only state dir
+            # (no named kernel object: a global named lock can be squatted by any local user = DoS).
+            # Without serialization, contender A could move the stale lock aside and create its live
+            # lock, and contender B (which judged the old lock stale earlier) would then move A's
+            # LIVE lock away. Staleness is re-checked while holding the file, so B backs off.
+            $takeoverPath = Join-Path $script:StateDir 'update.lock.takeover'
+            $guard = $null
             try {
-                try { $held = $mutex.WaitOne(15000) }
-                catch [System.Threading.AbandonedMutexException] { $held = $true }
-                if (-not $held) {
-                    Write-AgentLog -Message 'lock: stale takeover mutex timeout' -EventId 4003
-                    return $false
+                $deadline = [DateTime]::UtcNow.AddSeconds(15)
+                while ($null -eq $guard) {
+                    try {
+                        $guard = [System.IO.File]::Open($takeoverPath, [System.IO.FileMode]::OpenOrCreate, [System.IO.FileAccess]::ReadWrite, [System.IO.FileShare]::None)
+                    }
+                    catch [System.UnauthorizedAccessException] {
+                        Write-AgentLog -Message ('lock: stale takeover denied, state dir not writable: ' + $_.Exception.Message) -Level Error -EventId 4003
+                        return $false
+                    }
+                    catch [System.IO.IOException] {
+                        if ([DateTime]::UtcNow -ge $deadline) {
+                            Write-AgentLog -Message ('lock: stale takeover busy after 15s: ' + $_.Exception.Message) -Level Warning -EventId 4003
+                            return $false
+                        }
+                        Start-Sleep -Milliseconds 200
+                    }
                 }
                 if (Test-LockAlive) { return $false }
                 $aside = $script:LockFile + '.stale-' + [Guid]::NewGuid().ToString('N')
@@ -460,8 +472,7 @@ function Enter-AgentLock {
                 }
             }
             finally {
-                if ($held) { $mutex.ReleaseMutex() }
-                $mutex.Dispose()
+                if ($null -ne $guard) { $guard.Dispose() }
             }
         }
     }
