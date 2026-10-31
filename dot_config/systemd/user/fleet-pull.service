@@ -1,0 +1,19 @@
+[Unit]
+Description=fleet pull mode (catch-up update if the last one is older than 7 days; never restarts)
+# Inert until the host opts in: touch ~/.config/fleet-agent/pull-enabled
+ConditionPathExists=%h/.config/fleet-agent/pull-enabled
+ConditionPathExists=/usr/local/libexec/fleet-agent
+# Laptops: never on battery
+ConditionACPower=true
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+# Local-only entry of the agent (not an SSH verb): FLEET_AGENT_PULL=1, no SSH context.
+Environment=FLEET_AGENT_PULL=1
+ExecStart=/usr/local/libexec/fleet-agent
+TimeoutStartSec=120
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=fleet-pull

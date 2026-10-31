@@ -1,0 +1,12 @@
+[Unit]
+Description=fleet pull mode - daily catch-up check (Persistent: runs after a long power-off)
+
+[Timer]
+OnBootSec=20min
+OnCalendar=*-*-* 12:00:00
+RandomizedDelaySec=30min
+Persistent=true
+Unit=fleet-pull.service
+
+[Install]
+WantedBy=timers.target
