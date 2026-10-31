@@ -985,14 +985,28 @@ class SudoersFragment(unittest.TestCase):
 
     def test_omv_fragment_is_exactly_the_closed_list(self):
         text = bootstrap.render_sudoers("omv", "fleetsvc", self.OMV_PATHS)
-        self.assertEqual(bootstrap.granted_commands(text), ["/usr/sbin/omv-upgrade", "/usr/bin/systemctl reboot"])
+        self.assertEqual(bootstrap.granted_commands(text), ['/usr/sbin/omv-upgrade ""', "/usr/bin/systemctl reboot"])
 
     def test_pikvm_fragment_is_exactly_the_closed_list(self):
         text = bootstrap.render_sudoers("pikvm", "fleetsvc", self.PIKVM_PATHS)
         self.assertEqual(bootstrap.granted_commands(text), [
-            "/usr/local/bin/rw", "/usr/local/bin/ro", "/usr/bin/pikvm-update",
+            '/usr/local/bin/rw ""', '/usr/local/bin/ro ""', '/usr/bin/pikvm-update ""',
             "/usr/local/bin/cloudflared update", "/usr/bin/systemctl restart cloudflared",
             "/usr/bin/systemctl reboot"])
+
+    def test_no_argument_commands_get_an_explicit_empty_argument_list(self):
+        # sudoers: a command without an argument list allows ANY argument; `""` allows none.
+        for kind, paths in (("omv", self.OMV_PATHS), ("pikvm", self.PIKVM_PATHS)):
+            lines = [ln for ln in bootstrap.render_sudoers(kind, "fleetsvc", paths).splitlines()
+                     if "NOPASSWD:" in ln]
+            self.assertEqual(len(lines), len(bootstrap.CLOSED_LIST[kind]), kind)
+            for (program, args), line in zip(bootstrap.CLOSED_LIST[kind], lines):
+                if args:
+                    self.assertFalse(line.endswith('""'), (kind, line))
+                    self.assertTrue(line.endswith(" " + " ".join(args)), (kind, line))
+                else:
+                    self.assertTrue(line.endswith(' ""'), (kind, line))
+                    self.assertEqual(line.count('""'), 1, (kind, line))
 
     def test_no_wildcard_no_shell_no_systemd_run_no_all_commands(self):
         for kind, paths in (("omv", self.OMV_PATHS), ("pikvm", self.PIKVM_PATHS)):

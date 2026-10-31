@@ -110,7 +110,10 @@ def render_sudoers(kind: str, user: str, paths: Dict[str, str]) -> str:
                      % sudoers_escape(_resolve(keep, paths)))
     for program, args in CLOSED_LIST[kind]:
         path = _resolve(program, paths)
-        command = " ".join([sudoers_escape(path)] + [sudoers_escape(a) for a in args])
+        # A command without an argument list lets sudo accept ANY argument; the explicit
+        # empty list `""` makes sudo refuse every argument (exact command only).
+        argv = [sudoers_escape(a) for a in args] if args else ['""']
+        command = " ".join([sudoers_escape(path)] + argv)
         lines.append("%s ALL=(root) NOPASSWD: %s" % (user, command))
     return "\n".join(lines) + "\n"
 
