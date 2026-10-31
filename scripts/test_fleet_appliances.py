@@ -120,7 +120,7 @@ class AgentAppliance(unittest.TestCase):
         _stub(self.sb, "curl",
               'echo "curl" >> "$STUB_DIR/order.log"\n'
               'n=$(cat "$STUB_DIR/curl.n" 2>/dev/null || echo 0); n=$((n+1)); echo $n > "$STUB_DIR/curl.n"\n'
-              '[ "$n" -le "${STUB_CURL_FAIL_FIRST:-0}" ] && exit 22\nexit 0\n')
+              '[ "$n" -gt "${STUB_CURL_OK_FIRST:-0}" ] && [ "$n" -le "${STUB_CURL_FAIL_FIRST:-0}" ] && exit 22\nexit 0\n')
         self.cf = self.sb.root / "cloudflared"
         if cf:
             self.cf.write_text(
@@ -155,7 +155,8 @@ class AgentAppliance(unittest.TestCase):
         self._pikvm()
         final = self.pk()
         self.assertEqual(final["status"], "updated", final)
-        self.assertEqual(self.order(), ["rw", "pikvm-update", "cloudflared-update", "ro"])
+        # the curl is the tunnel health probe made BEFORE the update (A3)
+        self.assertEqual(self.order(), ["rw", "pikvm-update", "curl", "cloudflared-update", "ro"])
         self.assertNotIn("restart cloudflared", self.sb.read("calls.log"))   # version unchanged
 
     def test_pikvm_cloudflared_version_change_restarts_and_checks_tunnel(self):
@@ -168,12 +169,62 @@ class AgentAppliance(unittest.TestCase):
 
     def test_pikvm_tunnel_down_restores_old_binary_and_keeps_a_copy(self):
         self._pikvm()
-        final = self.pk(STUB_CF_NEWVER="2.0", STUB_CURL_FAIL_FIRST="2")
+        # curl call 1 = healthy pre-update probe (old copy refreshed), 2-3 = tunnel down after update
+        final = self.pk(STUB_CF_NEWVER="2.0", STUB_CURL_OK_FIRST="1", STUB_CURL_FAIL_FIRST="3")
         self.assertEqual(final["status"], "failed")
         self.assertEqual(final["reason"], "cloudflared_tunnel_down_restored")
         self.assertIn("VER=1.0", self.cf.read_text())                       # old version is back
         self.assertTrue((self.sb.state / "cloudflared.old").exists())
         self.assertEqual(self.order()[-1], "ro")
+
+    def test_a1_rollback_renames_instead_of_overwriting_the_running_binary(self):
+        self._pikvm()
+        # a cp that refuses to write onto the cloudflared binary itself (ETXTBSY on a running one)
+        _stub(self.sb, "cp", 'for a; do last="$a"; done\n'
+                             '[ "$last" = "$STUB_CF" ] && { echo "Text file busy" >&2; exit 1; }\n'
+                             'PATH=/usr/bin:/bin exec cp "$@"\n')
+        final = self.pk(STUB_CF=str(self.cf), STUB_CF_NEWVER="2.0", STUB_CURL_OK_FIRST="1",
+                        STUB_CURL_FAIL_FIRST="3")
+        self.assertEqual(final["reason"], "cloudflared_tunnel_down_restored", final)
+        self.assertIn("VER=1.0", self.cf.read_text())
+
+    def test_a3_old_copy_is_kept_when_the_tunnel_was_not_healthy_before(self):
+        self._pikvm()
+        old = self.sb.state / "cloudflared.old"
+        old.parent.mkdir(parents=True, exist_ok=True)
+        old.write_text("LAST-GOOD\n")
+        self.pk(STUB_CURL_FAIL_FIRST="99")
+        self.assertEqual(old.read_text(), "LAST-GOOD\n")
+
+    def test_a3_old_copy_is_refreshed_when_the_tunnel_was_healthy_before(self):
+        self._pikvm()
+        old = self.sb.state / "cloudflared.old"
+        old.parent.mkdir(parents=True, exist_ok=True)
+        old.write_text("STALE\n")
+        self.pk()
+        self.assertIn("VER=1.0", old.read_text())
+
+    def test_a4_missing_systemctl_aborts_before_any_privileged_call(self):
+        text = (ROOT / "dot_local/share/fleet/agent/fleet-agent.sh").read_text()
+        lib = self.sb.root / "agent-lib.sh"
+        lib.write_text(re.sub(r'(?m)^main "\$@"$', ":", text))
+        cf = self.sb.root / "cf"
+        cf.write_text("#!/bin/sh\necho v\n")
+        cf.chmod(0o755)
+        body = ('source "%s"\nSTATE_DIR="%s"\ntool_path() { return 0; }\n'
+                'as_root() { echo "AS_ROOT $*"; }\nFLEET_AGENT_CF_BIN="%s"\npikvm_cloudflared; echo "rc=$?"\n'
+                % (lib, self.sb.state, cf))
+        proc = subprocess.run(["bash", "-c", body], capture_output=True, text=True, env=self.sb.env,
+                              stdin=subprocess.DEVNULL)
+        self.assertIn("rc=44", proc.stdout, proc.stderr)
+        self.assertNotIn("AS_ROOT", proc.stdout)
+
+    def test_a4_every_as_root_call_uses_an_absolute_path_variable(self):
+        text = (ROOT / "dot_local/share/fleet/agent/fleet-agent.sh").read_text()
+        calls = re.findall(r"^\s*(?:\w+=\S+ )*as_root (\S+)", text, re.M)
+        self.assertTrue(calls)
+        for first in calls:
+            self.assertRegex(first, r'^"\$(cf|sc|rw|ro|pk|bin)"$|^"\$@"$', first)
 
     @unittest.skipIf(hasattr(os, "geteuid") and os.geteuid() == 0, "root can always write the binary")
     def test_pikvm_tunnel_down_without_write_access_asks_for_manual_restore(self):
