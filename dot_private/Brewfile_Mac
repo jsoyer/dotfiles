@@ -4,7 +4,7 @@ tap "anomalyco/tap"
 tap "can1357/tap"
 tap "docker/tap", trusted: true
 tap "mcs-cli/tap"
-tap "penso/tap"
+tap "penso/tap", trusted: { casks: ["herdr-gpui"] }
 tap "rjyo/moshi", trusted: true
 tap "wouterdebie/tap", trusted: { casks: ["davit"] }
 brew "crit"
@@ -32,25 +32,18 @@ brew "pulumi/tap/esc", trusted: true
 brew "rjyo/moshi/moshi-hook"
 brew "siderolabs/tap/omnictl", trusted: true
 cask "anaconda"
-cask "antigravity"
-cask "antigravity-cli"
 cask "antigravity-ide"
 cask "bettercapture"
 cask "chatgpt"
 cask "codex-app"
 cask "davit"
-cask "fliqlo"
 cask "grok-bot"
 cask "grok-build"
-cask "penso/tap/herdr-gpui", trusted: true
 cask "anomalyco/tap/hex", trusted: true
 cask "logitech-g-hub"
 cask "mimestream"
 cask "paseo"
 cask "plaud"
-cask "t3-code"
-cask "termix-ssh/termix/termix"
-cask "tex-live-utility"
 cask "vorssaint"
 cask "zoom"
 mas "Amphetamine", id: 937984704
