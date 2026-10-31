@@ -17,6 +17,7 @@ Stdlib only, Python 3.9 compatible. CLI entry: ``orchestrate.py <command> ...``
 
 import argparse
 import os
+import re
 import shlex
 import signal
 import socket
@@ -212,10 +213,15 @@ class SshTransport:
         return None if proc.returncode == 255 else proc.returncode
 
 
+VM_LINE = re.compile(r"vm: [0-9]{1,6} [A-Za-z0-9._-]{1,63} [a-z]{1,16}")
+MAX_VM_LINES = 50
+
+
 def vm_lines(entry: Optional[Dict[str, Any]]) -> Optional[List[str]]:
     """``vm: <id> <name> <status>`` lines of a check entry's log_tail, or None when there are none."""
     tail = (entry or {}).get("log_tail") or ""
-    vms = [ln[4:].strip() for ln in tail.splitlines() if ln.startswith("vm: ")]
+    # the log_tail is untrusted (it comes from the target): strict shape, bounded count
+    vms = [ln[4:] for ln in str(tail).splitlines() if VM_LINE.fullmatch(ln)][:MAX_VM_LINES]
     return vms or None
 
 
@@ -550,7 +556,9 @@ class Orchestrator:
         vms = None if self._is_api(alias) else self.transport.list_vms(alias)
         host = self.hosts[alias]
         if vms:
-            listing = "VMs that will be interrupted: " + ", ".join(vms)
+            # second layer: whatever the transport returned, no control character reaches the terminal
+            listing = "VMs that will be interrupted: " + ", ".join(
+                schema.clean_text(v, 100) for v in vms[:MAX_VM_LINES])
         else:
             listing = "VM list unavailable: assume every VM/service behind it is interrupted"
         return "WARNING: %s (%s) is critical. %s %s." % (alias, host["kind"], action, listing)

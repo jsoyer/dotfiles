@@ -14,8 +14,9 @@ Policy (spec section 10, accepted risk of API tokens held by the masters):
   * major OPNsense releases are NEVER applied (``upgrade_major_version`` present =>
     ``major_available`` flag, no update call); no config.xml copy is made;
   * the HTTP client refuses redirects, caps the response size, has timeouts, accepts
-    only https URLs or tailnet hosts (*.ts.net, 100.64.0.0/10) and survives hostile or
-    invalid JSON (=> ``failed``).
+    only tailnet API hosts (https to a ``*.ts.net`` name, or a literal 100.64.0.0/10
+    address, in which case plain http is allowed: WireGuard already encrypts it) and
+    survives hostile or invalid JSON (=> ``failed``).
 
 The firmware endpoints below are NAMED CONSTANTS because they must be verified on the
 installed OPNsense version (live infrastructure, BLOCKED in sprint 3).
@@ -29,6 +30,7 @@ import http.client
 import ipaddress
 import json
 import os
+import re
 import socket
 import ssl
 import subprocess
@@ -75,18 +77,29 @@ class ApiError(Exception):
 # ---------------------------------------------------------------- URL policy / HTTP
 
 
-def is_tailnet_host(host: str) -> bool:
-    host = host.lower().rstrip(".")
-    if host.endswith(".ts.net"):
-        return True
+TS_NET_NAME = re.compile(r"(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+ts\.net")
+CGNAT = ipaddress.ip_network("100.64.0.0/10")
+
+
+def is_tailnet_name(host: str) -> bool:
+    return bool(TS_NET_NAME.fullmatch(host.lower().rstrip(".")))
+
+
+def is_tailnet_ip(host: str) -> bool:
     try:
-        return ipaddress.ip_address(host) in ipaddress.ip_network("100.64.0.0/10")
+        addr = ipaddress.ip_address(host)
     except ValueError:
         return False
+    return addr.version == 4 and addr in CGNAT
+
+
+def is_tailnet_host(host: str) -> bool:
+    return is_tailnet_name(host) or is_tailnet_ip(host)
 
 
 def check_api_url(url: str, allow_hosts: Sequence[str] = ()) -> str:
-    """The normalized base URL, or ValueError. https anywhere; http only to a tailnet host.
+    """The normalized base URL, or ValueError. The API host must be on the tailnet:
+    https to a ``*.ts.net`` name, or a literal 100.64.0.0/10 IP (http or https). Nothing else.
 
     ``allow_hosts`` is a TEST-ONLY injection (loopback test servers); the production
     callers never pass it, so the production policy is not loosened.
@@ -94,12 +107,12 @@ def check_api_url(url: str, allow_hosts: Sequence[str] = ()) -> str:
     parts = urllib.parse.urlsplit(url or "")
     host = (parts.hostname or "").lower()
     if parts.scheme not in ("https", "http") or not host:
-        raise ValueError("API url must be an https URL (or http to a tailnet host)")
+        raise ValueError("API url must be https://<name>.ts.net or http(s)://<100.64.0.0/10 address>")
     if parts.username or parts.password or parts.query or parts.fragment or parts.path not in ("", "/"):
         raise ValueError("API url must be a bare base URL without credentials or path")
-    if host in allow_hosts or parts.scheme == "https" or is_tailnet_host(host):
+    if host in allow_hosts or is_tailnet_ip(host) or (parts.scheme == "https" and is_tailnet_name(host)):
         return url.rstrip("/")
-    raise ValueError("API url must be https or a tailnet host")
+    raise ValueError("API host must be on the tailnet (https *.ts.net, or a 100.64.0.0/10 address)")
 
 
 class _NoRedirect(urllib.request.HTTPRedirectHandler):
@@ -234,6 +247,8 @@ def read_secret(ctx: ApiContext, ref: Any) -> str:
         raise ApiError("cannot read the API credential from 1Password")
     if not value:
         raise ApiError("the API credential in 1Password is empty")
+    if any(ord(ch) < 32 or ord(ch) == 127 for ch in value):
+        raise ApiError("the API credential in 1Password contains control characters")
     return value
 
 
@@ -288,7 +303,10 @@ def failed(alias: str, verb: str, ctx: ApiContext, reason: str, started: Optiona
 def wait_until(ctx: ApiContext, ready: Callable[[], bool], limit_min: float) -> bool:
     """Poll ``ready`` (exceptions = not ready) until true or ``limit_min`` minutes passed."""
     end = ctx.now().timestamp() + limit_min * 60
-    while True:
+    # iteration guard besides the clock deadline: a stuck clock can never loop forever
+    remaining = int(limit_min * 60 / max(ctx.poll_interval, 0.01)) + 2
+    while remaining > 0:
+        remaining -= 1
         try:
             if ready():
                 return True
@@ -297,6 +315,7 @@ def wait_until(ctx: ApiContext, ready: Callable[[], bool], limit_min: float) -> 
         if ctx.now().timestamp() >= end:
             return False
         ctx.sleep(ctx.poll_interval)
+    return False
 
 
 # ---------------------------------------------------------------- OPNsense
@@ -335,7 +354,7 @@ def summarize_status(body: Any) -> Dict[str, Any]:
     return {
         "state": state if isinstance(state, str) else "",
         "message": body.get("status_msg") if isinstance(body.get("status_msg"), str) else "",
-        "minor": updates > 0 and state != "upgrade",
+        "minor": updates > 0,               # never report up-to-date while updates are pending
         "updates": updates, "changes": changes, "major": major,
         "reboot": str(body.get("needs_reboot", "0")).lower() in ("1", "true"),
         "version": str(body.get("product_version") or ""),
@@ -362,19 +381,47 @@ def _opnsense_http(alias: str, params: Dict[str, Any], ctx: ApiContext) -> ApiHt
     return make_http(ctx, params, basic_header(key, secret))
 
 
-def _follow_upgrade(http: ApiHttp, ctx: ApiContext, limit_min: float) -> Tuple[str, bool]:
-    """(final job state, saw_reboot). Network blips while services restart are tolerated."""
-    seen = {"state": "running", "reboot": False}
+TERMINAL_JOB_STATES = ("done", "error", "reboot")
+
+
+def _job_snapshot(http: ApiHttp) -> Optional[str]:
+    """The log text of the job status BEFORE the update POST (a previous job's terminal answer)."""
+    try:
+        status, body = http.request("GET", EP_FIRMWARE_UPGRADESTATUS)
+    except ApiError:
+        return None
+    if status != 200 or not isinstance(body, dict):
+        return None
+    return str(body.get("log"))
+
+
+def _follow_upgrade(http: ApiHttp, ctx: ApiContext, limit_min: float,
+                    baseline: Optional[str] = None) -> Tuple[str, bool]:
+    """(final job state, saw_reboot). Network blips while services restart are tolerated.
+
+    A terminal state is only believed once THIS job was seen running, or its log differs from
+    the pre-POST snapshot: right after the POST the box may still answer with the terminal
+    state of the previous job."""
+    seen = {"state": "running", "reboot": False, "armed": False}
 
     def done() -> bool:
         status, body = http.request("GET", EP_FIRMWARE_UPGRADESTATUS)
         if status != 200 or not isinstance(body, dict):
             return False
         state = body.get("status")
-        seen["state"] = state if isinstance(state, str) else "running"
-        if seen["state"] == "reboot":
+        state = state if isinstance(state, str) else "running"
+        if state not in TERMINAL_JOB_STATES:
+            seen["armed"] = True
+            seen["state"] = state
+            return False
+        if baseline is not None and str(body.get("log")) != baseline:
+            seen["armed"] = True
+        if not seen["armed"]:
+            return False
+        seen["state"] = state
+        if state == "reboot":
             seen["reboot"] = True
-        return seen["state"] in ("done", "error", "reboot")
+        return True
 
     if not wait_until(ctx, done, limit_min):
         return "timeout", False
@@ -410,27 +457,48 @@ def _check_entry(alias: str, summary: Dict[str, Any], ctx: ApiContext, started: 
                        reboot_required=summary["reboot"], started=started)
 
 
+def _final_status(http: ApiHttp, ctx: ApiContext, end_ts: float) -> Optional[Dict[str, Any]]:
+    """The firmware status after the update; the box may be half-up, so retry until ``end_ts``."""
+    got: Dict[str, Any] = {}
+
+    def fetch() -> bool:
+        got["status"] = _firmware_status(http, refresh=True)
+        return True
+
+    remaining_min = max(0.0, (end_ts - ctx.now().timestamp()) / 60.0)
+    return got.get("status") if wait_until(ctx, fetch, remaining_min) else None
+
+
 def _update(alias: str, http: ApiHttp, ctx: ApiContext, started: str) -> Dict[str, Any]:
+    end_ts = ctx.now().timestamp() + ctx.deadline_min * 60
     before = _firmware_status(http, refresh=True)
     if not before["minor"]:         # nothing minor: a major release is only reported, never applied
         return build_entry(
             alias, "update", ctx, "up-to-date", "major_available: not applied" if before["major"] else None,
             packages=0, major_available=before["major"], os_text=("OPNsense " + before["version"]).strip(),
             started=started)
+    baseline = _job_snapshot(http)
+    # minor updates only: EP_FIRMWARE_UPGRADE (major release) is never called
     status, body = http.request("POST", EP_FIRMWARE_UPDATE)
     if status != 200 or not isinstance(body, dict) or body.get("status") not in ("ok", None):
         return failed(alias, "update", ctx, "update refused (HTTP %d)" % status, started)
-    state, rebooting = _follow_upgrade(http, ctx, min(ctx.deadline_min, 30))
+    state, rebooting = _follow_upgrade(http, ctx, min(ctx.deadline_min, 30), baseline)
     if state in ("error", "timeout"):
         return failed(alias, "update", ctx, "firmware job %s" % state, started)
     if rebooting and not _wait_return(http, ctx, RETURN_WAIT_MIN):
         ctx.notify(notify.not_back_message(ctx.master, alias))
         return failed(alias, "update", ctx, "did not come back within %d min" % RETURN_WAIT_MIN, started)
-    after = _firmware_status(http, refresh=True)
+    after = _final_status(http, ctx, end_ts)
+    packages = len(before["changes"]) or before["updates"]
+    if after is None:
+        ctx.notify(notify.not_back_message(ctx.master, alias))
+        return build_entry(alias, "update", ctx, "degraded", "firmware status unavailable after the update",
+                           packages=packages, changes=before["changes"], major_available=before["major"],
+                           started=started)
     ok = not after["minor"]
     return build_entry(
         alias, "update", ctx, "updated" if ok else "degraded",
-        None if ok else "updates still pending after the update", packages=len(before["changes"]) or before["updates"],
+        None if ok else "updates still pending after the update", packages=packages,
         changes=before["changes"], major_available=after["major"] or before["major"],
         os_text=("OPNsense " + after["version"]).strip(), reboot_required=after["reboot"], started=started)
 
@@ -464,7 +532,9 @@ def verify_privileges(alias: str, data: Dict[str, Any], ctx: ApiContext) -> Dict
         allowed = http.request("GET", EP_FIRMWARE_STATUS)[0]
         probe = http.request("GET", EP_FORBIDDEN_PROBE)[0]
     except ApiError as exc:
-        return {"ok": False, "reason": str(exc)}
+        return {"ok": False, "reason": schema.clean_text(str(exc), 160)}
+    except Exception as exc:  # noqa: BLE001 (never echo str(exc): it could carry a secret)
+        return {"ok": False, "reason": "internal error: %s" % exc.__class__.__name__}
     if allowed != 200:
         return {"ok": False, "reason": "firmware status not reachable (HTTP %d)" % allowed}
     if probe != 403:

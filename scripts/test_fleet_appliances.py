@@ -120,7 +120,7 @@ class AgentAppliance(unittest.TestCase):
         _stub(self.sb, "curl",
               'echo "curl" >> "$STUB_DIR/order.log"\n'
               'n=$(cat "$STUB_DIR/curl.n" 2>/dev/null || echo 0); n=$((n+1)); echo $n > "$STUB_DIR/curl.n"\n'
-              '[ "$n" -le "${STUB_CURL_FAIL_FIRST:-0}" ] && exit 22\nexit 0\n')
+              '[ "$n" -gt "${STUB_CURL_OK_FIRST:-0}" ] && [ "$n" -le "${STUB_CURL_FAIL_FIRST:-0}" ] && exit 22\nexit 0\n')
         self.cf = self.sb.root / "cloudflared"
         if cf:
             self.cf.write_text(
@@ -155,7 +155,8 @@ class AgentAppliance(unittest.TestCase):
         self._pikvm()
         final = self.pk()
         self.assertEqual(final["status"], "updated", final)
-        self.assertEqual(self.order(), ["rw", "pikvm-update", "cloudflared-update", "ro"])
+        # the curl is the tunnel health probe made BEFORE the update (A3)
+        self.assertEqual(self.order(), ["rw", "pikvm-update", "curl", "cloudflared-update", "ro"])
         self.assertNotIn("restart cloudflared", self.sb.read("calls.log"))   # version unchanged
 
     def test_pikvm_cloudflared_version_change_restarts_and_checks_tunnel(self):
@@ -168,12 +169,62 @@ class AgentAppliance(unittest.TestCase):
 
     def test_pikvm_tunnel_down_restores_old_binary_and_keeps_a_copy(self):
         self._pikvm()
-        final = self.pk(STUB_CF_NEWVER="2.0", STUB_CURL_FAIL_FIRST="2")
+        # curl call 1 = healthy pre-update probe (old copy refreshed), 2-3 = tunnel down after update
+        final = self.pk(STUB_CF_NEWVER="2.0", STUB_CURL_OK_FIRST="1", STUB_CURL_FAIL_FIRST="3")
         self.assertEqual(final["status"], "failed")
         self.assertEqual(final["reason"], "cloudflared_tunnel_down_restored")
         self.assertIn("VER=1.0", self.cf.read_text())                       # old version is back
         self.assertTrue((self.sb.state / "cloudflared.old").exists())
         self.assertEqual(self.order()[-1], "ro")
+
+    def test_a1_rollback_renames_instead_of_overwriting_the_running_binary(self):
+        self._pikvm()
+        # a cp that refuses to write onto the cloudflared binary itself (ETXTBSY on a running one)
+        _stub(self.sb, "cp", 'for a; do last="$a"; done\n'
+                             '[ "$last" = "$STUB_CF" ] && { echo "Text file busy" >&2; exit 1; }\n'
+                             'PATH=/usr/bin:/bin exec cp "$@"\n')
+        final = self.pk(STUB_CF=str(self.cf), STUB_CF_NEWVER="2.0", STUB_CURL_OK_FIRST="1",
+                        STUB_CURL_FAIL_FIRST="3")
+        self.assertEqual(final["reason"], "cloudflared_tunnel_down_restored", final)
+        self.assertIn("VER=1.0", self.cf.read_text())
+
+    def test_a3_old_copy_is_kept_when_the_tunnel_was_not_healthy_before(self):
+        self._pikvm()
+        old = self.sb.state / "cloudflared.old"
+        old.parent.mkdir(parents=True, exist_ok=True)
+        old.write_text("LAST-GOOD\n")
+        self.pk(STUB_CURL_FAIL_FIRST="99")
+        self.assertEqual(old.read_text(), "LAST-GOOD\n")
+
+    def test_a3_old_copy_is_refreshed_when_the_tunnel_was_healthy_before(self):
+        self._pikvm()
+        old = self.sb.state / "cloudflared.old"
+        old.parent.mkdir(parents=True, exist_ok=True)
+        old.write_text("STALE\n")
+        self.pk()
+        self.assertIn("VER=1.0", old.read_text())
+
+    def test_a4_missing_systemctl_aborts_before_any_privileged_call(self):
+        text = (ROOT / "dot_local/share/fleet/agent/fleet-agent.sh").read_text()
+        lib = self.sb.root / "agent-lib.sh"
+        lib.write_text(re.sub(r'(?m)^main "\$@"$', ":", text))
+        cf = self.sb.root / "cf"
+        cf.write_text("#!/bin/sh\necho v\n")
+        cf.chmod(0o755)
+        body = ('source "%s"\nSTATE_DIR="%s"\ntool_path() { return 0; }\n'
+                'as_root() { echo "AS_ROOT $*"; }\nFLEET_AGENT_CF_BIN="%s"\npikvm_cloudflared; echo "rc=$?"\n'
+                % (lib, self.sb.state, cf))
+        proc = subprocess.run(["bash", "-c", body], capture_output=True, text=True, env=self.sb.env,
+                              stdin=subprocess.DEVNULL)
+        self.assertIn("rc=44", proc.stdout, proc.stderr)
+        self.assertNotIn("AS_ROOT", proc.stdout)
+
+    def test_a4_every_as_root_call_uses_an_absolute_path_variable(self):
+        text = (ROOT / "dot_local/share/fleet/agent/fleet-agent.sh").read_text()
+        calls = re.findall(r"^\s*(?:\w+=\S+ )*as_root (\S+)", text, re.M)
+        self.assertTrue(calls)
+        for first in calls:
+            self.assertRegex(first, r'^"\$(cf|cfc|sc|rw|ro|pk|bin)"$|^"\$@"$', first)
 
     @unittest.skipIf(hasattr(os, "geteuid") and os.geteuid() == 0, "root can always write the binary")
     def test_pikvm_tunnel_down_without_write_access_asks_for_manual_restore(self):
@@ -333,8 +384,10 @@ class Opnsense(object):
              "product_version": "25.1.5", "needs_reboot": "0"}
     NONE = {"status": "none", "updates": "0", "needs_reboot": "0", "product_version": "25.1.2"}
 
-    def __init__(self, clock, status, job=("running", "done"), reboot_down=None, forbidden=403):
+    def __init__(self, clock, status, job=("running", "done"), reboot_down=None, forbidden=403,
+                 stale=("done", "previous job"), stale_polls=0):
         self.clock, self.status, self.job = clock, dict(status), list(job)
+        self.stale, self.stale_polls, self.started = stale, stale_polls, False
         self.reboot_down, self.down_until, self.forbidden = reboot_down, None, forbidden
         self.job_calls = 0
         self.updated = False
@@ -352,8 +405,12 @@ class Opnsense(object):
         if path == opn.EP_FIRMWARE_STATUS:
             return 200, self.status
         if path == opn.EP_FIRMWARE_UPDATE and method == "POST":
-            self.updated = True
+            self.updated = self.started = True
             return 200, {"status": "ok", "msg_uuid": "y"}
+        if path == opn.EP_FIRMWARE_UPGRADESTATUS and (not self.started or self.stale_polls > 0):
+            if self.started:
+                self.stale_polls -= 1
+            return 200, {"status": self.stale[0], "log": self.stale[1]}      # a PREVIOUS job's answer
         if path == opn.EP_FIRMWARE_UPGRADESTATUS:
             state = self.job[min(self.job_calls, len(self.job) - 1)]
             self.job_calls += 1
@@ -441,6 +498,99 @@ class OpnsenseTest(ApiCase):
         self.assertTrue(15 * 60 <= waited <= 20 * 60, waited)
         self.assertEqual([m["priority"] for m in self.sent], [5])
 
+    def test_p4_minor_pending_with_a_major_available_is_never_up_to_date(self):
+        body = dict(Opnsense.MINOR, status="upgrade", upgrade_major_version="25.7")
+        e = self.go(Opnsense(self.clock, body), "check")
+        self.assertEqual((e["status"], e["reason"], e["major_available"]), ("skipped", "updates_pending", "25.7"))
+        dev = Opnsense(self.clock, body)
+        e = self.go(dev, "update")
+        self.assertNotEqual(e["status"], "up-to-date")
+        self.assertEqual(e["major_available"], "25.7")
+        posts = [p for m, p in self.srv.paths("POST")]
+        self.assertIn(opn.EP_FIRMWARE_UPDATE, posts)
+        self.assertNotIn(opn.EP_FIRMWARE_UPGRADE, posts)
+
+    def test_p6_a_stale_terminal_state_from_a_previous_job_is_not_accepted(self):
+        for stale in (("done", "previous job"), ("error", "previous job")):
+            with self.subTest(stale=stale):
+                dev = Opnsense(self.clock, Opnsense.MINOR, job=("running", "running", "done"),
+                               stale=stale, stale_polls=3)
+                e = self.go(dev, "update")
+                self.assertEqual(e["status"], "updated", e)
+                self.assertEqual(dev.status["status"], "none")
+
+    def test_p6_a_job_finishing_before_it_is_seen_running_is_accepted_when_the_log_changed(self):
+        dev = Opnsense(self.clock, Opnsense.MINOR, job=("done",))
+        e = self.go(dev, "update")
+        self.assertEqual(e["status"], "updated", e)
+
+    def test_p6_a_job_that_never_starts_times_out_instead_of_trusting_the_stale_state(self):
+        dev = Opnsense(self.clock, Opnsense.MINOR, stale_polls=10 ** 6)
+        e = self.go(dev, "update")
+        self.assertEqual(e["status"], "failed")
+        self.assertIn("timeout", e["reason"])
+
+    def test_p7_final_status_failing_after_the_return_retries_then_degrades_and_notifies(self):
+        calls = {"n": 0}
+        dev = Opnsense(self.clock, Opnsense.MINOR, job=("running", "done"))
+
+        def handler(m, p, h, b):
+            if p == opn.EP_FIRMWARE_STATUS and dev.updated and dev.job_calls >= 2:
+                calls["n"] += 1
+                return (503, {}) if calls["n"] <= 3 else dev(m, p, h, b)
+            return dev(m, p, h, b)
+        e = self.go(handler, "update")
+        self.assertEqual(e["status"], "updated", e)                 # recovered within the deadline
+        self.assertGreaterEqual(calls["n"], 4)
+        dev2 = Opnsense(self.clock, Opnsense.MINOR, job=("running", "done"))
+
+        def handler2(m, p, h, b):
+            if p == opn.EP_FIRMWARE_STATUS and dev2.updated and dev2.job_calls >= 2:
+                return 503, {}
+            return dev2(m, p, h, b)
+        self.sent[:] = []
+        e = self.go(handler2, "update")
+        self.assertEqual(e["status"], "degraded", e)
+        self.assertTrue(e["reason"])
+        self.assertEqual([m["priority"] for m in self.sent], [5])
+
+    def test_p8_polling_has_an_iteration_guard_even_if_the_clock_never_moves(self):
+        frozen = self.ctx(sleep=lambda s: None, now=lambda: to.START, poll_interval=15.0)
+        n = {"calls": 0}
+
+        def never():
+            n["calls"] += 1
+            return False
+        self.assertFalse(opn.wait_until(frozen, never, 15))
+        self.assertLessEqual(n["calls"], 15 * 60 / 15.0 + 2)
+
+    def test_p2_verify_privileges_catches_everything_and_never_echoes_the_exception(self):
+        srv = self.serve(Opnsense(self.clock, Opnsense.NONE))
+
+        def boom(args):
+            raise RuntimeError("secret " + KEY)
+        res = opn.verify_privileges("fw", self.data_for(srv, "fw", **self.refs), self.ctx(op=boom))
+        self.assertFalse(res["ok"])
+        self.assertEqual(res["reason"], "internal error: RuntimeError")
+        self.assertNotIn(KEY, json.dumps(res))
+
+    def test_p2_verify_privileges_reason_is_cleaned(self):
+        res = opn.verify_privileges("fw", {"api": {"fw": {"url": "https://a.ts.net", "key_ref": "op://V/I/key",
+                                                          "secret_ref": "op://V/I/secret"}}},
+                                    self.ctx(op=lambda a: "x\x1b[2J" + "y" * 1000, allow_hosts=()))
+        self.assertFalse(res["ok"])
+        self.assertNotIn("\x1b", res["reason"])
+        self.assertLessEqual(len(res["reason"]), 200)
+
+    def test_p3_secrets_with_control_characters_are_refused_without_echo(self):
+        for bad in ("abc\ndef", "abc\rdef", "abc\x00def", "abc\x1bdef", "ab\tc", "abc\x7fdef"):
+            with self.subTest(bad=repr(bad)):
+                ctx = self.ctx(op=lambda a, b=bad: b + "\n")
+                with self.assertRaises(opn.ApiError) as cm:
+                    opn.read_secret(ctx, "op://V/I/key")
+                self.assertNotIn("abc", str(cm.exception))
+        self.assertEqual(opn.read_secret(self.ctx(op=lambda a: "  good-secret \n"), "op://V/I/key"), "good-secret")
+
     def test_verify_privileges_flags_a_user_that_can_leave_system_firmware(self):
         srv = self.serve(Opnsense(self.clock, Opnsense.NONE, forbidden=403))
         ok = opn.verify_privileges("fw", self.data_for(srv, "fw", **self.refs), self.ctx())
@@ -513,15 +663,23 @@ class OpnsenseTest(ApiCase):
 
 
 class UrlPolicyTest(unittest.TestCase):
-    def test_accepts_https_anywhere_and_http_only_on_the_tailnet(self):
-        for url in ("https://fw.example.org", "https://fw.tail1234.ts.net", "http://fw.tail1234.ts.net",
-                    "http://100.64.1.2", "http://100.127.255.254:8443"):
+    def test_accepts_https_ts_net_names_and_tailnet_literal_ips_only(self):
+        for url in ("https://fw.tail1234.ts.net", "https://fw.tail1234.ts.net:8443", "http://100.64.1.2",
+                    "http://100.127.255.254:8443", "https://100.64.0.9"):
             with self.subTest(url=url):
                 opn.check_api_url(url)
 
+    def test_p1_rejects_any_host_outside_the_tailnet_and_cleartext_to_names(self):
+        for url in ("https://fw.example.org", "https://evil.com", "https://ts.net", "https://x.ts.net.evil.com",
+                    "https://192.168.1.1", "https://8.8.8.8", "https://100.128.0.1", "https://100.63.255.255",
+                    "http://fw.tail1234.ts.net", "https://[::1]", "https://localhost"):
+            with self.subTest(url=url):
+                with self.assertRaises(ValueError):
+                    opn.check_api_url(url)
+
     def test_rejects_cleartext_elsewhere_credentials_paths_and_loopback(self):
         for url in ("http://fw.example.org", "http://192.168.1.1", "http://100.128.0.1", "ftp://x.ts.net",
-                    "https://user:pw@fw.example.org", "https://fw.example.org/api", "https://fw.example.org?x=1",
+                    "https://user:pw@fw.x.ts.net", "https://fw.x.ts.net/api", "https://fw.x.ts.net?x=1",
                     "http://127.0.0.1:8080", "", "https://"):
             with self.subTest(url=url):
                 with self.assertRaises(ValueError):
@@ -555,6 +713,8 @@ class HomeAssistant(object):
         self.core = ["2024.12.0", "2025.1.0"]            # a major-ish bump
         self.os = ["13.2", "14.0"]                        # a major OS bump
         self.posts = []
+        self.core_fail = 0                                # HTTP status returned by the Core update POST
+        self.os_status = 200                              # HTTP status returned by the OS update POST
 
     def down(self):
         return self.down_until is not None and self.clock.now().timestamp() < self.down_until
@@ -579,13 +739,15 @@ class HomeAssistant(object):
         if path == ha.EP_BACKUP_FULL:
             state, code = self.backup
             return code, {"result": state, "data": {"slug": "abc"}}
+        if path == ha.EP_CORE_UPDATE and self.core_fail:
+            return self.core_fail, {"result": "error"}
         if path == ha.EP_CORE_UPDATE:
             self.core[0] = self.core[1]
             return 200, {"result": "ok"}
         if path == ha.EP_OS_UPDATE:
             self.os[0] = self.os[1]
             self.down_until = self.clock.now().timestamp() + self.os_down
-            return 200, {"result": "ok"}
+            return self.os_status, {"result": "ok"}
         if path.startswith("/api/hassio/addons/") and path.endswith("/update"):
             slug = path.split("/")[4]
             self.addons[slug][0] = self.addons[slug][1]
@@ -649,6 +811,49 @@ class HomeAssistantTest(ApiCase):
         self.assertIn("api_not_back", e["reason"])
         self.assertTrue(15 * 60 <= waited <= 17 * 60, waited)
         self.assertEqual([m["priority"] for m in self.sent], [5])
+
+    def test_p9_restarting_core_or_os_answering_502_503_504_falls_through_to_the_version_wait(self):
+        for code in (502, 503, 504):
+            with self.subTest(code=code):
+                dev = HomeAssistant(self.clock)
+                dev.os_status = code
+                e = self.go(dev, "update")
+                self.assertEqual(e["status"], "updated", e)
+                self.assertNotIn("refused", e.get("reason") or "")
+
+    def test_p9_other_errors_are_still_refused(self):
+        dev = HomeAssistant(self.clock)
+        dev.core_fail = 401
+        e = self.go(dev, "update")
+        self.assertIn("refused", e["reason"])
+
+    def test_p10_version_wait_accepts_update_available_false_or_absent(self):
+        dev = HomeAssistant(self.clock)
+
+        def handler(m, p, h, b):
+            status, body = dev(m, p, h, b)[:2]
+            if p == ha.EP_OS_INFO and dev.os[0] == dev.os[1]:
+                return 200, {"result": "ok", "data": {"update_available": False}}      # version key absent
+            return status, body
+        e = self.go(handler, "update")
+        self.assertEqual(e["status"], "updated", e)
+
+    def test_p11_a_failed_core_update_never_proceeds_to_the_os_update(self):
+        dev = HomeAssistant(self.clock)
+        dev.core_fail = 500
+        e = self.go(dev, "update")
+        self.assertIn(e["status"], ("failed", "degraded"))
+        self.assertIn("Core", e["reason"])
+        self.assertNotIn(ha.EP_OS_UPDATE, dev.posts)
+        self.assertEqual(dev.os[0], "13.2")
+
+    def test_p2_verify_privileges_catch_all(self):
+        srv = self.serve(HomeAssistant(self.clock))
+
+        def boom(args):
+            raise RuntimeError("leak " + JWT)
+        res = ha.verify_privileges("ha1", self.data_for(srv, "ha1", token_ref="op://V/I/hatoken"), self.ctx(op=boom))
+        self.assertEqual(res, {"ok": False, "reason": "internal error: RuntimeError"})
 
     def test_nothing_pending_makes_no_backup(self):
         dev = HomeAssistant(self.clock)
@@ -837,6 +1042,42 @@ class Routing(RoutingBase):
         garbage = types.SimpleNamespace(call=lambda alias, verb: (0, "not json", ""))
         self.assertIsNone(orchestrate.SshTransport.list_vms(garbage, "px"))
 
+    def test_o2_hostile_log_tail_lines_never_reach_the_warning(self):
+        hostile = ("vm: 100 web running\n"
+                   "vm: 101 \x1b[2J\x1b]0;pwned\x07evil running\n"
+                   "vm: 102 db stopped\x1b[31m\n"
+                   "vm: 103 ok-name_1.x running\n"
+                   "vm: 1234567 toolong running\n"
+                   "vm: 104 spaced name running\n"
+                   "vm: 105 a RUNNING\n"
+                   "\x1b[2Jvm: 106 x running\n")
+        out = to.agent_line("px", "check", "skipped", log_tail=hostile)
+        fake = types.SimpleNamespace(call=lambda alias, verb: (0, out, ""))
+        got = orchestrate.SshTransport.list_vms(fake, "px")
+        # (the agent-line sanitiser already strips escape sequences; the strict shape is the second layer)
+        self.assertTrue(got)
+        for vm in got:
+            self.assertRegex(vm, r"^[0-9]{1,6} [A-Za-z0-9._-]{1,63} [a-z]{1,16}$")
+        joined = " ".join(got)
+        for bad in ("pwned", "evil", "toolong", "spaced", "RUNNING", "\x1b", "\x07"):
+            self.assertNotIn(bad, joined)
+        self.assertIn("100 web running", got)
+        self.assertIn("103 ok-name_1.x running", got)
+
+    def test_o2_vm_lines_are_capped_at_50(self):
+        tail = "\n".join("vm: %d v%d running" % (i, i) for i in range(200))
+        self.assertEqual(len(orchestrate.vm_lines({"log_tail": tail})), 50)
+
+    def test_o2_warning_strips_control_characters_even_from_a_custom_transport(self):
+        self.build()
+        tr = self.transport()
+        tr.list_vms = lambda alias: ["100 we\x1b[2Jb\x1b]0;x\x07 running"]
+        said = []
+        self.orch(tr, critical=True, say=said.append, confirm=lambda p: False).run_up(["px"], "px")
+        warning = next(s for s in said if "critical" in s)
+        self.assertNotIn("\x1b", warning)
+        self.assertNotIn("\x07", warning)
+
     def test_production_transport_routes_api_hosts_through_the_api_modules(self):
         self.build()
         data = self.data
@@ -900,6 +1141,15 @@ FAKE_SSH = r"""#!/usr/bin/env bash
 echo "ssh $*" >> "$FAKE_LOG"
 last="${@: -1}"
 case "$last" in
+  *fleet-verify*)
+    args="${last##*fleet-verify }"; args="${args#* }"; args="${args#* }"      # drop the uid and anchor arguments
+    for p in $args; do
+      case " ${FAKE_VERIFY_BAD:-} " in *" $p "*) echo "BAD $p"; continue ;; esac
+      canon="$p"
+      for kv in ${FAKE_CANON:-}; do [ "${kv%%=*}" = "$p" ] && canon="${kv#*=}"; done
+      echo "OK $p $canon"
+    done
+    [ -n "${FAKE_VERIFY_GARBAGE:-}" ] && echo "$FAKE_VERIFY_GARBAGE" ;;
   *"command -v "*)
     name="${last##* command -v }"
     case "$name" in
@@ -911,11 +1161,20 @@ case "$last" in
       visudo) echo /usr/sbin/visudo ;;
       *) exit 1 ;;
     esac ;;
-  "mktemp -d") echo /tmp/fleet.Ab12Cd ;;
+  "mktemp -d") echo "${FAKE_MKTEMP:-/tmp/fleet.Ab12Cd}" ;;
   sh\ /tmp/fleet.Ab12Cd/apply.sh*) echo "fleet-bootstrap: done"; exit "${FAKE_APPLY_RC:-0}" ;;
 esac
 exit 0
 """
+
+
+def shlex_q(text):
+    import shlex
+    return shlex.quote(text)
+
+
+SHA_A = "a" * 64
+SHA_S = "b" * 64
 
 
 class BootstrapBase(unittest.TestCase):
@@ -933,7 +1192,8 @@ class BootstrapBase(unittest.TestCase):
             "scp": '#!/usr/bin/env bash\necho "scp $*" >> "$FAKE_LOG"\nexit "${FAKE_SCP_RC:-0}"\n',
             "ssh-keyscan": '#!/usr/bin/env bash\necho "keyscan $*" >> "$FAKE_LOG"\n'
                            'echo "# host"\necho "${@: -1} ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFakeHostKeyForTests"\n',
-            "ssh-keygen": '#!/usr/bin/env bash\necho "256 SHA256:FakeFingerprint host (ED25519)"\n',
+            "ssh-keygen": '#!/usr/bin/env bash\nif [ "$1" = -F ]; then grep -F "$2 " "$4"; exit $?; fi\n'
+                          'echo "256 SHA256:FakeFingerprint host (ED25519)"\n',
             "visudo": '#!/usr/bin/env bash\necho "visudo $*" >> "$FAKE_LOG"\nexit "${FAKE_VISUDO_RC:-0}"\n',
         }.items():
             path = bin_dir / name
@@ -985,14 +1245,28 @@ class SudoersFragment(unittest.TestCase):
 
     def test_omv_fragment_is_exactly_the_closed_list(self):
         text = bootstrap.render_sudoers("omv", "fleetsvc", self.OMV_PATHS)
-        self.assertEqual(bootstrap.granted_commands(text), ["/usr/sbin/omv-upgrade", "/usr/bin/systemctl reboot"])
+        self.assertEqual(bootstrap.granted_commands(text), ['/usr/sbin/omv-upgrade ""', "/usr/bin/systemctl reboot"])
 
     def test_pikvm_fragment_is_exactly_the_closed_list(self):
         text = bootstrap.render_sudoers("pikvm", "fleetsvc", self.PIKVM_PATHS)
         self.assertEqual(bootstrap.granted_commands(text), [
-            "/usr/local/bin/rw", "/usr/local/bin/ro", "/usr/bin/pikvm-update",
+            '/usr/local/bin/rw ""', '/usr/local/bin/ro ""', '/usr/bin/pikvm-update ""',
             "/usr/local/bin/cloudflared update", "/usr/bin/systemctl restart cloudflared",
             "/usr/bin/systemctl reboot"])
+
+    def test_no_argument_commands_get_an_explicit_empty_argument_list(self):
+        # sudoers: a command without an argument list allows ANY argument; `""` allows none.
+        for kind, paths in (("omv", self.OMV_PATHS), ("pikvm", self.PIKVM_PATHS)):
+            lines = [ln for ln in bootstrap.render_sudoers(kind, "fleetsvc", paths).splitlines()
+                     if "NOPASSWD:" in ln]
+            self.assertEqual(len(lines), len(bootstrap.CLOSED_LIST[kind]), kind)
+            for (program, args), line in zip(bootstrap.CLOSED_LIST[kind], lines):
+                if args:
+                    self.assertFalse(line.endswith('""'), (kind, line))
+                    self.assertTrue(line.endswith(" " + " ".join(args)), (kind, line))
+                else:
+                    self.assertTrue(line.endswith(' ""'), (kind, line))
+                    self.assertEqual(line.count('""'), 1, (kind, line))
 
     def test_no_wildcard_no_shell_no_systemd_run_no_all_commands(self):
         for kind, paths in (("omv", self.OMV_PATHS), ("pikvm", self.PIKVM_PATHS)):
@@ -1141,7 +1415,7 @@ class BootstrapFlow(BootstrapBase):
         self.assertEqual(rc, 0, err)
         self.assertEqual(sum(1 for c in self.calls() if "apply.sh" in c and c.startswith("ssh")), 1)
         script = bootstrap.apply_script("pikvm", ["diabolo", "penelope"], {
-            "rw": "/usr/local/bin/rw", "ro": "/usr/local/bin/ro", "visudo": "/usr/sbin/visudo"})
+            "rw": "/usr/local/bin/rw", "ro": "/usr/local/bin/ro", "visudo": "/usr/sbin/visudo"}, SHA_A, SHA_S)
         lines = script.splitlines()
         trap = next(i for i, ln in enumerate(lines) if ln.startswith("trap "))
         rw = next(i for i, ln in enumerate(lines) if ln == '$SUDO "$RW"')
@@ -1153,19 +1427,319 @@ class BootstrapFlow(BootstrapBase):
             p = Path(d) / "apply.sh"
             p.write_text(script)
             self.assertEqual(subprocess.run(["sh", "-n", str(p)]).returncode, 0)
-        omv = bootstrap.apply_script("omv", ["diabolo"], {"visudo": "/usr/sbin/visudo"})
+        omv = bootstrap.apply_script("omv", ["diabolo"], {"visudo": "/usr/sbin/visudo"}, SHA_A, SHA_S)
         self.assertNotIn("RW", omv)
         self.assertNotIn("\ntrap ", omv)
 
     def test_apply_script_refuses_unsafe_master_names(self):
         with self.assertRaises(bootstrap.BootstrapError):
-            bootstrap.apply_script("omv", ["x; rm -rf /"], {"visudo": "/usr/sbin/visudo"})
+            bootstrap.apply_script("omv", ["x; evil"], {"visudo": "/usr/sbin/visudo"}, SHA_A, SHA_S)
 
     def test_authorized_lines_use_the_forced_command(self):
         lines, missing = bootstrap.authorized_lines(["diabolo"], {}, self.op)
         self.assertEqual(missing, [])
         self.assertTrue(lines[0].startswith('restrict,command="/usr/local/libexec/fleet-agent" ssh-ed25519 '))
         self.assertTrue(lines[0].endswith(" fleet-master-diabolo"))
+
+    # ---- review fixes B1..B10
+
+    def _script(self, kind="omv"):
+        return bootstrap.apply_script(kind, ["diabolo", "penelope"], {
+            "rw": "/usr/local/bin/rw", "ro": "/usr/local/bin/ro", "visudo": "/usr/sbin/visudo"}, SHA_A, SHA_S)
+
+    def test_b1_remote_lookup_uses_the_fixed_path_only(self):
+        self.boot(["omv1", "--user", "fleetsvc"])
+        lookups = [c for c in self.calls() if "command -v" in c]
+        self.assertTrue(lookups)
+        for c in lookups:
+            self.assertIn("PATH='%s'; command -v" % bootstrap.REMOTE_PATH, c)
+            self.assertNotIn("$PATH", c)
+
+    def test_b1_untrusted_resolved_path_refuses_everything(self):
+        rc, out, err = self.boot(["omv1", "--user", "fleetsvc", "--apply"], confirm=lambda a: True,
+                                 env={"FAKE_VERIFY_BAD": "/usr/sbin/omv-upgrade"})
+        self.assertEqual(rc, 2)
+        self.assertIn("untrusted path", err)
+        self.assertNotIn("NOPASSWD", out)                         # nothing rendered
+        self.assertNotIn("scp ", "\n".join(self.calls()))
+
+    def test_b1_overrides_and_cloudflared_are_checked_too(self):
+        rc, _, err = self.boot(["omv1", "--user", "u", "--path", "omv-upgrade=/home/u/bin/omv-upgrade",
+                                "--path", "systemctl=/bin/systemctl", "--path", "visudo=/usr/sbin/visudo"],
+                               env={"FAKE_VERIFY_BAD": "/home/u/bin/omv-upgrade"})
+        self.assertEqual(rc, 2)
+        rc, _, err = self.boot(["pk", "--user", "root"], env={"FAKE_VERIFY_BAD": bootstrap.CLOUDFLARED})
+        self.assertEqual(rc, 2)
+        self.assertIn(bootstrap.CLOUDFLARED, err)
+        verify = [c for c in self.calls() if "fleet-verify" in c][-1]
+        self.assertIn(bootstrap.CLOUDFLARED, verify)
+
+    def test_b1_garbage_from_the_target_is_refused(self):
+        for garbage in ("OK /etc/passwd /etc/passwd", "evil", "OK /usr/sbin/omv-upgrade /usr/sbin/omv-upgrade",
+                        "BAD /usr/sbin/omv-upgrade"):    # unknown / unparseable / duplicate
+            rc, _, err = self.boot(["omv1", "--user", "u"], env={"FAKE_VERIFY_GARBAGE": garbage})
+            self.assertEqual(rc, 2, garbage)
+
+    def test_b1_verify_script_logic_on_a_real_shell(self):
+        proc = self._verify(str(self.tmp), "/bin/sh", uid=os.getuid() + 1, top="/")
+        lines = proc.stdout.splitlines()
+        self.assertIn("BAD %s" % self.tmp, lines)                   # not owned by the "root" uid: untrusted
+        self.assertTrue(all(re.fullmatch(r"(OK|BAD) /.+", ln) for ln in lines), lines)
+        wr = self.tmp / "ww"
+        wr.mkdir()
+        wr.chmod(0o777)
+        self.assertEqual(self._verify(str(wr), top="/").stdout.strip(), "BAD %s" % wr)
+
+    # ---- canonical path (HIGH): the fragment grants what was checked
+
+    def _verify(self, *paths, uid=None, top=None, path_prefix=None):
+        env = dict(os.environ)
+        if path_prefix:
+            env["PATH"] = "%s:%s" % (path_prefix, env["PATH"])
+        return subprocess.run(
+            ["sh", "-c", bootstrap.VERIFY_SCRIPT, "fleet-verify", str(os.getuid() if uid is None else uid),
+             top if top is not None else os.path.realpath(str(self.tmp))] + list(paths),
+            capture_output=True, text=True, env=env)
+
+    def _fake_tree(self):
+        base = Path(os.path.realpath(str(self.tmp))) / "tree"
+        (base / "real" / "bin").mkdir(parents=True)
+        prog = base / "real" / "bin" / "prog"
+        prog.write_text("#!/bin/sh\n")
+        prog.chmod(0o755)
+        link = base / "link"
+        link.symlink_to(prog)
+        return base, prog, link
+
+    def test_c1_shell_returns_the_canonical_path_of_a_symlinked_command(self):
+        base, prog, link = self._fake_tree()
+        self.assertEqual(self._verify(str(link)).stdout.strip(), "OK %s %s" % (link, prog))
+        self.assertEqual(self._verify(str(prog)).stdout.strip(), "OK %s %s" % (prog, prog))
+
+    def test_c2_shell_rejects_writable_or_foreign_ancestors(self):
+        base, prog, link = self._fake_tree()
+        for mode in (0o775, 0o757):
+            (base / "real" / "bin").chmod(mode)
+            self.assertEqual(self._verify(str(link)).stdout.strip(), "BAD %s" % link, oct(mode))
+        (base / "real" / "bin").chmod(0o755)
+        prog.chmod(0o775)                                             # the file itself
+        self.assertEqual(self._verify(str(prog)).stdout.strip(), "BAD %s" % prog)
+        prog.chmod(0o755)
+        self.assertTrue(self._verify(str(prog)).stdout.startswith("OK "))
+        self.assertEqual(self._verify(str(prog), uid=os.getuid() + 1).stdout.strip(), "BAD %s" % prog)
+
+    def test_c2_shell_rejects_a_symlink_component_and_a_non_regular_file(self):
+        base, prog, link = self._fake_tree()
+        stub = self.tmp / "stubbin"
+        stub.mkdir()
+        (stub / "readlink").write_text('#!/bin/sh\necho "%s"\n' % (base / "link" / "x"))
+        (stub / "readlink").chmod(0o755)
+        (base / "dirlink").symlink_to(base / "real" / "bin")
+        (stub / "readlink").write_text('#!/bin/sh\necho "%s"\n' % (base / "dirlink" / "prog"))
+        out = self._verify(str(prog), path_prefix=str(stub)).stdout.strip()
+        self.assertEqual(out, "BAD %s" % prog)                        # dirlink is a symlink component
+        (stub / "readlink").write_text('#!/bin/sh\necho "%s"\n' % (base / "real" / "bin"))
+        self.assertEqual(self._verify(str(prog), path_prefix=str(stub)).stdout.strip(), "BAD %s" % prog)  # a directory
+
+    def test_c3_shell_rejects_missing_empty_and_relative_resolution(self):
+        base, prog, link = self._fake_tree()
+        self.assertEqual(self._verify(str(base / "nope")).stdout.strip(), "BAD %s" % (base / "nope"))
+        stub = self.tmp / "stubbin"
+        stub.mkdir()
+        for answer in ("", "relative/prog"):
+            (stub / "readlink").write_text('#!/bin/sh\necho "%s"\n' % answer)
+            (stub / "readlink").chmod(0o755)
+            self.assertEqual(self._verify(str(prog), path_prefix=str(stub)).stdout.strip(), "BAD %s" % prog, answer)
+
+    def test_c4_fragment_grants_the_resolved_path_not_the_symlink(self):
+        canon = "/usr/lib/omv/omv-upgrade"
+        rc, out, err = self.boot(["omv1", "--user", "fleetsvc"],
+                                 env={"FAKE_CANON": "/usr/sbin/omv-upgrade=%s /usr/bin/systemctl=/usr/bin/systemctl.real "
+                                                    "/usr/sbin/visudo=/usr/lib/sudo/visudo" % canon})
+        self.assertEqual(rc, 0, err)
+        frag = out.split("--- sudoers fragment", 1)[1].split("--- visudo", 1)[0]
+        self.assertEqual(bootstrap.granted_commands(frag), [canon + ' ""', "/usr/bin/systemctl.real reboot"])
+        self.assertIn('Defaults!%s env_keep' % canon, frag)
+        self.assertNotIn("/usr/sbin/omv-upgrade", frag)
+        self.assertIn("/usr/lib/sudo/visudo -cf", out)               # apply script uses the canonical path too
+
+    def test_c4_pikvm_canonical_everywhere_including_cloudflared(self):
+        rc, out, err = self.boot(["pk", "--user", "root"], env={"FAKE_CANON": (
+            "/usr/local/bin/rw=/usr/bin/rw /usr/local/bin/ro=/usr/bin/ro /usr/local/bin/cloudflared=/opt/cf/cloudflared")})
+        self.assertEqual(rc, 0, err)
+        frag = out.split("--- sudoers fragment", 1)[1].split("--- visudo", 1)[0]
+        self.assertEqual(bootstrap.granted_commands(frag), [
+            '/usr/bin/rw ""', '/usr/bin/ro ""', '/usr/bin/pikvm-update ""', "/opt/cf/cloudflared update",
+            "/usr/bin/systemctl restart cloudflared", "/usr/bin/systemctl reboot"])
+        self.assertIn('RW=/usr/bin/rw', out)
+        self.assertIn('RO=/usr/bin/ro', out)
+
+    def test_c5_override_paths_are_canonicalised_and_checked(self):
+        rc, out, err = self.boot(["omv1", "--user", "u", "--path", "omv-upgrade=/opt/omv/link",
+                                  "--path", "systemctl=/bin/systemctl", "--path", "visudo=/usr/sbin/visudo"],
+                                 env={"FAKE_CANON": "/opt/omv/link=/opt/omv/real"})
+        self.assertEqual(rc, 0, err)
+        self.assertIn('/opt/omv/real ""', out)
+        self.assertNotIn("/opt/omv/link", out.split("--- sudoers fragment", 1)[1].split("--- visudo", 1)[0])
+
+    def test_c6_bad_canonical_answers_refuse_the_whole_bootstrap(self):
+        for canon in ("", "relative/x", "/usr/../etc/x", "/usr/sbin//x"):
+            self.log.write_text("")
+            rc, out, err = self.boot(["omv1", "--user", "fleetsvc", "--apply"], confirm=lambda a: True,
+                                     env={"FAKE_CANON": "/usr/sbin/omv-upgrade=%s" % canon})
+            self.assertEqual(rc, 2, repr(canon))
+            self.assertNotIn("NOPASSWD", out, repr(canon))
+            self.assertNotIn("scp ", "\n".join(self.calls()), repr(canon))
+
+    def test_c6_canonical_with_whitespace_or_control_chars_is_refused(self):
+        for bad in ("/usr/s bin/x", "/usr/sbin/x\t", "/usr/sbin/x\x01"):
+            def run(cmd, timeout, bad=bad):
+                return 0, "OK /usr/sbin/x %s\n" % bad, ""
+            with self.assertRaises(bootstrap.BootstrapError, msg=repr(bad)):
+                bootstrap.verify_trusted(run, {}, Path("/nonexistent"), "u@h", ["/usr/sbin/x"])
+
+    def test_c6_bad_cloudflared_check_refuses_everything(self):
+        rc, out, err = self.boot(["pk", "--user", "root"], env={"FAKE_CANON": "/usr/local/bin/cloudflared="})
+        self.assertEqual(rc, 2)
+        self.assertNotIn("NOPASSWD", out)
+
+    def test_c7_verify_is_asked_for_uid_zero_and_root_anchor(self):
+        self.boot(["omv1", "--user", "fleetsvc"])
+        call = [c for c in self.calls() if "fleet-verify" in c][-1]
+        self.assertRegex(call, r"fleet-verify 0 / ")
+
+    def test_b2_everything_is_staged_and_verified_before_any_rename(self):
+        for kind in ("omv", "pikvm"):
+            script = self._script(kind)
+            lines = script.splitlines()
+            first_mv = next(i for i, ln in enumerate(lines) if "mv -f" in ln)
+            for needle in ("-cf /etc/sudoers.d/.fleet-agent.new", "sha256sum /usr/local/libexec/.fleet-agent.new",
+                           SHA_A, SHA_S, "authorized.lines"):
+                idx = next(i for i, ln in enumerate(lines) if needle in ln)
+                self.assertLess(idx, first_mv, needle)
+            self.assertNotIn('-cf "$D/', script)                   # never validates the user-owned copy
+            self.assertIn("mv -f /usr/local/libexec/.fleet-agent.new /usr/local/libexec/fleet-agent", script)
+            self.assertIn("mv -f /etc/sudoers.d/.fleet-agent.new /etc/sudoers.d/fleet-agent", script)
+            self.assertIn("0440", script)
+            self.assertEqual(lines[-1], "echo fleet-bootstrap: done")
+
+    def test_b2_b5_authorized_keys_grep_failure_aborts(self):
+        script = self._script()
+        self.assertNotIn("|| true", script)
+        self.assertIn('[ "$rc" -le 1 ]', script)
+        with tempfile.TemporaryDirectory() as d:
+            dd = Path(d)
+            (dd / "ak.new").write_text("ssh-ed25519 K x fleet-master-diabolo\n")
+            line = next(ln for ln in script.splitlines() if "fleet-master-diabolo" in ln)
+            body = 'D=%s\nset -eu\n%s\necho survived\n' % (shlex_q(str(dd)), line)
+            ok = subprocess.run(["sh", "-c", body], capture_output=True, text=True)
+            self.assertEqual(ok.returncode, 0, ok.stderr)          # grep exit 1 (nothing left) is fine
+            (dd / "ak.new").write_text("ssh-ed25519 K x fleet-master-diabolo\n")
+            fake = dd / "bin"
+            fake.mkdir()
+            (fake / "grep").write_text("#!/bin/sh\nexit 2\n")
+            (fake / "grep").chmod(0o755)
+            bad = subprocess.run(["sh", "-c", body], capture_output=True, text=True,
+                                 env={"PATH": "%s:/usr/bin:/bin" % fake})
+            self.assertNotEqual(bad.returncode, 0)
+            self.assertNotIn("survived", bad.stdout)
+
+    def test_b2_sha_mismatch_aborts_on_a_real_shell(self):
+        script = self._script()
+        line = next(ln for ln in script.splitlines() if SHA_A in ln)
+        proc = subprocess.run(["sh", "-c", 'set -eu\nGOT=deadbeef\n%s\necho survived' % line],
+                              capture_output=True, text=True)
+        self.assertNotEqual(proc.returncode, 0)
+        self.assertNotIn("survived", proc.stdout)
+
+    def test_b2_dry_run_shows_the_local_sha_of_the_agent_and_the_fragment(self):
+        import hashlib
+        rc, out, _ = self.boot(["omv1", "--user", "fleetsvc"])
+        self.assertIn(hashlib.sha256(self.agent.read_bytes()).hexdigest(), out)
+        frag = bootstrap.render_sudoers("omv", "fleetsvc", {"omv-upgrade": "/usr/sbin/omv-upgrade",
+                                                            "systemctl": "/usr/bin/systemctl"})
+        self.assertIn(hashlib.sha256(frag.encode()).hexdigest(), out)
+
+    def test_b3_pikvm_traps_signals_and_reports_a_failed_ro(self):
+        script = self._script("pikvm")
+        self.assertIn("trap 'exit 1' HUP INT TERM", script)
+        self.assertIn("ro failed", script)
+        with tempfile.TemporaryDirectory() as d:
+            dd = Path(d)
+            for name, body in (("rw", "exit 0"), ("ro", 'echo ro-called >> "%s/log"; exit 7' % dd)):
+                (dd / name).write_text("#!/bin/sh\n" + body + "\n")
+                (dd / name).chmod(0o755)
+            sh = script.replace("/usr/local/bin/rw", str(dd / "rw")).replace("/usr/local/bin/ro", str(dd / "ro"))
+            lines = sh.splitlines()
+            head = [ln for ln in lines[: lines.index('$SUDO "$RW"') + 1] if not ln.startswith("SUDO=")
+                    and not ln.startswith("D=")]
+            proc = subprocess.run(["sh", "-c", "set -eu\nSUDO=\n" + "\n".join(head) + "\nexit 0"],
+                                  capture_output=True, text=True)
+            self.assertNotEqual(proc.returncode, 0)                # failed ro => non-zero even on success
+            self.assertIn("ro failed", proc.stderr)
+            self.assertEqual((dd / "log").read_text().strip(), "ro-called")
+
+    def test_b4_a_different_pinned_key_is_refused(self):
+        self.known_hosts.write_text("omv1 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOtherKey\n")
+        rc, _, err = self.boot(["omv1", "--user", "fleetsvc", "--apply"], confirm=lambda a: True)
+        self.assertEqual(rc, 2)
+        self.assertIn("host key mismatch", err)
+        self.assertNotIn("scp ", "\n".join(self.calls()))
+        self.assertNotIn("FakeHostKey", self.known_hosts.read_text())
+
+    def test_b4_identical_pin_is_a_no_op(self):
+        line = "omv1 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFakeHostKeyForTests\n"
+        self.known_hosts.write_text(line)
+        rc, out, err = self.boot(["omv1", "--user", "fleetsvc", "--apply"], confirm=lambda a: True)
+        self.assertEqual(rc, 0, err)
+        self.assertEqual(self.known_hosts.read_text(), line)
+
+    def test_b6_prompt_and_dry_run_show_fingerprint_sha_and_script(self):
+        import hashlib
+        import io
+        sha = hashlib.sha256(self.agent.read_bytes()).hexdigest()
+        rc, out, _ = self.boot(["omv1", "--user", "fleetsvc"])
+        self.assertIn("apply script", out)
+        self.assertIn("sha256sum", out)
+        self.assertIn(sha, out)
+        err = io.StringIO()
+        with mock.patch.object(sys, "stdin", types.SimpleNamespace(isatty=lambda: True, readline=lambda: "x\n")), \
+                mock.patch.object(sys, "stderr", err):
+            bootstrap.tty_confirm("omv1", "host key 256 SHA256:Fp; agent sha256 %s." % sha)
+        self.assertIn("SHA256:Fp", err.getvalue())
+        self.assertIn(sha, err.getvalue())
+
+    def test_b6_default_confirmation_receives_the_details(self):
+        seen = {}
+
+        def fake_confirm(alias, detail=""):
+            seen["d"] = detail
+            return False
+        with mock.patch.object(bootstrap, "tty_confirm", fake_confirm):
+            self.boot(["omv1", "--user", "fleetsvc", "--apply"], confirm=bootstrap.tty_confirm)
+        self.assertIn("SHA256:FakeFingerprint", seen["d"])
+        self.assertRegex(seen["d"], r"[0-9a-f]{64}")
+
+    def test_b9_remote_tmp_path_is_validated(self):
+        for bad in ("/etc", "/tmp/../etc", "/tmp/.", "/tmp/a/b", "/home/x", "/tmp/a b", "/", "/tmp/.."):
+            self.log.write_text("")
+            rc, _, err = self.boot(["omv1", "--user", "fleetsvc", "--apply"], confirm=lambda a: True,
+                                   env={"FAKE_MKTEMP": bad})
+            self.assertEqual(rc, 2, bad)
+            self.assertNotIn("rm -", "\n".join(self.calls()), bad)
+
+    def test_b10_apply_script_uses_sudo_n(self):
+        script = self._script()
+        self.assertIn('SUDO="sudo -n"', script)
+        self.assertNotIn("SUDO=sudo;", script)
+
+    def test_apply_scripts_are_valid_shell(self):
+        for kind in ("omv", "pikvm"):
+            with tempfile.TemporaryDirectory() as d:
+                p = Path(d) / "apply.sh"
+                p.write_text(self._script(kind))
+                for shell in ("bash", "sh"):
+                    self.assertEqual(subprocess.run([shell, "-n", str(p)]).returncode, 0, (kind, shell))
 
     def test_fleet_wrapper_exposes_the_bootstrap_verb(self):
         wrapper = ROOT / "dot_local/bin/executable_fleet"

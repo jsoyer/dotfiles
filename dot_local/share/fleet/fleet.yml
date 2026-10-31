@@ -27,7 +27,7 @@ ntfy: {url: "https://ntfy.sh", topic: fleet, token_ref: "op://Private/Fleet/ntfy
 master_priority: {nice: penelope}
 parallel: {total: 10, per_site: 4}
 # API-only hosts (no agent, no ssh_user): lib/api_opnsense.py and lib/api_homeassistant.py.
-# url: https, or a tailnet host (*.ts.net / 100.64.0.0/10). Credentials are op:// references
+# url: https://<name>.ts.net, or a literal tailnet IP (100.64.0.0/10, http allowed). Credentials are op:// references
 # read at run time, never stored here or on disk. UNCERTAIN: the tailnet domain below is a
 # placeholder, and the 1Password item fields must be created (dedicated minimal users:
 # OPNsense user `fleet` with the single privilege "System: Firmware"; Home Assistant

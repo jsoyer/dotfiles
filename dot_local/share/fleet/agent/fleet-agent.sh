@@ -587,8 +587,20 @@ agent_kind() {
   fi
 }
 
-# tool_path <name>: absolute path, the same one `fleet bootstrap` put in sudoers.
-tool_path() { command -v "$1" 2>/dev/null; }
+# canon_path <path>: `readlink -f` (symlinks resolved), empty when it cannot be resolved.
+canon_path() {
+  local r
+  r="$(readlink -f -- "$1" 2>/dev/null)" || return 0
+  case "$r" in /*) printf '%s\n' "$r" ;; esac
+}
+
+# tool_path <name>: the CANONICAL absolute path, the same one `fleet bootstrap` put in
+# sudoers (sudo matches by path: a symlinked name such as /bin/systemctl would not match).
+tool_path() {
+  local p
+  p="$(command -v "$1" 2>/dev/null)" || return 0
+  case "$p" in /*) canon_path "$p" ;; esac
+}
 
 # as_root <abs path> [args]: exact sudoers commands only (never a shell, never a
 # free-form argument). Already root (PiKVM logs in as root): run directly.
@@ -634,14 +646,26 @@ cloudflared_ready() {
 # access to the binary: only when the account is root (PiKVM default) because the
 # closed sudoers list (spec section 10) has no command to write /usr/local/bin.
 pikvm_cloudflared() {
-  local cf="${FLEET_AGENT_CF_BIN:-/usr/local/bin/cloudflared}" before after urc sc old
+  local cf="${FLEET_AGENT_CF_BIN:-/usr/local/bin/cloudflared}" before after urc sc old cfc
   if [ ! -x "$cf" ]; then echo "cloudflared not installed: step skipped"; return 0; fi
   sc="$(tool_path systemctl)"
+  # never call as_root with an empty program: `sudo -n restart cloudflared` is not what we mean
+  if [ -z "$sc" ]; then echo "systemctl not found: cloudflared step aborted"; return 44; fi
   old="$STATE_DIR/cloudflared.old"
   before="$("$cf" --version 2>/dev/null | head -n 1)"
   mkdir -p "$STATE_DIR"
-  if ! cp -p "$cf" "$old"; then echo "cannot keep the old cloudflared"; return 42; fi
-  as_root "$cf" update; urc=$?
+  # Refresh the rollback copy only from a HEALTHY tunnel: after a failed update the next run
+  # must not overwrite the last known good binary with the broken one.
+  if cloudflared_ready; then
+    if ! cp -p "$cf" "$old"; then echo "cannot keep the old cloudflared"; return 42; fi
+  elif [ -e "$old" ]; then
+    echo "tunnel not ready before the update: last known good copy kept in $old"
+  else
+    echo "tunnel not ready before the update and no earlier copy: no rollback possible"
+  fi
+  cfc="$(canon_path "$cf")"
+  if [ -z "$cfc" ]; then echo "cloudflared path cannot be resolved: step aborted"; return 42; fi
+  as_root "$cfc" update; urc=$?
   case "$urc" in 0|11) ;; *) echo "cloudflared update failed (exit $urc)"; return 42 ;; esac
   after="$("$cf" --version 2>/dev/null | head -n 1)"
   if [ "$before" = "$after" ]; then echo "cloudflared unchanged: $after"; return 0; fi
@@ -649,7 +673,8 @@ pikvm_cloudflared() {
   as_root "$sc" restart cloudflared
   if cloudflared_ready; then echo "cloudflared tunnel ready"; return 0; fi
   echo "cloudflared tunnel not ready after update"
-  if [ -w "$cf" ] && cp -p "$old" "$cf"; then
+  # copy next to the target then rename: cp onto the running binary fails with ETXTBSY
+  if [ -e "$old" ] && [ -w "$cf" ] && [ -w "$(dirname "$cf")" ] && cp -p "$old" "$cf.new" && mv -f "$cf.new" "$cf"; then
     as_root "$sc" restart cloudflared
     if cloudflared_ready; then echo "old cloudflared restored: tunnel ready"; return 43; fi
   fi
@@ -667,6 +692,8 @@ update_pikvm() {
   if [ -z "$rw" ] || [ -z "$ro" ] || [ -z "$pk" ]; then echo "pikvm tools (rw, ro, pikvm-update) not found"; return 127; fi
   (
     trap 'as_root "$ro" || echo "WARNING: ro failed" >&2' EXIT
+    # SIGKILL cannot be trapped, and INT may be ignored in background jobs: TERM and
+    # EXIT still guarantee `ro` for every catchable termination.
     trap 'exit 143' TERM INT HUP
     as_root "$rw" || { echo "rw failed"; exit 40; }
     as_root "$pk" || { echo "pikvm-update failed"; exit 41; }
