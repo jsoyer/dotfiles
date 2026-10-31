@@ -300,17 +300,33 @@ class StaticAgent(unittest.TestCase):
         self.assertNotIn("Remove-Item -LiteralPath $script:LockFile", enter)
         self.assertLess(enter.index("File]::Move"), enter.index("CreateNew") + len(enter))
 
-    def test_stale_takeover_is_serialized_by_a_named_mutex(self):
+    def test_no_named_kernel_objects_in_agent(self):
+        # Global\ / Local\ named objects can be squatted by any local user (DoS).
+        self.assertNotIn("System.Threading.Mutex", AGENT)
+        self.assertNotIn("Global\\", AGENT)
+        self.assertNotIn("Local\\", AGENT)
+
+    def test_stale_takeover_is_serialized_by_a_state_dir_lock_file(self):
         enter = function_body("Enter-AgentLock")
-        self.assertIn("System.Threading.Mutex", enter)
-        self.assertIn("Global\\fleet-agent-lock-takeover", enter)
-        self.assertIn("WaitOne(", enter)
-        self.assertIn("AbandonedMutexException", enter)
-        self.assertIn("ReleaseMutex()", enter)
-        self.assertRegex(enter, r"finally\s*\{[^}]*ReleaseMutex")
-        # staleness is re-checked INSIDE the mutex, before the stale lock is moved aside
-        inside = enter[enter.index("WaitOne("):]
+        self.assertRegex(enter, r"\$takeoverPath = Join-Path \$script:StateDir ")
+        self.assertRegex(enter, r"Open\(\$takeoverPath, \[System\.IO\.FileMode\]::OpenOrCreate, "
+                                r"\[System\.IO\.FileAccess\]::ReadWrite, \[System\.IO\.FileShare\]::None\)")
+        self.assertIn("Start-Sleep -Milliseconds 200", enter)
+        self.assertIn("AddSeconds(15)", enter)
+        self.assertRegex(enter, r"finally\s*\{[^}]*\$guard\.Dispose\(\)")
+        # staleness is re-checked WHILE holding the file, before the stale lock is moved aside
+        inside = enter[enter.index("FileShare]::None)\n                    }\n                    catch [System.UnauthorizedAccess"):]
         self.assertLess(inside.index("Test-LockAlive"), inside.index("File]::Move"))
+
+    def test_takeover_errors_are_logged_not_swallowed(self):
+        enter = function_body("Enter-AgentLock")
+        m = re.search(r"catch \[System\.UnauthorizedAccessException\] \{(.*?)\n\s*\}", enter, re.S)
+        self.assertIsNotNone(m, "UnauthorizedAccessException must be caught explicitly")
+        self.assertIn("Write-AgentLog", m.group(1))
+        self.assertIn("return $false", m.group(1))
+        busy = re.search(r"catch \[System\.IO\.IOException\] \{\s*if \(\[DateTime\]::UtcNow -ge \$deadline\) \{(.*?)\}", enter, re.S)
+        self.assertIsNotNone(busy, "IOException after the retry budget must be handled")
+        self.assertIn("Write-AgentLog", busy.group(1))
 
     def test_external_utf8_output_is_read_as_utf8(self):
         winget = function_body("Get-WingetUpgradeList")
