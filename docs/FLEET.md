@@ -7,9 +7,12 @@ holds, reports and ntfy notifications. Source of truth: the code in
 (agent) and `dot_local/share/fleet/fleet.yml` (inventory). Spec and sprint notes:
 `docs/tasks/infra/feature/2026-10-27_2109-fleet-updates/`.
 
-Status of this document: v1 covers Linux hosts and appliances (OMV, PiKVM, Proxmox,
-OPNsense, Home Assistant, guardians). macOS and Windows agents are **Sprint 5**: those
-hosts are in `fleet.yml` but have no `ssh_user`, so they report `unsupported`.
+Status of this document: covers Linux hosts, appliances (OMV, PiKVM, Proxmox,
+OPNsense, Home Assistant, guardians) and workstations (Windows, macOS, WSL, pull mode,
+see [Workstations](#workstations-windows-macos-wsl-and-pull-mode)). Workstations stay
+`unsupported` until their agent is installed and `ssh_user` is set in `fleet.yml`.
+Everything is tested in simulation; first real runs are still pending (see
+[Manual actions for Jerome](#manual-actions-for-jerome)).
 
 ## Architecture in one minute
 
