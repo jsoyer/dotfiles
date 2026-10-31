@@ -384,8 +384,10 @@ class Opnsense(object):
              "product_version": "25.1.5", "needs_reboot": "0"}
     NONE = {"status": "none", "updates": "0", "needs_reboot": "0", "product_version": "25.1.2"}
 
-    def __init__(self, clock, status, job=("running", "done"), reboot_down=None, forbidden=403):
+    def __init__(self, clock, status, job=("running", "done"), reboot_down=None, forbidden=403,
+                 stale=("done", "previous job"), stale_polls=0):
         self.clock, self.status, self.job = clock, dict(status), list(job)
+        self.stale, self.stale_polls, self.started = stale, stale_polls, False
         self.reboot_down, self.down_until, self.forbidden = reboot_down, None, forbidden
         self.job_calls = 0
         self.updated = False
@@ -403,8 +405,12 @@ class Opnsense(object):
         if path == opn.EP_FIRMWARE_STATUS:
             return 200, self.status
         if path == opn.EP_FIRMWARE_UPDATE and method == "POST":
-            self.updated = True
+            self.updated = self.started = True
             return 200, {"status": "ok", "msg_uuid": "y"}
+        if path == opn.EP_FIRMWARE_UPGRADESTATUS and (not self.started or self.stale_polls > 0):
+            if self.started:
+                self.stale_polls -= 1
+            return 200, {"status": self.stale[0], "log": self.stale[1]}      # a PREVIOUS job's answer
         if path == opn.EP_FIRMWARE_UPGRADESTATUS:
             state = self.job[min(self.job_calls, len(self.job) - 1)]
             self.job_calls += 1
@@ -492,6 +498,99 @@ class OpnsenseTest(ApiCase):
         self.assertTrue(15 * 60 <= waited <= 20 * 60, waited)
         self.assertEqual([m["priority"] for m in self.sent], [5])
 
+    def test_p4_minor_pending_with_a_major_available_is_never_up_to_date(self):
+        body = dict(Opnsense.MINOR, status="upgrade", upgrade_major_version="25.7")
+        e = self.go(Opnsense(self.clock, body), "check")
+        self.assertEqual((e["status"], e["reason"], e["major_available"]), ("skipped", "updates_pending", "25.7"))
+        dev = Opnsense(self.clock, body)
+        e = self.go(dev, "update")
+        self.assertNotEqual(e["status"], "up-to-date")
+        self.assertEqual(e["major_available"], "25.7")
+        posts = [p for m, p in self.srv.paths("POST")]
+        self.assertIn(opn.EP_FIRMWARE_UPDATE, posts)
+        self.assertNotIn(opn.EP_FIRMWARE_UPGRADE, posts)
+
+    def test_p6_a_stale_terminal_state_from_a_previous_job_is_not_accepted(self):
+        for stale in (("done", "previous job"), ("error", "previous job")):
+            with self.subTest(stale=stale):
+                dev = Opnsense(self.clock, Opnsense.MINOR, job=("running", "running", "done"),
+                               stale=stale, stale_polls=3)
+                e = self.go(dev, "update")
+                self.assertEqual(e["status"], "updated", e)
+                self.assertEqual(dev.status["status"], "none")
+
+    def test_p6_a_job_finishing_before_it_is_seen_running_is_accepted_when_the_log_changed(self):
+        dev = Opnsense(self.clock, Opnsense.MINOR, job=("done",))
+        e = self.go(dev, "update")
+        self.assertEqual(e["status"], "updated", e)
+
+    def test_p6_a_job_that_never_starts_times_out_instead_of_trusting_the_stale_state(self):
+        dev = Opnsense(self.clock, Opnsense.MINOR, stale_polls=10 ** 6)
+        e = self.go(dev, "update")
+        self.assertEqual(e["status"], "failed")
+        self.assertIn("timeout", e["reason"])
+
+    def test_p7_final_status_failing_after_the_return_retries_then_degrades_and_notifies(self):
+        calls = {"n": 0}
+        dev = Opnsense(self.clock, Opnsense.MINOR, job=("running", "done"))
+
+        def handler(m, p, h, b):
+            if p == opn.EP_FIRMWARE_STATUS and dev.updated and dev.job_calls >= 2:
+                calls["n"] += 1
+                return (503, {}) if calls["n"] <= 3 else dev(m, p, h, b)
+            return dev(m, p, h, b)
+        e = self.go(handler, "update")
+        self.assertEqual(e["status"], "updated", e)                 # recovered within the deadline
+        self.assertGreaterEqual(calls["n"], 4)
+        dev2 = Opnsense(self.clock, Opnsense.MINOR, job=("running", "done"))
+
+        def handler2(m, p, h, b):
+            if p == opn.EP_FIRMWARE_STATUS and dev2.updated and dev2.job_calls >= 2:
+                return 503, {}
+            return dev2(m, p, h, b)
+        self.sent[:] = []
+        e = self.go(handler2, "update")
+        self.assertEqual(e["status"], "degraded", e)
+        self.assertTrue(e["reason"])
+        self.assertEqual([m["priority"] for m in self.sent], [5])
+
+    def test_p8_polling_has_an_iteration_guard_even_if_the_clock_never_moves(self):
+        frozen = self.ctx(sleep=lambda s: None, now=lambda: to.START, poll_interval=15.0)
+        n = {"calls": 0}
+
+        def never():
+            n["calls"] += 1
+            return False
+        self.assertFalse(opn.wait_until(frozen, never, 15))
+        self.assertLessEqual(n["calls"], 15 * 60 / 15.0 + 2)
+
+    def test_p2_verify_privileges_catches_everything_and_never_echoes_the_exception(self):
+        srv = self.serve(Opnsense(self.clock, Opnsense.NONE))
+
+        def boom(args):
+            raise RuntimeError("secret " + KEY)
+        res = opn.verify_privileges("fw", self.data_for(srv, "fw", **self.refs), self.ctx(op=boom))
+        self.assertFalse(res["ok"])
+        self.assertEqual(res["reason"], "internal error: RuntimeError")
+        self.assertNotIn(KEY, json.dumps(res))
+
+    def test_p2_verify_privileges_reason_is_cleaned(self):
+        res = opn.verify_privileges("fw", {"api": {"fw": {"url": "https://a.ts.net", "key_ref": "op://V/I/key",
+                                                          "secret_ref": "op://V/I/secret"}}},
+                                    self.ctx(op=lambda a: "x\x1b[2J" + "y" * 1000, allow_hosts=()))
+        self.assertFalse(res["ok"])
+        self.assertNotIn("\x1b", res["reason"])
+        self.assertLessEqual(len(res["reason"]), 200)
+
+    def test_p3_secrets_with_control_characters_are_refused_without_echo(self):
+        for bad in ("abc\ndef", "abc\rdef", "abc\x00def", "abc\x1bdef", "ab\tc", "abc\x7fdef"):
+            with self.subTest(bad=repr(bad)):
+                ctx = self.ctx(op=lambda a, b=bad: b + "\n")
+                with self.assertRaises(opn.ApiError) as cm:
+                    opn.read_secret(ctx, "op://V/I/key")
+                self.assertNotIn("abc", str(cm.exception))
+        self.assertEqual(opn.read_secret(self.ctx(op=lambda a: "  good-secret \n"), "op://V/I/key"), "good-secret")
+
     def test_verify_privileges_flags_a_user_that_can_leave_system_firmware(self):
         srv = self.serve(Opnsense(self.clock, Opnsense.NONE, forbidden=403))
         ok = opn.verify_privileges("fw", self.data_for(srv, "fw", **self.refs), self.ctx())
@@ -564,15 +663,23 @@ class OpnsenseTest(ApiCase):
 
 
 class UrlPolicyTest(unittest.TestCase):
-    def test_accepts_https_anywhere_and_http_only_on_the_tailnet(self):
-        for url in ("https://fw.example.org", "https://fw.tail1234.ts.net", "http://fw.tail1234.ts.net",
-                    "http://100.64.1.2", "http://100.127.255.254:8443"):
+    def test_accepts_https_ts_net_names_and_tailnet_literal_ips_only(self):
+        for url in ("https://fw.tail1234.ts.net", "https://fw.tail1234.ts.net:8443", "http://100.64.1.2",
+                    "http://100.127.255.254:8443", "https://100.64.0.9"):
             with self.subTest(url=url):
                 opn.check_api_url(url)
 
+    def test_p1_rejects_any_host_outside_the_tailnet_and_cleartext_to_names(self):
+        for url in ("https://fw.example.org", "https://evil.com", "https://ts.net", "https://x.ts.net.evil.com",
+                    "https://192.168.1.1", "https://8.8.8.8", "https://100.128.0.1", "https://100.63.255.255",
+                    "http://fw.tail1234.ts.net", "https://[::1]", "https://localhost"):
+            with self.subTest(url=url):
+                with self.assertRaises(ValueError):
+                    opn.check_api_url(url)
+
     def test_rejects_cleartext_elsewhere_credentials_paths_and_loopback(self):
         for url in ("http://fw.example.org", "http://192.168.1.1", "http://100.128.0.1", "ftp://x.ts.net",
-                    "https://user:pw@fw.example.org", "https://fw.example.org/api", "https://fw.example.org?x=1",
+                    "https://user:pw@fw.x.ts.net", "https://fw.x.ts.net/api", "https://fw.x.ts.net?x=1",
                     "http://127.0.0.1:8080", "", "https://"):
             with self.subTest(url=url):
                 with self.assertRaises(ValueError):
@@ -606,6 +713,8 @@ class HomeAssistant(object):
         self.core = ["2024.12.0", "2025.1.0"]            # a major-ish bump
         self.os = ["13.2", "14.0"]                        # a major OS bump
         self.posts = []
+        self.core_fail = 0                                # HTTP status returned by the Core update POST
+        self.os_status = 200                              # HTTP status returned by the OS update POST
 
     def down(self):
         return self.down_until is not None and self.clock.now().timestamp() < self.down_until
@@ -630,13 +739,15 @@ class HomeAssistant(object):
         if path == ha.EP_BACKUP_FULL:
             state, code = self.backup
             return code, {"result": state, "data": {"slug": "abc"}}
+        if path == ha.EP_CORE_UPDATE and self.core_fail:
+            return self.core_fail, {"result": "error"}
         if path == ha.EP_CORE_UPDATE:
             self.core[0] = self.core[1]
             return 200, {"result": "ok"}
         if path == ha.EP_OS_UPDATE:
             self.os[0] = self.os[1]
             self.down_until = self.clock.now().timestamp() + self.os_down
-            return 200, {"result": "ok"}
+            return self.os_status, {"result": "ok"}
         if path.startswith("/api/hassio/addons/") and path.endswith("/update"):
             slug = path.split("/")[4]
             self.addons[slug][0] = self.addons[slug][1]
@@ -700,6 +811,49 @@ class HomeAssistantTest(ApiCase):
         self.assertIn("api_not_back", e["reason"])
         self.assertTrue(15 * 60 <= waited <= 17 * 60, waited)
         self.assertEqual([m["priority"] for m in self.sent], [5])
+
+    def test_p9_restarting_core_or_os_answering_502_503_504_falls_through_to_the_version_wait(self):
+        for code in (502, 503, 504):
+            with self.subTest(code=code):
+                dev = HomeAssistant(self.clock)
+                dev.os_status = code
+                e = self.go(dev, "update")
+                self.assertEqual(e["status"], "updated", e)
+                self.assertNotIn("refused", e.get("reason") or "")
+
+    def test_p9_other_errors_are_still_refused(self):
+        dev = HomeAssistant(self.clock)
+        dev.core_fail = 401
+        e = self.go(dev, "update")
+        self.assertIn("refused", e["reason"])
+
+    def test_p10_version_wait_accepts_update_available_false_or_absent(self):
+        dev = HomeAssistant(self.clock)
+
+        def handler(m, p, h, b):
+            status, body = dev(m, p, h, b)[:2]
+            if p == ha.EP_OS_INFO and dev.os[0] == dev.os[1]:
+                return 200, {"result": "ok", "data": {"update_available": False}}      # version key absent
+            return status, body
+        e = self.go(handler, "update")
+        self.assertEqual(e["status"], "updated", e)
+
+    def test_p11_a_failed_core_update_never_proceeds_to_the_os_update(self):
+        dev = HomeAssistant(self.clock)
+        dev.core_fail = 500
+        e = self.go(dev, "update")
+        self.assertIn(e["status"], ("failed", "degraded"))
+        self.assertIn("Core", e["reason"])
+        self.assertNotIn(ha.EP_OS_UPDATE, dev.posts)
+        self.assertEqual(dev.os[0], "13.2")
+
+    def test_p2_verify_privileges_catch_all(self):
+        srv = self.serve(HomeAssistant(self.clock))
+
+        def boom(args):
+            raise RuntimeError("leak " + JWT)
+        res = ha.verify_privileges("ha1", self.data_for(srv, "ha1", token_ref="op://V/I/hatoken"), self.ctx(op=boom))
+        self.assertEqual(res, {"ok": False, "reason": "internal error: RuntimeError"})
 
     def test_nothing_pending_makes_no_backup(self):
         dev = HomeAssistant(self.clock)

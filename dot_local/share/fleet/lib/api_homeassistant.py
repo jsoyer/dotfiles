@@ -42,6 +42,7 @@ EP_OWNER_ONLY_PROBE = "/api/hassio/auth/list"     # reserved to the owner/admin:
 SAFE_SLUG = re.compile(r"[A-Za-z0-9][A-Za-z0-9_-]{0,63}")
 BACKUP_TIMEOUT = 900.0
 RETURN_WAIT_MIN = 15
+RESTARTING_STATUSES = (502, 503, 504)
 VERBS = ("check", "update")
 
 
@@ -119,7 +120,9 @@ def make_backup(http: api.ApiHttp, ctx: api.ApiContext) -> bool:
 
 def _version_is(http: api.ApiHttp, path: str, target: str) -> Callable[[], bool]:
     def ready() -> bool:
-        return str(_get(http, path).get("version")) == target
+        info = _get(http, path)
+        # up to date: the new version is running, or nothing is pending any more (flag false/absent)
+        return str(info.get("version")) == target or info.get("update_available") is not True
     return ready
 
 
@@ -130,7 +133,8 @@ def _apply(alias: str, http: api.ApiHttp, ctx: api.ApiContext, item: Pending) ->
     restarts = item.kind in ("core", "os")
     try:
         status, _ = http.request("POST", path, {} if item.kind == "addon" else None, timeout=600.0)
-        if status != 200:
+        # 502/503/504: Home Assistant is restarting under us; the version wait below decides
+        if status != 200 and not (restarts and status in RESTARTING_STATUSES):
             return "%s update refused (HTTP %d)" % (item.name, status)
     except api.ApiError as exc:
         if not (restarts and exc.status is None):
@@ -154,16 +158,24 @@ def _update(alias: str, http: api.ApiHttp, ctx: api.ApiContext, started: str) ->
         return api.build_entry(alias, "update", ctx, "skipped", "backup_failed: no update applied",
                                packages=len(pending), started=started)
     problems: List[str] = []
+    core_failed = False
     for item in pending:                # add-ons, Core, then the OS (which reboots) last
         why = _apply(alias, http, ctx, item)
         if why:
             problems.append(why)
             if item.kind == "os" and why.startswith("api_not_back"):
                 break
+            if item.kind == "core":     # a broken Core must never be followed by the OS update (reboot)
+                skipped = [p.name for p in pending if p.kind == "os"]
+                if skipped:
+                    problems.append("%s update skipped: Core update failed" % skipped[0])
+                core_failed = True
+                break
     changes = [p.change() for p in pending]
-    if any(p.startswith("api_not_back") for p in problems):
-        return api.build_entry(alias, "update", ctx, "failed", problems[-1], packages=len(pending),
-                               changes=changes, started=started)
+    if core_failed or any(p.startswith("api_not_back") for p in problems):
+        reason = "; ".join(problems) if core_failed else problems[-1]
+        return api.build_entry(alias, "update", ctx, "failed", schema.clean_text(reason, 160),
+                               packages=len(pending), changes=changes, started=started)
     try:
         left, os_version = collect(http)
     except api.ApiError:
@@ -206,7 +218,9 @@ def verify_privileges(alias: str, data: Dict[str, Any], ctx: api.ApiContext) -> 
         allowed = http.request("GET", EP_CORE_INFO)[0]
         probe = http.request("GET", EP_OWNER_ONLY_PROBE)[0]
     except api.ApiError as exc:
-        return {"ok": False, "reason": str(exc)}
+        return {"ok": False, "reason": schema.clean_text(str(exc), 160)}
+    except Exception as exc:  # noqa: BLE001 (never echo str(exc): it could carry a secret)
+        return {"ok": False, "reason": "internal error: %s" % exc.__class__.__name__}
     if allowed != 200:
         return {"ok": False, "reason": "update endpoints not reachable (HTTP %d)" % allowed}
     if probe == 200:
