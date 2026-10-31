@@ -124,3 +124,6 @@
 - Branch feat/fleet-plan pushed (HEAD db4fc8bf), PR #44 open, CI `validate` PASS (run 41225691696).
 - Phase: HELD before merge by user decision. Merging = fleet-wide deploy via chezmoi-autoupdate (sudoers run_always incl. `systemctl reboot` + apt env_keep, fleet agent install, pull/reminder units).
 - Before merge: user reviews sudoers diff (§15) and replaces ntfy.url (currently public https://ntfy.sh). No staging/prod/Lighthouse for this repo (no Execution Config).
+- Update 2026-10-31: ntfy.url set to self-hosted https://ntfy.bbhome.wf (69dfb8f6). PR #44 marked ready (was draft) and squash-merged → main 474c42d7 (pre-deploy main 1b3d382c); main CI "Validate Dotfiles" success. Rollout happens via chezmoi-autoupdate.
+- [PROCESS] `gh pr merge` fails with "Pull Request is still a draft": `gh pr ready N` first.
+- Follow-up docs PR: README fleet section + CLAUDE.md fleet entry + FLEET.md status line (no longer "Sprint 5 pending").

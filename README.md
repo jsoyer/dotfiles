@@ -503,6 +503,24 @@ launchctl unload ~/Library/LaunchAgents/com.jsoyer.chezmoi-autoupdate.plist
 journalctl --user -u chezmoi-autoupdate -f  # Linux
 ```
 
+**Fleet updates (`fleet`):**
+
+Separate from the per-machine auto-update above, `fleet` updates every machine of the
+tailnet from one of the two masters: by phases, with a canary, holds, reports and ntfy
+notifications (self-hosted `https://ntfy.bbhome.wf`). It covers Linux hosts, appliances
+(OMV, PiKVM, Proxmox, OPNsense, Home Assistant) and workstations (Windows, macOS, WSL,
+with an opt-in pull mode for machines that are often off).
+
+```bash
+fleet check HOST[,HOST]      # read-only status (pending packages, health, reboot)
+fleet up -l site=garage      # update one site (alias: fup)
+fleet up --critical          # also include critical hosts (OPNsense, Proxmox), one confirmation each
+fleet report --last          # last run report
+```
+
+Full guide (prerequisites, bootstrap, selectors, statuses, key revocation, manual
+procedure): [docs/FLEET.md](docs/FLEET.md).
+
 **Package Manager Safety:**
 
 All wrappers (`breww`, `aptw`, `dnfw`, etc.) now:

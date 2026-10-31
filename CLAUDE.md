@@ -55,6 +55,7 @@ macOS, Fedora, Fedora Atomic, Toolbox, Arch, OmArchy, Ubuntu, RPi, Windows. GUI 
 - `dot_private/` — Package manifests (Brewfile, Aptfile, Dnffile, Pacfile)
 - `dot_local/bin/` — Custom scripts (breww, cm* commands, chezmoi-autoupdate)
 - `tools/aictx/` — aictx/cctx: per-project context manager (Rust)
+- `dot_local/share/fleet/` — `fleet` tailnet updater: `lib/*.py` (orchestrator, inventory, API clients), `agent/` (`fleet-agent.sh`, `fleet-agent.ps1`, `fleet-bootstrap.ps1`), `fleet.yml` (inventory); wrapper `dot_local/bin/executable_fleet`. Guide: `docs/FLEET.md`. Tests: `uvx pytest scripts/test_fleet_*.py` (Python 3.9-compatible, stdlib only). Sudoers/ACL changes need the user's review before merge: merging to `main` rolls out via chezmoi-autoupdate.
 
 ### AI Tools (`dot_claude/`)
 `dot_claude/` now tracks the upstream [Claude Workflow System](https://github.com/vinicius91carvalho/.claude) (commit `e1b64fcb`) to take advantage of its aggressive token-saving defaults, enforcement hooks, and ready-made skills/agents. Key pieces to know:
