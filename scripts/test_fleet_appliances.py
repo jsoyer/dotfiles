@@ -900,6 +900,11 @@ FAKE_SSH = r"""#!/usr/bin/env bash
 echo "ssh $*" >> "$FAKE_LOG"
 last="${@: -1}"
 case "$last" in
+  *fleet-verify*)
+    for p in ${last##*fleet-verify }; do
+      case " ${FAKE_VERIFY_BAD:-} " in *" $p "*) echo "BAD $p" ;; *) echo "OK $p" ;; esac
+    done
+    [ -n "${FAKE_VERIFY_GARBAGE:-}" ] && echo "$FAKE_VERIFY_GARBAGE" ;;
   *"command -v "*)
     name="${last##* command -v }"
     case "$name" in
@@ -911,11 +916,20 @@ case "$last" in
       visudo) echo /usr/sbin/visudo ;;
       *) exit 1 ;;
     esac ;;
-  "mktemp -d") echo /tmp/fleet.Ab12Cd ;;
+  "mktemp -d") echo "${FAKE_MKTEMP:-/tmp/fleet.Ab12Cd}" ;;
   sh\ /tmp/fleet.Ab12Cd/apply.sh*) echo "fleet-bootstrap: done"; exit "${FAKE_APPLY_RC:-0}" ;;
 esac
 exit 0
 """
+
+
+def shlex_q(text):
+    import shlex
+    return shlex.quote(text)
+
+
+SHA_A = "a" * 64
+SHA_S = "b" * 64
 
 
 class BootstrapBase(unittest.TestCase):
@@ -933,7 +947,8 @@ class BootstrapBase(unittest.TestCase):
             "scp": '#!/usr/bin/env bash\necho "scp $*" >> "$FAKE_LOG"\nexit "${FAKE_SCP_RC:-0}"\n',
             "ssh-keyscan": '#!/usr/bin/env bash\necho "keyscan $*" >> "$FAKE_LOG"\n'
                            'echo "# host"\necho "${@: -1} ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFakeHostKeyForTests"\n',
-            "ssh-keygen": '#!/usr/bin/env bash\necho "256 SHA256:FakeFingerprint host (ED25519)"\n',
+            "ssh-keygen": '#!/usr/bin/env bash\nif [ "$1" = -F ]; then grep -F "$2 " "$4"; exit $?; fi\n'
+                          'echo "256 SHA256:FakeFingerprint host (ED25519)"\n',
             "visudo": '#!/usr/bin/env bash\necho "visudo $*" >> "$FAKE_LOG"\nexit "${FAKE_VISUDO_RC:-0}"\n',
         }.items():
             path = bin_dir / name
@@ -1155,7 +1170,7 @@ class BootstrapFlow(BootstrapBase):
         self.assertEqual(rc, 0, err)
         self.assertEqual(sum(1 for c in self.calls() if "apply.sh" in c and c.startswith("ssh")), 1)
         script = bootstrap.apply_script("pikvm", ["diabolo", "penelope"], {
-            "rw": "/usr/local/bin/rw", "ro": "/usr/local/bin/ro", "visudo": "/usr/sbin/visudo"})
+            "rw": "/usr/local/bin/rw", "ro": "/usr/local/bin/ro", "visudo": "/usr/sbin/visudo"}, SHA_A, SHA_S)
         lines = script.splitlines()
         trap = next(i for i, ln in enumerate(lines) if ln.startswith("trap "))
         rw = next(i for i, ln in enumerate(lines) if ln == '$SUDO "$RW"')
@@ -1167,19 +1182,204 @@ class BootstrapFlow(BootstrapBase):
             p = Path(d) / "apply.sh"
             p.write_text(script)
             self.assertEqual(subprocess.run(["sh", "-n", str(p)]).returncode, 0)
-        omv = bootstrap.apply_script("omv", ["diabolo"], {"visudo": "/usr/sbin/visudo"})
+        omv = bootstrap.apply_script("omv", ["diabolo"], {"visudo": "/usr/sbin/visudo"}, SHA_A, SHA_S)
         self.assertNotIn("RW", omv)
         self.assertNotIn("\ntrap ", omv)
 
     def test_apply_script_refuses_unsafe_master_names(self):
         with self.assertRaises(bootstrap.BootstrapError):
-            bootstrap.apply_script("omv", ["x; rm -rf /"], {"visudo": "/usr/sbin/visudo"})
+            bootstrap.apply_script("omv", ["x; evil"], {"visudo": "/usr/sbin/visudo"}, SHA_A, SHA_S)
 
     def test_authorized_lines_use_the_forced_command(self):
         lines, missing = bootstrap.authorized_lines(["diabolo"], {}, self.op)
         self.assertEqual(missing, [])
         self.assertTrue(lines[0].startswith('restrict,command="/usr/local/libexec/fleet-agent" ssh-ed25519 '))
         self.assertTrue(lines[0].endswith(" fleet-master-diabolo"))
+
+    # ---- review fixes B1..B10
+
+    def _script(self, kind="omv"):
+        return bootstrap.apply_script(kind, ["diabolo", "penelope"], {
+            "rw": "/usr/local/bin/rw", "ro": "/usr/local/bin/ro", "visudo": "/usr/sbin/visudo"}, SHA_A, SHA_S)
+
+    def test_b1_remote_lookup_uses_the_fixed_path_only(self):
+        self.boot(["omv1", "--user", "fleetsvc"])
+        lookups = [c for c in self.calls() if "command -v" in c]
+        self.assertTrue(lookups)
+        for c in lookups:
+            self.assertIn("PATH='%s'; command -v" % bootstrap.REMOTE_PATH, c)
+            self.assertNotIn("$PATH", c)
+
+    def test_b1_untrusted_resolved_path_refuses_everything(self):
+        rc, out, err = self.boot(["omv1", "--user", "fleetsvc", "--apply"], confirm=lambda a: True,
+                                 env={"FAKE_VERIFY_BAD": "/usr/sbin/omv-upgrade"})
+        self.assertEqual(rc, 2)
+        self.assertIn("untrusted path", err)
+        self.assertNotIn("NOPASSWD", out)                         # nothing rendered
+        self.assertNotIn("scp ", "\n".join(self.calls()))
+
+    def test_b1_overrides_and_cloudflared_are_checked_too(self):
+        rc, _, err = self.boot(["omv1", "--user", "u", "--path", "omv-upgrade=/home/u/bin/omv-upgrade",
+                                "--path", "systemctl=/bin/systemctl", "--path", "visudo=/usr/sbin/visudo"],
+                               env={"FAKE_VERIFY_BAD": "/home/u/bin/omv-upgrade"})
+        self.assertEqual(rc, 2)
+        rc, _, err = self.boot(["pk", "--user", "root"], env={"FAKE_VERIFY_BAD": bootstrap.CLOUDFLARED})
+        self.assertEqual(rc, 2)
+        self.assertIn(bootstrap.CLOUDFLARED, err)
+        verify = [c for c in self.calls() if "fleet-verify" in c][-1]
+        self.assertIn(bootstrap.CLOUDFLARED, verify)
+
+    def test_b1_garbage_from_the_target_is_refused(self):
+        for garbage in ("OK /etc/passwd", "evil", "OK /usr/sbin/omv-upgrade"):    # unknown / unparseable / duplicate
+            rc, _, err = self.boot(["omv1", "--user", "u"], env={"FAKE_VERIFY_GARBAGE": garbage})
+            self.assertEqual(rc, 2, garbage)
+
+    def test_b1_verify_script_logic_on_a_real_shell(self):
+        proc = subprocess.run(["sh", "-c", bootstrap.VERIFY_SCRIPT, "fleet-verify", str(self.tmp), "/bin/sh"],
+                              capture_output=True, text=True)
+        lines = proc.stdout.splitlines()
+        if os.getuid() != 0:
+            self.assertIn("BAD %s" % self.tmp, lines)               # user-owned: untrusted
+        self.assertTrue(all(re.fullmatch(r"(OK|BAD) /.+", ln) for ln in lines), lines)
+        wr = self.tmp / "ww"
+        wr.mkdir()
+        wr.chmod(0o777)
+        proc = subprocess.run(["sh", "-c", bootstrap.VERIFY_SCRIPT, "fleet-verify", str(wr)],
+                              capture_output=True, text=True)
+        self.assertEqual(proc.stdout.strip(), "BAD %s" % wr)
+
+    def test_b2_everything_is_staged_and_verified_before_any_rename(self):
+        for kind in ("omv", "pikvm"):
+            script = self._script(kind)
+            lines = script.splitlines()
+            first_mv = next(i for i, ln in enumerate(lines) if "mv -f" in ln)
+            for needle in ("-cf /etc/sudoers.d/.fleet-agent.new", "sha256sum /usr/local/libexec/.fleet-agent.new",
+                           SHA_A, SHA_S, "authorized.lines"):
+                idx = next(i for i, ln in enumerate(lines) if needle in ln)
+                self.assertLess(idx, first_mv, needle)
+            self.assertNotIn('-cf "$D/', script)                   # never validates the user-owned copy
+            self.assertIn("mv -f /usr/local/libexec/.fleet-agent.new /usr/local/libexec/fleet-agent", script)
+            self.assertIn("mv -f /etc/sudoers.d/.fleet-agent.new /etc/sudoers.d/fleet-agent", script)
+            self.assertIn("0440", script)
+            self.assertEqual(lines[-1], "echo fleet-bootstrap: done")
+
+    def test_b2_b5_authorized_keys_grep_failure_aborts(self):
+        script = self._script()
+        self.assertNotIn("|| true", script)
+        self.assertIn('[ "$rc" -le 1 ]', script)
+        with tempfile.TemporaryDirectory() as d:
+            dd = Path(d)
+            (dd / "ak.new").write_text("ssh-ed25519 K x fleet-master-diabolo\n")
+            line = next(ln for ln in script.splitlines() if "fleet-master-diabolo" in ln)
+            body = 'D=%s\nset -eu\n%s\necho survived\n' % (shlex_q(str(dd)), line)
+            ok = subprocess.run(["sh", "-c", body], capture_output=True, text=True)
+            self.assertEqual(ok.returncode, 0, ok.stderr)          # grep exit 1 (nothing left) is fine
+            (dd / "ak.new").write_text("ssh-ed25519 K x fleet-master-diabolo\n")
+            fake = dd / "bin"
+            fake.mkdir()
+            (fake / "grep").write_text("#!/bin/sh\nexit 2\n")
+            (fake / "grep").chmod(0o755)
+            bad = subprocess.run(["sh", "-c", body], capture_output=True, text=True,
+                                 env={"PATH": "%s:/usr/bin:/bin" % fake})
+            self.assertNotEqual(bad.returncode, 0)
+            self.assertNotIn("survived", bad.stdout)
+
+    def test_b2_sha_mismatch_aborts_on_a_real_shell(self):
+        script = self._script()
+        line = next(ln for ln in script.splitlines() if SHA_A in ln)
+        proc = subprocess.run(["sh", "-c", 'set -eu\nGOT=deadbeef\n%s\necho survived' % line],
+                              capture_output=True, text=True)
+        self.assertNotEqual(proc.returncode, 0)
+        self.assertNotIn("survived", proc.stdout)
+
+    def test_b2_dry_run_shows_the_local_sha_of_the_agent_and_the_fragment(self):
+        import hashlib
+        rc, out, _ = self.boot(["omv1", "--user", "fleetsvc"])
+        self.assertIn(hashlib.sha256(self.agent.read_bytes()).hexdigest(), out)
+        frag = bootstrap.render_sudoers("omv", "fleetsvc", {"omv-upgrade": "/usr/sbin/omv-upgrade",
+                                                            "systemctl": "/usr/bin/systemctl"})
+        self.assertIn(hashlib.sha256(frag.encode()).hexdigest(), out)
+
+    def test_b3_pikvm_traps_signals_and_reports_a_failed_ro(self):
+        script = self._script("pikvm")
+        self.assertIn("trap 'exit 1' HUP INT TERM", script)
+        self.assertIn("ro failed", script)
+        with tempfile.TemporaryDirectory() as d:
+            dd = Path(d)
+            for name, body in (("rw", "exit 0"), ("ro", 'echo ro-called >> "%s/log"; exit 7' % dd)):
+                (dd / name).write_text("#!/bin/sh\n" + body + "\n")
+                (dd / name).chmod(0o755)
+            sh = script.replace("/usr/local/bin/rw", str(dd / "rw")).replace("/usr/local/bin/ro", str(dd / "ro"))
+            lines = sh.splitlines()
+            head = [ln for ln in lines[: lines.index('$SUDO "$RW"') + 1] if not ln.startswith("SUDO=")
+                    and not ln.startswith("D=")]
+            proc = subprocess.run(["sh", "-c", "set -eu\nSUDO=\n" + "\n".join(head) + "\nexit 0"],
+                                  capture_output=True, text=True)
+            self.assertNotEqual(proc.returncode, 0)                # failed ro => non-zero even on success
+            self.assertIn("ro failed", proc.stderr)
+            self.assertEqual((dd / "log").read_text().strip(), "ro-called")
+
+    def test_b4_a_different_pinned_key_is_refused(self):
+        self.known_hosts.write_text("omv1 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOtherKey\n")
+        rc, _, err = self.boot(["omv1", "--user", "fleetsvc", "--apply"], confirm=lambda a: True)
+        self.assertEqual(rc, 2)
+        self.assertIn("host key mismatch", err)
+        self.assertNotIn("scp ", "\n".join(self.calls()))
+        self.assertNotIn("FakeHostKey", self.known_hosts.read_text())
+
+    def test_b4_identical_pin_is_a_no_op(self):
+        line = "omv1 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFakeHostKeyForTests\n"
+        self.known_hosts.write_text(line)
+        rc, out, err = self.boot(["omv1", "--user", "fleetsvc", "--apply"], confirm=lambda a: True)
+        self.assertEqual(rc, 0, err)
+        self.assertEqual(self.known_hosts.read_text(), line)
+
+    def test_b6_prompt_and_dry_run_show_fingerprint_sha_and_script(self):
+        import hashlib
+        import io
+        sha = hashlib.sha256(self.agent.read_bytes()).hexdigest()
+        rc, out, _ = self.boot(["omv1", "--user", "fleetsvc"])
+        self.assertIn("apply script", out)
+        self.assertIn("sha256sum", out)
+        self.assertIn(sha, out)
+        err = io.StringIO()
+        with mock.patch.object(sys, "stdin", types.SimpleNamespace(isatty=lambda: True, readline=lambda: "x\n")), \
+                mock.patch.object(sys, "stderr", err):
+            bootstrap.tty_confirm("omv1", "host key 256 SHA256:Fp; agent sha256 %s." % sha)
+        self.assertIn("SHA256:Fp", err.getvalue())
+        self.assertIn(sha, err.getvalue())
+
+    def test_b6_default_confirmation_receives_the_details(self):
+        seen = {}
+
+        def fake_confirm(alias, detail=""):
+            seen["d"] = detail
+            return False
+        with mock.patch.object(bootstrap, "tty_confirm", fake_confirm):
+            self.boot(["omv1", "--user", "fleetsvc", "--apply"], confirm=bootstrap.tty_confirm)
+        self.assertIn("SHA256:FakeFingerprint", seen["d"])
+        self.assertRegex(seen["d"], r"[0-9a-f]{64}")
+
+    def test_b9_remote_tmp_path_is_validated(self):
+        for bad in ("/etc", "/tmp/../etc", "/tmp/.", "/tmp/a/b", "/home/x", "/tmp/a b", "/", "/tmp/.."):
+            self.log.write_text("")
+            rc, _, err = self.boot(["omv1", "--user", "fleetsvc", "--apply"], confirm=lambda a: True,
+                                   env={"FAKE_MKTEMP": bad})
+            self.assertEqual(rc, 2, bad)
+            self.assertNotIn("rm -", "\n".join(self.calls()), bad)
+
+    def test_b10_apply_script_uses_sudo_n(self):
+        script = self._script()
+        self.assertIn('SUDO="sudo -n"', script)
+        self.assertNotIn("SUDO=sudo;", script)
+
+    def test_apply_scripts_are_valid_shell(self):
+        for kind in ("omv", "pikvm"):
+            with tempfile.TemporaryDirectory() as d:
+                p = Path(d) / "apply.sh"
+                p.write_text(self._script(kind))
+                for shell in ("bash", "sh"):
+                    self.assertEqual(subprocess.run([shell, "-n", str(p)]).returncode, 0, (kind, shell))
 
     def test_fleet_wrapper_exposes_the_bootstrap_verb(self):
         wrapper = ROOT / "dot_local/bin/executable_fleet"
