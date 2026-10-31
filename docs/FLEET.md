@@ -102,7 +102,7 @@ Targets are handled one after the other for `ping`/`check`.
 | `reboot --pending` | Restarts only hosts reporting a pending reboot, **one at a time, one confirmation each**. `--pending` is mandatory (without it: exit 2). Waits 15 min (30 for critical hosts) for the host to come back. Skips the current master (restart it by hand), critical hosts without `--critical`, and API hosts. |
 | `report` | No option: lists the last 20 runs. `--last`: renders the latest run. `--run ID`: renders a given run. |
 | `logs [hosts]` | Raw log of a host from the latest run that has one (or `--run ID`). A target is required. |
-| `changes HOST` | Package changes of a host across runs; `--since YYYY-MM-DD|ISO8601`. |
+| `changes HOST` | Package changes of a host across runs; `--since` taking `YYYY-MM-DD` or ISO8601. |
 | `hold HOST... --reason R --until D` | Skip these hosts (status `held`) until the date. Both options mandatory; date is `YYYY-MM-DD` or ISO8601. Synced to the other master; a failed sync prints a warning and exits 1. |
 | `unhold HOST...` | Lift a hold. |
 | `holds` | List active holds. |
@@ -253,16 +253,22 @@ command refused by an agent, 14-day reminder (`fleet reminder`).
 Public keys come from the 1Password item (`op://Private/Fleet/public-key-<master>`);
 the key marker is the comment `fleet-master-<master>` on each `authorized_keys` line.
 
-1. Compromised master key: generate a new key pair on the master, replace the field
-   `public-key-<master>` in 1Password.
-2. Re-apply on every target: Linux `chezmoi state delete-bucket --bucket=scriptState
+1. Emergency first (compromised key): on each target delete the line ending in
+   ` fleet-master-<master>` from `~/.ssh/authorized_keys` (OMV/PiKVM included). This
+   cuts the key off immediately, without waiting for any re-apply.
+2. Destroy the old private key on the master, generate a new key pair, and
+   **overwrite** (do not add next to it) the field `public-key-<master>` in
+   1Password: `fleet bootstrap` and the install script read the current field value
+   only, so a stale value left there would be re-deployed.
+3. Re-apply on every target: Linux `chezmoi state delete-bucket --bucket=scriptState
    && chezmoi apply` (the install script is `run_onchange`; touching the agent or
-   forcing it rewrites the lines), OMV/PiKVM `fleet bootstrap HOST --user U --apply`
-   (it drops the old `fleet-master-<master>` line first).
-3. Retiring a master completely: remove it from `MASTERS` in the install script (and
+   forcing it rewrites the lines). Warning: deleting the `scriptState` bucket replays
+   **every** `run_once`/`run_onchange` script on that host, not only the fleet one;
+   prefer a trivial change to the install script when possible. OMV/PiKVM:
+   `fleet bootstrap HOST --user U --apply` (it drops the old `fleet-master-<master>`
+   line first).
+4. Retiring a master completely: remove it from `MASTERS` in the install script (and
    `masters:` in `fleet.yml`); the next run deletes its line from `authorized_keys`.
-4. Emergency without waiting: on each target delete the line ending in
-   ` fleet-master-<master>` from `~/.ssh/authorized_keys`.
 5. Also revoke the ntfy token, API keys and Home Assistant tokens if the master was
    compromised: the masters hold them (accepted risk).
 
@@ -275,7 +281,9 @@ the tunnel. OPNsense: System > Firmware in the web UI (minor updates; check the
 release notes before a major). Home Assistant: Settings > System > Updates (take a
 backup first, update Core, then OS). Proxmox: `sysup` (apt `dist-upgrade`) after
 checking running VMs. Then check `needs-restarting -r` / `/var/run/reboot-required` and
-reboot when convenient. Record it with `fleet hold` on skipped hosts if needed.
+reboot when convenient. To keep `fleet up` away from a host you are handling by
+hand, put it on hold (`fleet hold HOST --reason R --until D`) and `fleet unhold` it
+afterwards.
 
 ## Manual actions for Jerome
 

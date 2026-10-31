@@ -14,6 +14,9 @@
 //        every host listed in dot_local/share/fleet/fleet.yml that has an ssh_user
 //        or an SSH agent (Linux, OMV, PiKVM, Proxmox, guardians, later macOS/Windows)
 //                           -> tag:fleet-target
+//      The masters are fleet hosts too (each one is updated from the other, and
+//      they sync state/holds over SSH), so diabolo and penelope carry BOTH tags:
+//      tag:fleet-master and tag:fleet-target.
 //      WARNING: tagging a device REMOVES its user ownership: it is then identified by
 //      its tag only, user-based rules (autogroup:member, user@) no longer match it, and
 //      key expiry is disabled by default. Add rules for any human access you still need
@@ -29,7 +32,7 @@
 // HOW TO TEST after applying:
 //   from a NON-master machine (for example a laptop):
 //     tailscale ping omv-dijon           # still works (ICMP/disco is not tcp:22)
-//     ssh jeromesoyer@docker true        # must FAIL (timeout / connection refused)
+//     ssh <user>@<target> true           # must FAIL (timeout / connection refused)
 //   from a master:
 //     fleet ping                         # must show "ok" for the tagged targets
 //     ssh -o BatchMode=yes <user>@<target> true   # reaches sshd (auth refused is fine)
@@ -54,8 +57,14 @@
 	// same flow).
 	"acls": [
 		// ---- EXISTING RULES: paste your current rules here (placeholder). ----
-		// Example if you currently rely on allow-all, narrowed to non-SSH traffic:
-		// {"action": "accept", "src": ["*"], "dst": ["*:*"]},   // REMOVE once replaced
+		// MUST: an allow-all rule (src * -> dst *:*) has to be REPLACED, not kept.
+		// Tailscale ACLs only ADD permissions (no deny, no port exclusion), so a
+		// kept allow-all rule leaves port 22 of every target open to the whole
+		// tailnet and the fleet rule below restricts nothing.
+		// Narrowed replacement example (list the ports you really use, without 22):
+		// {"action": "accept", "src": ["autogroup:member"], "dst": ["*:80,443,445,8123"]},
+		// Humans who still need SSH to a given box need their own explicit rule, e.g.:
+		// {"action": "accept", "src": ["<your-user>@<domain>"], "dst": ["<host>:22"]},
 		// ----------------------------------------------------------------------
 
 		// Fleet: only the masters reach tcp:22 of the targets.
@@ -85,8 +94,16 @@
 			"src":    "tag:fleet-master",
 			"accept": ["tag:fleet-target:22"],
 		},
+		// Tagged masters are not user-owned, so autogroup:member never matches them:
+		// this test covers every untagged user device. Add a test with a named user
+		// ("src": "<your-user>@<domain>") if you add explicit human SSH rules above.
 		{
 			"src":  "autogroup:member",
+			"deny": ["tag:fleet-target:22"],
+		},
+		// A target must not reach another target's port 22.
+		{
+			"src":  "tag:fleet-target",
 			"deny": ["tag:fleet-target:22"],
 		},
 	],
