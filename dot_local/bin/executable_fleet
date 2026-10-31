@@ -9,6 +9,7 @@
 #   fleet report [--last|--run ID]  fleet logs HOST [--run ID]  fleet changes HOST [--since D]
 #   fleet hold HOST --reason R --until D | unhold HOST | holds
 #   fleet reminder                 ntfy if no `fleet up` for 14 days (timer; opens no connection)
+#   fleet bootstrap HOST --user U [--apply]   install the agent on an OMV / PiKVM (dry run by default)
 #   fleet help
 #
 # Selector (-l or positional): alias, site=, kind=, tag:, @group, "a,b" union, "!x"
@@ -38,6 +39,7 @@ FLEET_PYTHON="${FLEET_PYTHON:-python3}"
 FLEET_SSH="${FLEET_SSH:-ssh}"
 INVENTORY="$FLEET_DIR/lib/inventory.py"
 ORCHESTRATE="$FLEET_DIR/lib/orchestrate.py"
+BOOTSTRAP="$FLEET_DIR/lib/bootstrap.py"
 
 die() { printf 'fleet: %s\n' "$1" >&2; exit 2; }
 
@@ -71,6 +73,8 @@ Commands:
   report    [--last | --run ID]   logs HOST [--run ID]   changes HOST [--since DATE]
   hold      HOST --reason TEXT --until DATE ; unhold HOST ; holds
   reminder  ntfy reminder when no `fleet up` ran for 14 days (used by the timer)
+  bootstrap HOST --user U [--apply] [--path NAME=/abs]   install the agent on omv/pikvm:
+            dry run by default; --apply shows the sudoers fragment and asks for confirmation
   help   this text
 EOF
 }
@@ -211,6 +215,9 @@ main() {
     up|reboot|report|logs|changes|hold|unhold|holds|reminder)
       [ -r "$ORCHESTRATE" ] || die "orchestrator library not found: $ORCHESTRATE"
       exec "$FLEET_PYTHON" -I "$ORCHESTRATE" "$cmd" ${1+"$@"} ;;
+    bootstrap)
+      [ -r "$BOOTSTRAP" ] || die "bootstrap library not found: $BOOTSTRAP"
+      exec "$FLEET_PYTHON" -I "$BOOTSTRAP" ${1+"$@"} ;;
     help|-h|--help) usage ;;
     *) printf 'fleet: unknown command %s\n' "$(clean "$cmd")" >&2; usage >&2; exit 2 ;;
   esac
