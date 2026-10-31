@@ -43,7 +43,7 @@ On masters additionally: `tailscale` CLI, `rsync` (state sync to the other maste
 | `opnsense` | none (API only) | dedicated API user (see checklist), `critical: true` |
 | `homeassistant` | none (API only) | dedicated non-owner user + long-lived token |
 | `chezmoi-macos` | by hand (see [macOS](#macos)) | Unix agent + `sysup`; native automatic updates on; `ssh_user` set in `fleet.yml` (otherwise `unsupported`) |
-| `windows` | `fleet-bootstrap.ps1` as Administrator (see [Windows](#windows-fleet-agentps1-fleet-bootstrapps1-powershell-51)) | PowerShell 5.1, OpenSSH Server; SSH and task users are local admins; `ssh_user` set in `fleet.yml` (otherwise `unsupported`) |
+| `windows` | `fleet-bootstrap.ps1` as Administrator (see [Windows](#windows-fleet-agentps1-fleet-bootstrapps1-powershell-51)) | PowerShell 5.1 (the bootstrap installs OpenSSH Server); SSH and task users are local admins; `ssh_user` set in `fleet.yml` (otherwise `unsupported`) |
 
 Allowed `site` values: `dijon nice garage cloud mobile`. `critical` must be `true` if
 and only if the kind is `opnsense` or `proxmox` (the validator enforces it).
