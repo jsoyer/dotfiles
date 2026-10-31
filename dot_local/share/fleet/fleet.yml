@@ -229,6 +229,11 @@ hosts:
     kind: proxmox
     critical: true
     ssh_user: jeromesoyer
+  # ---- WORKSTATIONS (macOS), sprint 5: low priority, often off, updated by hand until now.
+  # No ssh_user yet: set it after installing the agent on the Mac (Remote Login on, sudoers
+  # limited to the restart command, see docs/FLEET.md). macOS itself is updated by the native
+  # automatic updates; the agent only runs sysup and reports. Pull mode: launchd agent
+  # com.jsoyer.fleet-pull (opt-in marker ~/.config/fleet-agent/pull-enabled).
   # UNCERTAIN: site inferred (laptop); ssh_user set in sprint 5
   macbook-pro-14:
     tailnet_name: jerome-soyers-macbook-pro-14
@@ -280,12 +285,15 @@ hosts:
     kind: windows
     critical: false
   # UNCERTAIN: site inferred
+  # ---- WORKSTATIONS (Windows), sprint 5: low priority, often off. No ssh_user yet: set it
+  # after running fleet-bootstrap.ps1 as Administrator on the PC (placeholder entries, UNCERTAIN
+  # names/sites). WSL distributions on these PCs are updated by the same agent.
+  # UNCERTAIN: site inferred
   windows-se337kv:
     tailnet_name: windows-se337kv
     site: mobile
     kind: windows
     critical: false
-  # UNCERTAIN: site inferred
   desktop-leeevpo:
     tailnet_name: desktop-leeevpo
     site: mobile

@@ -20,6 +20,11 @@
 #   reboot         reboot only if required (sudo exact command, see sudoers)
 #   report         final (or current) state of the last update job, read from disk
 #
+# Local-only entry (NOT a verb): FLEET_AGENT_PULL=1 with no SSH context runs the
+# pull-mode catch-up (see run_pull). sshd gives the client no way to set an
+# environment variable, SSH_ORIGINAL_COMMAND never reaches it, and main() refuses
+# it if SSH_CONNECTION / SSH_ORIGINAL_COMMAND is set. It never reaches verb_reboot.
+#
 # Output: exactly one JSON line, schema v1 (docs/tasks/.../spec.md section 12).
 # Exit codes: 0 success, 1 refused, 2 update failed, 3 busy.
 #
@@ -44,7 +49,7 @@ umask 077
 # can refuse it explicitly (and log it) instead of silently ignoring it.
 if [ "${FLEET_AGENT_TEST:-}" != 1 ] && [ -n "${SSH_ORIGINAL_COMMAND+x}${SSH_CONNECTION+x}" ]; then
   for _fa_var in $(env | sed -n 's/^\(FLEET_AGENT_[A-Za-z0-9_]*\)=.*/\1/p'); do
-    [ "$_fa_var" = FLEET_AGENT_JOB_ID ] || unset "$_fa_var"
+    [ "$_fa_var" = FLEET_AGENT_JOB_ID ] || [ "$_fa_var" = FLEET_AGENT_PULL ] || unset "$_fa_var"
   done
   unset _fa_var
 fi
@@ -76,11 +81,20 @@ OS_RELEASE="${FLEET_AGENT_OS_RELEASE:-/etc/os-release}"
 HOST="${FLEET_AGENT_HOST:-$(hostname -s 2>/dev/null || uname -n)}"
 REBOOT_DELAY="${FLEET_AGENT_REBOOT_DELAY:-3}"
 case "$REBOOT_DELAY" in *[!0-9]*|"") REBOOT_DELAY=3 ;; esac
+CONF_DIR="${FLEET_AGENT_CONF_DIR:-${HOME:-/nonexistent}/.config/fleet-agent}"
+PULL_DAYS="${FLEET_AGENT_PULL_DAYS:-7}"
+# Hard limit of one detached update (systemd RuntimeMaxSec / watchdog); backoff after a failed pull.
+JOB_MAX_SECS="${FLEET_AGENT_JOB_MAX_SECS:-7200}"
+case "$JOB_MAX_SECS" in *[!0-9]*|"") JOB_MAX_SECS=7200 ;; esac
+PULL_BACKOFF_SECS=86400
+PULL_LOG_FILE="${FLEET_AGENT_PULL_LOG:-${HOME:-/nonexistent}/Library/Logs/fleet-pull.log}"
+PULL_LOG_MAX_BYTES=1048576
+case "$PULL_DAYS" in *[!0-9]*|"") PULL_DAYS=7 ;; esac
 TAB="$(printf '\t')"
 
 # Environment variables handed to the detached job (systemd --user units do not
 # inherit the caller's environment).
-PASSTHROUGH_VARS="PATH FLEET_AGENT_STATE_DIR FLEET_AGENT_LOCK_DIR FLEET_AGENT_SYSUP FLEET_AGENT_ETC_DIR FLEET_AGENT_CRITICAL_FILE FLEET_AGENT_REBOOT_FLAG FLEET_AGENT_MODULES_DIR FLEET_AGENT_POWER_DIR FLEET_AGENT_OS_RELEASE FLEET_AGENT_HOST FLEET_AGENT_PKGMGR FLEET_AGENT_KERNEL FLEET_AGENT_LOG_FILE FLEET_AGENT_REBOOT_DELAY FLEET_AGENT_TEST FLEET_AGENT_KIND FLEET_AGENT_CF_BIN FLEET_AGENT_CF_READY_URL FLEET_AGENT_CF_TRIES FLEET_AGENT_CF_SLEEP"
+PASSTHROUGH_VARS="PATH FLEET_AGENT_STATE_DIR FLEET_AGENT_LOCK_DIR FLEET_AGENT_SYSUP FLEET_AGENT_ETC_DIR FLEET_AGENT_CRITICAL_FILE FLEET_AGENT_REBOOT_FLAG FLEET_AGENT_MODULES_DIR FLEET_AGENT_POWER_DIR FLEET_AGENT_OS_RELEASE FLEET_AGENT_HOST FLEET_AGENT_PKGMGR FLEET_AGENT_KERNEL FLEET_AGENT_LOG_FILE FLEET_AGENT_REBOOT_DELAY FLEET_AGENT_TEST FLEET_AGENT_KIND FLEET_AGENT_CF_BIN FLEET_AGENT_CF_READY_URL FLEET_AGENT_CF_TRIES FLEET_AGENT_CF_SLEEP FLEET_AGENT_CONF_DIR FLEET_AGENT_PULL_DAYS FLEET_AGENT_PULL_JOB FLEET_AGENT_SWUPDATE_DOMAIN"
 
 # ---------------------------------------------------------------- utilities
 
@@ -245,6 +259,8 @@ exit_code_for() {
 
 finish() { # finish <verb>: print and exit with the status-derived code
   emit "$1"
+  # Pull mode runs from a timer: another update in progress is not an error.
+  if [ -n "${FLEET_AGENT_PULL:-}" ] && [ "$V_status" = busy ]; then exit 0; fi
   exit_code_for "$V_status"
   exit $?
 }
@@ -434,9 +450,29 @@ degraded_reason() {
   printf '%s' "$out" | sed -e 's/^ //'
 }
 
+# macos_update_issues: one line per native macOS automatic-update setting that is
+# explicitly switched off. Read-only (`defaults read`); macOS itself is updated by
+# its own automatic updates, never by this agent (Apple Silicon needs the volume
+# owner's password to install macOS, so the agent only checks and reports).
+macos_update_issues() {
+  local domain key val
+  domain="${FLEET_AGENT_SWUPDATE_DOMAIN:-}"
+  if [ -z "$domain" ]; then
+    [ "$OS_KERNEL" = Darwin ] || return 0
+    domain=/Library/Preferences/com.apple.SoftwareUpdate
+  fi
+  command -v defaults >/dev/null 2>&1 || return 0
+  for key in AutomaticCheckEnabled AutomaticDownload CriticalUpdateInstall ConfigDataInstall AutomaticallyInstallMacOSUpdates; do
+    val="$(defaults read "$domain" "$key" 2>/dev/null)" || continue
+    if [ "$val" = 0 ]; then printf 'macos_auto_updates_off: %s\n' "$key"; fi
+  done
+}
+
 config_conflicts_file() { # config_conflicts_file <out>
-  find "$ETC_DIR" -xdev -maxdepth 6 \( -name '*.dpkg-dist' -o -name '*.rpmnew' -o -name '*.pacnew' \) -print 2>/dev/null \
-    | sort | head -n 50 >"$1"
+  {
+    find "$ETC_DIR" -xdev -maxdepth 6 \( -name '*.dpkg-dist' -o -name '*.rpmnew' -o -name '*.pacnew' \) -print 2>/dev/null
+    macos_update_issues
+  } | sort | head -n 50 >"$1"
 }
 
 # ---------------------------------------------------------------- packages
@@ -827,17 +863,35 @@ write_state() {
 launch_detached() { # launch_detached <job> <jobdir>
   local job="$1" jobdir="$2" var
   local sargs=()
-  if [ "$OS_KERNEL" = Linux ] && command -v systemd-run >/dev/null 2>&1; then
+  if [ "$OS_KERNEL" = Linux ] && command -v systemd-run >/dev/null 2>&1 && { [ "${FLEET_AGENT_TEST:-}" != 1 ] || [ -z "${FLEET_AGENT_NO_SYSTEMD_RUN:-}" ]; }; then
     for var in $PASSTHROUGH_VARS; do
       if [ -n "${!var+x}" ]; then sargs+=("--setenv=$var=${!var}"); fi
     done
     env -u SSH_CONNECTION -u SSH_ORIGINAL_COMMAND \
       systemd-run --user --quiet --collect --unit="fleet-update-$job" \
+      -p "RuntimeMaxSec=$JOB_MAX_SECS" \
       --setenv="FLEET_AGENT_JOB_ID=$job" ${sargs[@]+"${sargs[@]}"} \
       -- bash "$AGENT_PATH" >"$jobdir/launcher.log" 2>&1
     return $?
   fi
-  env -u SSH_CONNECTION -u SSH_ORIGINAL_COMMAND FLEET_AGENT_JOB_ID="$job" nohup bash "$AGENT_PATH" >"$jobdir/launcher.log" 2>&1 </dev/null &
+  # No systemd-run (macOS, bash 3.2, no coreutils timeout): a watchdog subshell next to the job
+  # terminates it (and its children) after JOB_MAX_SECS so a hung update cannot hold the lock.
+  # `set -m` gives the job (and the watchdog) their own process group, so the watchdog can
+  # signal the whole tree (sysup and everything it spawned), not only direct children.
+  (
+    set -m
+    env -u SSH_CONNECTION -u SSH_ORIGINAL_COMMAND FLEET_AGENT_JOB_ID="$job" nohup bash "$AGENT_PATH" >"$jobdir/launcher.log" 2>&1 </dev/null &
+    jpid=$!
+    (
+      sleep "$JOB_MAX_SECS"
+      kill -TERM -- "-$jpid" 2>/dev/null
+      sleep 5
+      kill -KILL -- "-$jpid" 2>/dev/null
+    ) >/dev/null 2>&1 </dev/null &
+    wpid=$!
+    wait "$jpid"
+    kill -TERM -- "-$wpid" 2>/dev/null
+  ) >/dev/null 2>&1 </dev/null &
   return 0
 }
 
@@ -868,6 +922,9 @@ verb_update() {
   printf '%s\n' "$V_started" >"$jobdir/started"
   write_state "$jobdir"
   printf '%s\n' "$job" >"$STATE_DIR/last-job"
+  # Stamp the attempt BEFORE launching: a job that finishes fast must not race the stamp
+  # (it would otherwise be written after the job's final state, yielding a spurious backoff).
+  if [ "${FLEET_AGENT_PULL_JOB:-}" = 1 ]; then date +%s >"$STATE_DIR/last-attempt" 2>/dev/null; fi
   if ! launch_detached "$job" "$jobdir"; then
     V_status="failed"; V_reason="launch_failed"
     V_log_tail="$(tail_of "$jobdir/launcher.log")"
@@ -881,6 +938,17 @@ verb_update() {
   LOCK_OWNED=0
   trap - EXIT
   finish update
+}
+
+# TERM from the watchdog (or systemd RuntimeMaxSec): record a final failed/timeout state
+# instead of leaving state.json at "running", then exit 143 (EXIT trap releases the lock).
+job_timeout_exit() { # job_timeout_exit <jobdir>
+  trap - TERM
+  V_status="failed"; V_reason="timeout"; V_ended="$(now)"
+  V_log_tail="$(tail_of "$1/sysup.log")"
+  write_state "$1"
+  log auth.warning "update job $V_job terminated: timeout"
+  exit 143
 }
 
 # Detached job entry: reached only through FLEET_AGENT_JOB_ID, which the SSH
@@ -910,6 +978,8 @@ run_job() {
   V_health_after="$V_health_before"
   V_status="running"
   write_state "$jobdir"
+  # shellcheck disable=SC2064
+  trap "job_timeout_exit '$jobdir'" TERM
   log auth.notice "update job $job started"
 
   pre="$jobdir/pkgs.pre"; post="$jobdir/pkgs.post"
@@ -942,7 +1012,11 @@ run_job() {
     V_status="up-to-date"
   fi
   write_state "$jobdir"
+  case "$V_status" in
+    updated|up-to-date) date +%s >"$STATE_DIR/last-success" 2>/dev/null ;;
+  esac
   log auth.notice "update job $job finished: $V_status"
+  if [ "${FLEET_AGENT_PULL_JOB:-}" = 1 ]; then pull_notify; fi
   exit_code_for "$V_status"
   exit $?
 }
@@ -977,6 +1051,132 @@ verb_report() {
   exit 0
 }
 
+# ---------------------------------------------------------------- pull mode
+
+# Pull mode (laptops and workstations that are often off): a local timer / launchd
+# agent runs this file with FLEET_AGENT_PULL=1. It is NOT a verb: it is not in the
+# verb whitelist, it ignores SSH_ORIGINAL_COMMAND (main() refuses it when that is
+# set) and it only ever reaches verb_update. Nothing here calls the restart verb:
+# a pull run can never restart the machine.
+
+# conf_value <KEY>: value of KEY=value in $CONF_DIR/pull.conf (never sourced).
+conf_value() {
+  [ -r "$CONF_DIR/pull.conf" ] || return 0
+  sed -n "s/^$1=//p" "$CONF_DIR/pull.conf" | head -n 1 | tr -d '\r"'
+}
+
+# pull_denied_reason: empty when this host may pull. Opt-in by a marker file;
+# guardians, critical hosts and appliances are refused.
+pull_denied_reason() {
+  if [ ! -f "$CONF_DIR/pull-enabled" ]; then printf not_enabled; return 0; fi
+  if [ -e "$CONF_DIR/no-pull" ]; then printf denied; return 0; fi
+  case "$(agent_kind)" in
+    omv|pikvm|proxmox|guardian) printf 'kind_%s' "$(agent_kind)"; return 0 ;;
+  esac
+  # A host with critical services (cloudflared, ...) is not updated unattended.
+  if [ -s "$CRITICAL_FILE" ]; then printf critical_services; return 0; fi
+  case "$(printf '%s' "$HOST" | tr '[:upper:]' '[:lower:]')" in
+    *guardian*) printf guardian ;;
+  esac
+}
+
+# token_url_ok <url>: a token travels over https, or plain http to exactly 127.0.0.1 / localhost
+# (followed by ':' '/' or end of string; http://127.0.0.1.evil.com is refused).
+token_url_ok() {
+  case "$1" in
+    https://*) return 0 ;;
+    http://127.0.0.1|http://127.0.0.1:*|http://127.0.0.1/*) return 0 ;;
+    http://localhost|http://localhost:*|http://localhost/*) return 0 ;;
+  esac
+  return 1
+}
+
+# pull_log_cap: fleet-pull.log (launchd stdout/stderr) is trimmed to its last 200 lines past 1 MB.
+pull_log_cap() {
+  local size
+  [ -f "$PULL_LOG_FILE" ] || return 0
+  size="$(wc -c <"$PULL_LOG_FILE" 2>/dev/null | tr -d ' ')"
+  case "$size" in ""|*[!0-9]*) return 0 ;; esac
+  if [ "$size" -gt "$PULL_LOG_MAX_BYTES" ]; then
+    tail -n 200 "$PULL_LOG_FILE" >"$PULL_LOG_FILE.tmp" 2>/dev/null && cat "$PULL_LOG_FILE.tmp" >"$PULL_LOG_FILE" 2>/dev/null
+    rm -f "$PULL_LOG_FILE.tmp"
+  fi
+  return 0
+}
+
+# epoch_file <file>: integer epoch stored in a state file; 0 when absent or malformed
+# (digits only, at most 11, leading zeros stripped so bash never reads octal).
+epoch_file() {
+  local v
+  v="$(head -n 1 "$1" 2>/dev/null | tr -d '\r\n ')"
+  case "$v" in ""|*[!0-9]*) printf 0; return 0 ;; esac
+  if [ "${#v}" -gt 11 ]; then printf 0; return 0; fi
+  printf '%s' "$((10#$v))"
+}
+
+# pull_notify: ntfy priority 2. The token (file named in pull.conf) goes through a
+# curl config on stdin: never in argv, never in a log. Failures are only logged.
+pull_notify() {
+  local url topic tokfile tok msg
+  url="$(conf_value NTFY_URL)"; topic="$(conf_value NTFY_TOPIC)"; tokfile="$(conf_value NTFY_TOKEN_FILE)"
+  if [ -z "$url" ] || [ -z "$topic" ]; then log auth.notice "pull notify: no ntfy settings"; return 0; fi
+  printf '%s' "$url" | grep -Eq '^https?://[A-Za-z0-9._:/-]+$' || { log auth.warning "pull notify: bad ntfy url"; return 0; }
+  printf '%s' "$topic" | grep -Eq '^[A-Za-z0-9_-]+$' || { log auth.warning "pull notify: bad ntfy topic"; return 0; }
+  tok=""
+  if [ -n "$tokfile" ] && [ -r "$tokfile" ]; then
+    tok="$(head -n 1 "$tokfile" | tr -d '\r\n')"
+    printf '%s' "$tok" | grep -Eq '^[A-Za-z0-9_.-]+$' || tok=""
+    # A token only travels over https (or to loopback).
+    token_url_ok "$url" || tok=
+  fi
+  msg="$HOST: pull-mode update $V_status"
+  if [ -n "${V_packages:-}" ] && [ "$V_packages" != null ]; then msg="$msg ($V_packages packages)"; fi
+  if [ "$V_reboot_required" = true ]; then msg="$msg; restart required, NOT done (pull mode never restarts)"; fi
+  msg="$(printf '%s' "$msg" | tr -d '"\\\r\n')"
+  {
+    printf 'silent\nshow-error\nmax-time = 15\n'
+    printf 'url = "%s/%s"\n' "${url%/}" "$topic"
+    printf 'header = "Priority: 2"\nheader = "Title: fleet pull update"\n'
+    if [ -n "$tok" ]; then printf 'header = "Authorization: Bearer %s"\n' "$tok"; fi
+    printf 'data = "%s"\n' "$msg"
+  } | curl -K - >/dev/null 2>&1 || log auth.warning "pull notify: delivery failed"
+  return 0
+}
+
+# run_pull: update only if the last successful update is older than PULL_DAYS and the last
+# attempt did not fail / degrade / hang within the last 24 h.
+run_pull() {
+  local why last age attempt
+  reset_fields
+  mkdir -p "$STATE_DIR" 2>/dev/null || true
+  pull_log_cap
+  why="$(pull_denied_reason)"
+  if [ -n "$why" ]; then
+    V_status="skipped"; V_reason="pull_$why"
+    log auth.notice "pull skipped: $why"
+    finish pull
+  fi
+  last="$(epoch_file "$STATE_DIR/last-success")"
+  age=$(( $(date +%s) - last ))
+  # A future stamp (age < 0) is stale, never "recent".
+  if [ "$last" -gt 0 ] && [ "$age" -ge 0 ] && [ "$age" -lt $(( PULL_DAYS * 86400 )) ]; then
+    V_status="skipped"; V_reason="recent_update"
+    log auth.notice "pull skipped: last successful update ${age}s ago"
+    finish pull
+  fi
+  # Backoff: an attempt newer than the last success is a failed / degraded / hung one.
+  attempt="$(epoch_file "$STATE_DIR/last-attempt")"
+  if [ "$attempt" -gt "$last" ] && [ $(( $(date +%s) - attempt )) -ge 0 ] && [ $(( $(date +%s) - attempt )) -lt "$PULL_BACKOFF_SECS" ]; then
+    V_status="skipped"; V_reason="pull_backoff"
+    log auth.notice "pull skipped: previous attempt did not succeed, retry after 24 h"
+    finish pull
+  fi
+  log auth.notice "pull: last successful update older than ${PULL_DAYS} days, updating"
+  FLEET_AGENT_PULL_JOB=1
+  export FLEET_AGENT_PULL_JOB
+  verb_update
+}
+
 # ---------------------------------------------------------------- main
 
 main() {
@@ -990,6 +1190,14 @@ main() {
       refuse "internal job entry reached through ssh"
     fi
     run_job
+  fi
+
+  # Local-only pull entry: same pattern as the job entry above.
+  if [ -n "${FLEET_AGENT_PULL:-}" ]; then
+    if [ -n "${SSH_CONNECTION+x}${SSH_ORIGINAL_COMMAND+x}" ] || [ "$#" -ne 0 ] || [ "$FLEET_AGENT_PULL" != 1 ]; then
+      refuse "pull entry reached through ssh or with arguments"
+    fi
+    run_pull
   fi
 
   verb="${SSH_ORIGINAL_COMMAND-}"

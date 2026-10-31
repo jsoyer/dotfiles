@@ -219,6 +219,125 @@ Output: one JSON line (schema v1). Exit codes: 0 success, 1 refused, 2 update fa
 `~/.config/fleet-agent/critical-services` (one unit name per line; `fleet.yml`
 `critical_services` is **not** deployed there yet).
 
+## Workstations (Windows, macOS, WSL) and pull mode
+
+Workstations are low priority: often off, historically updated by hand. Nothing below
+has been applied to a real machine; every item is a draft for review.
+
+### Windows (`fleet-agent.ps1`, `fleet-bootstrap.ps1`, PowerShell 5.1)
+
+Same five verbs (`check update reboot-status reboot report`), same JSON v1, same
+statuses and exit codes (0/1/2/3) as the Unix agent. `ping` is not an agent verb.
+
+- **Bootstrap** (once, elevated PowerShell on the PC; public keys come from
+  `op://Private/Fleet/public-key-<master>`, the script reads no secret):
+  `.\fleet-bootstrap.ps1 -MasterKey @{ diabolo = 'ssh-ed25519 AAAA...'; penelope = '...' } [-EnablePull]`.
+  It installs OpenSSH Server (service automatic), limits port 22 to `100.64.0.0/10`
+  (the stock OpenSSH rule is disabled), installs the agent in `C:\ProgramData\fleet-agent`
+  (ACL Administrators + SYSTEM only; staged, hash-verified, then moved), writes
+  `administrators_authorized_keys` with `restrict,command="powershell.exe ... -File <agent>"`
+  (same ACL; non-fleet lines are kept), creates the Event Log source `fleet-agent` and the
+  scheduled tasks, and reports whether winget is present.
+- **Bootstrap hardening** (all checked before anything is trusted):
+  - `-SshUser <account>` is required: it becomes `AllowUsers <account>` in `sshd_config`, so every
+    other account (including other administrators) can no longer log in over SSH. Pass the
+    account the masters connect as. `-SshUser` must itself be a local Administrator (keys live in
+    `administrators_authorized_keys`), and so must `-TaskUser` (default: the current account;
+    `-RunLevel Highest`, admin-only state dir); both are compared by SID against the
+    Administrators group (ADSI fallback for orphaned/AzureAD members), else the script stops.
+  - The agent directory (`C:\ProgramData\fleet-agent`) is refused when it already exists with an
+    owner other than BUILTIN\Administrators / NT AUTHORITY\SYSTEM, or when it or any ancestor is
+    a reparse point (junction / symlink). The owner is then set to Administrators, inheritance
+    is disabled, only Administrators + SYSTEM get FullControl, recursively on existing children
+    (a child reparse point is refused). `Assert-AclAdminOnly` re-checks owner, reparse points
+    and ACL entries. This covers the state dir, `pull.conf` and the token file as well.
+  - Firewall: TCP 22 from `100.64.0.0/10` **and** only on the `Tailscale` network interface
+    (the script stops if no adapter has that name); the rule is replaced by name (idempotent).
+  - `sshd_config`: backed up as `sshd_config.fleet-bak-<timestamp>`, then `PasswordAuthentication no`,
+    `KbdInteractiveAuthentication no`, `AllowUsers <SshUser>` are set (idempotent) and the
+    `Match Group administrators` / `AuthorizedKeysFile __PROGRAMDATA__/ssh/administrators_authorized_keys`
+    block is kept. The result is validated with `sshd.exe -t` BEFORE `Restart-Service sshd`;
+    on failure the backup is restored and the script aborts. The stock `OpenSSH-Server-In-TCP`
+    firewall rule is disabled right after the capability install and sshd stays stopped until
+    hardening has passed `sshd -t`.
+  - Forced command and scheduled tasks use the full path
+    `%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe` and a quoted `-File "<agent>"`
+    (in `authorized_keys` the inner quotes are written `\"`). The update task runs with
+    `-WindowStyle Hidden`.
+- **Tailscale SSH must stay OFF** on the PC: it bypasses the forced command. The same holds for
+  macOS and Linux pull targets (and any host with the forced-command agent): keep it off there too.
+- **Refusals** (unknown verb, extra argument, empty command) exit 1, print `fleet-agent: refused`
+  and write an Event Log warning (Application, source `fleet-agent`, event 4001).
+- **`update`** returns `started` + job id and starts the scheduled task `fleet-agent-update`
+  (interactive user's context, 120 min limit): winget and Scoop misbehave under SSH or
+  SYSTEM. Order: Windows Update (COM `Microsoft.Update.Session`; feature upgrades are reported
+  in `major_available`, not installed), `winget upgrade --all`, Scoop (`scoop update`,
+  `scoop update --all`, `--global` if present), WSL (`wsl --update` only when no distribution
+  is running, then each distribution: `sysup` if present, else the package manager as root;
+  never `wsl --shutdown`), Defender (`Update-MpSignature`). No Chocolatey.
+- **Preflight** (`skipped` + reason): `disk_low`, `on_battery`, `metered_network`,
+  `update_in_progress`, `user_active` (input in the last 5 min), `no_interactive_session`.
+- `check` counts Windows Update only (winget is not queried under SSH).
+- Remote stdout and stderr are captured to files and only a capped, masked tail is kept.
+
+### macOS
+
+The Unix agent is used as is, with: log in `/var/log/fleet-agent.log` (falls back to the state
+dir if not writable; pre-create it owned by the SSH user), and a check that the native
+automatic updates are on (`macos_auto_updates_off: <key>` in `config_conflicts`). The agent
+**never installs macOS**: Apple Silicon needs the volume owner's password; macOS is updated by
+its automatic updates, the agent runs `sysup` (brew, mas, AI tools) and reports.
+
+Draft, NOT applied (review first). Remote Login on, the agent copied to
+`/usr/local/libexec/fleet-agent` (stage, verify, `mv`; root-owned), and a sudoers fragment
+installed with `visudo -cf` then `mv`:
+
+```
+# /etc/sudoers.d/fleet-agent  (draft)
+jerome ALL=(root) NOPASSWD: /sbin/shutdown -r now
+```
+
+Replace `jerome` with the SSH account. Only the `reboot` verb uses it.
+
+### Pull mode (machines that are often off)
+
+A local timer runs the agent through a **local-only entry**: `FLEET_AGENT_PULL=1` (Unix) or the
+`-RunPull` switch (Windows). It is not a verb: it is not in the whitelist, the forced command
+cannot pass an environment variable or a script argument, and the entry is refused (exit 1,
+logged) if `SSH_CONNECTION` or `SSH_ORIGINAL_COMMAND` is set. It only ever reaches the
+update code: there is no restart code path from pull mode.
+
+Rules: opt-in marker `~/.config/fleet-agent/pull-enabled` (Windows: `C:\ProgramData\fleet-agent\pull-enabled`);
+`no-pull` marker, guardians (host name contains `guardian`, or kind `guardian`), OMV / PiKVM /
+Proxmox kinds and hosts with a non-empty `critical-services` file are refused (reasons
+`pull_denied`, `pull_kind_<kind>`, `pull_critical_services`, `pull_guardian`); a failed, degraded or
+hung pull update is not retried (and not notified again) for 24 h (`last-attempt` newer than
+`last-success`, reason `pull_backoff`); a pull-launched update is killed after 2 h
+(`RuntimeMaxSec=7200` under systemd, a watchdog subshell on macOS that runs the job in its own process group and kills the whole
+group, TERM then KILL after 5 s; the job traps TERM and records a final `failed` state with reason
+`timeout`); `busy` exits 0 in pull mode; updates only if the last successful update is older than 7 days (state file
+`last-success`); notifies ntfy with priority 2 when the job ends, and mentions that a restart
+is required but not done. Settings in `~/.config/fleet-agent/pull.conf` (never sourced):
+`NTFY_URL`, `NTFY_TOPIC`, `NTFY_TOKEN_FILE` (the token is read from that file, sent to curl on
+stdin / as an HTTPS header, never in argv or logs; sent over https only).
+
+| Platform | Mechanism |
+|----------|-----------|
+| Linux laptops | `dot_config/systemd/user/fleet-pull.{service,timer}` (daily 12:00 + 20 min after boot, `Persistent=true`, `ConditionACPower`); enable with `systemctl --user enable --now fleet-pull.timer` |
+| macOS | `Library/LaunchAgents/com.jsoyer.fleet-pull.plist` (every 6 h + at load; `AbandonProcessGroup` so the detached update outlives the launchd run; `~/Library/Logs/fleet-pull.log` is trimmed to 200 lines past 1 MB by the agent) |
+| Windows | scheduled task `fleet-agent-pull` (SYSTEM, daily 12:00 + at logon, starts the update task) |
+
+Headless Linux hosts (no login session) need `loginctl enable-linger <user>` for the user timer
+to fire. The unit has no `network-online.target` ordering (it has no effect in the user
+manager); it runs at `Nice=19` / `IOSchedulingClass=idle`.
+
+Windows pull: the ntfy token is read from `NTFY_TOKEN_FILE` and only ever sent in an
+`Authorization` header (https only), never in a URL, argv or log; `last-success` future values count
+as stale. A job that exceeds 120 min is stopped (`taskkill /T`) and reported as `failed` with
+reason `timeout` (`timeout` itself is a master-only status). Test overrides
+(`FLEET_AGENT_TEST`, `FLEET_AGENT_STATE_DIR`, `FLEET_AGENT_CONF_DIR`) are honoured only with
+`FLEET_AGENT_TEST=1` and a path under `%TEMP%`.
+
 ## Where things live
 
 | What | Where |
