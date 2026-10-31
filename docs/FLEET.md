@@ -42,8 +42,8 @@ On masters additionally: `tailscale` CLI, `rsync` (state sync to the other maste
 | `pikvm` | `fleet bootstrap HOST --user U --apply` | root or NOPASSWD sudo for the first bootstrap; `rw`, `ro`, `pikvm-update`; cloudflared at `/usr/local/bin/cloudflared` (optional) |
 | `opnsense` | none (API only) | dedicated API user (see checklist), `critical: true` |
 | `homeassistant` | none (API only) | dedicated non-owner user + long-lived token |
-| `chezmoi-macos` | Sprint 5 | not supported yet (`unsupported`) |
-| `windows` | Sprint 5 | not supported yet (`unsupported`) |
+| `chezmoi-macos` | by hand (see [macOS](#macos)) | Unix agent + `sysup`; native automatic updates on; `ssh_user` set in `fleet.yml` (otherwise `unsupported`) |
+| `windows` | `fleet-bootstrap.ps1` as Administrator (see [Windows](#windows-fleet-agentps1-fleet-bootstrapps1-powershell-51)) | PowerShell 5.1 (the bootstrap installs OpenSSH Server); SSH and task users are local admins; `ssh_user` set in `fleet.yml` (otherwise `unsupported`) |
 
 Allowed `site` values: `dijon nice garage cloud mobile`. `critical` must be `true` if
 and only if the kind is `opnsense` or `proxmox` (the validator enforces it).
@@ -471,6 +471,8 @@ Nothing below has been done by the code.
   users is over-masked, and the ntfy queue is unbounded.
 - Port 22 is open to the whole tailnet until the ACL is applied (accepted risk,
   2026-10-27); API tokens live on the masters, outside the forced command (accepted risk).
-- Sprint 5 pending: macOS and Windows agents.
+- Workstations (Windows, macOS, WSL, pull mode) are implemented but only tested in
+  simulation: PSScriptAnalyzer and `plutil -lint` have not run, and no real PC or Mac
+  has been bootstrapped yet.
 - Correction to older notes: the 1Password item is `Fleet` in vault `Private`
   (not a vault named Fleet).
