@@ -119,3 +119,8 @@
 - [ENV] zsh doesn't word-split `$F`: run multi-path git commands via `bash -c`.
 - [PROCESS] A subagent's permission denial is surfaced to the user, never retried by the orchestrator.
 - Open (user): fleet.yml ntfy.url = https://ntfy.sh (public third party — token would leave the tailnet); macOS sudoers draft not applied; per-Mac manual install + ssh_user; per-PC fleet-bootstrap.ps1 as admin (AllowUsers locks out other SSH accounts); Linux pull mode opt-in (marker, pull.conf, systemctl --user enable, linger). Leftover locked worktree .claude/worktrees/agent-aebecc6d33a56cf69 (merged branch).
+
+## Ship Pipeline State — 2026-10-31
+- Branch feat/fleet-plan pushed (HEAD db4fc8bf), PR #44 open, CI `validate` PASS (run 41225691696).
+- Phase: HELD before merge by user decision. Merging = fleet-wide deploy via chezmoi-autoupdate (sudoers run_always incl. `systemctl reboot` + apt env_keep, fleet agent install, pull/reminder units).
+- Before merge: user reviews sudoers diff (§15) and replaces ntfy.url (currently public https://ntfy.sh). No staging/prod/Lighthouse for this repo (no Execution Config).
