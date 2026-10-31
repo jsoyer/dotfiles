@@ -60,14 +60,15 @@
       "id": 5,
       "file": "sprints/05-postes-de-travail.md",
       "title": "Postes de travail (Windows, macOS, WSL) + mode pull",
-      "status": "not_started",
+      "status": "complete",
       "depends_on": [
         4
       ],
       "batch": 5,
       "model": "sonnet",
-      "branch": null,
-      "merged": false
+      "branch": "sprint/05-postes (+ fix/fleet-sprint5-review, fix/fleet-sprint5-review2, fix/fleet-sprint5-lockfile)",
+      "merged": true,
+      "notes": "Complete by the Sprints 1-4 convention (all locally doable tasks done and verified; live items BLOCKED). Windows agent + bootstrap (PS 5.1), pull mode (systemd user timer, launchd, scheduled task; local-only entry, >7 days, ntfy prio 2, never reboots, never critical/guardian, 24h backoff, hard timeout), macOS auto-update check, contract + pull tests, FLEET.md section. Merges 0304e8d7, 59470356; 560 tests pass on git-archive export, shellcheck 0, bash -n 0, 8/8 invariants 0, plist parses. Review: 4 reviewers, 2 HIGH + ~20 MEDIUM fixed in 2 rounds, plus 3 coordinator security findings (agent dir owner/reparse, Tailscale-interface firewall + sshd_config hardening, global mutex squatting replaced by state-dir lock file). BLOCKED: real PC/Mac check+update, winget/Scoop scheduled-task validation, real 7-day pull, live Event Log, PSScriptAnalyzer (no pwsh; container run denied by permission check), plutil -lint (no Mac). Open: ntfy url https://ntfy.sh is a real public server (pre-existing placeholder); macOS sudoers draft not applied; agent install on Macs manual; set ssh_user for workstations; run fleet-bootstrap.ps1 -SshUser as admin on each PC."
     }
   ]
 }
