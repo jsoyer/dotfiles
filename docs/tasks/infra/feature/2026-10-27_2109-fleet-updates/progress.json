@@ -46,14 +46,15 @@
       "id": 4,
       "file": "sprints/04-finitions-mise-en-service.md",
       "title": "Finitions et mise en service (Linux + appliances)",
-      "status": "not_started",
+      "status": "complete",
       "depends_on": [
         3
       ],
       "batch": 4,
       "model": "sonnet",
-      "branch": null,
-      "merged": false
+      "branch": "sprint/04-finitions",
+      "merged": true,
+      "notes": "Complete by the Sprints 1-3 convention (all locally doable tasks done and verified; live items BLOCKED). Done: docs/FLEET.md (every command/option, selectors, statuses, prerequisites per kind, key revocation, manual procedure, manual actions checklist, known limitations), fup alias (zsh+bash verified), ALIASES.md and CHEZMOISCRIPTS.md, tailscale-acl.hujson drafted NOT applied. Merge 8676a707; 476 tests pass on git-archive export, bash -n 0, shellcheck 0 new findings (145 pre-existing, exit 1), 8/8 invariants 0, ACL parses. Review: 2 reviewers PASS with minor fixes, all fixed. BLOCKED (live infra, requires Jerome): first real fleet up; real fleet up --critical (OPNsense then multibox); fleet.yml corrections from real runs; real-run report archived in .artifacts/reports/. Open: apply ACL (replace any allow-all rule, tag masters with both tags, keep Tailscale SSH off on targets); 1Password item is op://Private/Fleet (vault Private), not a vault Fleet; fleet.yml api URLs and ntfy.url still placeholders."
     },
     {
       "id": 5,
