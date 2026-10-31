@@ -20,9 +20,9 @@
 version: 1
 masters: [diabolo, penelope]
 # ntfy: server reached through the `gateway` host (phase 3, treated alone); the token
-# is only an op:// reference, read at run time, never stored here. The url is a
-# placeholder until the bbh-network server address is confirmed (UNCERTAIN).
-ntfy: {url: "https://ntfy.sh", topic: fleet, token_ref: "op://Private/Fleet/ntfy-token", gateway: bbh-network}
+# is only an op:// reference, read at run time, never stored here. The server runs
+# in a Docker container on bbh-network; url is its external address.
+ntfy: {url: "https://ntfy.bbhome.wf", topic: fleet, token_ref: "op://Private/Fleet/ntfy-token", gateway: bbh-network}
 # Console -> master choice per site of the targets (default: the first master, diabolo).
 master_priority: {nice: penelope}
 parallel: {total: 10, per_site: 4}

@@ -416,8 +416,8 @@ Nothing below has been done by the code.
 - [ ] 1Password service account (or desktop integration) usable by `op` on both masters,
       non-interactively (timer and `fleet up`).
 - [ ] Generate the two master ed25519 key pairs and set `FLEET_SSH_IDENTITY` on the masters.
-- [ ] ntfy: confirm the server address of `bbh-network` and replace the placeholder
-      `ntfy.url` (`https://ntfy.sh`), create the topic `fleet` and an access token.
+- [ ] ntfy: `ntfy.url` is `https://ntfy.bbhome.wf` (Docker container on `bbh-network`);
+      create the topic `fleet` and an access token.
 - [ ] OPNsense: create user `fleet` with the single privilege **System: Firmware**,
       generate an API key/secret.
 - [ ] Home Assistant (x3): dedicated non-owner user + long-lived token.
@@ -455,7 +455,7 @@ Nothing below has been done by the code.
   A real list needs an agent verb (not planned) or stays generic.
 - Master-to-master `rsync` needs a dedicated key (the agent's forced command refuses
   rsync); until then the sync fails and is logged, retried by the next run.
-- `ntfy.url` is a placeholder; the reminder timer is not enabled by default.
+- The reminder timer is not enabled by default.
 - OPNsense: pending updates are treated as `minor` even when the box is in the
   `upgrade` state, to be confirmed on the real box (firmware endpoints are named
   constants). Major releases are never applied. Home Assistant Core failure is
