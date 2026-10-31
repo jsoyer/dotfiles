@@ -80,7 +80,7 @@ TAB="$(printf '\t')"
 
 # Environment variables handed to the detached job (systemd --user units do not
 # inherit the caller's environment).
-PASSTHROUGH_VARS="PATH FLEET_AGENT_STATE_DIR FLEET_AGENT_LOCK_DIR FLEET_AGENT_SYSUP FLEET_AGENT_ETC_DIR FLEET_AGENT_CRITICAL_FILE FLEET_AGENT_REBOOT_FLAG FLEET_AGENT_MODULES_DIR FLEET_AGENT_POWER_DIR FLEET_AGENT_OS_RELEASE FLEET_AGENT_HOST FLEET_AGENT_PKGMGR FLEET_AGENT_KERNEL FLEET_AGENT_LOG_FILE FLEET_AGENT_REBOOT_DELAY FLEET_AGENT_TEST"
+PASSTHROUGH_VARS="PATH FLEET_AGENT_STATE_DIR FLEET_AGENT_LOCK_DIR FLEET_AGENT_SYSUP FLEET_AGENT_ETC_DIR FLEET_AGENT_CRITICAL_FILE FLEET_AGENT_REBOOT_FLAG FLEET_AGENT_MODULES_DIR FLEET_AGENT_POWER_DIR FLEET_AGENT_OS_RELEASE FLEET_AGENT_HOST FLEET_AGENT_PKGMGR FLEET_AGENT_KERNEL FLEET_AGENT_LOG_FILE FLEET_AGENT_REBOOT_DELAY FLEET_AGENT_TEST FLEET_AGENT_KIND FLEET_AGENT_CF_BIN FLEET_AGENT_CF_READY_URL FLEET_AGENT_CF_TRIES FLEET_AGENT_CF_SLEEP"
 
 # ---------------------------------------------------------------- utilities
 
@@ -573,6 +573,141 @@ refresh_reboot_fields() {
   fi
 }
 
+# ---------------------------------------------------------------- appliance branches
+
+# agent_kind: omv | pikvm | proxmox | generic (anything sysup handles).
+# Detected from the tool each appliance ships, so nothing needs configuring;
+# FLEET_AGENT_KIND overrides it in tests only (dropped in an SSH context).
+agent_kind() {
+  if [ -n "${FLEET_AGENT_KIND:-}" ]; then printf '%s' "$FLEET_AGENT_KIND"; return; fi
+  if command -v pveversion >/dev/null 2>&1; then printf proxmox
+  elif command -v omv-upgrade >/dev/null 2>&1; then printf omv
+  elif command -v pikvm-update >/dev/null 2>&1; then printf pikvm
+  else printf generic
+  fi
+}
+
+# tool_path <name>: absolute path, the same one `fleet bootstrap` put in sudoers.
+tool_path() { command -v "$1" 2>/dev/null; }
+
+# as_root <abs path> [args]: exact sudoers commands only (never a shell, never a
+# free-form argument). Already root (PiKVM logs in as root): run directly.
+as_root() {
+  if [ "$(id -u)" = 0 ]; then "$@"; else sudo -n "$@"; fi
+}
+
+# proxmox_vm_lines: "vm: <id> <name> <status>" per VM, best effort and without
+# sudo (there is no agent verb to list VMs). Empty when `qm list` is not allowed;
+# the master then falls back to a generic warning.
+proxmox_vm_lines() {
+  command -v qm >/dev/null 2>&1 || return 0
+  qm list 2>/dev/null \
+    | awk 'NR > 1 && $1 ~ /^[0-9]+$/ { printf "vm: %s %s %s\n", $1, $2, $3 }' | head -n 20
+}
+
+# OMV: `omv-upgrade` (never apt directly), non-interactive.
+update_omv() {
+  local bin
+  bin="$(tool_path omv-upgrade)"
+  if [ -z "$bin" ]; then echo "omv-upgrade not found"; return 127; fi
+  DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a as_root "$bin"
+}
+
+# cloudflared_ready: the tunnel answers on the local metrics /ready endpoint.
+cloudflared_ready() {
+  local url="${FLEET_AGENT_CF_READY_URL:-http://127.0.0.1:20241/ready}"
+  local tries="${FLEET_AGENT_CF_TRIES:-12}" pause="${FLEET_AGENT_CF_SLEEP:-5}" i=0
+  case "$tries" in *[!0-9]*|"") tries=12 ;; esac
+  case "$pause" in *[!0-9]*|"") pause=5 ;; esac
+  command -v curl >/dev/null 2>&1 || return 1
+  while [ "$i" -lt "$tries" ]; do
+    curl -fsS --max-time 3 "$url" >/dev/null 2>&1 && return 0
+    i=$((i + 1))
+    [ "$i" -lt "$tries" ] && sleep "$pause"
+  done
+  return 1
+}
+
+# pikvm_cloudflared: manually installed binary. Keeps the old one (user-owned
+# copy in the state dir); restarts the service only if the version changed;
+# restores the old binary if the tunnel does not come back. Restoring needs write
+# access to the binary: only when the account is root (PiKVM default) because the
+# closed sudoers list (spec section 10) has no command to write /usr/local/bin.
+pikvm_cloudflared() {
+  local cf="${FLEET_AGENT_CF_BIN:-/usr/local/bin/cloudflared}" before after urc sc old
+  if [ ! -x "$cf" ]; then echo "cloudflared not installed: step skipped"; return 0; fi
+  sc="$(tool_path systemctl)"
+  old="$STATE_DIR/cloudflared.old"
+  before="$("$cf" --version 2>/dev/null | head -n 1)"
+  mkdir -p "$STATE_DIR"
+  if ! cp -p "$cf" "$old"; then echo "cannot keep the old cloudflared"; return 42; fi
+  as_root "$cf" update; urc=$?
+  case "$urc" in 0|11) ;; *) echo "cloudflared update failed (exit $urc)"; return 42 ;; esac
+  after="$("$cf" --version 2>/dev/null | head -n 1)"
+  if [ "$before" = "$after" ]; then echo "cloudflared unchanged: $after"; return 0; fi
+  echo "cloudflared: $before -> $after"
+  as_root "$sc" restart cloudflared
+  if cloudflared_ready; then echo "cloudflared tunnel ready"; return 0; fi
+  echo "cloudflared tunnel not ready after update"
+  if [ -w "$cf" ] && cp -p "$old" "$cf"; then
+    as_root "$sc" restart cloudflared
+    if cloudflared_ready; then echo "old cloudflared restored: tunnel ready"; return 43; fi
+  fi
+  echo "old cloudflared kept in $old: restore by hand"
+  return 44
+}
+
+# PiKVM: ONE rw window; `ro` is guaranteed by the EXIT trap, even on failure or
+# a signal. Exit codes: 40 rw failed, 41 pikvm-update failed, 42 cloudflared
+# update failed, 43 tunnel down (old binary restored), 44 tunnel down (restore by
+# hand), 45 kvmd inactive.
+update_pikvm() {
+  local rw ro pk
+  rw="$(tool_path rw)"; ro="$(tool_path ro)"; pk="$(tool_path pikvm-update)"
+  if [ -z "$rw" ] || [ -z "$ro" ] || [ -z "$pk" ]; then echo "pikvm tools (rw, ro, pikvm-update) not found"; return 127; fi
+  (
+    trap 'as_root "$ro" || echo "WARNING: ro failed" >&2' EXIT
+    trap 'exit 143' TERM INT HUP
+    as_root "$rw" || { echo "rw failed"; exit 40; }
+    as_root "$pk" || { echo "pikvm-update failed"; exit 41; }
+    pikvm_cloudflared || exit $?
+    if command -v systemctl >/dev/null 2>&1 && ! systemctl is-active --quiet kvmd 2>/dev/null; then
+      echo "kvmd is not active"; exit 45
+    fi
+    exit 0
+  )
+}
+
+# run_update_tool <logfile>: the kind's updater, output to the log; returns its exit code.
+run_update_tool() {
+  case "$(agent_kind)" in
+    omv) update_omv >"$1" 2>&1 </dev/null ;;
+    pikvm) update_pikvm >"$1" 2>&1 </dev/null ;;
+    *)
+      # generic and proxmox (apt dist-upgrade through sysup, never --reboot)
+      if [ -x "$SYSUP" ]; then
+        "$SYSUP" >"$1" 2>&1 </dev/null
+      else
+        printf 'sysup not found or not executable: %s\n' "$SYSUP" >"$1"
+        return 127
+      fi ;;
+  esac
+}
+
+# update_failure_reason <rc>
+update_failure_reason() {
+  case "$(agent_kind):$1" in
+    pikvm:40) printf rw_failed ;;
+    pikvm:41) printf pikvm_update_failed ;;
+    pikvm:42) printf cloudflared_update_failed ;;
+    pikvm:43) printf cloudflared_tunnel_down_restored ;;
+    pikvm:44) printf cloudflared_tunnel_down_restore_by_hand ;;
+    pikvm:45) printf kvmd_inactive ;;
+    omv:*) printf 'omv_upgrade_exit_%s' "$1" ;;
+    *) printf 'sysup_exit_%s' "$1" ;;
+  esac
+}
+
 # ---------------------------------------------------------------- verbs
 
 verb_check() {
@@ -594,6 +729,7 @@ verb_check() {
   V_conflicts="$(list_json "$STATE_DIR/.conflicts.$$")"
   rm -f "$STATE_DIR/.conflicts.$$"
   refresh_reboot_fields
+  if [ "$(agent_kind)" = proxmox ]; then V_log_tail="$(proxmox_vm_lines | mask_secrets)"; fi
   if [ "$V_status" != running ]; then
     pending="$(pending_count)"; prc=$?
     if [ "$prc" = 3 ]; then
@@ -751,13 +887,8 @@ run_job() {
 
   pre="$jobdir/pkgs.pre"; post="$jobdir/pkgs.post"
   pkg_snapshot "$pre"
-  if [ -x "$SYSUP" ]; then
-    "$SYSUP" >"$jobdir/sysup.log" 2>&1 </dev/null
-    rc=$?
-  else
-    printf 'sysup not found or not executable: %s\n' "$SYSUP" >"$jobdir/sysup.log"
-    rc=127
-  fi
+  run_update_tool "$jobdir/sysup.log"
+  rc=$?
   pkg_snapshot "$post"
   cnt="$jobdir/count"
   changes_from "$pre" "$post" "$jobdir/changes.json" "$cnt"
@@ -775,7 +906,7 @@ run_job() {
 
   why="$(degraded_reason "$jobdir/hb" "$hdir")"
   if [ "$rc" -ne 0 ]; then
-    V_status="failed"; V_reason="sysup_exit_$rc"
+    V_status="failed"; V_reason="$(update_failure_reason "$rc")"
   elif [ -n "$why" ]; then
     V_status="degraded"; V_reason="$why"
   elif [ "${V_packages:-0}" -gt 0 ]; then
