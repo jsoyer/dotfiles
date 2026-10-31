@@ -269,7 +269,7 @@ function Save-JobState {
 function Get-CappedTail {
     param([string]$Path, [int]$Lines = 200)
     if (-not (Test-Path -LiteralPath $Path)) { return '' }
-    $text = (@(Get-Content -LiteralPath $Path -Tail $Lines -ErrorAction SilentlyContinue) -join "`n")
+    $text = (@(Get-Content -LiteralPath $Path -Tail $Lines -Encoding UTF8 -ErrorAction SilentlyContinue) -join "`n")
     if ($text.Length -gt $script:LogCapChars) { $text = $text.Substring($text.Length - $script:LogCapChars) }
     return $text
 }
@@ -436,15 +436,32 @@ function Enter-AgentLock {
         }
         catch [System.IO.IOException] {
             if (Test-LockAlive) { return $false }
-            # Atomic stale takeover: only ONE contender can rename the stale lock away; the
-            # others fail the rename (file gone) and race on CreateNew, which stays exclusive.
-            $aside = $script:LockFile + '.stale-' + [Guid]::NewGuid().ToString('N')
+            # Stale takeover, serialized by a machine-wide named mutex: without it, contender A could
+            # move the stale lock aside and create its live lock, and contender B (which judged the
+            # old lock stale earlier) would then move A's LIVE lock away. Staleness is re-checked
+            # inside the mutex, so B sees A's live lock and backs off.
+            $mutex = New-Object System.Threading.Mutex($false, 'Global\fleet-agent-lock-takeover')
+            $held = $false
             try {
-                [System.IO.File]::Move($script:LockFile, $aside)
-                Remove-Item -LiteralPath $aside -Force -ErrorAction SilentlyContinue
+                try { $held = $mutex.WaitOne(15000) }
+                catch [System.Threading.AbandonedMutexException] { $held = $true }
+                if (-not $held) {
+                    Write-AgentLog -Message 'lock: stale takeover mutex timeout' -EventId 4003
+                    return $false
+                }
+                if (Test-LockAlive) { return $false }
+                $aside = $script:LockFile + '.stale-' + [Guid]::NewGuid().ToString('N')
+                try {
+                    [System.IO.File]::Move($script:LockFile, $aside)
+                    Remove-Item -LiteralPath $aside -Force -ErrorAction SilentlyContinue
+                }
+                catch {
+                    Write-AgentLog -Message 'lock: stale takeover lost the race' -EventId 4003
+                }
             }
-            catch {
-                Write-AgentLog -Message 'lock: stale takeover lost the race' -EventId 4003
+            finally {
+                if ($held) { $mutex.ReleaseMutex() }
+                $mutex.Dispose()
             }
         }
     }
@@ -747,7 +764,7 @@ function Get-WingetUpgradeList {
         $proc = Start-Process -FilePath $WingetPath -ArgumentList @('upgrade', '--include-unknown', '--accept-source-agreements', '--disable-interactivity') `
             -NoNewWindow -PassThru -RedirectStandardOutput $outFile
         if (-not $proc.WaitForExit(300000)) { & taskkill.exe /T /F /PID $proc.Id 2>&1 | Out-Null }
-        $lines = @(Get-Content -LiteralPath $outFile -ErrorAction SilentlyContinue)
+        $lines = @(Get-Content -LiteralPath $outFile -Encoding UTF8 -ErrorAction SilentlyContinue)
     }
     finally {
         Remove-Item -LiteralPath $outFile -Force -ErrorAction SilentlyContinue

@@ -300,6 +300,23 @@ class StaticAgent(unittest.TestCase):
         self.assertNotIn("Remove-Item -LiteralPath $script:LockFile", enter)
         self.assertLess(enter.index("File]::Move"), enter.index("CreateNew") + len(enter))
 
+    def test_stale_takeover_is_serialized_by_a_named_mutex(self):
+        enter = function_body("Enter-AgentLock")
+        self.assertIn("System.Threading.Mutex", enter)
+        self.assertIn("Global\\fleet-agent-lock-takeover", enter)
+        self.assertIn("WaitOne(", enter)
+        self.assertIn("AbandonedMutexException", enter)
+        self.assertIn("ReleaseMutex()", enter)
+        self.assertRegex(enter, r"finally\s*\{[^}]*ReleaseMutex")
+        # staleness is re-checked INSIDE the mutex, before the stale lock is moved aside
+        inside = enter[enter.index("WaitOne("):]
+        self.assertLess(inside.index("Test-LockAlive"), inside.index("File]::Move"))
+
+    def test_external_utf8_output_is_read_as_utf8(self):
+        winget = function_body("Get-WingetUpgradeList")
+        self.assertRegex(winget, r"Get-Content -LiteralPath \$outFile -Encoding UTF8")
+        self.assertIn("-Encoding UTF8", function_body("Get-CappedTail"))
+
     def test_test_overrides_restricted_to_temp(self):
         ov = function_body("Get-TestOverridePath")
         self.assertIn("$script:TestMode", ov)
@@ -403,10 +420,37 @@ class StaticBootstrap(unittest.TestCase):
         self.assertLess(BOOT.index("\nSet-SshdHardening"), BOOT.index("\nWrite-AuthorizedKey"))
 
     def test_task_user_must_be_administrator(self):
-        chk = function_body_of(BOOT, "Assert-TaskUserIsAdministrator")
-        self.assertIn("Get-LocalGroupMember -SID $adminSid", chk)
-        self.assertIn("throw", chk)
+        self.assertIn("Assert-IsLocalAdministrator -Account $TaskUser", function_body_of(BOOT, "Assert-TaskUserIsAdministrator"))
         self.assertLess(BOOT.index("\nAssert-TaskUserIsAdministrator"), BOOT.index("\nInstall-AgentFile"))
+
+    def test_ssh_user_must_be_administrator_too(self):
+        self.assertIn("Assert-IsLocalAdministrator -Account $SshUser", function_body_of(BOOT, "Assert-SshUserIsAdministrator"))
+        self.assertLess(BOOT.index("\nAssert-SshUserIsAdministrator"), BOOT.index("\nInstall-AgentFile"))
+
+    def test_admin_check_compares_sids_not_names(self):
+        chk = function_body_of(BOOT, "Assert-IsLocalAdministrator")
+        self.assertIn("System.Security.Principal.NTAccount($Account)", chk)
+        self.assertIn("Translate([System.Security.Principal.SecurityIdentifier])", chk)
+        self.assertIn("-notcontains $sid", chk)
+        self.assertNotIn(".Name", chk)
+        members = function_body_of(BOOT, "Get-AdministratorMemberSid")
+        self.assertIn("Get-LocalGroupMember -SID $adminSid", members)
+        self.assertIn("$m.SID.Value", members)
+        # orphaned / AzureAD members make Get-LocalGroupMember throw: ADSI fallback, SIDs only
+        self.assertIn("catch", members)
+        self.assertIn("WinNT://./Administrators,group", members)
+        self.assertIn("objectSid", members)
+        self.assertIn("throw", chk)
+
+    def test_sshd_stays_stopped_until_hardened(self):
+        inst = function_body_of(BOOT, "Install-OpenSshServer")
+        self.assertIn("Disable-NetFirewallRule -Name 'OpenSSH-Server-In-TCP'", inst)
+        self.assertLess(inst.index("Add-WindowsCapability"), inst.index("Disable-NetFirewallRule"))
+        self.assertIn("Stop-Service -Name sshd", inst)
+        self.assertNotIn("Start-Service", inst)
+        self.assertNotIn("Restart-Service", inst)
+        hard = function_body_of(BOOT, "Set-SshdHardening")
+        self.assertLess(hard.index("$LASTEXITCODE -ne 0"), hard.index("Restart-Service"))
 
     def test_full_powershell_path_and_hidden_update_task(self):
         self.assertIn("System32\\WindowsPowerShell\\v1.0\\powershell.exe", BOOT)

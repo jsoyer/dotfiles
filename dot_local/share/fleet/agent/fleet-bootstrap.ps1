@@ -167,15 +167,51 @@ function Assert-AclAdminOnly {
     }
 }
 
+# SIDs (string) of the local Administrators group members. Get-LocalGroupMember throws on
+# orphaned / AzureAD members, so fall back to ADSI, which enumerates raw SIDs.
+function Get-AdministratorMemberSid {
+    $sids = @()
+    try {
+        foreach ($m in @(Get-LocalGroupMember -SID $adminSid -ErrorAction Stop)) { $sids += $m.SID.Value }
+        return , $sids
+    }
+    catch {
+        [Console]::Error.WriteLine('fleet-bootstrap: Get-LocalGroupMember failed (' + $_.Exception.Message + '); falling back to ADSI')
+    }
+    $sids = @()
+    try {
+        $group = [ADSI]'WinNT://./Administrators,group'
+        foreach ($member in @($group.psbase.Invoke('Members'))) {
+            $raw = $member.GetType().InvokeMember('objectSid', 'GetProperty', $null, $member, $null)
+            $sids += (New-Object System.Security.Principal.SecurityIdentifier($raw, 0)).Value
+        }
+    }
+    catch {
+        throw ('cannot enumerate the local Administrators group: ' + $_.Exception.Message)
+    }
+    return , $sids
+}
+
+# Compares SIDs, never names (names differ by domain / machine prefix / case / localisation).
+function Assert-IsLocalAdministrator {
+    param([string]$Account, [string]$Label)
+    try {
+        $sid = (New-Object System.Security.Principal.NTAccount($Account)).Translate([System.Security.Principal.SecurityIdentifier]).Value
+    }
+    catch {
+        throw ('{0} {1} cannot be resolved to a SID: {2}' -f $Label, $Account, $_.Exception.Message)
+    }
+    if (@(Get-AdministratorMemberSid) -notcontains $sid) {
+        throw ('{0} {1} ({2}) is not a member of the local Administrators group (needed for -RunLevel Highest, the admin-only state dir and the administrators_authorized_keys file)' -f $Label, $Account, $sid)
+    }
+}
+
 function Assert-TaskUserIsAdministrator {
-    $found = $false
-    $short = $TaskUser.Split('\')[-1]
-    foreach ($m in @(Get-LocalGroupMember -SID $adminSid)) {
-        if ($m.Name -ieq $TaskUser -or $m.Name -ieq $short -or $m.Name.Split('\')[-1] -ieq $short) { $found = $true }
-    }
-    if (-not $found) {
-        throw ('TaskUser {0} is not a member of the local Administrators group (needed for -RunLevel Highest and the admin-only state dir)' -f $TaskUser)
-    }
+    Assert-IsLocalAdministrator -Account $TaskUser -Label 'TaskUser'
+}
+
+function Assert-SshUserIsAdministrator {
+    Assert-IsLocalAdministrator -Account $SshUser -Label 'SshUser'
 }
 
 function Install-AgentFile {
@@ -201,9 +237,13 @@ function Install-OpenSshServer {
     if ($null -ne $cap -and $cap.State -ne 'Installed') {
         [void](Add-WindowsCapability -Online -Name $cap.Name)
     }
+    # The capability install creates the stock firewall rule (port 22 from anywhere): disable it
+    # immediately, and keep sshd stopped until sshd_config is hardened and `sshd -t` passes.
+    $stock = Get-NetFirewallRule -Name 'OpenSSH-Server-In-TCP' -ErrorAction SilentlyContinue
+    if ($null -ne $stock) { Disable-NetFirewallRule -Name 'OpenSSH-Server-In-TCP' }
     Set-Service -Name sshd -StartupType Automatic
-    if ((Get-Service -Name sshd).Status -ne 'Running') { Start-Service -Name sshd }
-    Write-Step 'OpenSSH Server installed, sshd automatic and running'
+    if ((Get-Service -Name sshd).Status -ne 'Stopped') { Stop-Service -Name sshd -Force }
+    Write-Step 'OpenSSH Server installed, stock firewall rule disabled, sshd automatic but stopped until hardened'
 }
 
 function Initialize-SshFirewall {
@@ -261,6 +301,7 @@ function Set-SshdHardening {
         Copy-Item -LiteralPath $backup -Destination $cfg -Force
         throw ('sshd -t rejected the new sshd_config; backup restored from ' + $backup)
     }
+    # Only now (config validated by sshd -t) may sshd run; Restart-Service also starts a stopped service.
     Restart-Service -Name sshd
     Write-Step ('sshd_config hardened (backup ' + $backup + '), AllowUsers ' + $SshUser)
 }
@@ -350,6 +391,7 @@ function Test-TailscaleSshOff {
 
 if (-not (Test-Administrator)) { throw 'run this script in an elevated PowerShell (Administrator)' }
 Assert-TaskUserIsAdministrator
+Assert-SshUserIsAdministrator
 Install-AgentFile
 Install-OpenSshServer
 Initialize-SshFirewall

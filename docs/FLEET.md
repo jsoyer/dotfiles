@@ -241,9 +241,10 @@ statuses and exit codes (0/1/2/3) as the Unix agent. `ping` is not an agent verb
 - **Bootstrap hardening** (all checked before anything is trusted):
   - `-SshUser <account>` is required: it becomes `AllowUsers <account>` in `sshd_config`, so every
     other account (including other administrators) can no longer log in over SSH. Pass the
-    account the masters connect as. `-TaskUser` (default: the current account) must be a member
-    of the local Administrators group (`-RunLevel Highest`, admin-only state dir), else the
-    script stops.
+    account the masters connect as. `-SshUser` must itself be a local Administrator (keys live in
+    `administrators_authorized_keys`), and so must `-TaskUser` (default: the current account;
+    `-RunLevel Highest`, admin-only state dir); both are compared by SID against the
+    Administrators group (ADSI fallback for orphaned/AzureAD members), else the script stops.
   - The agent directory (`C:\ProgramData\fleet-agent`) is refused when it already exists with an
     owner other than BUILTIN\Administrators / NT AUTHORITY\SYSTEM, or when it or any ancestor is
     a reparse point (junction / symlink). The owner is then set to Administrators, inheritance
@@ -256,7 +257,9 @@ statuses and exit codes (0/1/2/3) as the Unix agent. `ping` is not an agent verb
     `KbdInteractiveAuthentication no`, `AllowUsers <SshUser>` are set (idempotent) and the
     `Match Group administrators` / `AuthorizedKeysFile __PROGRAMDATA__/ssh/administrators_authorized_keys`
     block is kept. The result is validated with `sshd.exe -t` BEFORE `Restart-Service sshd`;
-    on failure the backup is restored and the script aborts.
+    on failure the backup is restored and the script aborts. The stock `OpenSSH-Server-In-TCP`
+    firewall rule is disabled right after the capability install and sshd stays stopped until
+    hardening has passed `sshd -t`.
   - Forced command and scheduled tasks use the full path
     `%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe` and a quoted `-File "<agent>"`
     (in `authorized_keys` the inner quotes are written `\"`). The update task runs with
@@ -310,7 +313,9 @@ Proxmox kinds and hosts with a non-empty `critical-services` file are refused (r
 `pull_denied`, `pull_kind_<kind>`, `pull_critical_services`, `pull_guardian`); a failed, degraded or
 hung pull update is not retried (and not notified again) for 24 h (`last-attempt` newer than
 `last-success`, reason `pull_backoff`); a pull-launched update is killed after 2 h
-(`RuntimeMaxSec=7200` under systemd, a watchdog subshell on macOS); `busy` exits 0 in pull mode; updates only if the last successful update is older than 7 days (state file
+(`RuntimeMaxSec=7200` under systemd, a watchdog subshell on macOS that runs the job in its own process group and kills the whole
+group, TERM then KILL after 5 s; the job traps TERM and records a final `failed` state with reason
+`timeout`); `busy` exits 0 in pull mode; updates only if the last successful update is older than 7 days (state file
 `last-success`); notifies ntfy with priority 2 when the job ends, and mentions that a restart
 is required but not done. Settings in `~/.config/fleet-agent/pull.conf` (never sourced):
 `NTFY_URL`, `NTFY_TOPIC`, `NTFY_TOKEN_FILE` (the token is read from that file, sent to curl on
