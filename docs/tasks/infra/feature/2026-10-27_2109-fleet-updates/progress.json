@@ -32,14 +32,15 @@
       "id": 3,
       "file": "sprints/03-appliances.md",
       "title": "Appliances (PiKVM, OPNsense, Home Assistant, OMV, Proxmox)",
-      "status": "not_started",
+      "status": "complete",
       "depends_on": [
         2
       ],
       "batch": 3,
       "model": "sonnet",
-      "branch": null,
-      "merged": false
+      "branch": "sprint/03-appliances (+ fix/fleet-sudoers-noargs, fix/fleet-sprint3-review, fix/fleet-sprint3-canonical)",
+      "merged": true,
+      "notes": "All 8 tasks implemented and simulated-tested; 476 tests pass (export of HEAD), shellcheck 0, real visudo -cf OK on OMV/PiKVM fragments, 8/8 invariants 0. Review: 3 reviewers, 6 HIGH fixed (bootstrap trusted paths + staged root-verified install, cloudflared rollback by rename, VM-line terminal injection, tailnet-only API URLs, verify_privileges catch-all) plus MEDIUMs; sudoers no-arg commands render with an explicit empty argument list \"\"; the fragment grants the canonical readlink -f path, verified root-owned with no symlink component. BLOCKED (requires live infra): real check on each type; real update on OMV or PiKVM; real OPNsense 403 probe and HA non-owner check; exact OPNsense/HA Supervisor endpoints on installed versions. Sudoers fragments NOT applied: Stop and review by Jerome. Open for user: cloudflared rollback automatic only as root (closed list has no write command); qm list as non-root usually fails (generic VM warning); https to literal tailnet IPs accepted; OPNsense updates>0 treated as minor even in state 'upgrade' (confirm on real box); HA Core failure reported failed (not degraded); fleet check CLI shows unsupported for API hosts (run('check')/verify_privileges have no CLI verb); fleet.yml api URLs are placeholders (example-tailnet.ts.net)."
     },
     {
       "id": 4,
