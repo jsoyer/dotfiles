@@ -150,6 +150,8 @@ class StaticAgent(unittest.TestCase):
         code = strip_comments_and_strings(AGENT + BOOT)
         for alias in ("gci", "iex", "foreach ", "%", "ls ", "cat ", "echo ", "rm ", "sleep "):
             if alias == "%":
+                # '%' is also the format operator: only the ForEach-Object alias (`| % {`) is banned
+                self.assertNotRegex(code, r"\|\s*%\s*[{(]", alias)
                 continue
             self.assertNotRegex(code, r"(^|[\s(|;])" + re.escape(alias.strip()) + r"\s+-?\w", alias)
         self.assertNotIn("Write-Host", code)
@@ -215,6 +217,10 @@ class StaticAgent(unittest.TestCase):
         # the only caller of the restart verb is the SSH switch
         self.assertEqual(len(re.findall(r"Invoke-VerbReboot(?!Status)", AGENT)), 2)  # definition + switch label
         self.assertEqual(len(re.findall(r"shutdown\.exe", AGENT)), 1)
+        reboot = function_body("Invoke-VerbReboot")
+        self.assertIn("/t 30", reboot)
+        self.assertIn("$LASTEXITCODE -ne 0", reboot)
+        self.assertIn("shutdown_failed", reboot)
         self.assertIn("'reboot' { Invoke-VerbReboot }", AGENT)
 
     def test_pull_rules(self):
@@ -228,6 +234,89 @@ class StaticAgent(unittest.TestCase):
         notify = function_body("Send-PullNotification")
         self.assertIn("Priority = '2'", notify)
         self.assertIn("https://", notify)
+        # token: read from NTFY_TOKEN_FILE, only ever placed in the Authorization header
+        self.assertIn("Get-ConfValue -Key 'NTFY_TOKEN_FILE'", notify)
+        self.assertIn("$headers['Authorization'] = 'Bearer ' + $token", notify)
+        self.assertEqual(len(re.findall(r"\$token\b", notify)), 3)  # assigned, validated, header
+        for sink in ("-Uri ($url", "Write-AgentLog", "Start-Process", "-Body"):
+            for line in notify.splitlines():
+                if sink in line:
+                    self.assertNotIn("$token", line, line)
+        # the 7-day comparison reads the last-success stamp; a future stamp is stale
+        self.assertIn("'last-success'", pull)
+        self.assertIn("$age -ge 0", pull)
+        self.assertIn("{1,11}", pull)
+        self.assertEqual(len(re.findall(r"\bnot_enabled\b", function_body("Get-PullDeniedReason"))), 1)
+        self.assertNotIn("pull_pull", AGENT)
+
+    def test_serialization_depth_compress_arrays_int(self):
+        build = function_body("Get-ResultJson")
+        self.assertRegex(build, r"ConvertTo-Json -InputObject \$safe -Depth ([5-9]|\d\d) -Compress")
+        self.assertIn("@($script:R[$arrayKey])", build)
+        self.assertIn("'changes', 'config_conflicts'", build)
+        self.assertIn("[int](Get-DiskFreePct)", function_body("Get-HealthSnapshot"))
+        self.assertIn("return [int][math]::Floor", function_body("Get-DiskFreePct"))
+        self.assertNotRegex(AGENT, r"ConvertTo-Json(?![^\n]*-Compress)")
+
+    def test_ended_only_at_completion(self):
+        build = function_body("Get-ResultJson")
+        self.assertIn("if ($Final -and $null -eq $script:R['ended'])", build)
+        job = function_body("Invoke-AgentJob")
+        running = job.split("$script:R['status'] = 'running'", 1)[1].split("Invoke-UpdateStep", 1)[0]
+        self.assertNotIn("-Final", running)
+        self.assertIn("Save-JobState -JobDir $jobDir -Final", job)
+        self.assertIn("Get-ResultJson -Verb 'update' -Final", function_body("Save-JobState"))
+
+    def test_timeout_kills_tree_and_is_reported(self):
+        proc = function_body("Invoke-CappedProcess")
+        self.assertIn("taskkill.exe /T /F /PID", proc)
+        self.assertNotIn(".Kill()", proc)
+        self.assertIn("$script:JobMaxMinutes = 120", AGENT)
+        job = function_body("Invoke-AgentJob")
+        self.assertIn("$script:R['reason'] = 'timeout'", job)
+        self.assertNotIn("'timeout'", re.sub(r"\$script:R\['reason'\] = 'timeout'", "", job).replace("# 'timeout' is a master-only status", ""))
+        self.assertIn("JobDeadline", function_body("Invoke-UpdateStep"))
+
+    def test_winget_and_wsl_changes_are_counted(self):
+        winget = function_body("Invoke-StepWinget")
+        self.assertLess(winget.index("Get-WingetUpgradeList"), winget.index("'--all'") if "'--all'" in winget else winget.index("upgrade', '--all'"))
+        self.assertIn("Add-JobChange -Name ('winget:' + $pkg.Id)", winget)
+        self.assertIn("--include-unknown", function_body("Get-WingetUpgradeList"))
+        self.assertIn("-{5,}", function_body("ConvertFrom-WingetUpgradeTable"))
+        wsl = function_body("Invoke-StepWsl")
+        self.assertIn("Add-JobChange -Name ('wsl:' + $distro)", wsl)
+        self.assertIn("Add-JobChange -Name 'wsl:kernel'", wsl)
+
+    def test_lock_handoff_and_atomic_takeover(self):
+        alive = function_body("Test-LockAlive")
+        self.assertIn("Test-JobOwnerAlive", alive)
+        owner = function_body("Test-JobOwnerAlive")
+        self.assertIn("'started'", owner)
+        self.assertIn("'running'", owner)
+        self.assertIn("AddMinutes(-10)", owner)
+        enter = function_body("Enter-AgentLock")
+        self.assertIn("[System.IO.File]::Move($script:LockFile, $aside)", enter)
+        self.assertIn("NewGuid", enter)
+        self.assertNotIn("Remove-Item -LiteralPath $script:LockFile", enter)
+        self.assertLess(enter.index("File]::Move"), enter.index("CreateNew") + len(enter))
+
+    def test_test_overrides_restricted_to_temp(self):
+        ov = function_body("Get-TestOverridePath")
+        self.assertIn("$script:TestMode", ov)
+        self.assertIn("$env:TEMP", ov)
+        self.assertIn("StartsWith", ov)
+        for name in ("FLEET_AGENT_STATE_DIR", "FLEET_AGENT_CONF_DIR"):
+            self.assertIn("Get-TestOverridePath -Name '%s'" % name, AGENT)
+            self.assertNotIn("$env:" + name, AGENT)
+
+    def test_report_survives_corrupt_state_and_log_is_capped(self):
+        rep = function_body("Invoke-VerbReport")
+        self.assertIn("catch {", rep)
+        self.assertIn("state_unreadable", rep)
+        self.assertLess(rep.index("try {"), rep.index("ConvertFrom-Json"))
+        log = function_body("Write-AgentLog")
+        self.assertIn("$script:AgentLogMaxBytes", log)
+        self.assertIn("$script:AgentLogMaxBytes = 1048576", AGENT)
 
     def test_secrets_masked_on_structures(self):
         self.assertIn("IDictionary", function_body("Protect-Data"))
@@ -258,15 +347,74 @@ class StaticBootstrap(unittest.TestCase):
         self.assertIn("restrict,command=", BOOT)
         self.assertIn("administrators_authorized_keys", BOOT)
         acl = function_body_of(BOOT, "Protect-AclAdminOnly")
-        self.assertIn("S-1-5-32-544", acl)  # Administrators
-        self.assertIn("S-1-5-18", acl)  # SYSTEM
+        self.assertIn("$adminSid = 'S-1-5-32-544'", BOOT)  # Administrators
+        self.assertIn("$systemSid = 'S-1-5-18'", BOOT)  # SYSTEM
+        self.assertIn("@($adminSid, $systemSid)", acl)
         self.assertIn("SetAccessRuleProtection($true, $false)", acl)
         keys = function_body_of(BOOT, "Write-AuthorizedKey")
         self.assertLess(keys.index("Protect-AclAdminOnly"), keys.index("Move-Item"))
         self.assertIn("Assert-AclAdminOnly", keys)
         self.assertIn("ssh-ed25519", BOOT)
         # no remote-supplied text ever reaches the command line
-        self.assertIn("-File ' + $agentDest", BOOT)
+        self.assertIn("-File \\\"' + $agentDest + '\\\"'", BOOT)
+
+    def test_acl_owner_and_reparse_checks(self):
+        prot = function_body_of(BOOT, "Protect-AclAdminOnly")
+        self.assertIn("$acl.SetOwner(", prot)
+        self.assertIn("Get-ChildItem -LiteralPath $Path -Force", prot)
+        self.assertIn("ReparsePoint", prot)
+        self.assertIn("Protect-AclAdminOnly -Path $child.FullName", prot)
+        assertion = function_body_of(BOOT, "Assert-AclAdminOnly")
+        self.assertIn("Assert-OwnerTrusted", assertion)
+        self.assertIn("Assert-NoReparsePoint", assertion)
+        walk = function_body_of(BOOT, "Assert-NoReparsePoint")
+        self.assertIn("Split-Path -Parent $cur", walk)  # ancestors
+        self.assertIn("FileAttributes]::ReparsePoint", walk)
+        self.assertIn("refusing reparse point", walk)
+        owner = function_body_of(BOOT, "Assert-OwnerTrusted")
+        self.assertIn("GetOwner(", owner)
+        self.assertIn("throw", owner)
+        init = function_body_of(BOOT, "Initialize-AdminDir")
+        self.assertLess(init.index("Assert-NoReparsePoint"), init.index("New-Item"))
+        self.assertLess(init.index("Assert-OwnerTrusted"), init.index("Protect-AclAdminOnly"))
+        inst = function_body_of(BOOT, "Install-AgentFile")
+        self.assertIn("Initialize-AdminDir -Path $dir", inst)
+        self.assertIn("Assert-AclAdminOnly -Path $stateDir", inst)
+
+    def test_firewall_tailscale_interface_only(self):
+        fw = function_body_of(BOOT, "Initialize-SshFirewall")
+        self.assertIn("-InterfaceAlias $alias", fw)
+        self.assertIn("$alias = 'Tailscale'", fw)
+        self.assertLess(fw.index("Get-NetAdapter"), fw.index("New-NetFirewallRule"))
+        self.assertIn("Remove-NetFirewallRule -Name $rule", fw)  # idempotent
+
+    def test_sshd_config_hardening(self):
+        hard = function_body_of(BOOT, "Set-SshdHardening")
+        for want in ("'PasswordAuthentication' -Value 'no'", "'KbdInteractiveAuthentication' -Value 'no'",
+                     "'AllowUsers' -Value $SshUser", "fleet-bak-", "Match Group administrators",
+                     "administrators_authorized_keys"):
+            self.assertIn(want, hard)
+        self.assertLess(hard.index("Copy-Item -LiteralPath $cfg"), hard.index("WriteAllLines"))
+        self.assertLess(hard.index("sshd.exe"), hard.index("Restart-Service"))
+        self.assertIn("$LASTEXITCODE -ne 0", hard)
+        self.assertIn("Copy-Item -LiteralPath $backup -Destination $cfg", hard)
+        self.assertLess(hard.index("Copy-Item -LiteralPath $backup"), hard.index("throw ('sshd -t"))
+        self.assertRegex(BOOT, r"\[Parameter\(Mandatory = \$true\)\]\s*\[ValidatePattern\([^\n]*\)\]\s*\[string\]\$SshUser")
+        self.assertLess(BOOT.index("\nSet-SshdHardening"), BOOT.index("\nWrite-AuthorizedKey"))
+
+    def test_task_user_must_be_administrator(self):
+        chk = function_body_of(BOOT, "Assert-TaskUserIsAdministrator")
+        self.assertIn("Get-LocalGroupMember -SID $adminSid", chk)
+        self.assertIn("throw", chk)
+        self.assertLess(BOOT.index("\nAssert-TaskUserIsAdministrator"), BOOT.index("\nInstall-AgentFile"))
+
+    def test_full_powershell_path_and_hidden_update_task(self):
+        self.assertIn("System32\\WindowsPowerShell\\v1.0\\powershell.exe", BOOT)
+        self.assertIn("$psExe = $psExePath", function_body_of(BOOT, "Register-AgentTask"))
+        reg = function_body_of(BOOT, "Register-AgentTask")
+        self.assertIn("-File \"' + $agentDest + '\"'", reg)
+        self.assertIn("'-WindowStyle Hidden ' + $baseArgs + ' -RunJob'", reg)
+        self.assertNotRegex(BOOT, r"(?<![\\\w])powershell\.exe -NoProfile")
 
     def test_agent_installed_staged_verified_then_moved(self):
         inst = function_body_of(BOOT, "Install-AgentFile")
@@ -364,11 +512,13 @@ class JsonFixtures(unittest.TestCase):
         for status in schema.MASTER_STATUSES:
             entry, problem = schema.parse_agent_output(fixture("check", status), "alias", "check")
             self.assertIsNone(entry, status)
+            self.assertIn("status", problem, status)
 
     def test_pull_output_is_not_accepted_as_a_verb_result(self):
         # The local-only "pull" line is never fetched by the master over SSH.
         entry, problem = schema.parse_agent_output(fixture("pull", "skipped", reason="recent_update"), "alias", "check")
         self.assertIsNone(entry)
+        self.assertIn("verb", problem)
 
     def test_secrets_in_fixture_are_masked_by_master_too(self):
         e = self.parse("update", "failed", reason="winget_failed",

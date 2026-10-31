@@ -7,7 +7,7 @@
     (writable by Administrators and SYSTEM only) and referenced ONLY by the forced
     command of administrators_authorized_keys:
 
-        restrict,command="powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File C:\ProgramData\fleet-agent\fleet-agent.ps1" ssh-ed25519 AAAA... fleet-master-<master>
+        restrict,command="C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File \"C:\ProgramData\fleet-agent\fleet-agent.ps1\"" ssh-ed25519 AAAA... fleet-master-<master>
 
     sshd puts what the master asked for in SSH_ORIGINAL_COMMAND. It is UNTRUSTED:
     exactly one of five verbs, alone, is accepted. Anything else (unknown verb,
@@ -47,10 +47,27 @@ $ErrorActionPreference = 'Stop'
 $script:Verbs = @('check', 'update', 'reboot-status', 'reboot', 'report')
 $script:TestMode = ($env:FLEET_AGENT_TEST -eq '1')
 $script:AgentRoot = Join-Path $env:ProgramData 'fleet-agent'
-$script:StateDir = Join-Path $script:AgentRoot 'state'
-if ($script:TestMode -and $env:FLEET_AGENT_STATE_DIR) { $script:StateDir = $env:FLEET_AGENT_STATE_DIR }
-$script:ConfDir = $script:AgentRoot
-if ($script:TestMode -and $env:FLEET_AGENT_CONF_DIR) { $script:ConfDir = $env:FLEET_AGENT_CONF_DIR }
+# Test overrides are honoured ONLY with FLEET_AGENT_TEST=1 AND a path under $env:TEMP;
+# anything else is ignored (and reported on stderr).
+function Get-TestOverridePath {
+    param([string]$Name, [string]$Default)
+    $value = [Environment]::GetEnvironmentVariable($Name)
+    if ([string]::IsNullOrEmpty($value)) { return $Default }
+    if (-not $script:TestMode) {
+        [Console]::Error.WriteLine('fleet-agent: ignoring ' + $Name + ' (not in test mode)')
+        return $Default
+    }
+    $tempRoot = [System.IO.Path]::GetFullPath($env:TEMP).TrimEnd('\') + '\'
+    $full = [System.IO.Path]::GetFullPath($value)
+    if (-not $full.StartsWith($tempRoot, [System.StringComparison]::OrdinalIgnoreCase)) {
+        [Console]::Error.WriteLine('fleet-agent: ignoring ' + $Name + ' (not under TEMP)')
+        return $Default
+    }
+    return $full
+}
+$script:StateDir = Get-TestOverridePath -Name 'FLEET_AGENT_STATE_DIR' -Default (Join-Path $script:AgentRoot 'state')
+$script:ConfDir = Get-TestOverridePath -Name 'FLEET_AGENT_CONF_DIR' -Default $script:AgentRoot
+$script:AgentLogMaxBytes = 1048576
 $script:JobsDir = Join-Path $script:StateDir 'jobs'
 $script:LockFile = Join-Path $script:StateDir 'update.lock'
 $script:HostName = $env:COMPUTERNAME.ToLowerInvariant()
@@ -60,6 +77,9 @@ $script:PullDays = 7
 $script:MaskText = '[MASKED]'
 $script:LogCapChars = 4000
 $script:R = $null
+$script:JobTimedOut = $false
+$script:JobDeadline = [DateTime]::MaxValue
+$script:JobMaxMinutes = 120
 $script:ExtraArgs = @($args)
 
 # ------------------------------------------------------------------ utilities
@@ -90,7 +110,11 @@ function Write-AgentLog {
         # Event source missing (bootstrap not run): fall back to a file, never fail on logging.
         try {
             if (-not (Test-Path -LiteralPath $script:StateDir)) { [void](New-Item -ItemType Directory -Path $script:StateDir -Force) }
-            Add-Content -LiteralPath (Join-Path $script:StateDir 'agent.log') -Value ('{0} {1} {2}' -f (Get-NowIso), $Level, $line)
+            $logPath = Join-Path $script:StateDir 'agent.log'
+            if ((Test-Path -LiteralPath $logPath) -and ((Get-Item -LiteralPath $logPath).Length -gt $script:AgentLogMaxBytes)) {
+                Move-Item -LiteralPath $logPath -Destination ($logPath + '.1') -Force
+            }
+            Add-Content -LiteralPath $logPath -Value ('{0} {1} {2}' -f (Get-NowIso), $Level, $line)
         }
         catch {
             [Console]::Error.WriteLine('fleet-agent: log unavailable')
@@ -192,10 +216,13 @@ function Initialize-AgentResult {
     }
 }
 
+# `ended` is stamped only when the result is final (-Final); the in-progress state.json of a
+# running job keeps it null.
 function Get-ResultJson {
-    param([string]$Verb)
+    param([string]$Verb, [switch]$Final)
     $script:R['verb'] = $Verb
-    if ($null -eq $script:R['ended']) { $script:R['ended'] = Get-NowIso }
+    if ($Final -and $null -eq $script:R['ended']) { $script:R['ended'] = Get-NowIso }
+    foreach ($arrayKey in @('changes', 'config_conflicts')) { $script:R[$arrayKey] = @($script:R[$arrayKey]) }
     if ($null -eq $script:R['os']) {
         try {
             $os = Get-CimInstance -ClassName Win32_OperatingSystem
@@ -207,7 +234,7 @@ function Get-ResultJson {
     }
     if ($null -eq $script:R['kernel']) { $script:R['kernel'] = [Environment]::OSVersion.Version.ToString() }
     $safe = Protect-Data -Value $script:R
-    return (ConvertTo-Json -InputObject $safe -Depth 8 -Compress)
+    return [string](ConvertTo-Json -InputObject $safe -Depth 8 -Compress)
 }
 
 function Get-ExitCodeFor {
@@ -221,15 +248,18 @@ function Get-ExitCodeFor {
 
 function Complete-AgentVerb {
     param([string]$Verb)
-    [Console]::Out.WriteLine((Get-ResultJson -Verb $Verb))
+    $inProgress = (@('started', 'running') -contains [string]$script:R['status'])
+    if ($inProgress) { [Console]::Out.WriteLine((Get-ResultJson -Verb $Verb)) }
+    else { [Console]::Out.WriteLine((Get-ResultJson -Verb $Verb -Final)) }
     exit (Get-ExitCodeFor -Status ([string]$script:R['status']))
 }
 
 function Save-JobState {
-    param([string]$JobDir)
+    param([string]$JobDir, [switch]$Final)
     $tmp = Join-Path $JobDir 'state.json.tmp'
     $final = Join-Path $JobDir 'state.json'
-    $json = Get-ResultJson -Verb 'update'
+    if ($Final) { $json = Get-ResultJson -Verb 'update' -Final }
+    else { $json = Get-ResultJson -Verb 'update' }
     [System.IO.File]::WriteAllText($tmp, $json, (New-Object System.Text.UTF8Encoding($false)))
     Move-Item -LiteralPath $tmp -Destination $final -Force
 }
@@ -259,11 +289,14 @@ function Invoke-CappedProcess {
     try {
         $proc = Start-Process -FilePath $FilePath -ArgumentList $ArgumentList -NoNewWindow -PassThru `
             -RedirectStandardOutput $outFile -RedirectStandardError $errFile
-        if ($proc.WaitForExit($TimeoutMinutes * 60000)) {
+        $remainingMs = [int][math]::Max(1000, [math]::Min([double]($TimeoutMinutes * 60000), ($script:JobDeadline - (Get-Date)).TotalMilliseconds))
+        if ($proc.WaitForExit($remainingMs)) {
             $code = $proc.ExitCode
         }
         else {
-            $proc.Kill()
+            # Kill the whole tree (winget spawns installers), not only the direct child.
+            & taskkill.exe /T /F /PID $proc.Id 2>&1 | Out-Null
+            $script:JobTimedOut = $true
             $code = 124
         }
         $header = '--- {0} {1} (exit {2})' -f (Split-Path -Leaf $FilePath), ($ArgumentList -join ' '), $code
@@ -362,7 +395,7 @@ function Get-HealthSnapshot {
     return [ordered]@{
         failed_units           = @()
         unhealthy_containers   = @()
-        disk_free_pct          = [ordered]@{ 'C:' = (Get-DiskFreePct) }
+        disk_free_pct          = [ordered]@{ 'C:' = [int](Get-DiskFreePct) }
         critical_services_down = @($down)
     }
 }
@@ -393,7 +426,7 @@ function Test-FeatureUpdate {
 function Enter-AgentLock {
     param([string]$Owner)
     if (-not (Test-Path -LiteralPath $script:StateDir)) { [void](New-Item -ItemType Directory -Path $script:StateDir -Force) }
-    for ($attempt = 0; $attempt -lt 2; $attempt++) {
+    for ($attempt = 0; $attempt -lt 3; $attempt++) {
         try {
             $stream = [System.IO.File]::Open($script:LockFile, [System.IO.FileMode]::CreateNew, [System.IO.FileAccess]::Write, [System.IO.FileShare]::None)
             $bytes = [System.Text.Encoding]::ASCII.GetBytes(('{0}|{1}|{2}' -f $PID, $Owner, [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()))
@@ -403,10 +436,36 @@ function Enter-AgentLock {
         }
         catch [System.IO.IOException] {
             if (Test-LockAlive) { return $false }
-            Remove-Item -LiteralPath $script:LockFile -Force -ErrorAction SilentlyContinue
+            # Atomic stale takeover: only ONE contender can rename the stale lock away; the
+            # others fail the rename (file gone) and race on CreateNew, which stays exclusive.
+            $aside = $script:LockFile + '.stale-' + [Guid]::NewGuid().ToString('N')
+            try {
+                [System.IO.File]::Move($script:LockFile, $aside)
+                Remove-Item -LiteralPath $aside -Force -ErrorAction SilentlyContinue
+            }
+            catch {
+                Write-AgentLog -Message 'lock: stale takeover lost the race' -EventId 4003
+            }
         }
     }
     return $false
+}
+
+# A lock owned by a job id stays alive while that job's state.json says started/running and
+# was written less than 10 minutes ago (hand-off window before the job takes the lock over).
+function Test-JobOwnerAlive {
+    param([string]$Owner)
+    if ($Owner -notmatch '^[0-9]{8}T[0-9]{6}Z-[0-9]+$') { return $false }
+    $stateFile = Join-Path (Join-Path $script:JobsDir $Owner) 'state.json'
+    if (-not (Test-Path -LiteralPath $stateFile)) { return $false }
+    try {
+        $state = ConvertFrom-Json -InputObject ([System.IO.File]::ReadAllText($stateFile))
+        $young = ((Get-Item -LiteralPath $stateFile).LastWriteTimeUtc -gt (Get-Date).ToUniversalTime().AddMinutes(-10))
+        return (($state.status -eq 'started' -or $state.status -eq 'running') -and $young)
+    }
+    catch {
+        return $false
+    }
 }
 
 function Test-LockAlive {
@@ -415,6 +474,7 @@ function Test-LockAlive {
         $parts = ([System.IO.File]::ReadAllText($script:LockFile)) -split '\|'
         $age = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds() - [int64]$parts[2]
         if ($age -lt 120) { return $true }
+        if (Test-JobOwnerAlive -Owner $parts[1]) { return $true }
         return ($null -ne (Get-Process -Id ([int]$parts[0]) -ErrorAction SilentlyContinue))
     }
     catch {
@@ -501,11 +561,16 @@ function Invoke-VerbReboot {
             $script:R['reason'] = 'no_reboot_required'
         }
         else {
-            Write-AgentLog -Message 'reboot requested and required: restarting in 5s' -EventId 4002
+            Write-AgentLog -Message 'reboot requested and required: restarting in 30s' -EventId 4002
             $script:R['status'] = 'started'
             $script:R['reason'] = 'rebooting'
             # Delayed, so this answer reaches the master before the host goes down.
-            & shutdown.exe /r /t 5 /c 'fleet-agent'
+            & shutdown.exe /r /t 30 /c 'fleet-agent: restart required after updates'
+            if ($LASTEXITCODE -ne 0) {
+                $script:R['status'] = 'failed'
+                $script:R['reason'] = 'shutdown_failed'
+                Write-AgentLog -Message ('restart command failed with exit code {0}' -f $LASTEXITCODE) -Level Error -EventId 4001
+            }
         }
     }
     finally {
@@ -526,8 +591,17 @@ function Invoke-VerbReport {
         Complete-AgentVerb -Verb 'report'
     }
     $stateFile = Join-Path (Join-Path $script:JobsDir $job) 'state.json'
-    $raw = [System.IO.File]::ReadAllText($stateFile)
-    $state = ConvertFrom-Json -InputObject $raw
+    try {
+        $raw = [System.IO.File]::ReadAllText($stateFile)
+        $state = ConvertFrom-Json -InputObject $raw
+        if ($null -eq $state -or $null -eq $state.status) { throw 'no status' }
+    }
+    catch {
+        $script:R['job'] = $job
+        $script:R['status'] = 'failed'
+        $script:R['reason'] = 'state_unreadable'
+        Complete-AgentVerb -Verb 'report'
+    }
     if (($state.status -eq 'started' -or $state.status -eq 'running') -and -not (Test-LockAlive)) {
         $script:R['job'] = $job
         $script:R['status'] = 'failed'
@@ -583,7 +657,7 @@ function Invoke-StartUpdate {
         catch {
             $script:R['status'] = 'failed'
             $script:R['reason'] = 'task_missing'
-            Save-JobState -JobDir $jobDir
+            Save-JobState -JobDir $jobDir -Final
         }
     }
     finally {
@@ -626,6 +700,61 @@ function Invoke-StepWindowsUpdate {
     if ($result.ResultCode -ge 4) { throw 'windows_update_failed' }
 }
 
+# Parses the table printed by `winget upgrade` (columns located from the header line, which is
+# the line just above the dashes ruler, so it does not depend on the UI language).
+# Columns: Name, Id, Version, Available[, Source]. Returns one object per package.
+function ConvertFrom-WingetUpgradeTable {
+    param([string[]]$Lines)
+    $ruler = -1
+    for ($i = 1; $i -lt $Lines.Count; $i++) {
+        if ($Lines[$i] -match '^-{5,}\s*$') { $ruler = $i; break }
+    }
+    $found = New-Object System.Collections.ArrayList
+    if ($ruler -lt 1) { return , @() }
+    $header = $Lines[$ruler - 1]
+    $starts = @()
+    foreach ($m in [regex]::Matches($header, '(?<=^|\s{2})\S')) { $starts += $m.Index }
+    if ($starts.Count -lt 4) { return , @() }
+    for ($i = $ruler + 1; $i -lt $Lines.Count; $i++) {
+        $line = $Lines[$i]
+        if ([string]::IsNullOrWhiteSpace($line)) { break }
+        if ($line -match '^\d+\s' -and $line.Length -lt $starts[1]) { break }
+        if ($line.Length -le $starts[3]) { continue }
+        $cut = {
+            param([int]$n)
+            $from = $starts[$n]
+            if ($n + 1 -lt $starts.Count) { $to = $starts[$n + 1] } else { $to = $line.Length }
+            if ($from -ge $line.Length) { return '' }
+            if ($to -gt $line.Length) { $to = $line.Length }
+            return $line.Substring($from, $to - $from).Trim()
+        }
+        $id = [string](& $cut 1)
+        if ($id -notmatch '^[A-Za-z0-9][A-Za-z0-9._+-]{0,127}$') { continue }
+        [void]$found.Add([pscustomobject]@{
+                Name      = (& $cut 0)
+                Id        = $id
+                Version   = (& $cut 2)
+                Available = (& $cut 3)
+            })
+    }
+    return , @($found.ToArray())
+}
+
+function Get-WingetUpgradeList {
+    param([string]$WingetPath)
+    $outFile = [System.IO.Path]::GetTempFileName()
+    try {
+        $proc = Start-Process -FilePath $WingetPath -ArgumentList @('upgrade', '--include-unknown', '--accept-source-agreements', '--disable-interactivity') `
+            -NoNewWindow -PassThru -RedirectStandardOutput $outFile
+        if (-not $proc.WaitForExit(300000)) { & taskkill.exe /T /F /PID $proc.Id 2>&1 | Out-Null }
+        $lines = @(Get-Content -LiteralPath $outFile -ErrorAction SilentlyContinue)
+    }
+    finally {
+        Remove-Item -LiteralPath $outFile -Force -ErrorAction SilentlyContinue
+    }
+    return , @(ConvertFrom-WingetUpgradeTable -Lines $lines)
+}
+
 function Invoke-StepWinget {
     param([string]$Log)
     $winget = Get-Command -Name 'winget.exe' -ErrorAction SilentlyContinue
@@ -633,10 +762,15 @@ function Invoke-StepWinget {
         Add-Content -LiteralPath $Log -Value '--- winget not found, skipped'
         return
     }
+    # List what is about to be upgraded BEFORE --all so that each package is one change.
+    $before = @(Get-WingetUpgradeList -WingetPath $winget.Source)
     $args1 = @('upgrade', '--all', '--silent', '--accept-source-agreements', '--accept-package-agreements', '--disable-interactivity')
     $code = Invoke-CappedProcess -FilePath $winget.Source -ArgumentList $args1 -LogPath $Log -TimeoutMinutes 60
     # 0 = ok; -1978335189 (no applicable upgrade) is not a failure.
     if ($code -ne 0 -and $code -ne -1978335189) { throw 'winget_failed' }
+    if ($code -eq 0) {
+        foreach ($pkg in $before) { Add-JobChange -Name ('winget:' + $pkg.Id) -From $pkg.Version -To $pkg.Available }
+    }
 }
 
 function Invoke-StepScoop {
@@ -689,6 +823,7 @@ function Invoke-StepWsl {
     if ($running.Count -eq 0) {
         $code = Invoke-CappedProcess -FilePath 'wsl.exe' -ArgumentList @('--update') -LogPath $Log -TimeoutMinutes 15
         if ($code -ne 0) { throw 'wsl_failed' }
+        Add-JobChange -Name 'wsl:kernel' -From '' -To 'updated'
     }
     else {
         Add-Content -LiteralPath $Log -Value '--- wsl --update skipped: a distribution is running (active session)'
@@ -700,6 +835,7 @@ function Invoke-StepWsl {
     foreach ($distro in $distros) {
         $code = Invoke-CappedProcess -FilePath 'wsl.exe' -ArgumentList @('-d', $distro, '-u', 'root', '--', 'sh', '-c', ('"' + $inner + '"')) -LogPath $Log -TimeoutMinutes 30
         if ($code -ne 0) { throw ('wsl_distro_failed') }
+        Add-JobChange -Name ('wsl:' + $distro) -From '' -To 'updated'
     }
 }
 
@@ -712,6 +848,11 @@ function Invoke-StepDefender {
 
 function Invoke-UpdateStep {
     param([string]$Name, [scriptblock]$Body, [string]$Log)
+    if ((Get-Date) -gt $script:JobDeadline) { $script:JobTimedOut = $true }
+    if ($script:JobTimedOut) {
+        Add-Content -LiteralPath $Log -Value ('--- {0} skipped: job time limit reached' -f $Name)
+        return
+    }
     try {
         & $Body $Log
     }
@@ -742,7 +883,7 @@ function Invoke-AgentJob {
     if ((Get-LockOwner) -ne $job) {
         $script:R['status'] = 'failed'
         $script:R['reason'] = 'lock_lost'
-        Save-JobState -JobDir $jobDir
+        Save-JobState -JobDir $jobDir -Final
         Write-AgentLog -Message ('update job {0} aborted: lock_lost' -f $job) -Level Warning -EventId 4001
         exit 2
     }
@@ -752,6 +893,7 @@ function Invoke-AgentJob {
     New-Item -ItemType File -Path $log -Force | Out-Null
     $script:Changes = New-Object System.Collections.ArrayList
     $script:FailedStep = $null
+    $script:JobDeadline = (Get-Date).AddMinutes($script:JobMaxMinutes)
     try {
         $script:R['health_before'] = Get-HealthSnapshot
         $script:R['health_after'] = $script:R['health_before']
@@ -770,7 +912,12 @@ function Invoke-AgentJob {
         $script:R['reboot_required'] = Test-RebootPending
         $script:R['log_tail'] = (Get-CappedTail -Path $log -Lines 20)
         $script:R['ended'] = Get-NowIso
-        if ($null -ne $script:FailedStep) {
+        if ($script:JobTimedOut) {
+            # 'timeout' is a master-only status: an agent reports failed + reason timeout.
+            $script:R['status'] = 'failed'
+            $script:R['reason'] = 'timeout'
+        }
+        elseif ($null -ne $script:FailedStep) {
             $script:R['status'] = 'failed'
             $script:R['reason'] = ($script:FailedStep + '_failed')
         }
@@ -784,7 +931,7 @@ function Invoke-AgentJob {
         else {
             $script:R['status'] = 'up-to-date'
         }
-        Save-JobState -JobDir $jobDir
+        Save-JobState -JobDir $jobDir -Final
         if ($script:R['status'] -eq 'updated' -or $script:R['status'] -eq 'up-to-date') {
             Set-Content -LiteralPath (Join-Path $script:StateDir 'last-success') -Value ([DateTimeOffset]::UtcNow.ToUnixTimeSeconds())
         }
@@ -814,7 +961,7 @@ function Get-ConfValue {
 
 function Get-PullDeniedReason {
     if (-not (Test-Path -LiteralPath (Join-Path $script:ConfDir 'pull-enabled'))) { return 'not_enabled' }
-    if (Test-Path -LiteralPath (Join-Path $script:ConfDir 'no-pull')) { return 'pull_denied' }
+    if (Test-Path -LiteralPath (Join-Path $script:ConfDir 'no-pull')) { return 'denied' }
     if ($script:HostName -like '*guardian*') { return 'guardian' }
     return ''
 }
@@ -856,10 +1003,11 @@ function Invoke-AgentPull {
     $last = 0
     if (Test-Path -LiteralPath $stamp) {
         $text = (Get-Content -LiteralPath $stamp -TotalCount 1)
-        if ($text -match '^[0-9]+$') { $last = [int64]$text }
+        if ($text -match '^[0-9]{1,11}$') { $last = [int64]$text }
     }
     $age = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds() - $last
-    if ($last -gt 0 -and $age -lt ($script:PullDays * 86400)) {
+    # A future timestamp (age < 0) is treated as stale, never as "recent".
+    if ($last -gt 0 -and $age -ge 0 -and $age -lt ($script:PullDays * 86400)) {
         $script:R['status'] = 'skipped'
         $script:R['reason'] = 'recent_update'
         Write-AgentLog -Message ('pull skipped: last successful update {0}s ago' -f $age)

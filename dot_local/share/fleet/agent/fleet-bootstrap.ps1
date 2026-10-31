@@ -27,9 +27,18 @@
     Hashtable master name -> ssh-ed25519 public key line, e.g.
     @{ diabolo = 'ssh-ed25519 AAAA...'; penelope = 'ssh-ed25519 AAAA...' }
 
+.PARAMETER SshUser
+    REQUIRED. The one local account allowed to log in over SSH (sshd_config gets
+    `AllowUsers <SshUser>`). Every other account, including other administrators, is
+    locked out of SSH on this PC: pass the account the fleet masters connect as (the
+    administrators_authorized_keys block applies to it because it is an administrator).
+    sshd_config is backed up (timestamped) and validated with `sshd -t` before the
+    restart; on failure the backup is restored and the script aborts.
+
 .PARAMETER TaskUser
     Account of the interactive session in which winget and Scoop run
-    (default: the account running this script).
+    (default: the account running this script). Must be a member of the local
+    Administrators group (-RunLevel Highest, admin-only state directory).
 
 .PARAMETER EnablePull
     Opt this PC in to pull mode (marker file + scheduled task).
@@ -43,6 +52,9 @@
 param(
     [Parameter(Mandatory = $true)]
     [hashtable]$MasterKey,
+    [Parameter(Mandatory = $true)]
+    [ValidatePattern('^[A-Za-z0-9._-]{1,64}$')]
+    [string]$SshUser,
     [string]$TaskUser = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name,
     [switch]$EnablePull,
     [string]$AgentSource = (Join-Path $PSScriptRoot 'fleet-agent.ps1'),
@@ -56,7 +68,11 @@ $agentRoot = Join-Path $ProgramDataRoot 'fleet-agent'
 $agentDest = Join-Path $agentRoot 'fleet-agent.ps1'
 $stateDir = Join-Path $agentRoot 'state'
 $keysFile = Join-Path (Join-Path $ProgramDataRoot 'ssh') 'administrators_authorized_keys'
-$forcedCommand = 'powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File ' + $agentDest
+$psExePath = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
+if ($agentDest.Contains('"')) { throw 'agent path must not contain a double quote' }
+# Forced command: inside command="..." of authorized_keys the quotes around the -File path are
+# written \" (sshd unescapes them). Full powershell.exe path, nothing remote-supplied.
+$forcedCommand = $psExePath + ' -NoProfile -NonInteractive -ExecutionPolicy Bypass -File \"' + $agentDest + '\"'
 $keyPattern = '^ssh-ed25519 AAAA[A-Za-z0-9+/=]{20,} ?[A-Za-z0-9._@-]{0,64}$'
 $namePattern = '^[a-z0-9][a-z0-9-]{0,30}$'
 
@@ -70,15 +86,54 @@ function Test-Administrator {
     return $principal.IsInRole([System.Security.Principal.WindowsBuiltInRole]::Administrator)
 }
 
-# Replaces inherited permissions by Administrators + SYSTEM (full control) only.
+$adminSid = 'S-1-5-32-544'
+$systemSid = 'S-1-5-18'
+
+# Refuses a path, or any ancestor, that is a reparse point (junction / symlink).
+function Assert-NoReparsePoint {
+    param([string]$Path)
+    $cur = [System.IO.Path]::GetFullPath($Path)
+    while (-not [string]::IsNullOrEmpty($cur)) {
+        if (Test-Path -LiteralPath $cur) {
+            $item = Get-Item -LiteralPath $cur -Force
+            if (($item.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) {
+                throw ('refusing reparse point (junction/symlink): ' + $cur)
+            }
+        }
+        $cur = Split-Path -Parent $cur
+    }
+}
+
+# Refuses an existing path whose owner is not Administrators / SYSTEM.
+function Assert-OwnerTrusted {
+    param([string]$Path)
+    $owner = (Get-Acl -LiteralPath $Path).GetOwner([System.Security.Principal.SecurityIdentifier]).Value
+    if (@($adminSid, $systemSid) -notcontains $owner) {
+        throw ('refusing {0}: owner {1} is not BUILTIN\Administrators or NT AUTHORITY\SYSTEM' -f $Path, $owner)
+    }
+}
+
+# Creates (or vets) a directory that elevated code executes or reads.
+function Initialize-AdminDir {
+    param([string]$Path)
+    Assert-NoReparsePoint -Path $Path
+    if (Test-Path -LiteralPath $Path) { Assert-OwnerTrusted -Path $Path }
+    else { [void](New-Item -ItemType Directory -Path $Path -Force) }
+    Protect-AclAdminOnly -Path $Path
+}
+
+# Owner = Administrators, no inheritance, Administrators + SYSTEM full control only;
+# applied to existing children too (a child reparse point is refused).
 function Protect-AclAdminOnly {
     param([string]$Path)
+    Assert-NoReparsePoint -Path $Path
     $acl = Get-Acl -LiteralPath $Path
+    $acl.SetOwner((New-Object System.Security.Principal.SecurityIdentifier($adminSid)))
     $acl.SetAccessRuleProtection($true, $false)
     foreach ($rule in @($acl.Access)) { [void]$acl.RemoveAccessRule($rule) }
     $inherit = [System.Security.AccessControl.InheritanceFlags]'ContainerInherit,ObjectInherit'
-    $isDir = (Get-Item -LiteralPath $Path).PSIsContainer
-    foreach ($sid in @('S-1-5-32-544', 'S-1-5-18')) {
+    $isDir = (Get-Item -LiteralPath $Path -Force).PSIsContainer
+    foreach ($sid in @($adminSid, $systemSid)) {
         $account = (New-Object System.Security.Principal.SecurityIdentifier($sid)).Translate([System.Security.Principal.NTAccount])
         if ($isDir) {
             $rule = New-Object System.Security.AccessControl.FileSystemAccessRule($account, 'FullControl', $inherit, 'None', 'Allow')
@@ -89,24 +144,44 @@ function Protect-AclAdminOnly {
         $acl.AddAccessRule($rule)
     }
     Set-Acl -LiteralPath $Path -AclObject $acl
+    if ($isDir) {
+        foreach ($child in @(Get-ChildItem -LiteralPath $Path -Force)) {
+            if (($child.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) {
+                throw ('refusing reparse point (junction/symlink): ' + $child.FullName)
+            }
+            Protect-AclAdminOnly -Path $child.FullName
+        }
+    }
 }
 
-# Fails if anything other than Administrators / SYSTEM can touch the path.
+# Fails if the owner is not trusted, the path (or an ancestor) is a reparse point, or anything
+# other than Administrators / SYSTEM can touch the path.
 function Assert-AclAdminOnly {
     param([string]$Path)
-    $allowed = @('S-1-5-32-544', 'S-1-5-18')
+    Assert-NoReparsePoint -Path $Path
+    Assert-OwnerTrusted -Path $Path
+    $allowed = @($adminSid, $systemSid)
     foreach ($rule in (Get-Acl -LiteralPath $Path).Access) {
         $sid = $rule.IdentityReference.Translate([System.Security.Principal.SecurityIdentifier]).Value
         if ($allowed -notcontains $sid) { throw ('unexpected ACL entry on {0}: {1}' -f $Path, $rule.IdentityReference) }
     }
 }
 
+function Assert-TaskUserIsAdministrator {
+    $found = $false
+    $short = $TaskUser.Split('\')[-1]
+    foreach ($m in @(Get-LocalGroupMember -SID $adminSid)) {
+        if ($m.Name -ieq $TaskUser -or $m.Name -ieq $short -or $m.Name.Split('\')[-1] -ieq $short) { $found = $true }
+    }
+    if (-not $found) {
+        throw ('TaskUser {0} is not a member of the local Administrators group (needed for -RunLevel Highest and the admin-only state dir)' -f $TaskUser)
+    }
+}
+
 function Install-AgentFile {
     if (-not (Test-Path -LiteralPath $AgentSource)) { throw ('agent source not found: ' + $AgentSource) }
-    foreach ($dir in @($agentRoot, $stateDir)) {
-        if (-not (Test-Path -LiteralPath $dir)) { [void](New-Item -ItemType Directory -Path $dir -Force) }
-        Protect-AclAdminOnly -Path $dir
-    }
+    # Agent dir first (also vets owner / reparse points); state dir holds pull.conf, token file, state.json.
+    foreach ($dir in @($agentRoot, $stateDir)) { Initialize-AdminDir -Path $dir }
     # Stage, verify, then move into place: a half-written agent is never the forced command.
     $staged = $agentDest + '.new'
     Copy-Item -LiteralPath $AgentSource -Destination $staged -Force
@@ -116,6 +191,8 @@ function Install-AgentFile {
     if ($want -ne $got) { throw 'staged agent hash mismatch' }
     Move-Item -LiteralPath $staged -Destination $agentDest -Force
     Assert-AclAdminOnly -Path $agentDest
+    Assert-AclAdminOnly -Path $agentRoot
+    Assert-AclAdminOnly -Path $stateDir
     Write-Step ('agent installed: ' + $agentDest)
 }
 
@@ -131,13 +208,61 @@ function Install-OpenSshServer {
 
 function Initialize-SshFirewall {
     $rule = 'fleet-sshd-tailnet'
+    $alias = 'Tailscale'
+    if ($null -eq (Get-NetAdapter -Name $alias -ErrorAction SilentlyContinue)) {
+        throw ("no network adapter named '" + $alias + "' (is Tailscale installed and connected?); refusing to open port 22")
+    }
     if (Get-NetFirewallRule -Name $rule -ErrorAction SilentlyContinue) { Remove-NetFirewallRule -Name $rule }
     [void](New-NetFirewallRule -Name $rule -DisplayName 'fleet agent SSH (tailnet only)' -Direction Inbound `
-            -Protocol TCP -LocalPort 22 -Action Allow -RemoteAddress '100.64.0.0/10' -Profile Any)
+            -Protocol TCP -LocalPort 22 -Action Allow -RemoteAddress '100.64.0.0/10' -InterfaceAlias $alias -Profile Any)
     # The stock rule allows port 22 from anywhere: disable it so only the tailnet rule applies.
     $stock = Get-NetFirewallRule -Name 'OpenSSH-Server-In-TCP' -ErrorAction SilentlyContinue
     if ($null -ne $stock) { Disable-NetFirewallRule -Name 'OpenSSH-Server-In-TCP' }
-    Write-Step 'firewall: port 22 limited to 100.64.0.0/10'
+    Write-Step 'firewall: port 22 limited to 100.64.0.0/10 on interface Tailscale'
+}
+
+# Idempotent sshd_config hardening: backup, edit, `sshd -t`, restore on failure, then restart.
+function Set-SshdDirective {
+    param([string[]]$Lines, [string]$Name, [string]$Value)
+    $out = @()
+    $inMatch = $false
+    foreach ($l in $Lines) {
+        if ($l -match '^\s*Match\s') { $inMatch = $true }
+        if (-not $inMatch -and $l -match ('^\s*#?\s*' + $Name + '\s')) { continue }
+        $out += $l
+    }
+    # Global directives must precede any Match block.
+    $idx = -1
+    for ($i = 0; $i -lt $out.Count; $i++) { if ($out[$i] -match '^\s*Match\s') { $idx = $i; break } }
+    if ($idx -lt 0) { return @($out + ($Name + ' ' + $Value)) }
+    $head = @()
+    if ($idx -gt 0) { $head = @($out[0..($idx - 1)]) }
+    return @($head + ($Name + ' ' + $Value) + @($out[$idx..($out.Count - 1)]))
+}
+
+function Set-SshdHardening {
+    $sshDir = Split-Path -Parent $keysFile
+    $cfg = Join-Path $sshDir 'sshd_config'
+    if (-not (Test-Path -LiteralPath $cfg)) { throw ('sshd_config not found: ' + $cfg) }
+    $backup = $cfg + '.fleet-bak-' + (Get-Date -Format 'yyyyMMdd-HHmmss')
+    Copy-Item -LiteralPath $cfg -Destination $backup -Force
+    $lines = @(Get-Content -LiteralPath $cfg)
+    $lines = Set-SshdDirective -Lines $lines -Name 'PasswordAuthentication' -Value 'no'
+    $lines = Set-SshdDirective -Lines $lines -Name 'KbdInteractiveAuthentication' -Value 'no'
+    $lines = Set-SshdDirective -Lines $lines -Name 'AllowUsers' -Value $SshUser
+    if (-not (@($lines | Where-Object { $_ -match '^\s*Match\s+Group\s+administrators' }).Count)) {
+        $lines += 'Match Group administrators'
+        $lines += '       AuthorizedKeysFile __PROGRAMDATA__/ssh/administrators_authorized_keys'
+    }
+    [System.IO.File]::WriteAllLines($cfg, [string[]]$lines, (New-Object System.Text.UTF8Encoding($false)))
+    $sshd = Join-Path $env:SystemRoot 'System32\OpenSSH\sshd.exe'
+    & $sshd -t
+    if ($LASTEXITCODE -ne 0) {
+        Copy-Item -LiteralPath $backup -Destination $cfg -Force
+        throw ('sshd -t rejected the new sshd_config; backup restored from ' + $backup)
+    }
+    Restart-Service -Name sshd
+    Write-Step ('sshd_config hardened (backup ' + $backup + '), AllowUsers ' + $SshUser)
 }
 
 function Write-AuthorizedKey {
@@ -176,11 +301,11 @@ function Register-AgentEventSource {
 }
 
 function Register-AgentTask {
-    $psExe = 'powershell.exe'
-    $baseArgs = '-NoProfile -NonInteractive -ExecutionPolicy Bypass -File ' + $agentDest
+    $psExe = $psExePath
+    $baseArgs = '-NoProfile -NonInteractive -ExecutionPolicy Bypass -File "' + $agentDest + '"'
 
     # Detached update: the interactive user's context (winget and Scoop fail under SSH / SYSTEM).
-    $updateAction = New-ScheduledTaskAction -Execute $psExe -Argument ($baseArgs + ' -RunJob')
+    $updateAction = New-ScheduledTaskAction -Execute $psExe -Argument ('-WindowStyle Hidden ' + $baseArgs + ' -RunJob')
     $updatePrincipal = New-ScheduledTaskPrincipal -UserId $TaskUser -LogonType Interactive -RunLevel Highest
     $updateSettings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries `
         -ExecutionTimeLimit (New-TimeSpan -Minutes 120) -MultipleInstances IgnoreNew
@@ -190,6 +315,7 @@ function Register-AgentTask {
 
     if ($EnablePull) {
         [System.IO.File]::WriteAllText((Join-Path $agentRoot 'pull-enabled'), '')
+        Protect-AclAdminOnly -Path (Join-Path $agentRoot 'pull-enabled')
         $pullAction = New-ScheduledTaskAction -Execute $psExe -Argument ($baseArgs + ' -RunPull')
         $pullTriggers = @(
             (New-ScheduledTaskTrigger -Daily -At '12:00'),
@@ -223,9 +349,11 @@ function Test-TailscaleSshOff {
 }
 
 if (-not (Test-Administrator)) { throw 'run this script in an elevated PowerShell (Administrator)' }
+Assert-TaskUserIsAdministrator
 Install-AgentFile
 Install-OpenSshServer
 Initialize-SshFirewall
+Set-SshdHardening
 Write-AuthorizedKey
 Register-AgentEventSource
 Register-AgentTask
