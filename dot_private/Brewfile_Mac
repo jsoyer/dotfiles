@@ -1,5 +1,6 @@
 # Host overlay for Mac — extras beyond the shared base.
 # Managed by breww. Do not edit manually.
+tap "anomalyco/tap"
 tap "can1357/tap"
 tap "docker/tap", trusted: true
 tap "mcs-cli/tap"
@@ -31,16 +32,20 @@ brew "pulumi/tap/esc", trusted: true
 brew "rjyo/moshi/moshi-hook"
 brew "siderolabs/tap/omnictl", trusted: true
 cask "anaconda"
+cask "antigravity"
 cask "antigravity-cli"
+cask "antigravity-ide"
 cask "bettercapture"
 cask "chatgpt"
 cask "codex-app"
 cask "davit"
-cask "fluidvoice"
+cask "fliqlo"
 cask "grok-bot"
 cask "grok-build"
 cask "penso/tap/herdr-gpui", trusted: true
+cask "anomalyco/tap/hex", trusted: true
 cask "logitech-g-hub"
+cask "mimestream"
 cask "paseo"
 cask "plaud"
 cask "t3-code"
