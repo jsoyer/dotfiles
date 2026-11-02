@@ -273,6 +273,8 @@ bin/media_automation
 {{ if eq $mp "mac-pro" }}
 Library/LaunchAgents/com.jsoyer.moshi-hook.plist
 Library/LaunchAgents/com.jsoyer.moshi-update.plist
+{{/* Work MacBook Pro: excluded from fleet on purpose (employer-managed) */}}
+Library/LaunchAgents/com.jsoyer.fleet-pull.plist
 {{ end }}
 
 # ── ~/.agents / ~/.skills : plus geres par chezmoi, toujours utilises ──
