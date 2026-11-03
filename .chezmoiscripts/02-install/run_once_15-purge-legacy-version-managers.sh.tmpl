@@ -1,0 +1,77 @@
+{{- if ne .chezmoi.os "windows" -}}
+#!/usr/bin/env bash
+# =============================================================================
+# One-time cleanup: remove the legacy language version managers (pyenv, rbenv,
+# nvm, jenv) now that mise manages node/python/ruby/java/go/rust.
+# Idempotent and non-fatal per item. Project files (.python-version,
+# .ruby-version, ...) are left alone: mise reads them natively.
+# =============================================================================
+
+set -uo pipefail
+
+LEGACY_BREW_PKGS=(
+    pyenv-virtualenvwrapper pyenv-virtualenv pyenv-pip-migrate pyenv-ccache
+    pyenv nvm rbenv jenv
+)
+LEGACY_DIRS=("$HOME/.pyenv" "$HOME/.rbenv" "$HOME/.nvm" "$HOME/.jenv")
+
+# --- 1. Report what exists (so the log shows whether versions were installed) -
+report_versions() {
+    local dir="$1" entries
+    [[ -d "$dir" ]] || return 0
+    entries="$(find "$dir" -mindepth 1 -maxdepth 1 -exec basename {} \; 2>/dev/null | tr '\n' ' ')"
+    echo "📋 $dir: ${entries:-<empty>}"
+}
+
+echo "🔎 Legacy version-manager installs found:"
+for d in "$HOME/.pyenv/versions" "$HOME/.rbenv/versions" \
+         "$HOME/.nvm/versions/node" "$HOME/.jenv/versions" \
+         "${PYENV_ROOT:+$PYENV_ROOT/versions}" "${NVM_DIR:+$NVM_DIR/versions/node}"; do
+    [[ -n "$d" ]] && report_versions "$d"
+done
+
+# --- 2. Homebrew formulae ----------------------------------------------------
+if command -v brew &>/dev/null; then
+    eval "$(brew shellenv)" || true
+    for pkg in "${LEGACY_BREW_PKGS[@]}"; do
+        if brew list --formula "$pkg" &>/dev/null; then
+            echo "🔄 Uninstalling legacy formula: $pkg"
+            brew uninstall --ignore-dependencies "$pkg" 2>/dev/null || true
+        fi
+    done
+else
+    echo "🍺 Homebrew not installed, skipping formula removal."
+fi
+
+# --- 3. Data directories (safe removal) --------------------------------------
+removed=0
+if [[ -z "${HOME:-}" || "$HOME" == "/" ]]; then
+    echo "⚠️  HOME is empty or '/', refusing to remove directories."
+else
+    home_real="$(cd "$HOME" 2>/dev/null && pwd -P)" || home_real=""
+    if [[ -z "$home_real" || "$home_real" == "/" ]]; then
+        echo "⚠️  Cannot resolve HOME, refusing to remove directories."
+    else
+        for d in "${LEGACY_DIRS[@]}"; do
+            if [[ -L "$d" ]]; then
+                echo "⏭️  $d is a symlink, leaving it alone."
+                continue
+            fi
+            [[ -d "$d" ]] || continue
+            real="$(cd "$d" 2>/dev/null && pwd -P)" || real=""
+            if [[ -z "$real" || "$real" != "$home_real"/* ]]; then
+                echo "⚠️  $d resolves outside HOME ($real), skipping."
+                continue
+            fi
+            echo "🗑️  Removing $real"
+            if rm -rf -- "$real"; then
+                ((removed++)) || true
+            else
+                echo "⚠️  Could not fully remove $real (continuing)."
+            fi
+        done
+    fi
+fi
+
+echo "✅ Legacy version managers purged ($removed dir(s) removed)."
+{{ end -}}
