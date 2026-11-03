@@ -11,10 +11,11 @@ go = "latest"
 # rust backend lists it in `mise ls-remote rust`).
 rust = "stable"
 # Ruby: mise uses jdx/ruby precompiled builds, which exist for Linux and macOS
-# arm64 only. On Intel macOS there is NO prebuilt ruby, so mise falls back to a
-# source build via ruby-build (accepted last resort; needs Xcode CLT plus
-# brew openssl@3, libyaml, readline).
+# arm64 only. Intel macOS has no prebuilt ruby and nothing may compile there,
+# so ruby is skipped on Intel Macs (not needed on them).
+{{- if not (and (eq .chezmoi.os "darwin") (eq .chezmoi.arch "amd64")) }}
 ruby = "latest"
+{{- end }}
 # Java (Temurin, java.shorthand_vendor default): first entry is the default.
 # "lts" is a mise alias for the newest LTS, so it never goes stale. The second
 # entry is the newest feature release that has macOS builds: plain "latest"
