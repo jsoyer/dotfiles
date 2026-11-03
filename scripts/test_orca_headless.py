@@ -31,7 +31,13 @@ class FuseFallback(unittest.TestCase):
         self.assertIn('printf \'{"port":%s}\\n\' "$PORT"', SETUP)
         self.assertIn("Waiting for port", SETUP)
         update = (ROOT / "dot_local/bin/executable_update-orca").read_text()
-        self.assertIn("mkdir -p", update.split("enforce_port_file", 1)[1][:400])
+        # update-orca only rewrites the port file when the profile dir already
+        # exists (14a753ea dropped the root-owned `mkdir -p`); it must not
+        # create the profile itself.
+        body = update.split("enforce_port_file() {", 1)[1].split("\n}\n", 1)[0]
+        self.assertIn('[[ -d "$dir" ]]', body)
+        self.assertNotIn("mkdir", body)
+        self.assertIn('> "$FALLBACK_PORT_FILE"', body)
 
     def test_unquoted_unit_heredoc_does_not_expand_display(self):
         # set -u: `$DISPLAY` in <<EOF aborted orca-setup on diabolo.

@@ -12,9 +12,9 @@
 ```
 ~/.config/fish/
 ├── config.fish           # Main config (env, aliases, integrations)
-├── conf.d/               # Auto-loaded config snippets (Tide, FZF, NVM, gitnow)
+├── conf.d/               # Auto-loaded config snippets (Tide, FZF, gitnow)
 ├── functions/             # Custom + plugin functions
-├── completions/           # Custom completions (Fisher, FZF, NVM, Tide)
+├── completions/           # Custom completions (Fisher, FZF, Tide)
 ├── themes/                # Catppuccin Mocha theme
 ├── fish_plugins           # Fisher plugin list
 └── fish_variables         # Universal variables (managed by fish)
@@ -28,7 +28,7 @@ Initialized in `config.fish`:
 - **Direnv**: per-directory environment
 - **TheFuck**: command correction (lazy-loaded)
 - **OrbStack**: Docker/K8s alternative (macOS)
-- **Pyenv/Jenv/Rbenv/NVM**: language version managers
+- **mise**: language version manager (node, python, ruby, java, go, rust)
 
 ## Key Aliases
 
