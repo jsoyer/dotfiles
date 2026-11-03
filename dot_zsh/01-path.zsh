@@ -57,32 +57,13 @@ unset _user_bins
 if [[ "${IS_MACOS}" == "true" ]]; then
   path=(
     "${HOME}/.antigravity/antigravity/bin"
-    "${HOME}/.jenv/bin"
     ${HOMEBREW_PREFIX:+${HOMEBREW_PREFIX}/opt/ruby/bin}
-    "${HOME}/.rbenv/shims"
     "${HOME}/.tmuxifier/bin"
     "${path[@]}"
-    /usr/local/opt/rbenv/shims
     /opt/X11/bin
     /Library/TeX/texbin
     /usr/texbin
   )
 
-  # Lazy load pyenv for faster startup (macOS only)
-  if (( $+commands[pyenv] )); then
-    pyenv() {
-      unfunction pyenv
-      eval "$(command pyenv init -)"
-      pyenv "$@"
-    }
-  fi
-
-  # Lazy load jenv for faster startup (macOS only)
-  if (( $+commands[jenv] )); then
-    jenv() {
-      unfunction jenv
-      eval "$(command jenv init -)"
-      jenv "$@"
-    }
-  fi
+  # pyenv / rbenv / jenv / nvm were replaced by mise (see 99-integrations.zsh).
 fi

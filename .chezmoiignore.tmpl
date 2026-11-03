@@ -73,6 +73,12 @@ Library/
 .config/komorebi/
 {{- end }}
 
+{{/* mise language toolchains (node/python/go/rust/ruby/java): desktops and macOS only.
+     Servers, RPi, Debian and Windows keep the system toolchain. */}}
+{{- if or (eq .chezmoi.os "windows") (has $mp (list "rpi" "debian" "ubuntu-server" "fedora-server" "arch-server" "windows")) }}
+.config/mise/
+{{- end }}
+
 {{/* AI CLI tools — runtime/cache/secrets exclusions */}}
 {{/* .codex runtime */}}
 .codex/auth.json

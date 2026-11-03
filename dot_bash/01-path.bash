@@ -51,32 +51,13 @@ path_append "${XDG_DATA_HOME:-$HOME/.local/share}/mise/shims"
 # ============================================================================
 if [[ "${IS_MACOS}" == "true" ]]; then
   path_prepend "${HOME}/.antigravity/antigravity/bin"
-  path_prepend "${HOME}/.jenv/bin"
   [[ -n "${HOMEBREW_PREFIX:-}" ]] && path_prepend "${HOMEBREW_PREFIX}/opt/ruby/bin"
-  path_prepend "${HOME}/.rbenv/shims"
   path_prepend "${HOME}/.tmuxifier/bin"
-  path_append "/usr/local/opt/rbenv/shims"
   path_append "/opt/X11/bin"
   path_append "/Library/TeX/texbin"
   path_append "/usr/texbin"
 
-  # Lazy load pyenv for faster startup
-  if command -v pyenv >/dev/null 2>&1; then
-    pyenv() {
-      unset -f pyenv
-      eval "$(command pyenv init -)"
-      pyenv "$@"
-    }
-  fi
-
-  # Lazy load jenv for faster startup
-  if command -v jenv >/dev/null 2>&1; then
-    jenv() {
-      unset -f jenv
-      eval "$(command jenv init -)"
-      jenv "$@"
-    }
-  fi
+  # pyenv / rbenv / jenv / nvm were replaced by mise (see 99-integrations.bash).
 fi
 
 # LM Studio CLI

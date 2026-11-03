@@ -107,7 +107,6 @@ server:
 macos:
   # macOS-only (Brewfile_personal and Brewfile_pro handle casks/taps separately)
   - name: chezmoi
-  - name: pyenv
 
 arch_aur:
   # AUR packages (installed via yay)

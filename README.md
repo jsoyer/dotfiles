@@ -260,7 +260,7 @@ brew install tmux zellij
 brew install \
   docker kubectl helm terraform \
   node npm yarn pnpm \
-  python pyenv rbenv jenv \
+  python \
   go rust cargo
 ```
 
@@ -373,6 +373,16 @@ A custom `breww` script wraps the `brew` command. When you install a package wit
 # Instead of 'brew install ...', use 'breww install ...'
 breww install ripgrep
 ```
+
+### Toolchains (mise)
+
+[mise](https://mise.jdx.dev) is the declarative manager for language toolchains. It replaces pyenv, rbenv, jenv and nvm. `~/.config/mise/config.toml` (from `dot_config/mise/config.toml.tmpl`) pins `node`, `python`, `go`, `ruby` and `rust` (`stable`) to the latest releases, and `java` to Temurin (current LTS as default, plus the newest feature release with macOS builds).
+
+- **Install:** `.chezmoiscripts/03-configure/run_onchange_after_install-mise-tools.sh.tmpl` runs `mise install` whenever the config changes. mise itself comes from Homebrew (`brew "mise"`). Only if Homebrew cannot pour it (Intel macOS, no bottle) does the script fall back to a sha256-verified GitHub release binary in `~/.local/bin/mise`; that copy is removed once a brew mise exists.
+- **Intel macOS (Homebrew Tier 3, no bottles):** a block of everyday CLI tools (ripgrep, fd, bat, eza, fzf, jq, yq, gh, zoxide, starship, lazygit, uv, ...) is installed as prebuilt binaries through the `aqua:` backend instead of compiled by brew. Ruby has no prebuilt Intel macOS build, so it still compiles there.
+- **Upgrades:** `sysup` runs `mise upgrade`.
+- **Servers excluded:** rpi, debian, ubuntu-server, fedora-server, arch-server and Windows get neither the config nor the install script (they keep the system toolchain).
+- **Scripts:** shims are last in `PATH`, so non-interactive scripts keep the system `python3`. Per-project versions go in a project `mise.toml` (run `mise trust` once).
 
 ### Package Manager Wrappers (Linux / Windows)
 
@@ -955,7 +965,7 @@ Bash configuration mirrors the Zsh setup for consistency when Zsh isn't availabl
 | 🎨 **Themed** | Catppuccin Mocha (macOS) / Snazzy (Linux) |
 | 🚀 **Modern Tools** | eza, bat, zoxide, fzf, starship |
 | 🔄 **Zsh Parity** | Same aliases, functions, and integrations |
-| ⚡ **Fast Startup** | Lazy loading for pyenv/jenv |
+| ⚡ **Fast Startup** | Language toolchains via mise |
 | 🌍 **Cross-Platform** | macOS, Linux, Raspberry Pi detection |
 
 ### 🔗 Zsh ↔ Bash Equivalence

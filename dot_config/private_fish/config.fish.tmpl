@@ -8,11 +8,10 @@ status is-interactive; or exit 0
 # ============================================================================
 # Fisher bootstrap -- auto-install on first launch
 # ============================================================================
-# Plugins (fish_plugins): tide, fzf.fish, nvm.fish, done, gitnow
+# Plugins (fish_plugins): tide, fzf.fish, done, gitnow
 #
 # Disabled plugins (conf.d/*.fish.disabled -- not loaded, still installed):
 #   gitnow  (110ms) -- redundant with git aliases below
-#   nvm.fish (81ms) -- not actively used
 # To re-enable: mv ~/.config/fish/conf.d/{name}.fish.disabled {name}.fish
 if not functions -q fisher
     curl -sL https://raw.githubusercontent.com/jorgebucaran/fisher/main/functions/fisher.fish | source
@@ -57,8 +56,6 @@ fish_add_path -g $HOME/.antigravity/antigravity/bin
 fish_add_path -g $HOME/.npm-global/bin
 fish_add_path -g $HOME/.local/bin
 {{ if eq .chezmoi.os "darwin" -}}
-fish_add_path -g $HOME/.jenv/bin
-fish_add_path -g $HOME/.rbenv/shims
 fish_add_path -g $HOME/.tmuxifier/bin
 
 # Tool-specific paths (use $HOMEBREW_PREFIX set above)
@@ -207,46 +204,10 @@ alias sshpw='ssh -o PreferredAuthentications=password'
 # ============================================================================
 
 {{ if eq .chezmoi.os "darwin" -}}
-# Pyenv - Python version management (lazy-loaded to avoid ~200ms fork on startup)
-if test -d $HOME/.pyenv
-    set -gx PYENV_ROOT $HOME/.pyenv
-    fish_add_path $PYENV_ROOT/bin
-end
-if command -q pyenv
-    function pyenv --wraps=pyenv
-        functions -e pyenv
-        command pyenv init - | source
-        pyenv $argv
-    end
-end
-
-# Jenv - Java version management (lazy-loaded)
-if test -d $HOME/.jenv
-    fish_add_path $HOME/.jenv/bin
-end
-if command -q jenv
-    function jenv --wraps=jenv
-        functions -e jenv
-        command jenv init - | source
-        jenv $argv
-    end
-end
-
-# Rbenv - Ruby version management (lazy-loaded)
-if test -d $HOME/.rbenv
-    fish_add_path $HOME/.rbenv/bin
-end
-if command -q rbenv
-    function rbenv --wraps=rbenv
-        functions -e rbenv
-        command rbenv init - fish | source
-        rbenv $argv
-    end
-end
-
-# NVM - Node version management
-if test -d $HOME/.nvm
-    set -gx NVM_DIR $HOME/.nvm
+# mise: node/python/go/rust/ruby/java (replaces pyenv, rbenv, jenv, nvm).
+# Config: ~/.config/mise/config.toml. Activation is interactive-only here.
+if type -q mise
+    mise activate fish | source
 end
 
 {{ end -}}

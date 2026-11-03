@@ -125,3 +125,13 @@ khell/srm
 srm
 pulumi/tap
 esc
+
+# Replaced by mise (toolchains)
+nvm
+pyenv
+pyenv-ccache
+pyenv-pip-migrate
+pyenv-virtualenv
+pyenv-virtualenvwrapper
+rbenv
+jenv
