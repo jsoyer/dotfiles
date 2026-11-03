@@ -168,7 +168,7 @@ Auto-signs in via `op signin` if session expired. Falls back silently if `op` no
 
 - **Completion cache** — `compinit` full check only once per 24h (`compinit -C` otherwise)
 - **`_cache_eval`** — caches `starship init`, `zoxide init` etc. for 24h, auto-invalidates on binary path change (e.g., Homebrew → Pacman)
-- **Lazy loading** — `pyenv` and `jenv` loaded only on first call (~200ms saved)
+- **mise** — node/python/go/rust/ruby/java via `mise activate` (replaced pyenv/rbenv/jenv/nvm)
 - **AWS completion** — `bashcompinit` only loaded if `aws_completer` is present (~30ms saved)
 
 ## Troubleshooting

@@ -1,0 +1,112 @@
+{{- /* Desktops and macOS only: same exclusion list as .chezmoiignore.tmpl (.config/mise/). */ -}}
+{{- $mp := index . "machine_profile" -}}
+{{- if or (eq .chezmoi.os "windows") (has $mp (list "rpi" "debian" "ubuntu-server" "fedora-server" "arch-server" "windows")) -}}
+{{- else -}}
+#!/usr/bin/env bash
+# =============================================================================
+# Install the toolchains / CLI tools declared in ~/.config/mise/config.toml
+# =============================================================================
+# config hash: {{ include "dot_config/mise/config.toml.tmpl" | sha256sum }}
+#
+# mise is normally installed by Homebrew (brew "mise" in the Brewfiles).
+# Fallback, Intel macOS only: Homebrew is Tier 3 there (no bottles; the bundle
+# filter drops unbottled formulae), so mise may be missing. Then, and only then,
+# a checksum-verified standalone binary goes to ~/.local/bin/mise. Once a brew
+# mise exists, the standalone copy is removed so there is a single mise.
+# Failures are non-fatal: this script always exits 0.
+
+set -uo pipefail
+
+LOCAL_MISE="$HOME/.local/bin/mise"
+
+find_brew_mise() {
+    local brew_bin prefix
+    brew_bin="$(command -v brew 2>/dev/null || true)"
+    [[ -z "$brew_bin" ]] && return 1
+    prefix="$("$brew_bin" --prefix 2>/dev/null)" || return 1
+    if [[ -x "$prefix/bin/mise" ]]; then
+        printf '%s\n' "$prefix/bin/mise"
+        return 0
+    fi
+    return 1
+}
+{{ if and (eq .chezmoi.os "darwin") (eq .chezmoi.arch "amd64") }}
+# True when Homebrew publishes a bottle for mise on this host.
+brew_has_bottle_for_mise() {
+    command -v brew >/dev/null 2>&1 || return 1
+    command -v python3 >/dev/null 2>&1 || return 1
+    brew info --json=v2 mise 2>/dev/null | python3 -c '
+import json, sys
+try:
+    f = json.load(sys.stdin)["formulae"][0]
+except Exception:
+    sys.exit(1)
+sys.exit(0 if f.get("bottle", {}).get("stable", {}).get("files") else 1)'
+}
+
+install_standalone_mise() {
+    local tool tag asset base tmp expected actual
+    for tool in curl shasum tar; do
+        command -v "$tool" >/dev/null 2>&1 || { echo "mise: $tool missing, skipping standalone install."; return 1; }
+    done
+    tag="$(curl -fsSL -o /dev/null -w '%{url_effective}' https://github.com/jdx/mise/releases/latest | sed 's|.*/||')" || return 1
+    [[ -n "$tag" ]] || return 1
+    asset="mise-${tag}-macos-x64.tar.gz"
+    base="https://github.com/jdx/mise/releases/download/${tag}"
+    tmp="$(mktemp -d)" || return 1
+    # shellcheck disable=SC2064
+    trap "rm -r -f '$tmp'" RETURN
+    if ! { curl -fsSL -o "$tmp/$asset" "$base/$asset" && curl -fsSL -o "$tmp/SHASUMS256.txt" "$base/SHASUMS256.txt"; }; then
+        echo "mise: download failed, skipping."
+        return 1
+    fi
+    expected="$(awk -v a="$asset" '$2 == a || $2 == "./"a {print $1; exit}' "$tmp/SHASUMS256.txt")"
+    actual="$(shasum -a 256 "$tmp/$asset" | awk '{print $1}')"
+    if [[ -z "$expected" || "$expected" != "$actual" ]]; then
+        echo "mise: sha256 verification FAILED for $asset, not installing."
+        return 1
+    fi
+    tar -xzf "$tmp/$asset" -C "$tmp" || return 1
+    mkdir -p "$HOME/.local/bin"
+    install -m 0755 "$tmp/mise/bin/mise" "$LOCAL_MISE" || return 1
+    echo "mise: installed $tag to $LOCAL_MISE (sha256 verified)."
+}
+{{ end }}
+MISE="$(find_brew_mise || true)"
+
+if [[ -n "$MISE" ]]; then
+    # Single mise: drop a leftover standalone copy when brew provides one.
+    if [[ -e "$LOCAL_MISE" ]]; then
+        echo "mise: Homebrew mise present ($MISE), removing standalone $LOCAL_MISE."
+        rm -f "$LOCAL_MISE"
+    fi
+elif [[ -x "$LOCAL_MISE" ]]; then
+    MISE="$LOCAL_MISE"
+elif command -v mise >/dev/null 2>&1; then
+    MISE="$(command -v mise)"
+{{- if and (eq .chezmoi.os "darwin") (eq .chezmoi.arch "amd64") }}
+elif ! brew_has_bottle_for_mise; then
+    echo "mise: Homebrew cannot pour it here, using verified release download."
+    install_standalone_mise && MISE="$LOCAL_MISE"
+{{- end }}
+fi
+
+if [[ -z "${MISE:-}" ]]; then
+    echo "mise: not available yet (brew bundle may still be pending); skipping tool install."
+    exit 0
+fi
+
+# Rate limits for the aqua/github backends. Token is never printed.
+if [[ -z "${GITHUB_TOKEN:-}" ]] && command -v gh >/dev/null 2>&1; then
+    GITHUB_TOKEN="$(gh auth token 2>/dev/null || true)"
+    [[ -n "$GITHUB_TOKEN" ]] && export GITHUB_TOKEN
+fi
+
+echo "mise: installing tools from ~/.config/mise/config.toml ($MISE)"
+if "$MISE" install --yes; then
+    echo "mise: tools up to date."
+else
+    echo "mise: some tools failed to install (non-fatal); rerun 'mise install'."
+fi
+exit 0
+{{- end }}

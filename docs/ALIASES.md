@@ -617,7 +617,7 @@ mkd path/to/dir    # mkdir -p + cd in one command
 - Functions use `function` keyword (not `alias`)
 - Uses `command -q` for checking command availability
 - Has `_fish_cache_eval` function for caching (similar to Zsh's `_cache_eval`)
-- Lazy-loaded version managers: `pyenv`, `jenv`, `rbenv`
+- Version manager: `mise` (replaced pyenv, jenv, rbenv, nvm)
 
 ### Nushell-specific Features
 - Minimal alias coverage in `dot_config/nushell/config.nu`

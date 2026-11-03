@@ -176,29 +176,12 @@ path_append "/path"   # Add to end if exists
 1. `~/.local/bin`
 2. `~/.cargo/bin`
 3. `~/.antigravity/antigravity/bin` (macOS)
-4. `~/.jenv/bin` (macOS)
-5. `~/.rbenv/shims` (macOS)
-6. `~/.tmuxifier/bin` (macOS)
-7. System paths
-8. `/opt/X11/bin`, `/Library/TeX/texbin` (macOS)
-9. `~/.lmstudio/bin`
+4. `~/.tmuxifier/bin` (macOS)
+5. System paths
+6. `/opt/X11/bin`, `/Library/TeX/texbin` (macOS)
+7. `~/.lmstudio/bin`
 
-**⚡ Lazy Loading (macOS):**
-```bash
-# pyenv loads only when first called
-pyenv() {
-  unset -f pyenv
-  eval "$(command pyenv init -)"
-  pyenv "$@"
-}
-
-# jenv loads only when first called  
-jenv() {
-  unset -f jenv
-  eval "$(command jenv init -)"
-  jenv "$@"
-}
-```
+**Version managers:** pyenv/rbenv/jenv/nvm were replaced by `mise` (activated in `99-integrations.bash`).
 
 ---
 
@@ -439,7 +422,7 @@ complete -C terraform terraform
 
 ### Startup Optimization
 
-1. **Lazy Loading** - pyenv/jenv load on first use
+1. **mise** - toolchains activated by `mise activate`
 2. **Conditional Sources** - Only load if tool exists
 3. **No Heavy Framework** - Pure bash, no bloat
 

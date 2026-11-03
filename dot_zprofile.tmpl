@@ -17,9 +17,7 @@ export PATH="$PATH:$HOME/.local/bin"
 # Added by Toolbox App
 export PATH="$PATH:$HOME/Library/Application Support/JetBrains/Toolbox/scripts"
 
-export PYENV_ROOT="$HOME/.pyenv"
-export PATH="$PYENV_ROOT/bin:$PATH"
-# Note: pyenv init is handled lazily in dot_zsh/01-path.zsh to avoid double init
+# pyenv was replaced by mise (see dot_zsh/99-integrations.zsh).
 
 {{- else if eq .chezmoi.os "linux" -}}
 # Linux-specific configuration

@@ -1,0 +1,60 @@
+{{- /* Global mise config: language toolchains, plus (Intel macOS) CLI tools.
+       Not deployed on servers / RPi / Windows (see .chezmoiignore.tmpl). */ -}}
+# ~/.config/mise/config.toml -- managed by chezmoi.
+# Per-project versions go in a project-local mise.toml (then `mise trust`).
+
+[tools]
+node = "latest"
+python = "latest"
+go = "latest"
+# "stable" = latest stable Rust release (rustup-style channel; the mise core
+# rust backend lists it in `mise ls-remote rust`).
+rust = "stable"
+# Ruby: mise uses jdx/ruby precompiled builds, which exist for Linux and macOS
+# arm64 only. On Intel macOS there is NO prebuilt ruby, so mise falls back to a
+# source build via ruby-build (accepted last resort; needs Xcode CLT plus
+# brew openssl@3, libyaml, readline).
+ruby = "latest"
+# Java (Temurin, java.shorthand_vendor default): first entry is the default.
+# "lts" is a mise alias for the newest LTS, so it never goes stale. The second
+# entry is the newest feature release that has macOS builds: plain "latest"
+# (27.x) has no macOS metadata yet and would fail, so bump "temurin-26" when
+# a newer series ships for macOS (check `mise lock --platform macos-x64`).
+java = ["lts", "temurin-26"]
+{{ if and (eq .chezmoi.os "darwin") (eq .chezmoi.arch "amd64") }}
+# Intel macOS is Homebrew Tier 3: no bottles, brew would compile from source
+# (see dot_local/bin/executable_brewfile-filter-bottled). These CLI tools are
+# taken from prebuilt upstream release binaries through the aqua backend
+# instead (verified with `mise lock --platform macos-x64`; atuin and git-delta ship
+# no darwin/amd64 asset and are therefore left out).
+"aqua:BurntSushi/ripgrep" = "latest"
+"aqua:sharkdp/fd" = "latest"
+"aqua:sharkdp/bat" = "latest"
+"aqua:eza-community/eza" = "latest"
+"aqua:junegunn/fzf" = "latest"
+"aqua:jqlang/jq" = "latest"
+"aqua:mikefarah/yq" = "latest"
+"aqua:cli/cli" = "latest"
+"aqua:ajeetdsouza/zoxide" = "latest"
+"aqua:starship/starship" = "latest"
+"aqua:jesseduffield/lazygit" = "latest"
+"aqua:astral-sh/uv" = "latest"
+"aqua:casey/just" = "latest"
+"aqua:derailed/k9s" = "latest"
+"aqua:helm/helm" = "latest"
+"aqua:jesseduffield/lazydocker" = "latest"
+"aqua:getsops/sops" = "latest"
+"aqua:watchexec/watchexec" = "latest"
+"aqua:ducaale/xh" = "latest"
+"aqua:sxyazi/yazi" = "latest"
+"aqua:zellij-org/zellij" = "latest"
+"aqua:astral-sh/ruff" = "latest"
+"aqua:direnv/direnv" = "latest"
+"aqua:tealdeer-rs/tealdeer" = "latest"
+"aqua:neovim/neovim" = "latest"
+"aqua:jj-vcs/jj" = "latest"
+{{ end }}
+[settings]
+# Never force source builds: python/node/go/java come precompiled (python via
+# python-build-standalone); only ruby on Intel macOS compiles (see above).
+all_compile = false
