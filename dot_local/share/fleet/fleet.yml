@@ -240,12 +240,8 @@ hosts:
     site: mobile
     kind: chezmoi-macos
     critical: false
-  # UNCERTAIN: site inferred; ssh_user set in sprint 5
-  macos-jsoyer:
-    tailnet_name: jsoyer-macos
-    site: mobile
-    kind: chezmoi-macos
-    critical: false
+  # Excluded on purpose: work MacBook Pro (`jsoyer-macOS`, chezmoi profile `mac-pro`, non-admin,
+  # managed by employer). Not the 2013 Mac Pro.
   # UNCERTAIN: site inferred; ssh_user set in sprint 5
   macmini-m6:
     tailnet_name: jerome-soyers-mac-mini-m6
@@ -317,4 +313,4 @@ groups:
   nas: [omv-dijon, omv-nice, omv-garage]
   homeassistant: [ha-dijon, ha-nice, ha-garage]
   guardians: [bbh-dij-guardian, bbh-nce-guardian]
-  macs: [macbook-pro-14, macos-jsoyer, macmini-m6, macmini-m4, macmini-intel]
+  macs: [macbook-pro-14, macmini-m6, macmini-m4, macmini-intel]
