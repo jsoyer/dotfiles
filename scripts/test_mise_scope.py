@@ -141,12 +141,22 @@ class LinuxbrewDefault(unittest.TestCase):
 
     def test_server_profiles_use_minimal_brewfile(self):
         self.assertEqual((ROOT / "dot_private/Brewfile_minimal").read_text().split("\n")[2:3], ['brew "mise"'])
-        lines = [l for l in (ROOT / "dot_private/Brewfile_minimal").read_text().splitlines()
-                 if l and not l.startswith("#")]
+        lines = [line for line in (ROOT / "dot_private/Brewfile_minimal").read_text().splitlines()
+                 if line and not line.startswith("#")]
         self.assertEqual(lines, ['brew "mise"'])
         text = self.BUNDLE.read_text()
         self.assertIn('"ubuntu-server" "fedora-server" "arch-server"', text)
         self.assertIn("Brewfile_minimal", text)
+        self.assertIn('(list "rpi" "debian" "ubuntu-server" "fedora-server" "arch-server")', text)
+
+    def test_light_profiles_render_mise_only_brewfile(self):
+        tmpl = ROOT / "dot_private/Brewfile.tmpl"
+        for profile, arch in (("rpi", "arm64"), ("debian", "amd64"), ("ubuntu-server", "amd64"),
+                              ("fedora-server", "amd64"), ("arch-server", "amd64")):
+            with self.subTest(profile=profile):
+                entries = [line.strip() for line in render(tmpl, profile, "linux", arch).splitlines()
+                           if line.strip() and not line.strip().startswith("#")]
+                self.assertEqual(entries, ['brew "mise"'])
 
 
 if __name__ == "__main__":
