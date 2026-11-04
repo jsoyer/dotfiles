@@ -1,0 +1,277 @@
+#!/usr/bin/env bash
+# =============================================================================
+# mise-java-macos-link: expose mise-installed JDKs to macOS
+# =============================================================================
+# /usr/libexec/java_home, GUI apps and IDEs only look in
+# /Library/Java/JavaVirtualMachines. For every real mise java install this
+# keeps a managed entry there:
+#   /Library/Java/JavaVirtualMachines/mise-<version>.jdk/Contents -> <install>/Contents
+# Only entries named mise-*.jdk are ever created, changed or removed; any other
+# *.jdk is never touched. Stale entries (after `mise upgrade`/`mise prune`) are
+# removed. Idempotent: when nothing needs to change, sudo is not invoked.
+#
+# Always exits 0 (never fails chezmoi / sysup); exit 2 only for bad options.
+# Bash 3.2 compatible (stock macOS).
+#
+# Test overrides:
+#   JVM_DIR                  target dir (default /Library/Java/JavaVirtualMachines)
+#   MISE_JAVA_INSTALLS_DIR   installs dir; skips `mise ls` discovery when set
+#   SUDO                     privilege command (default "sudo"; empty = run directly)
+#   MISE_JAVA_LINK_OS        OS name override (default: uname -s)
+
+set -u
+
+JVM_DIR="${JVM_DIR:-/Library/Java/JavaVirtualMachines}"
+SUDO="${SUDO-sudo}"
+OS_NAME="${MISE_JAVA_LINK_OS:-$(uname -s)}"
+CHECK=0
+QUIET=0
+TAB="$(printf '\t')"
+
+usage() {
+    cat <<'USAGE'
+Usage: mise-java-macos-link [--check] [--quiet] [--help]
+
+Link mise-installed JDKs into /Library/Java/JavaVirtualMachines as managed
+mise-<version>.jdk entries (macOS only; no-op elsewhere).
+
+  --check   dry run: print the planned actions, change nothing
+  --quiet   suppress informational output
+  --help    show this help
+USAGE
+}
+
+for arg in "$@"; do
+    case "$arg" in
+        --check) CHECK=1 ;;
+        --quiet) QUIET=1 ;;
+        --help | -h) usage; exit 0 ;;
+        *) echo "mise-java-macos-link: unknown option: $arg" >&2; usage >&2; exit 2 ;;
+    esac
+done
+
+info() { [ "$QUIET" = 1 ] || printf '%s\n' "$*"; }
+warn() { printf 'mise-java-macos-link: %s\n' "$*" >&2; }
+
+[ "$OS_NAME" = "Darwin" ] || exit 0
+
+# --- discovery ---------------------------------------------------------------
+if [ -n "${MISE_JAVA_INSTALLS_DIR:-}" ]; then
+    INSTALLS_DIR="$MISE_JAVA_INSTALLS_DIR"
+    USE_MISE=0
+else
+    INSTALLS_DIR="${MISE_DATA_DIR:-${XDG_DATA_HOME:-$HOME/.local/share}/mise}/installs/java"
+    USE_MISE=1
+fi
+
+# Candidate install directories, one per line.
+candidate_dirs() {
+    local out="" mise_bin d
+    if [ "$USE_MISE" = 1 ]; then
+        mise_bin="$(command -v mise 2>/dev/null || true)"
+        if [ -n "$mise_bin" ] && command -v python3 >/dev/null 2>&1; then
+            out="$("$mise_bin" ls java --installed --json 2>/dev/null | python3 -c '
+import json, sys
+try:
+    for e in json.load(sys.stdin):
+        p = e.get("install_path")
+        if p:
+            print(p)
+except Exception:
+    sys.exit(1)' 2>/dev/null)" || out=""
+        fi
+    fi
+    if [ -n "$out" ]; then
+        printf '%s\n' "$out"
+        return 0
+    fi
+    for d in "$INSTALLS_DIR"/*; do
+        [ -d "$d" ] && printf '%s\n' "$d"
+    done
+    return 0
+}
+
+# Desired state, one "name<TAB>target" per line. Aliases (symlinks such as
+# `lts`, `25`) resolve to the real dir and are deduplicated by realpath.
+DESIRED=""
+SEEN=""
+CANDS="$(candidate_dirs)"
+while IFS= read -r cand; do
+    [ -n "$cand" ] || continue
+    real="$(cd "$cand" 2>/dev/null && pwd -P)" || continue
+    [ -x "$real/Contents/Home/bin/java" ] || continue
+    if printf '%s\n' "$SEEN" | grep -Fxq -- "$real"; then
+        continue
+    fi
+    SEEN="${SEEN}${real}
+"
+    name="$(basename "$real")"
+    case "$name" in
+        "" | *[!A-Za-z0-9._+-]*)
+            warn "refusing unsafe version name '$name' ($real)"
+            continue
+            ;;
+    esac
+    DESIRED="${DESIRED}${name}${TAB}${real}/Contents
+"
+done <<EOF_CANDS
+$CANDS
+EOF_CANDS
+
+# --- reconcile -> plan -------------------------------------------------------
+# Plan lines (tab separated): mkdirp<TAB>dir | link<TAB>target<TAB>jdk | unlink<TAB>jdk
+PLAN=""
+add() { PLAN="${PLAN}$1
+"; }
+
+# True when $1 is a real dir containing nothing but a Contents symlink
+# (or empty): the shape this script creates.
+managed_shape() {
+    local jdk="$1" listing
+    [ -d "$jdk" ] && [ ! -L "$jdk" ] || return 1
+    listing="$(ls -A "$jdk" 2>/dev/null)"
+    case "$listing" in
+        "" | "Contents") ;;
+        *) return 1 ;;
+    esac
+    if [ -e "$jdk/Contents" ] || [ -L "$jdk/Contents" ]; then
+        [ -L "$jdk/Contents" ] || return 1
+    fi
+    return 0
+}
+
+if [ -n "$DESIRED" ]; then
+    while IFS="$TAB" read -r name target; do
+        [ -n "$name" ] || continue
+        jdk="$JVM_DIR/mise-$name.jdk"
+        if [ -d "$jdk" ] && [ ! -L "$jdk" ] && [ -L "$jdk/Contents" ] \
+            && [ "$(readlink "$jdk/Contents")" = "$target" ]; then
+            continue
+        fi
+        if [ -e "$jdk" ] || [ -L "$jdk" ]; then
+            if ! managed_shape "$jdk"; then
+                warn "$jdk exists but is not a managed entry; leaving it alone"
+                continue
+            fi
+        fi
+        [ -d "$JVM_DIR" ] || add "mkdirp${TAB}$JVM_DIR"
+        add "link${TAB}${target}${TAB}${jdk}"
+    done <<EOF_DESIRED
+$DESIRED
+EOF_DESIRED
+fi
+
+for jdk in "$JVM_DIR"/mise-*.jdk; do
+    [ -e "$jdk" ] || [ -L "$jdk" ] || continue
+    base="$(basename "$jdk")"
+    name="${base#mise-}"
+    name="${name%.jdk}"
+    case "$name" in
+        "" | *[!A-Za-z0-9._+-]*)
+            warn "$jdk has an unexpected name; leaving it alone"
+            continue
+            ;;
+    esac
+    if printf '%s' "$DESIRED" | cut -f1 | grep -Fxq -- "$name"; then
+        continue
+    fi
+    if ! managed_shape "$jdk"; then
+        warn "$jdk is stale but not a managed entry; leaving it alone"
+        continue
+    fi
+    add "unlink${TAB}${jdk}"
+done
+
+if [ -z "$PLAN" ]; then
+    info "mise java: macOS JDK links already up to date."
+    exit 0
+fi
+
+# --- execute -----------------------------------------------------------------
+# The plan as shell commands, one per line, without privilege prefix.
+plan_commands() {
+    local kind a b
+    while IFS="$TAB" read -r kind a b; do
+        case "$kind" in
+            mkdirp) printf "mkdir -p '%s'\n" "$a" ;;
+            link)
+                printf "mkdir -p '%s'\n" "$b"
+                printf "ln -sfn '%s' '%s/Contents'\n" "$a" "$b"
+                ;;
+            unlink)
+                printf "rm -f '%s/Contents'\n" "$a"
+                printf "rmdir '%s'\n" "$a"
+                ;;
+        esac
+    done <<EOF_PLAN
+$PLAN
+EOF_PLAN
+}
+
+print_commands() {
+    local prefix="$1" line
+    while IFS= read -r line; do
+        [ -n "$line" ] && printf '  %s%s\n' "$prefix" "$line"
+    done <<EOF_CMDS
+$(plan_commands)
+EOF_CMDS
+}
+
+if [ "$CHECK" = 1 ]; then
+    echo "mise java: planned actions (dry run, nothing changed):"
+    print_commands "${SUDO:+$SUDO }"
+    exit 0
+fi
+
+run_priv() {
+    if [ -n "$SUDO" ]; then
+        # shellcheck disable=SC2086
+        $SUDO "$@"
+    else
+        "$@"
+    fi
+}
+
+if [ -n "$SUDO" ]; then
+    # shellcheck disable=SC2086
+    if ! $SUDO -n true >/dev/null 2>&1; then
+        interactive=0
+        if [ -t 0 ] && [ "${CHEZMOI_AUTOUPDATE:-0}" != "1" ] && [ -z "${CI:-}" ]; then
+            interactive=1
+        fi
+        # shellcheck disable=SC2086
+        if [ "$interactive" = 1 ] && $SUDO -v; then
+            :
+        else
+            warn "administrator rights needed to update $JVM_DIR; not available non-interactively."
+            warn "run these commands yourself (or rerun mise-java-macos-link from a terminal):"
+            print_commands "$SUDO " >&2
+            exit 0
+        fi
+    fi
+fi
+
+rc=0
+while IFS="$TAB" read -r kind a b; do
+    case "$kind" in
+        mkdirp) run_priv mkdir -p "$a" || rc=1 ;;
+        link)
+            if run_priv mkdir -p "$b" && run_priv ln -sfn "$a" "$b/Contents"; then
+                info "mise java: linked $b"
+            else
+                rc=1
+            fi
+            ;;
+        unlink)
+            if run_priv rm -f "$a/Contents" && run_priv rmdir "$a"; then
+                info "mise java: removed stale $a"
+            else
+                rc=1
+            fi
+            ;;
+    esac
+done <<EOF_RUN
+$PLAN
+EOF_RUN
+[ "$rc" = 0 ] || warn "some actions failed (non-fatal)."
+exit 0

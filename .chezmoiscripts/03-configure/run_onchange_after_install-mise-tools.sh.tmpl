@@ -108,5 +108,16 @@ if "$MISE" install --yes; then
 else
     echo "mise: some tools failed to install (non-fatal); rerun 'mise install'."
 fi
+{{- if and (eq .chezmoi.os "darwin") (ne $mp "mac-pro") }}
+
+# Expose the JDKs to /usr/libexec/java_home and GUI apps (needs sudo; the helper
+# prints the manual commands instead when it cannot elevate). Skipped on
+# mac-pro: non-admin, employer-managed.
+if command -v mise-java-macos-link >/dev/null 2>&1; then
+    mise-java-macos-link || true
+elif [[ -x "$HOME/.local/bin/mise-java-macos-link" ]]; then
+    "$HOME/.local/bin/mise-java-macos-link" || true
+fi
+{{- end }}
 exit 0
 {{- end }}

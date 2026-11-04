@@ -66,6 +66,7 @@ memory/
 {{/* Ignore macOS-only configs on non-macOS */}}
 {{- if ne .chezmoi.os "darwin" }}
 Library/
+.local/bin/mise-java-macos-link
 {{- end }}
 
 {{/* Ignore Windows-only configs on non-Windows */}}
