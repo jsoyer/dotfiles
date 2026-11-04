@@ -349,8 +349,14 @@ sysup() {
 
   # Notify-only: newer OS release available? Never upgrades, never fails sysup.
   # SYSUP_NO_OS_CHECK=1 skips it.
-  if [[ "$os" != windows && "${SYSUP_NO_OS_CHECK:-0}" != 1 ]] && command -v sysup-os-check &>/dev/null; then
-    sysup-os-check || true
+  if [[ "${SYSUP_NO_OS_CHECK:-0}" != 1 ]]; then
+    if [[ "$os" == windows ]]; then
+      if [[ -f "$HOME/.local/bin/sysup-os-check.ps1" ]] && command -v powershell.exe &>/dev/null; then
+        powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$(cygpath -w "$HOME/.local/bin/sysup-os-check.ps1")" || true
+      fi
+    elif command -v sysup-os-check &>/dev/null; then
+      sysup-os-check || true
+    fi
   fi
 }
 
