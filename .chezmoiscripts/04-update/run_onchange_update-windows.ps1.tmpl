@@ -21,4 +21,40 @@ Write-Host "Upgrading Scoop packages..." -ForegroundColor Cyan
 scoop upgrade --all
 
 Write-Host "Upgrade complete!" -ForegroundColor Green
+
+# --- Notify-only: is a newer Windows feature update on offer? ---------------
+# Never installs anything and never fails this script. SYSUP_NO_OS_CHECK=1 skips.
+# Format-FeatureUpdateNotice is a pure function (title list in, line out).
+function Format-FeatureUpdateNotice {
+    param([string]$Installed, [string[]]$Titles)
+    $Titles = @($Titles | Where-Object { $_ })
+    if ($Titles.Count -eq 0) { return $null }
+    return ("OS: Windows feature update available: {0} (installed: {1}). Install it from Settings > Windows Update; this script never installs it." -f ($Titles -join '; '), $Installed)
+}
+
+function Invoke-OsReleaseCheck {
+    try {
+        if ($env:SYSUP_NO_OS_CHECK -eq '1') { return }
+        $cv = Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion'
+        $installed = $cv.DisplayVersion
+        if (-not $installed) { $installed = $cv.ReleaseId }
+        # The WU search can block on a bad network: run it in a job with a hard limit.
+        $job = Start-Job -ScriptBlock {
+            $searcher = (New-Object -ComObject 'Microsoft.Update.Session').CreateUpdateSearcher()
+            $result = $searcher.Search("IsInstalled=0 and IsHidden=0 and Type='Software'")
+            foreach ($u in $result.Updates) {
+                foreach ($c in $u.Categories) { if ($c.Name -eq 'Upgrades') { $u.Title; break } }
+            }
+        }
+        if (Wait-Job $job -Timeout 60) {
+            $titles = @(Receive-Job $job -ErrorAction SilentlyContinue)
+            $line = Format-FeatureUpdateNotice -Installed $installed -Titles $titles
+            if ($line) { Write-Host $line -ForegroundColor Yellow }
+            else { Write-Host ("OS: Windows {0} - no feature update on offer" -f $installed) -ForegroundColor DarkGray }
+        }
+        Remove-Job $job -Force -ErrorAction SilentlyContinue
+    }
+    catch { }
+}
+Invoke-OsReleaseCheck
 {{- end -}}
