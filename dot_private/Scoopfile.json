@@ -19,6 +19,7 @@
     { "name": "dark", "bucket": "main" },
     { "name": "docker", "bucket": "main" },
     { "name": "innounp", "bucket": "main" },
+    { "name": "mise", "bucket": "main" },
     { "name": "neovim", "bucket": "main" },
     { "name": "opencode", "bucket": "main" },
     { "name": "uv", "bucket": "main" },

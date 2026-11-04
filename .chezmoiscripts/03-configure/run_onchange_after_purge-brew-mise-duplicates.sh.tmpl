@@ -1,7 +1,6 @@
-{{- /* Intel macOS only, same mise exclusion list as run_onchange_after_install-mise-tools.sh.tmpl
-       and .chezmoiignore.tmpl (.config/mise/). Runs after it (alphabetical order). */ -}}
+{{- /* Intel macOS only, runs only here (mise is now installed everywhere; this purge is Intel-only). Runs after it (alphabetical order). */ -}}
 {{- $mp := index . "machine_profile" -}}
-{{- if or (not (and (eq .chezmoi.os "darwin") (eq .chezmoi.arch "amd64"))) (has $mp (list "rpi" "debian" "ubuntu-server" "fedora-server" "arch-server" "windows")) -}}
+{{- if not (and (eq .chezmoi.os "darwin") (eq .chezmoi.arch "amd64")) -}}
 {{- else -}}
 #!/usr/bin/env bash
 # =============================================================================

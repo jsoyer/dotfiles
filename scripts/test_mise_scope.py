@@ -23,7 +23,15 @@ CASES = [
     ("mac-personal", "darwin", "arm64", False),
     ("mac-personal", "darwin", "amd64", True),
     ("fedora-desktop", "linux", "amd64", False),
+    ("rpi", "linux", "arm64", False),
+    ("rpi", "linux", "arm", False),
+    ("ubuntu-server", "linux", "amd64", False),
+    ("fedora-server", "linux", "arm64", False),
+    ("arch-server", "linux", "amd64", False),
+    ("debian", "linux", "amd64", False),
 ]
+
+STANDALONE_ASSETS = ("linux-x64", "linux-arm64", "linux-armv7")
 
 
 def render(path: Path, profile: str, os_name: str, arch: str) -> str:
@@ -90,6 +98,55 @@ class RenderedGating(unittest.TestCase):
             with self.subTest(profile=profile, os=os_name, arch=arch):
                 out = render(INSTALL_SCRIPT, profile, os_name, arch)
                 self.assertEqual("prune --yes" in out, not expected)
+
+    def test_every_linux_profile_gets_mise_install(self):
+        for profile, os_name, arch, _ in [c for c in CASES if c[1] == "linux"]:
+            with self.subTest(profile=profile, arch=arch):
+                out = render(INSTALL_SCRIPT, profile, os_name, arch)
+                self.assertIn("install_standalone_mise", out)
+                self.assertIn("brew_has_bottle_for_mise", out)
+                for asset in STANDALONE_ASSETS:
+                    self.assertIn(asset, out)
+                self.assertNotIn("macos-x64", out)
+                res = subprocess.run(["bash", "-n"], input=out, text=True, capture_output=True)
+                self.assertEqual(res.returncode, 0, res.stderr)
+
+    def test_server_rpi_debian_config_empty_and_pruned(self):
+        for profile in ("rpi", "debian", "ubuntu-server", "fedora-server", "arch-server"):
+            with self.subTest(profile=profile):
+                self.assertEqual(tools_keys(render(MISE_CONFIG, profile, "linux", "arm64")), set())
+                self.assertIn("prune --yes", render(INSTALL_SCRIPT, profile, "linux", "arm64"))
+
+    def test_nothing_ignores_mise_config(self):
+        for profile, os_name, arch in [("rpi", "linux", "arm"), ("ubuntu-server", "linux", "amd64"),
+                                       ("debian", "linux", "arm64"), ("windows", "windows", "amd64")]:
+            with self.subTest(profile=profile):
+                self.assertNotIn(".config/mise/", render(ROOT / ".chezmoiignore.tmpl", profile, os_name, arch))
+                render(MISE_CONFIG, profile, os_name, arch)
+
+    def test_windows_has_no_bash_install_script(self):
+        self.assertEqual(render(INSTALL_SCRIPT, "windows", "windows", "amd64").strip(), "")
+        self.assertIn('"name": "mise"', (ROOT / "dot_private/Scoopfile.json").read_text())
+
+
+class LinuxbrewDefault(unittest.TestCase):
+    BREW = ROOT / ".chezmoiscripts/02-install/run_once_02-install-linuxbrew.sh.tmpl"
+    BUNDLE = ROOT / ".chezmoiscripts/02-install/run_onchange_03-brew-bundle.sh.tmpl"
+
+    @unittest.skipUnless(shutil.which("chezmoi"), "chezmoi not installed")
+    def test_linuxbrew_gate_by_arch(self):
+        # can-sudo is evaluated for real; only assert the arch gate (32-bit never renders)
+        self.assertEqual(render(self.BREW, "rpi", "linux", "arm").strip(), "")
+        self.assertEqual(render(self.BREW, "windows", "windows", "amd64").strip(), "")
+
+    def test_server_profiles_use_minimal_brewfile(self):
+        self.assertEqual((ROOT / "dot_private/Brewfile_minimal").read_text().split("\n")[2:3], ['brew "mise"'])
+        lines = [l for l in (ROOT / "dot_private/Brewfile_minimal").read_text().splitlines()
+                 if l and not l.startswith("#")]
+        self.assertEqual(lines, ['brew "mise"'])
+        text = self.BUNDLE.read_text()
+        self.assertIn('"ubuntu-server" "fedora-server" "arch-server"', text)
+        self.assertIn("Brewfile_minimal", text)
 
 
 if __name__ == "__main__":

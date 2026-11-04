@@ -1,7 +1,9 @@
 {{- $mp := index . "machine_profile" -}}
-{{- $skipProfiles := list "fedora-server" "ubuntu-server" "arch-server" "debian" "windows" -}}
+{{- /* Homebrew on Linux supports only x86_64 and arm64: 32-bit Pis (arch "arm") skip it and get mise as a standalone binary. */ -}}
+{{- $skipProfiles := list "windows" -}}
+{{- $brewArch := has .chezmoi.arch (list "amd64" "arm64") -}}
 {{- $isOMV := or (hasPrefix "omv-" .chezmoi.hostname) (hasPrefix "bbh-network" .chezmoi.hostname) -}}
-{{- if and (eq .chezmoi.os "linux") (not (has $mp $skipProfiles)) (not $isOMV) (eq (includeTemplate "can-sudo" .) "true") -}}
+{{- if and (eq .chezmoi.os "linux") (not (has $mp $skipProfiles)) $brewArch (not $isOMV) (eq (includeTemplate "can-sudo" .) "true") -}}
 #!/usr/bin/env bash
 # =============================================================================
 # Linuxbrew (Homebrew for Linux) Installation

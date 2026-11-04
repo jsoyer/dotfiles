@@ -28,15 +28,15 @@ This setup uses `chezmoi`'s templating capabilities to apply different configura
 | `mac-pro` (work)   | hostname `jsoyer-macOS` (MacBook Air)  | macOS    | Homebrew            | Native         | Catppuccin     |
 | `mac-personal`     | macOS (other hosts)                    | macOS    | Homebrew            | Native         | Catppuccin     |
 | `ubuntu-desktop`   | Ubuntu, hostname not `ubuntu-server*`  | Linux    | apt + Linuxbrew     | Hybrid (apt)   | Catppuccin     |
-| `ubuntu-server`    | Ubuntu, hostname `ubuntu-server*`      | Linux    | apt                 | None           | Snazzy         |
+| `ubuntu-server`    | Ubuntu, hostname `ubuntu-server*`      | Linux    | apt + Linuxbrew| None           | Snazzy         |
 | `fedora-desktop`   | Fedora, hostname not `fedora-server*`  | Linux    | dnf + Linuxbrew     | Hybrid (dnf)   | Catppuccin     |
-| `fedora-server`    | Fedora, hostname `fedora-server*`      | Linux    | dnf                 | None           | Snazzy         |
+| `fedora-server`    | Fedora, hostname `fedora-server*`      | Linux    | dnf + Linuxbrew| None           | Snazzy         |
 | `fedora-atomic`    | `rpm-ostree` present                   | Linux    | rpm-ostree          | None           | Snazzy         |
-| `debian`           | Debian (non-RPi)                       | Linux    | apt                 | None           | Snazzy         |
+| `debian`           | Debian (non-RPi)                       | Linux    | apt + Linuxbrew| None           | Snazzy         |
 | `toolbox`          | `TOOLBOX_PATH` set                     | Linux    | dnf + Linuxbrew     | None           | Snazzy         |
 | `rpi`              | `/proc/device-tree/model` contains rpi | Linux    | apt + Linuxbrew     | Pi-Apps        | Snazzy         |
 | `arch-desktop`     | `pacman` present, hostname `arch-desktop*` | Linux    | pacman + Linuxbrew  | Hybrid (pacman)| Catppuccin     |
-| `arch-server`      | `pacman` present, hostname `arch-server*` | Linux    | pacman              | None           | Snazzy         |
+| `arch-server`      | `pacman` present, hostname `arch-server*` | Linux    | pacman + Linuxbrew| None           | Snazzy         |
 | `omarchy`          | `/etc/os-release` `ID=omarchy`         | Linux    | pacman + Linuxbrew  | Hybrid (pacman)| Catppuccin     |
 | `windows`          | cygwin/msys/mingw                      | Windows  | Scoop               | Native         | N/A            |
 
@@ -383,11 +383,13 @@ breww install ripgrep
 | Work Mac (`mac-pro`) | mise | languages (java: Temurin LTS plus the newest feature release with macOS builds) |
 | Intel Macs (darwin/amd64) | mise (no Homebrew bottles) | languages plus the CLI-tools block below |
 | Personal Apple Silicon Macs | Homebrew (`Brewfile_personal`: node, python@3.13, go, rust, ruby, openjdk, openjdk@25) | empty `[tools]` |
+| Debian, Raspberry Pi, servers (`debian`, `rpi`, `*-server`) | native packages (no languages added; mise itself only, for per-project versions) | empty `[tools]` |
+| Windows | Scoop (`mise` in `Scoopfile.json`; no languages) | empty `[tools]` (deployed to `~/.config/mise`) |
 | Linux desktops | native packages (`Dnffile_fedora_desktop`, `Pacfile_arch_desktop`, `Aptfile_ubuntu_desktop`) | empty `[tools]` |
 
 On the machines without global languages the install script runs `mise prune --yes` after `mise install` to remove toolchains installed by an earlier global config (versions pinned by a tracked project `mise.toml` / `.tool-versions` are kept). `~/.config/mise/config.toml` comes from `dot_config/mise/config.toml.tmpl`.
 
-- **Install:** `.chezmoiscripts/03-configure/run_onchange_after_install-mise-tools.sh.tmpl` runs `mise install` whenever the config changes. mise itself comes from Homebrew (`brew "mise"`). Only if Homebrew cannot pour it (Intel macOS, no bottle) does the script fall back to a sha256-verified GitHub release binary in `~/.local/bin/mise`; that copy is removed once a brew mise exists. On Intel macOS the standalone binary wins even when a brew mise is installed: it is installed, then `brew uninstall mise` runs, and `sysup` keeps it current with `mise self-update`.
+- **Install:** `.chezmoiscripts/03-configure/run_onchange_after_install-mise-tools.sh.tmpl` runs `mise install` whenever the config changes. mise itself comes from Homebrew (`brew "mise"`). Only if Homebrew cannot pour it (Intel macOS, no bottle) does the script fall back to a sha256-verified GitHub release binary in `~/.local/bin/mise`; that copy is removed once a brew mise exists. mise is installed on every machine. On Linux (RPi and servers included) it comes from Linuxbrew when brew pours a bottle for it (x86_64/arm64; `Brewfile_minimal` = `mise` only for debian and the `*-server` profiles, RPi keeps `Brewfile_brew_only` + `Brewfile_rpi`); otherwise (32-bit Pis, no sudo/brew) the same verified binary is installed, picking `linux-x64`, `linux-arm64` or `linux-armv7` from `uname -m` (others skipped cleanly); `sysup` keeps it current with `mise self-update`. A brew mise always wins and removes the standalone copy. Windows installs mise via Scoop. On Intel macOS the standalone binary wins even when a brew mise is installed: it is installed, then `brew uninstall mise` runs, and `sysup` keeps it current with `mise self-update`.
 - **Intel macOS (Homebrew Tier 3, no bottles):** a block of everyday CLI tools (ripgrep, fd, bat, fzf, jq, yq, gh, zoxide, starship, lazygit, uv, ...) is installed as prebuilt binaries through the `aqua:` backend instead of compiled by brew. ruby, eza, atuin and git-delta have no Intel macOS release binary, so they come prebuilt from conda-forge through mise's `conda:` backend (nothing compiles on Intel Macs). `run_onchange_after_purge-brew-mise-duplicates.sh.tmpl` (Intel only) then `brew uninstall`s the stale Homebrew copy of each such tool, but only if `mise which` resolves its binary and no other installed formula depends on it (plain `brew`, the shared Brewfiles are untouched).
 - **Security libs on Intel:** a bulk `breww upgrade` pours bottled formulae only (it prints a count of the skipped ones; `brew outdated --formula` lists them) but compiles `openssl@3 curl git gnupg libssh2` from source when outdated. Override the list with `BREWW_COMPILE_ALLOWLIST` (space-separated, empty disables).
 - **Upgrades:** `sysup` runs `mise upgrade`.
