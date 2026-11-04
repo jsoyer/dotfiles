@@ -28,15 +28,15 @@ This setup uses `chezmoi`'s templating capabilities to apply different configura
 | `mac-pro` (work)   | hostname `jsoyer-macOS` (MacBook Air)  | macOS    | Homebrew            | Native         | Catppuccin     |
 | `mac-personal`     | macOS (other hosts)                    | macOS    | Homebrew            | Native         | Catppuccin     |
 | `ubuntu-desktop`   | Ubuntu, hostname not `ubuntu-server*`  | Linux    | apt + Linuxbrew     | Hybrid (apt)   | Catppuccin     |
-| `ubuntu-server`    | Ubuntu, hostname `ubuntu-server*`      | Linux    | apt + Linuxbrew      | None           | Snazzy         |
+| `ubuntu-server`    | Ubuntu, hostname `ubuntu-server*`      | Linux    | apt + Linuxbrew     | None           | Snazzy         |
 | `fedora-desktop`   | Fedora, hostname not `fedora-server*`  | Linux    | dnf + Linuxbrew     | Hybrid (dnf)   | Catppuccin     |
-| `fedora-server`    | Fedora, hostname `fedora-server*`      | Linux    | dnf + Linuxbrew      | None           | Snazzy         |
+| `fedora-server`    | Fedora, hostname `fedora-server*`      | Linux    | dnf + Linuxbrew     | None           | Snazzy         |
 | `fedora-atomic`    | `rpm-ostree` present                   | Linux    | rpm-ostree          | None           | Snazzy         |
-| `debian`           | Debian (non-RPi)                       | Linux    | apt + Linuxbrew      | None           | Snazzy         |
+| `debian`           | Debian (non-RPi)                       | Linux    | apt + Linuxbrew     | None           | Snazzy         |
 | `toolbox`          | `TOOLBOX_PATH` set                     | Linux    | dnf + Linuxbrew     | None           | Snazzy         |
 | `rpi`              | `/proc/device-tree/model` contains rpi | Linux    | apt + Linuxbrew     | Pi-Apps        | Snazzy         |
 | `arch-desktop`     | `pacman` present, hostname `arch-desktop*` | Linux    | pacman + Linuxbrew  | Hybrid (pacman)| Catppuccin     |
-| `arch-server`      | `pacman` present, hostname `arch-server*` | Linux    | pacman + Linuxbrew   | None           | Snazzy         |
+| `arch-server`      | `pacman` present, hostname `arch-server*` | Linux    | pacman + Linuxbrew  | None           | Snazzy         |
 | `omarchy`          | `/etc/os-release` `ID=omarchy`         | Linux    | pacman + Linuxbrew  | Hybrid (pacman)| Catppuccin     |
 | `windows`          | cygwin/msys/mingw                      | Windows  | Scoop               | Native         | N/A            |
 
