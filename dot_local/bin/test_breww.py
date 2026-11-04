@@ -171,6 +171,76 @@ class PlanBrewCommandsUpgrade(unittest.TestCase):
         self.assertEqual(plans, [["upgrade", "--formula"]])
 
 
+class PlanBrewCommandsCompileAllowlist(unittest.TestCase):
+    def test_compile_plan_follows_bottled_plan(self):
+        plans = breww.plan_brew_commands(
+            ["upgrade"], [], upgradeable_formulae=["jq"], compile_formulae=["curl", "git"]
+        )
+        self.assertEqual(
+            plans,
+            [
+                ["upgrade", "--formula", "jq"],
+                ["upgrade", "--formula", "--build-from-source", "curl", "git"],
+                ["upgrade", "--cask"],
+            ],
+        )
+
+    def test_compile_plan_runs_even_when_nothing_pours(self):
+        plans = breww.plan_brew_commands(
+            ["upgrade", "--formula"], [], upgradeable_formulae=[], compile_formulae=["curl"]
+        )
+        self.assertEqual(
+            plans, [["upgrade", "--formula", "--build-from-source", "curl"]]
+        )
+
+    def test_no_compile_plan_for_cask_only_or_empty(self):
+        self.assertEqual(
+            breww.plan_brew_commands(
+                ["upgrade", "--cask"], [], upgradeable_formulae=[], compile_formulae=["curl"]
+            ),
+            [["upgrade", "--cask"]],
+        )
+        self.assertEqual(
+            breww.plan_brew_commands(
+                ["upgrade"], [], upgradeable_formulae=["jq"], compile_formulae=[]
+            ),
+            [["upgrade", "--formula", "jq"], ["upgrade", "--cask"]],
+        )
+
+    def test_select_keeps_only_outdated_unpoured_allowlisted(self):
+        allow = ["openssl@3", "curl", "git", "gnupg", "libssh2"]
+        self.assertEqual(
+            breww.select_compile_formulae(
+                ["curl", "git", "node", "gnupg"], ["git"], allow
+            ),
+            ["curl", "gnupg"],
+        )
+
+    def test_allowlist_env_override(self):
+        with unittest.mock.patch.dict("os.environ", {"BREWW_COMPILE_ALLOWLIST": "a b"}):
+            self.assertEqual(breww.compile_allowlist(), ["a", "b"])
+        with unittest.mock.patch.dict("os.environ", {"BREWW_COMPILE_ALLOWLIST": ""}):
+            self.assertEqual(breww.compile_allowlist(), [])
+        with unittest.mock.patch.dict("os.environ", {}, clear=True):
+            self.assertEqual(
+                breww.compile_allowlist(),
+                ["openssl@3", "curl", "git", "gnupg", "libssh2"],
+            )
+
+
+class DumpEnv(unittest.TestCase):
+    def test_extra_dumpers_disabled(self):
+        env = breww.dump_env()
+        for kind in ("VSCODE", "GO", "CARGO", "UV", "KREW", "NPM", "FLATPAK", "WINGET"):
+            self.assertEqual(env[f"HOMEBREW_BUNDLE_DUMP_NO_{kind}"], "1")
+
+    def test_dump_host_overlay_passes_env_to_subprocess(self):
+        fake = unittest.mock.Mock(returncode=1, stderr="x", stdout="")
+        with unittest.mock.patch.object(breww.subprocess, "run", return_value=fake) as run:
+            breww.dump_host_overlay(None)
+        self.assertEqual(run.call_args.kwargs["env"]["HOMEBREW_BUNDLE_DUMP_NO_KREW"], "1")
+
+
 class PlanBrewCommandsBottledFilter(unittest.TestCase):
     """Bulk formula upgrades are restricted to what can be poured (Intel Tier 3)."""
 
