@@ -1,0 +1,262 @@
+#!/usr/bin/env bash
+# sysup-os-check — NOTIFY-ONLY check for a newer OS release (major / feature
+# release). sysup only updates packages inside the installed release; this tells
+# you when a new release exists and which command upgrades to it. It NEVER
+# upgrades, never prompts, never touches sudo, and always exits 0: any failure
+# (offline, missing tool, unexpected output) prints nothing.
+#
+# Called by sysup at the end of its run. Skip with SYSUP_NO_OS_CHECK=1.
+# Must run on stock macOS bash 3.2 (no associative arrays, no ${x,,}, no
+# `timeout`).
+#
+# Sources of truth per platform:
+#   Fedora        https://fedoraproject.org/releases.json (highest plain-number
+#                 version; "45 Beta" entries ignored); Rawhide skipped
+#   Fedora Atomic same; rebase ref derived from `rpm-ostree status --json`
+#   Ubuntu        `do-release-upgrade -c` (honours Prompt= in release-upgrades)
+#   Debian/RPi/PVE https://deb.debian.org/debian/dists/stable/Release (Version:)
+#   macOS         `softwareupdate --list-full-installers`
+#   Arch & other rolling / unknown distros, containers: skipped silently
+#
+# Test seams (env, tests only): SYSUP_OS_RELEASE, SYSUP_OSTREE_FLAG,
+# SYSUP_CONTAINERENV, SYSUP_RPI_ISSUE, SYSUP_OS_CHECK_PLATFORM (linux|darwin),
+# SYSUP_OS_CHECK_LATEST (latest Fedora/Debian major, skips the network),
+# SYSUP_OS_CHECK_RAW (raw do-release-upgrade / softwareupdate output),
+# SYSUP_OS_CHECK_MACOS_VERSION, SYSUP_OS_CHECK_PVE_VERSION,
+# SYSUP_OS_CHECK_RPMOSTREE_JSON, SYSUP_OS_CHECK_FEDORA_URL,
+# SYSUP_OS_CHECK_DEBIAN_URL.
+
+set -u
+
+[[ "${SYSUP_NO_OS_CHECK:-0}" == 1 ]] && exit 0
+
+NET_TIMEOUT=5
+FEDORA_URL="${SYSUP_OS_CHECK_FEDORA_URL:-https://fedoraproject.org/releases.json}"
+DEBIAN_URL="${SYSUP_OS_CHECK_DEBIAN_URL:-https://deb.debian.org/debian/dists/stable/Release}"
+
+# Run "$@" with a hard time limit of $1 seconds, stdout to stdout, stderr
+# dropped. Pure bash (no GNU timeout on macOS). Always returns 0 unless the
+# command timed out (124) so callers can tell.
+_run_limited() {
+  local secs="$1" out pid i rc=0
+  shift
+  out="$(mktemp 2>/dev/null)" || return 1
+  "$@" >"$out" 2>/dev/null &
+  pid=$!
+  i=0
+  while kill -0 "$pid" 2>/dev/null; do
+    if [[ "$i" -ge "$secs" ]]; then
+      kill "$pid" 2>/dev/null
+      sleep 1
+      kill -9 "$pid" 2>/dev/null
+      wait "$pid" 2>/dev/null
+      rm -f "$out"
+      return 124
+    fi
+    sleep 1
+    i=$((i + 1))
+  done
+  wait "$pid" 2>/dev/null || rc=$?
+  cat "$out"
+  rm -f "$out"
+  return "$rc"
+}
+
+_fetch() {
+  command -v curl &>/dev/null || return 1
+  curl -fsSL --max-time "$NET_TIMEOUT" --connect-timeout "$NET_TIMEOUT" "$1" 2>/dev/null
+}
+
+# Highest integer on stdin lines (one per line); empty when none.
+_max_int() {
+  local n max=""
+  while IFS= read -r n; do
+    [[ "$n" =~ ^[0-9]+$ ]] || continue
+    if [[ -z "$max" || "$n" -gt "$max" ]]; then max="$n"; fi
+  done
+  printf '%s' "$max"
+}
+
+# Latest stable Fedora release number, from releases.json. The file has one
+# "version" key per image; keep only plain integers ("45 Beta" is pre-release).
+_latest_fedora() {
+  if [[ -n "${SYSUP_OS_CHECK_LATEST:-}" ]]; then printf '%s' "$SYSUP_OS_CHECK_LATEST"; return 0; fi
+  _fetch "$FEDORA_URL" | grep -o '"version": *"[0-9]*"' | grep -o '[0-9][0-9]*' | _max_int
+}
+
+# Latest Debian stable major from the Release file ("Version: 13.7" -> 13).
+_latest_debian() {
+  if [[ -n "${SYSUP_OS_CHECK_LATEST:-}" ]]; then printf '%s' "$SYSUP_OS_CHECK_LATEST"; return 0; fi
+  _fetch "$DEBIAN_URL" | sed -n 's/^Version: *\([0-9][0-9]*\).*/\1/p' | head -n 1
+}
+
+# os-release value, read in a subshell so nothing leaks into this shell.
+_osr() {
+  local rel="${SYSUP_OS_RELEASE:-/etc/os-release}"
+  [[ -r "$rel" ]] || return 0
+  # shellcheck disable=SC1090
+  ( . "$rel" 2>/dev/null; eval "printf '%s' \"\${$1:-}\"" )
+}
+
+_is_int() { [[ "${1:-}" =~ ^[0-9]+$ ]]; }
+
+_check_fedora() {
+  local cur="$1" atomic="$2" latest ref newref
+  # Rawhide / branched development: nothing to upgrade to.
+  if [[ "$(_osr REDHAT_SUPPORT_PRODUCT_VERSION)" == rawhide || "$(_osr VERSION_ID)" == rawhide ]]; then return 0; fi
+  case "$(_osr VERSION)$(_osr PRETTY_NAME)" in *[Rr]awhide*) return 0 ;; esac
+  _is_int "$cur" || return 0
+  latest="$(_latest_fedora)"
+  _is_int "$latest" || return 0
+  if [[ "$latest" -le "$cur" ]]; then
+    echo "✅ OS: Fedora $cur is the latest release"
+    return 0
+  fi
+  if [[ "$atomic" == 1 ]]; then
+    ref="$(_atomic_origin)"
+    newref=""
+    if [[ -n "$ref" ]]; then
+      # ref forms: fedora:fedora/44/x86_64/silverblue  |  ...silverblue:44
+      newref="$(printf '%s' "$ref" | sed -e "s#/$cur/#/$latest/#" -e "s#:$cur\$#:$latest#")"
+      [[ "$newref" == "$ref" ]] && newref=""
+    fi
+    if [[ -n "$newref" ]]; then
+      echo "🆕 OS: Fedora $latest is available (installed: $cur). Upgrade: rpm-ostree rebase $newref && systemctl reboot"
+    else
+      echo "🆕 OS: Fedora $latest is available (installed: $cur). Upgrade: rpm-ostree rebase to the $latest ref of your variant (see https://docs.fedoraproject.org/en-US/fedora-silverblue/updates-upgrades-rollbacks/)"
+    fi
+  else
+    echo "🆕 OS: Fedora $latest is available (installed: $cur). Upgrade: sudo dnf system-upgrade download --releasever=$latest && sudo dnf system-upgrade reboot"
+  fi
+}
+
+# Booted deployment origin (the ref/image the system follows), "" if unknown.
+_atomic_origin() {
+  local json
+  if [[ -n "${SYSUP_OS_CHECK_RPMOSTREE_JSON:-}" ]]; then
+    json="$SYSUP_OS_CHECK_RPMOSTREE_JSON"
+  else
+    command -v rpm-ostree &>/dev/null || return 0
+    json="$(_run_limited 10 rpm-ostree status --json)" || return 0
+  fi
+  command -v python3 &>/dev/null || return 0
+  printf '%s' "$json" | python3 -c '
+import json, sys
+try:
+    for d in json.load(sys.stdin).get("deployments", []):
+        if d.get("booted"):
+            print(d.get("origin") or d.get("container-image-reference") or "")
+            break
+except Exception:
+    pass
+' 2>/dev/null
+}
+
+_check_ubuntu() {
+  local raw ver
+  if [[ -n "${SYSUP_OS_CHECK_RAW:-}" ]]; then
+    raw="$SYSUP_OS_CHECK_RAW"
+  else
+    command -v do-release-upgrade &>/dev/null || return 0
+    raw="$(_run_limited 20 do-release-upgrade -c)" || true
+  fi
+  # "New release '26.04 LTS' available."
+  ver="$(printf '%s\n' "$raw" | sed -n "s/^New release '\\(.*\\)' available\\..*/\\1/p" | head -n 1)"
+  if [[ -n "$ver" ]]; then
+    echo "🆕 OS: Ubuntu $ver is available (installed: $(_osr VERSION_ID)). Upgrade: sudo do-release-upgrade"
+  elif [[ -n "$raw" ]]; then
+    echo "✅ OS: Ubuntu $(_osr VERSION_ID) is the latest release for your update policy"
+  fi
+}
+
+_check_debian() {
+  local cur latest pve pvemajor
+  cur="$(_osr VERSION_ID)"
+  cur="${cur%%.*}"
+  _is_int "$cur" || return 0   # testing/sid have no VERSION_ID
+  latest="$(_latest_debian)"
+  _is_int "$latest" || return 0
+  if [[ "$latest" -le "$cur" ]]; then
+    echo "✅ OS: Debian $cur is the current stable release"
+    return 0
+  fi
+  pve="${SYSUP_OS_CHECK_PVE_VERSION:-}"
+  if [[ -z "$pve" ]] && command -v pveversion &>/dev/null; then pve="$(pveversion 2>/dev/null)"; fi
+  if [[ -n "$pve" ]]; then
+    pvemajor="$(printf '%s' "$pve" | sed -n 's#^pve-manager/\([0-9][0-9]*\)\..*#\1#p' | head -n 1)"
+    if _is_int "$pvemajor"; then
+      echo "🆕 OS: Debian $latest is stable (installed: $cur); if Proxmox VE $((pvemajor + 1)) is out, follow https://pve.proxmox.com/wiki/Upgrade_from_${pvemajor}_to_$((pvemajor + 1)) and run 'pve${pvemajor}to$((pvemajor + 1)) --full' first. Never a bare apt dist-upgrade"
+    else
+      echo "🆕 OS: Debian $latest is stable (installed: $cur). Proxmox VE: follow the official major-upgrade guide (https://pve.proxmox.com/wiki/Category:Upgrade) and run the pveXtoY checker first"
+    fi
+  elif [[ "$(_osr ID)" == raspbian || -e "${SYSUP_RPI_ISSUE:-/etc/rpi-issue}" ]]; then
+    echo "🆕 OS: Debian $latest is stable (installed: $cur). Raspberry Pi OS: a fresh install is recommended for a major upgrade (https://www.raspberrypi.com/documentation/computers/os.html)"
+  else
+    echo "🆕 OS: Debian $latest is available (installed: $cur). Upgrade: https://www.debian.org/releases/stable/releasenotes (edit sources, then apt full-upgrade)"
+  fi
+}
+
+# macOS: newest full installer offered for this Mac vs the running major.
+# Lines look like: * Title: macOS Tahoe, Version: 26.1, Size: 15KiB, Build: 25B78, ...
+_check_macos() {
+  local raw cur curmajor line v t best="" besttitle="" bestmajor=0 major
+  cur="${SYSUP_OS_CHECK_MACOS_VERSION:-}"
+  if [[ -z "$cur" ]]; then cur="$(sw_vers -productVersion 2>/dev/null)"; fi
+  curmajor="${cur%%.*}"
+  _is_int "$curmajor" || return 0
+  if [[ -n "${SYSUP_OS_CHECK_RAW:-}" ]]; then
+    raw="$SYSUP_OS_CHECK_RAW"
+  else
+    command -v softwareupdate &>/dev/null || return 0
+    raw="$(_run_limited 30 softwareupdate --list-full-installers)" || return 0
+  fi
+  while IFS= read -r line; do
+    case "$line" in *"Title:"*"Version:"*) ;; *) continue ;; esac
+    t="$(printf '%s' "$line" | sed -n 's/.*Title: *\([^,]*\),.*/\1/p')"
+    v="$(printf '%s' "$line" | sed -n 's/.*Version: *\([0-9][0-9.]*\).*/\1/p')"
+    major="${v%%.*}"
+    _is_int "$major" || continue
+    if [[ "$major" -gt "$bestmajor" ]]; then
+      bestmajor="$major"; best="$v"; besttitle="$t"
+    fi
+  done <<EOF
+$raw
+EOF
+  if [[ -n "$best" && "$bestmajor" -gt "$curmajor" ]]; then
+    echo "🆕 OS: $besttitle $best is available (installed: macOS $cur). Upgrade: System Settings > General > Software Update, or: softwareupdate --fetch-full-installer --full-installer-version $best"
+  elif [[ -n "$best" ]]; then
+    echo "✅ OS: macOS $cur is the latest major release for this Mac"
+  fi
+}
+
+main() {
+  local platform="${SYSUP_OS_CHECK_PLATFORM:-}" id
+  if [[ -z "$platform" ]]; then
+    case "$OSTYPE" in
+      darwin*) platform=darwin ;;
+      linux*)  platform=linux ;;
+      *)       return 0 ;;
+    esac
+  fi
+  if [[ "$platform" == darwin ]]; then _check_macos; return 0; fi
+
+  # Containers (toolbox, distrobox, docker): the host owns the release.
+  [[ -e "${SYSUP_CONTAINERENV:-/run/.containerenv}" ]] && return 0
+
+  id="$(_osr ID)"
+  case "$id" in
+    fedora)
+      if [[ -e "${SYSUP_OSTREE_FLAG:-/run/ostree-booted}" ]]; then
+        _check_fedora "$(_osr VERSION_ID)" 1
+      else
+        _check_fedora "$(_osr VERSION_ID)" 0
+      fi
+      ;;
+    ubuntu)          _check_ubuntu ;;
+    debian|raspbian) _check_debian ;;
+    *) ;;   # arch, omarchy, others: rolling or unknown, silent
+  esac
+}
+
+main || true
+exit 0
