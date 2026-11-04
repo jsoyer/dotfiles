@@ -376,7 +376,16 @@ breww install ripgrep
 
 ### Toolchains (mise)
 
-[mise](https://mise.jdx.dev) is the declarative manager for language toolchains. It replaces pyenv, rbenv, jenv and nvm. `~/.config/mise/config.toml` (from `dot_config/mise/config.toml.tmpl`) pins `node`, `python`, `go`, `ruby` and `rust` (`stable`) to the latest releases, and `java` to Temurin (current LTS as default, plus the newest feature release with macOS builds).
+[mise](https://mise.jdx.dev) is the declarative manager for language toolchains and per-project versions; it replaces pyenv, rbenv, jenv and nvm. Where the global languages come from depends on the machine:
+
+| Machine | Global `node`/`python`/`go`/`rust`/`ruby`/`java` from | mise config |
+|---------|------|------|
+| Work Mac (`mac-pro`) | mise | languages (java: Temurin LTS plus the newest feature release with macOS builds) |
+| Intel Macs (darwin/amd64) | mise (no Homebrew bottles) | languages plus the CLI-tools block below |
+| Personal Apple Silicon Macs | Homebrew (`Brewfile_personal`: node, python@3.13, go, rust, ruby, openjdk, openjdk@25) | empty `[tools]` |
+| Linux desktops | native packages (`Dnffile_fedora_desktop`, `Pacfile_arch_desktop`, `Aptfile_ubuntu_desktop`) | empty `[tools]` |
+
+On the machines without global languages the install script runs `mise prune --yes` after `mise install` to remove toolchains installed by an earlier global config (versions pinned by a tracked project `mise.toml` / `.tool-versions` are kept). `~/.config/mise/config.toml` comes from `dot_config/mise/config.toml.tmpl`.
 
 - **Install:** `.chezmoiscripts/03-configure/run_onchange_after_install-mise-tools.sh.tmpl` runs `mise install` whenever the config changes. mise itself comes from Homebrew (`brew "mise"`). Only if Homebrew cannot pour it (Intel macOS, no bottle) does the script fall back to a sha256-verified GitHub release binary in `~/.local/bin/mise`; that copy is removed once a brew mise exists. On Intel macOS the standalone binary wins even when a brew mise is installed: it is installed, then `brew uninstall mise` runs, and `sysup` keeps it current with `mise self-update`.
 - **Intel macOS (Homebrew Tier 3, no bottles):** a block of everyday CLI tools (ripgrep, fd, bat, fzf, jq, yq, gh, zoxide, starship, lazygit, uv, ...) is installed as prebuilt binaries through the `aqua:` backend instead of compiled by brew. ruby, eza, atuin and git-delta have no Intel macOS release binary, so they come prebuilt from conda-forge through mise's `conda:` backend (nothing compiles on Intel Macs). `run_onchange_after_purge-brew-mise-duplicates.sh.tmpl` (Intel only) then `brew uninstall`s the stale Homebrew copy of each such tool, but only if `mise which` resolves its binary and no other installed formula depends on it (plain `brew`, the shared Brewfiles are untouched).
