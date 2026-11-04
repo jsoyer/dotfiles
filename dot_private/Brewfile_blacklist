@@ -127,6 +127,7 @@ pulumi/tap
 esc
 
 # Replaced by mise (toolchains)
+python@3.13
 nvm
 pyenv
 pyenv-ccache
