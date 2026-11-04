@@ -26,6 +26,12 @@ nushell
 util-linux-user
 cargo
 rust
+nodejs
+npm
+golang
+ruby
+java-25-openjdk-devel
+java-latest-openjdk-devel
 tree
 gh
 eza
