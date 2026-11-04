@@ -3,12 +3,13 @@
 tap "siderolabs/tap", trusted: true
 brew "age"
 brew "awscli"
+brew "cloudflared"
 brew "dust"
 brew "herdr"
 brew "jdupes"
 brew "mole"
 brew "ripgrep-all"
-cask "claude"
+cask "claude", pin: true
 cask "claude-code"
 cask "fluidvoice"
 cask "microsoft-365-copilot"
