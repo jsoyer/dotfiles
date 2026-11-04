@@ -11,8 +11,8 @@ go = "latest"
 # rust backend lists it in `mise ls-remote rust`).
 rust = "stable"
 # Ruby: mise uses jdx/ruby precompiled builds, which exist for Linux and macOS
-# arm64 only. Intel macOS has no prebuilt ruby and nothing may compile there,
-# so ruby is skipped on Intel Macs (not needed on them).
+# arm64 only. Intel Macs get a prebuilt ruby from conda-forge instead (see the
+# Intel block below), since nothing may compile there.
 {{- if not (and (eq .chezmoi.os "darwin") (eq .chezmoi.arch "amd64")) }}
 ruby = "latest"
 {{- end }}
@@ -26,9 +26,15 @@ java = ["lts", "temurin-26"]
 # Intel macOS is Homebrew Tier 3: no bottles, brew would compile from source
 # (see dot_local/bin/executable_brewfile-filter-bottled). These CLI tools are
 # taken from prebuilt upstream release binaries through the aqua backend
-# instead (verified with `mise lock --platform macos-x64`; atuin and git-delta ship
-# no darwin/amd64 asset and are therefore left out; eza has no macOS release
-# binary either (aqua maps it to a cargo build), shells fall back to plain ls).
+# instead (verified with `mise lock --platform macos-x64`).
+# atuin, git-delta and eza ship no darwin/amd64 release asset (aqua would map
+# eza to a cargo build), and ruby has no jdx/ruby Intel build: these four come
+# from conda-forge's prebuilt osx-64 packages through the conda backend.
+# Note: a project .ruby-version still asks the core ruby backend (source build).
+"conda:ruby" = "latest"
+"conda:eza" = "latest"
+"conda:atuin" = "latest"
+"conda:git-delta" = "latest"
 "aqua:BurntSushi/ripgrep" = "latest"
 "aqua:sharkdp/fd" = "latest"
 "aqua:sharkdp/bat" = "latest"
@@ -57,5 +63,5 @@ java = ["lts", "temurin-26"]
 {{ end }}
 [settings]
 # Never force source builds: python/node/go/java come precompiled (python via
-# python-build-standalone); only ruby on Intel macOS compiles (see above).
+# python-build-standalone; ruby on Intel macOS via conda-forge).
 all_compile = false
