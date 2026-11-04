@@ -200,6 +200,9 @@ _update_mise_if_present() {
   fi
   echo "🔧 Updating mise tools..."
   mise upgrade || true
+  if [[ "$(uname -s)" == Darwin ]] && command -v mise-java-macos-link &>/dev/null; then
+    mise-java-macos-link || true
+  fi
 }
 
 _update_herdr_if_present() {
