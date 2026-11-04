@@ -170,5 +170,20 @@ class Upgradeable(unittest.TestCase):
         self.assertEqual(names, ["starship"])
 
 
+class UpgradeSkipMessage(unittest.TestCase):
+    NAMES = [f"formula{i}" for i in range(218)]
+
+    def test_default_is_count_and_hint_without_names(self):
+        msg = mod.format_upgrade_skip_message(self.NAMES, verbose=False)
+        self.assertIn("Skipping 218 unbottled formula upgrades", msg)
+        self.assertIn("brew outdated --formula", msg)
+        self.assertNotIn("formula17", msg)
+
+    def test_verbose_lists_every_name(self):
+        msg = mod.format_upgrade_skip_message(self.NAMES, verbose=True)
+        self.assertIn("formula0 formula1 ", msg)
+        self.assertIn("formula217", msg)
+
+
 if __name__ == "__main__":
     unittest.main()

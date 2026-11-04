@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import subprocess
 import sys
@@ -230,6 +231,20 @@ def live_outdated() -> set[str]:
     return names
 
 
+def format_upgrade_skip_message(skipped: list[str], verbose: bool) -> str:
+    """One-line count + hint; the full name list only when verbose."""
+    if verbose:
+        return (
+            f"⚠️  Skipping {len(skipped)} unbottled formula upgrades: "
+            + " ".join(skipped)
+        )
+    return (
+        f"⚠️  Skipping {len(skipped)} unbottled formula upgrades "
+        "(no bottle on this platform). List them: brew outdated --formula "
+        "(or rerun with --verbose / BREWFILE_FILTER_VERBOSE=1)"
+    )
+
+
 def _print_skip_summary(skipped: list[tuple[str, str]]) -> None:
     if not skipped:
         return
@@ -260,7 +275,13 @@ def main(argv: list[str] | None = None) -> int:
         nargs="?",
         help="Brewfile path (filter mode). Reads stdin when omitted.",
     )
+    parser.add_argument(
+        "--verbose",
+        action="store_true",
+        help="list every skipped formula (also: BREWFILE_FILTER_VERBOSE=1)",
+    )
     args = parser.parse_args(argv)
+    verbose = args.verbose or os.environ.get("BREWFILE_FILTER_VERBOSE") == "1"
 
     if args.mode == "filter":
         if args.brewfile:
@@ -286,11 +307,7 @@ def main(argv: list[str] | None = None) -> int:
         if name not in names and lookup(name, info) is not None
     ]
     if skipped_upgrades:
-        print(
-            f"⚠️  Skipping {len(skipped_upgrades)} unbottled formula upgrades: "
-            + " ".join(skipped_upgrades),
-            file=sys.stderr,
-        )
+        print(format_upgrade_skip_message(skipped_upgrades, verbose), file=sys.stderr)
     for name in names:
         print(name)
     return 0
