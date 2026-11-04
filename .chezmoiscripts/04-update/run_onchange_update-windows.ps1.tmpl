@@ -21,4 +21,10 @@ Write-Host "Upgrading Scoop packages..." -ForegroundColor Cyan
 scoop upgrade --all
 
 Write-Host "Upgrade complete!" -ForegroundColor Green
+
+# Notify-only OS feature update check (never installs; SYSUP_NO_OS_CHECK=1 skips).
+$osCheck = Join-Path $env:USERPROFILE '.local\bin\sysup-os-check.ps1'
+if (Test-Path -LiteralPath $osCheck) {
+    try { & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $osCheck } catch { }
+}
 {{- end -}}

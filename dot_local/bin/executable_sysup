@@ -4,6 +4,9 @@
 # dot_shell_common/aliases.sh so that bash, zsh, fish, nushell and the fleet
 # agent all run the exact same code.
 #
+# Ends with a notify-only OS release check (sysup-os-check; SYSUP_NO_OS_CHECK=1
+# skips it).
+#
 # Usage: sysup [--reboot]
 #   --reboot  (Fedora desktop/server) stage the dnf upgrade offline and reboot
 #             into it. Manual use only: fleet-agent never passes it (reboots go
@@ -343,6 +346,18 @@ sysup() {
       scoop update --all
       ;;
   esac
+
+  # Notify-only: newer OS release available? Never upgrades, never fails sysup.
+  # SYSUP_NO_OS_CHECK=1 skips it.
+  if [[ "${SYSUP_NO_OS_CHECK:-0}" != 1 ]]; then
+    if [[ "$os" == windows ]]; then
+      if [[ -f "$HOME/.local/bin/sysup-os-check.ps1" ]] && command -v powershell.exe &>/dev/null; then
+        powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$(cygpath -w "$HOME/.local/bin/sysup-os-check.ps1")" || true
+      fi
+    elif command -v sysup-os-check &>/dev/null; then
+      sysup-os-check || true
+    fi
+  fi
 }
 
 sysup "$@"

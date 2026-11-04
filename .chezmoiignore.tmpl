@@ -64,6 +64,10 @@ memory/
 {{- end }}
 
 {{/* Ignore macOS-only configs on non-macOS */}}
+{{- if ne .chezmoi.os "windows" }}
+.local/bin/sysup-os-check.ps1
+{{- end }}
+
 {{- if ne .chezmoi.os "darwin" }}
 Library/
 .local/bin/mise-java-macos-link

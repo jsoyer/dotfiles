@@ -507,6 +507,27 @@ Custom Chezmoi status indicator in prompt:
 - Shows `✗` in red if last auto-update failed
 - No indicator if everything is healthy
 
+## OS release check (`sysup-os-check`)
+
+`sysup` only updates packages inside the installed OS release. At the end of
+every run it calls `sysup-os-check`, a **notify-only** check for a newer
+release: it prints one line (`OS: Fedora 45 is available (installed: 44).
+Upgrade: ...`) and never upgrades, prompts, uses sudo or fails sysup (offline or
+missing tool = silent). Network calls time out after 5 s. Skip with
+`SYSUP_NO_OS_CHECK=1`.
+
+| Platform | Source | Hint |
+|----------|--------|------|
+| Fedora (dnf) | `fedoraproject.org/releases.json` (stable only; Rawhide skipped) | `dnf system-upgrade download --releasever=N` + `reboot` |
+| Fedora Atomic | same; ref from `rpm-ostree status --json` | `rpm-ostree rebase <ref with N>` |
+| Ubuntu | `do-release-upgrade -c` (respects `Prompt=`) | `sudo do-release-upgrade` |
+| Debian / Raspberry Pi OS / Proxmox | `deb.debian.org/debian/dists/stable/Release` | Proxmox: official upgrade guide + `pveXtoY`; RPi: fresh install recommended |
+| macOS | `softwareupdate --list-full-installers` | Software Update, or `softwareupdate --fetch-full-installer --full-installer-version X` |
+| Windows | Windows Update "Upgrades" category (in `run_onchange_update-windows`) | Settings > Windows Update |
+| Arch / OmArchy / containers | none (rolling) | silent |
+
+Tests: `scripts/test_sysup_os_check.py` (env seams `SYSUP_OS_CHECK_*`).
+
 ## Mandatory AI CLIs
 
 `install-ai` installs the eight mandatory AI CLIs, one official one-liner each,
