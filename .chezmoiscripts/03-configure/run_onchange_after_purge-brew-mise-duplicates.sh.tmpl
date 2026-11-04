@@ -1,0 +1,77 @@
+{{- /* Intel macOS only, same mise exclusion list as run_onchange_after_install-mise-tools.sh.tmpl
+       and .chezmoiignore.tmpl (.config/mise/). Runs after it (alphabetical order). */ -}}
+{{- $mp := index . "machine_profile" -}}
+{{- if or (not (and (eq .chezmoi.os "darwin") (eq .chezmoi.arch "amd64"))) (has $mp (list "rpi" "debian" "ubuntu-server" "fedora-server" "arch-server" "windows")) -}}
+{{- else -}}
+#!/usr/bin/env bash
+# =============================================================================
+# Intel macOS: uninstall Homebrew formulae that mise now provides
+# =============================================================================
+# config hash: {{ include "dot_config/mise/config.toml.tmpl" | sha256sum }}
+#
+# Homebrew is Tier 3 on Intel (no bottles), so brew copies of these tools are
+# never upgraded (breww skips unbottled upgrades). mise ships prebuilt
+# binaries for the same tools (dot_config/mise/config.toml.tmpl), so the stale
+# brew copy is removed, but only when:
+#   - the mise tool binary really resolves (`mise which`), and
+#   - the formula is installed, and
+#   - no other installed formula depends on it (`brew uses --installed`).
+# Plain `brew` on purpose, not breww: breww would also drop the entries from the
+# shared base Brewfiles that Apple Silicon Macs still install.
+# Failures are non-fatal: this script always exits 0.
+
+set -uo pipefail
+
+# "formula:binary-provided-by-mise" pairs (bash 3.2: no associative arrays).
+PAIRS="
+ripgrep:rg fd:fd bat:bat fzf:fzf jq:jq yq:yq gh:gh zoxide:zoxide
+starship:starship lazygit:lazygit uv:uv just:just k9s:k9s helm:helm
+lazydocker:lazydocker sops:sops watchexec:watchexec xh:xh yazi:yazi
+zellij:zellij ruff:ruff direnv:direnv tealdeer:tldr neovim:nvim jj:jj
+eza:eza atuin:atuin git-delta:delta node:node go:go rust:rustc ruby:ruby
+python@3.13:python3
+"
+
+MISE="$HOME/.local/bin/mise"
+[[ -x "$MISE" ]] || MISE="$(command -v mise 2>/dev/null || true)"
+if [[ -z "$MISE" ]]; then
+    echo "brew-purge: mise not available, nothing to do."
+    exit 0
+fi
+if ! command -v brew >/dev/null 2>&1; then
+    echo "brew-purge: brew not available, nothing to do."
+    exit 0
+fi
+
+INSTALLED="$(brew list --formula -1 2>/dev/null || true)"
+
+removed=""
+kept=""
+for pair in $PAIRS; do
+    formula="${pair%%:*}"
+    bin="${pair#*:}"
+    printf '%s\n' "$INSTALLED" | grep -qx -- "$formula" || continue
+    if ! "$MISE" which "$bin" >/dev/null 2>&1; then
+        echo "brew-purge: keeping $formula (mise does not provide '$bin' yet)."
+        kept="$kept $formula"
+        continue
+    fi
+    users="$(brew uses --installed "$formula" 2>/dev/null | tr '\n' ' ' || true)"
+    if [[ -n "${users// /}" ]]; then
+        echo "brew-purge: keeping $formula (needed by: ${users% })."
+        kept="$kept $formula"
+        continue
+    fi
+    if brew uninstall "$formula"; then
+        echo "brew-purge: removed $formula (mise provides '$bin')."
+        removed="$removed $formula"
+    else
+        echo "brew-purge: warning: 'brew uninstall $formula' failed (non-fatal)."
+        kept="$kept $formula"
+    fi
+done
+
+echo "brew-purge: removed:${removed:- none}"
+echo "brew-purge: kept:${kept:- none}"
+exit 0
+{{- end }}
