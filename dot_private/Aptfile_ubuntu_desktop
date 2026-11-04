@@ -23,6 +23,13 @@ xclip
 wl-clipboard
 flatpak
 gnome-software-plugin-flatpak
+nodejs
+npm
+golang-go
+rustc
+cargo
+ruby-full
+default-jdk
 
 # installed via custom apt repo or installer (not managed by aptw)
 # starship (curl installer)

@@ -96,6 +96,7 @@ Runs once or on manifest changes to configure services, generate configs, and sy
 | `run_onchange_configure-mail.sh` | Manifest change | macOS, Linux | Configure isync (mbsync), msmtp, neomutt using 1Password integration |
 | `run_onchange_install-fleet-agent.sh.tmpl` | Agent content change | Linux with sudo | Install the fleet-updates agent and the masters' forced-command SSH keys (see below) |
 | `run_always_install-sudoers-sysup.sh.tmpl` | Every apply | Linux | Install `/etc/sudoers.d/sysup` (exact `sysup` commands + `systemctl reboot` used by the fleet agent); validated with `visudo -cf`, retried every apply |
+| `run_onchange_after_install-mise-tools.sh.tmpl` | Config change (hash of `dot_config/mise/config.toml.tmpl`) | Desktops, macOS | `mise install`. Global languages (node, python, go, rust, ruby, java) only on `mac-pro` and Intel Macs; personal Apple Silicon Macs (Homebrew) and Linux desktops (dnf/pacman/apt) get an empty `[tools]` and the script runs `mise prune --yes` (non-fatal) to drop leftover toolchains |
 | `run_after_sync-aictx.sh` | Every apply | Non-Windows | Maintain `~/.aictx/{skills,agents,...}` cache and refresh CLI symlinks (`~/.claude`, `~/.qwen`, `~/.vibe`, `~/.codex`, `~/.opencode`, `~/.gemini`) |
 
 **Key functionality:**

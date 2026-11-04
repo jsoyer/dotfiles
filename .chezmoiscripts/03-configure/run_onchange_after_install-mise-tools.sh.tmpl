@@ -15,6 +15,8 @@
 # the checksum-verified standalone binary in ~/.local/bin/mise wins (kept
 # current by `mise self-update` in sysup), and a brew mise is uninstalled once
 # the standalone copy works. The standalone copy is never removed in that case.
+# Global languages come from mise only on mac-pro and Intel Macs; elsewhere the
+# script also prunes unreferenced mise toolchains after `mise install`.
 # Failures are non-fatal: this script always exits 0.
 
 set -uo pipefail
@@ -129,6 +131,18 @@ if "$MISE" install --yes; then
 else
     echo "mise: some tools failed to install (non-fatal); rerun 'mise install'."
 fi
+{{- if not (or (eq $mp "mac-pro") (and (eq .chezmoi.os "darwin") (eq .chezmoi.arch "amd64"))) }}
+
+# No global languages here (Homebrew / the native package manager provide them,
+# see dot_config/mise/config.toml.tmpl): drop toolchain versions installed by an
+# earlier global config. prune keeps versions still referenced by a project
+# mise.toml / .tool-versions that mise tracks.
+if "$MISE" prune --yes; then
+    echo "mise: pruned toolchain versions no longer referenced by any config."
+else
+    echo "mise: prune failed (non-fatal)."
+fi
+{{- end }}
 {{- if and (eq .chezmoi.os "darwin") (ne $mp "mac-pro") }}
 
 # Expose the JDKs to /usr/libexec/java_home and GUI apps (needs sudo; the helper

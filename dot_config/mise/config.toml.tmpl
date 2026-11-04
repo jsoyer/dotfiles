@@ -1,9 +1,19 @@
 {{- /* Global mise config: language toolchains, plus (Intel macOS) CLI tools.
-       Not deployed on servers / RPi / Windows (see .chezmoiignore.tmpl). */ -}}
+       Not deployed on servers / RPi / Windows (see .chezmoiignore.tmpl).
+       Global languages only where mise is the toolchain source: the work Mac
+       (mac-pro) and Intel Macs (no Homebrew bottles). Personal Apple Silicon
+       Macs get them from Homebrew, Linux desktops from the native package
+       manager; there mise only runs per-project versions. */ -}}
+{{- $mp := index . "machine_profile" -}}
+{{- $intel := and (eq .chezmoi.os "darwin") (eq .chezmoi.arch "amd64") -}}
+{{- $globalLangs := or (eq $mp "mac-pro") $intel -}}
 # ~/.config/mise/config.toml -- managed by chezmoi.
 # Per-project versions go in a project-local mise.toml (then `mise trust`).
 
+# Global languages: mac-pro + Intel Macs only (see the header comment in the
+# template). Other machines keep an empty [tools] and use project mise.toml.
 [tools]
+{{- if $globalLangs }}
 node = "latest"
 python = "latest"
 go = "latest"
@@ -13,7 +23,7 @@ rust = "stable"
 # Ruby: mise uses jdx/ruby precompiled builds, which exist for Linux and macOS
 # arm64 only. Intel Macs get a prebuilt ruby from conda-forge instead (see the
 # Intel block below), since nothing may compile there.
-{{- if not (and (eq .chezmoi.os "darwin") (eq .chezmoi.arch "amd64")) }}
+{{- if not $intel }}
 ruby = "latest"
 {{- end }}
 # Java (Temurin, java.shorthand_vendor default): first entry is the default.
@@ -22,7 +32,8 @@ ruby = "latest"
 # (27.x) has no macOS metadata yet and would fail, so bump "temurin-26" when
 # a newer series ships for macOS (check `mise lock --platform macos-x64`).
 java = ["lts", "temurin-26"]
-{{ if and (eq .chezmoi.os "darwin") (eq .chezmoi.arch "amd64") }}
+{{- end }}
+{{ if $intel }}
 # Intel macOS is Homebrew Tier 3: no bottles, brew would compile from source
 # (see dot_local/bin/executable_brewfile-filter-bottled). These CLI tools are
 # taken from prebuilt upstream release binaries through the aqua backend
