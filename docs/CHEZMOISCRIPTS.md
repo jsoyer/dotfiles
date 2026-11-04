@@ -35,7 +35,7 @@ Handles manifests-based package installation and CLI tool setup, runs on manifes
 | `run_onchange_03-brew-bundle.sh` | Brewfile hash change | macOS, Linuxbrew | `brew bundle` from the profile Brewfile + hostname overlay. Drops formulae Homebrew cannot pour (Tier 3 / no bottle, including bottled formulae with an unbottled required dep) so Intel Sequoia does not print `Installing X has failed!`. Already-installed copies are kept. |
 | `run_onchange_install-linux-packages.sh` | Manifest change | All Linux | Install packages from Aptfile/Dnffile/Pacfile manifests, GitHub CLI, 1Password CLI, uv |
 | `run_onchange_after_brew-bundle.sh` | Manifest change | macOS | Run post-Homebrew tasks (setup Python, Node via version managers) |
-| `run_once_install-linuxbrew.sh` | Once | Linux (non-standard) | Install Linuxbrew for systems without native package managers |
+| `run_once_install-linuxbrew.sh` | Once | Linux (all profiles except OMV hosts; x86_64/arm64 only, needs sudo) | Install Linuxbrew by default (RPi/servers/debian too; servers/debian get only `Brewfile_minimal` = `mise`, RPi keeps its existing set). 32-bit Pis skip it and get a standalone mise |
 | `run_once_install-1password.sh` | Once | macOS, Linux | Install 1Password CLI via official repos |
 | `run_once_install-1password.ps1` | Once | Windows | Install 1Password CLI via Scoop |
 | `run_once_install-windows-packages.ps1` | Once | Windows | Install packages from Scoop manifests |
@@ -96,7 +96,7 @@ Runs once or on manifest changes to configure services, generate configs, and sy
 | `run_onchange_configure-mail.sh` | Manifest change | macOS, Linux | Configure isync (mbsync), msmtp, neomutt using 1Password integration |
 | `run_onchange_install-fleet-agent.sh.tmpl` | Agent content change | Linux with sudo | Install the fleet-updates agent and the masters' forced-command SSH keys (see below) |
 | `run_always_install-sudoers-sysup.sh.tmpl` | Every apply | Linux | Install `/etc/sudoers.d/sysup` (exact `sysup` commands + `systemctl reboot` used by the fleet agent); validated with `visudo -cf`, retried every apply |
-| `run_onchange_after_install-mise-tools.sh.tmpl` | Config change (hash of `dot_config/mise/config.toml.tmpl`) | Desktops, macOS | `mise install`. Global languages (node, python, go, rust, ruby, java) only on `mac-pro` and Intel Macs; personal Apple Silicon Macs (Homebrew) and Linux desktops (dnf/pacman/apt) get an empty `[tools]` and the script runs `mise prune --yes` (non-fatal) to drop leftover toolchains |
+| `run_onchange_after_install-mise-tools.sh.tmpl` | Config change (hash of `dot_config/mise/config.toml.tmpl`) | All Linux and macOS | `mise install`. Global languages (node, python, go, rust, ruby, java) only on `mac-pro` and Intel Macs; personal Apple Silicon Macs (Homebrew) and Linux desktops (dnf/pacman/apt) get an empty `[tools]`, as do Debian / RPi, which receive mise itself only (no languages; standalone sha256-verified binary for `uname -m` when mise is absent), and the script runs `mise prune --yes` (non-fatal) to drop leftover toolchains |
 | `run_after_sync-aictx.sh` | Every apply | Non-Windows | Maintain `~/.aictx/{skills,agents,...}` cache and refresh CLI symlinks (`~/.claude`, `~/.qwen`, `~/.vibe`, `~/.codex`, `~/.opencode`, `~/.gemini`) |
 
 **Key functionality:**

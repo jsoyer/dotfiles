@@ -1,0 +1,3 @@
+# Minimal Homebrew set for servers and Debian (the native package manager does
+# the rest): just mise, so these machines stay light.
+brew "mise"

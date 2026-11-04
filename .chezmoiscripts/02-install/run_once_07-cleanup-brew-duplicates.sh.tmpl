@@ -1,5 +1,5 @@
 {{- $mp := index . "machine_profile" -}}
-{{- $skipProfiles := list "fedora-atomic" "fedora-server" "ubuntu-server" "arch-server" "debian" "windows" -}}
+{{- $skipProfiles := list "fedora-atomic" "rpi" "fedora-server" "ubuntu-server" "arch-server" "debian" "windows" -}}
 {{- $isOMV := or (hasPrefix "omv-" .chezmoi.hostname) (hasPrefix "bbh-network" .chezmoi.hostname) -}}
 {{- if and (eq .chezmoi.os "linux") (not (has $mp $skipProfiles)) (not $isOMV) -}}
 #!/usr/bin/env bash
