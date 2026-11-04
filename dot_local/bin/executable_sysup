@@ -199,6 +199,11 @@ _update_mise_if_present() {
     return 0
   fi
   echo "🔧 Updating mise tools..."
+  # A standalone mise (Intel macOS, where brew cannot pour it) is outside the
+  # Homebrew prefix and updates itself; a brew-managed one is left to brew.
+  if ! _ai_brew_owned mise; then
+    mise self-update --yes || true
+  fi
   mise upgrade || true
   if [[ "$(uname -s)" == Darwin ]] && command -v mise-java-macos-link &>/dev/null; then
     mise-java-macos-link || true

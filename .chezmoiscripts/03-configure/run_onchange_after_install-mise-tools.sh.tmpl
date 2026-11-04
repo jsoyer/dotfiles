@@ -8,11 +8,13 @@
 # =============================================================================
 # config hash: {{ include "dot_config/mise/config.toml.tmpl" | sha256sum }}
 #
-# mise is normally installed by Homebrew (brew "mise" in the Brewfiles).
-# Fallback, Intel macOS only: Homebrew is Tier 3 there (no bottles; the bundle
-# filter drops unbottled formulae), so mise may be missing. Then, and only then,
-# a checksum-verified standalone binary goes to ~/.local/bin/mise. Once a brew
-# mise exists, the standalone copy is removed so there is a single mise.
+# mise is normally installed by Homebrew (brew "mise" in the Brewfiles), and a
+# leftover standalone copy is removed so there is a single mise.
+# Intel macOS only: Homebrew is Tier 3 there (no bottles; the bundle filter
+# drops unbottled formulae), so brew can neither install nor upgrade mise. Then
+# the checksum-verified standalone binary in ~/.local/bin/mise wins (kept
+# current by `mise self-update` in sysup), and a brew mise is uninstalled once
+# the standalone copy works. The standalone copy is never removed in that case.
 # Failures are non-fatal: this script always exits 0.
 
 set -uo pipefail
@@ -73,8 +75,27 @@ install_standalone_mise() {
 }
 {{ end }}
 MISE="$(find_brew_mise || true)"
-
-if [[ -n "$MISE" ]]; then
+PREFER_STANDALONE=0
+{{ if and (eq .chezmoi.os "darwin") (eq .chezmoi.arch "amd64") }}
+# Intel: brew cannot pour mise, so a brew mise would go stale. Prefer standalone.
+if [[ -n "$MISE" ]] && ! brew_has_bottle_for_mise; then
+    PREFER_STANDALONE=1
+    echo "mise: Homebrew cannot pour mise here, switching to the verified standalone binary."
+    if install_standalone_mise && "$LOCAL_MISE" --version >/dev/null 2>&1; then
+        if brew uninstall mise; then
+            echo "mise: removed Homebrew mise (standalone $LOCAL_MISE is now the only mise)."
+        else
+            echo "mise: warning: 'brew uninstall mise' failed (non-fatal); remove it by hand."
+        fi
+        MISE="$LOCAL_MISE"
+    else
+        echo "mise: standalone install failed (non-fatal), keeping Homebrew mise $MISE."
+    fi
+fi
+{{ end }}
+if [[ -n "$MISE" && "$PREFER_STANDALONE" == 1 ]]; then
+    :  # decided above (standalone installed, or brew mise kept after a failure)
+elif [[ -n "$MISE" ]]; then
     # Single mise: drop a leftover standalone copy when brew provides one.
     if [[ -e "$LOCAL_MISE" ]]; then
         echo "mise: Homebrew mise present ($MISE), removing standalone $LOCAL_MISE."

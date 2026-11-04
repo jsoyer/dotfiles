@@ -31,6 +31,21 @@ RED = "\033[0;31m"
 NC = "\033[0m"
 
 
+# Security-sensitive formulae that must not lag behind on Homebrew Tier 3
+# (Intel macOS, no bottles): a bulk upgrade compiles them from source even
+# though everything else unbottled is skipped. Override with the env var
+# BREWW_COMPILE_ALLOWLIST (space-separated; empty string disables).
+COMPILE_ALLOWLIST = ("openssl@3", "curl", "git", "gnupg", "libssh2")
+
+
+def compile_allowlist() -> list[str]:
+    """Allowlist from BREWW_COMPILE_ALLOWLIST, else the built-in default."""
+    raw = os.environ.get("BREWW_COMPILE_ALLOWLIST")
+    if raw is None:
+        return list(COMPILE_ALLOWLIST)
+    return raw.split()
+
+
 NATIVE_PACKAGES = {
     "bat", "chezmoi", "curl", "eza", "fd", "fontconfig", "fzf", "git",
     "jq", "neovim", "ripgrep", "starship", "tmux", "unzip", "vivid",
@@ -178,6 +193,7 @@ def plan_brew_commands(
     installed_casks: list[str] | None = None,
     outdated_casks: list[str] | None = None,
     upgradeable_formulae: list[str] | None = None,
+    compile_formulae: list[str] | None = None,
 ) -> list[list[str]]:
     """
     Rewrite bulk `cu` / `upgrade` so host-local skip casks are not touched
@@ -190,6 +206,10 @@ def plan_brew_commands(
     `upgradeable_formulae` is the bottle-filtered list (None = filter
     unavailable, keep the unfiltered `brew upgrade --formula`; [] = nothing
     can be poured, so no formula upgrade is planned).
+
+    `compile_formulae` are outdated-but-unbottled allowlisted formulae
+    (security libs); they get their own `--build-from-source` upgrade planned
+    after the bottled one. Ignored unless the bottle filter is active.
     """
     if not args:
         return []
@@ -220,6 +240,16 @@ def plan_brew_commands(
                 if upgradeable_formulae:
                     plans.append(
                         ["upgrade", "--formula", *other_flags, *upgradeable_formulae]
+                    )
+                if compile_formulae:
+                    plans.append(
+                        [
+                            "upgrade",
+                            "--formula",
+                            "--build-from-source",
+                            *other_flags,
+                            *compile_formulae,
+                        ]
                     )
             else:
                 plans.append(["upgrade", "--formula", *other_flags])
@@ -279,6 +309,41 @@ def brew_upgradeable_formulae() -> list[str] | None:
         )
         return None
     return [ln.strip() for ln in result.stdout.splitlines() if ln.strip()]
+
+
+def select_compile_formulae(
+    outdated: list[str], upgradeable: list[str], allowlist: list[str]
+) -> list[str]:
+    """Allowlisted formulae that are outdated but not poured from a bottle."""
+    poured = set(upgradeable)
+    outdated_set = set(outdated)
+    return [
+        name for name in allowlist if name in outdated_set and name not in poured
+    ]
+
+
+def brew_outdated_formulae() -> list[str]:
+    """Outdated formula names, or empty if the query fails."""
+    result = subprocess.run(
+        ["brew", "outdated", "--formula", "--quiet"],
+        stdout=subprocess.PIPE,
+        universal_newlines=True,
+    )
+    return [ln.strip() for ln in result.stdout.splitlines() if ln.strip()]
+
+
+def brew_compile_formulae(upgradeable: list[str] | None) -> list[str]:
+    """Allowlisted outdated formulae the bottle filter skipped (to build)."""
+    allowlist = compile_allowlist()
+    if upgradeable is None or not allowlist:
+        return []
+    names = select_compile_formulae(brew_outdated_formulae(), upgradeable, allowlist)
+    if names:
+        print(
+            f"{YELLOW}Compiling security allowlist from source: "
+            f"{', '.join(names)}{NC}"
+        )
+    return names
 
 
 def brew_list_casks() -> list[str]:
@@ -364,6 +429,23 @@ def _is_blacklisted(line: str, blacklist: set) -> bool:
     return False
 
 
+# Extra dumpers of recent `brew bundle dump` that breww does not use (it keeps
+# brew/cask/tap/mas lines only). A broken one (e.g. krew with no index) would
+# fail the whole dump. Env vars, not flags: older brew ignores unknown env.
+DUMP_DISABLE_ENV = tuple(
+    f"HOMEBREW_BUNDLE_DUMP_NO_{kind}"
+    for kind in ("VSCODE", "GO", "CARGO", "UV", "KREW", "NPM", "FLATPAK", "WINGET")
+)
+
+
+def dump_env() -> dict[str, str]:
+    """Process env with the unneeded bundle dumpers disabled."""
+    env = dict(os.environ)
+    for name in DUMP_DISABLE_ENV:
+        env[name] = "1"
+    return env
+
+
 def dump_host_overlay(base_brewfile: Path | None):
     """
     Full delta-dump flow:
@@ -385,6 +467,7 @@ def dump_host_overlay(base_brewfile: Path | None):
             ["brew", "bundle", "dump", "--file", str(tmp_path), "--force"],
             capture_output=True,
             text=True,
+            env=dump_env(),
         )
         if result.returncode != 0:
             print(f"{RED}Warning: brew bundle dump failed: {result.stderr}{NC}")
@@ -612,6 +695,7 @@ def main():
             print(f"{YELLOW}Override with an explicit name: breww {cmd} <cask>{NC}")
             # Pin so unwrapped `brew upgrade` (cmupgrade, other scripts) skips them too.
             subprocess.run(["brew", "pin", *skip], capture_output=True)
+        upgradeable = brew_upgradeable_formulae() if filter_bulk else None
         plans = plan_brew_commands(
             args,
             skip,
@@ -621,8 +705,11 @@ def main():
                 if skip_bulk and cmd == "upgrade"
                 else None
             ),
-            upgradeable_formulae=(
-                brew_upgradeable_formulae() if filter_bulk else None
+            upgradeable_formulae=upgradeable,
+            compile_formulae=(
+                brew_compile_formulae(upgradeable)
+                if filter_bulk
+                else None
             ),
         )
         if not plans:
