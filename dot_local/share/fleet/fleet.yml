@@ -240,7 +240,7 @@ hosts:
     site: mobile
     kind: chezmoi-macos
     critical: false
-  # Excluded on purpose: work MacBook Pro (`jsoyer-macOS`, chezmoi profile `mac-pro`, non-admin,
+  # Excluded on purpose: work MacBook Air, Apple Silicon (`jsoyer-macOS`, chezmoi profile `mac-pro`, non-admin,
   # managed by employer). Not the 2013 Mac Pro.
   # UNCERTAIN: site inferred; ssh_user set in sprint 5
   macmini-m6:

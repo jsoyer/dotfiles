@@ -155,7 +155,7 @@ The system detects machine profile from multiple signals in `.chezmoi.toml.tmpl`
 | Profile | Detection | Example Hostname |
 |---------|-----------|-----------------|
 | `mac-personal` | macOS, not "jsoyer-macOS" | Standard Mac |
-| `mac-pro` | macOS + "jsoyer-macOS" | Work MacBook Pro |
+| `mac-pro` | macOS + "jsoyer-macOS" | Work MacBook Air (Apple Silicon) |
 | `ubuntu-server` | Ubuntu without "desktop" in hostname | ubuntu-server-01 |
 | `ubuntu-desktop` | Ubuntu + "desktop" in hostname | ubuntu-desktop-01 |
 | `fedora-desktop` | Fedora DNF (not atomic) + "desktop" in hostname | fedora-desktop-01 |

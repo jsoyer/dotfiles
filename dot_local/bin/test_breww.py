@@ -3,7 +3,7 @@
 
 Uses stdlib unittest so it runs with `python3 test_breww.py` (no pytest).
 
-Origin: Mac Pro (jsoyer-macOS) is a non-admin account. `bcu -a` / `bup`
+Origin: the work MacBook Air (jsoyer-macOS, profile mac-pro) is a non-admin account. `bcu -a` / `bup`
 prompted for sudo on casks that write to /Library (obs virtualcam, logitune).
 The skip file must apply on bulk upgrades and stay out of the way when a
 cask is named explicitly.

@@ -25,7 +25,7 @@ This setup uses `chezmoi`'s templating capabilities to apply different configura
 
 | `MACHINE_PROFILE`  | Detection                              | OS       | Package Manager     | GUI Support    | Theme          |
 | ------------------ | -------------------------------------- | -------- | ------------------- | -------------- | -------------- |
-| `mac-pro`          | hostname `jsoyer-macOS`                | macOS    | Homebrew            | Native         | Catppuccin     |
+| `mac-pro` (work)   | hostname `jsoyer-macOS` (MacBook Air)  | macOS    | Homebrew            | Native         | Catppuccin     |
 | `mac-personal`     | macOS (other hosts)                    | macOS    | Homebrew            | Native         | Catppuccin     |
 | `ubuntu-desktop`   | Ubuntu, hostname not `ubuntu-server*`  | Linux    | apt + Linuxbrew     | Hybrid (apt)   | Catppuccin     |
 | `ubuntu-server`    | Ubuntu, hostname `ubuntu-server*`      | Linux    | apt                 | None           | Snazzy         |
