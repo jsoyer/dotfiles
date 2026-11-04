@@ -126,8 +126,7 @@ srm
 pulumi/tap
 esc
 
-# Replaced by mise (toolchains)
-python@3.13
+# Replaced by mise (toolchains; python@3.13, node, go, rust, ruby, openjdk are Homebrew again on personal Apple Silicon Macs)
 nvm
 pyenv
 pyenv-ccache
