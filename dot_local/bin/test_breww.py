@@ -171,6 +171,110 @@ class PlanBrewCommandsUpgrade(unittest.TestCase):
         self.assertEqual(plans, [["upgrade", "--formula"]])
 
 
+class PlanBrewCommandsBottledFilter(unittest.TestCase):
+    """Bulk formula upgrades are restricted to what can be poured (Intel Tier 3)."""
+
+    UPGRADEABLE = ["jq", "wget"]
+
+    def test_bulk_upgrade_without_skip_restricts_formulae_and_keeps_casks(self):
+        plans = breww.plan_brew_commands(
+            ["upgrade"], [], upgradeable_formulae=self.UPGRADEABLE
+        )
+        self.assertEqual(
+            plans,
+            [["upgrade", "--formula", "jq", "wget"], ["upgrade", "--cask"]],
+        )
+
+    def test_bulk_upgrade_formula_flag_restricts_formulae(self):
+        plans = breww.plan_brew_commands(
+            ["upgrade", "--formula"], [], upgradeable_formulae=self.UPGRADEABLE
+        )
+        self.assertEqual(plans, [["upgrade", "--formula", "jq", "wget"]])
+
+    def test_empty_upgradeable_runs_no_formula_upgrade(self):
+        plans = breww.plan_brew_commands(
+            ["upgrade", "--formula"], [], upgradeable_formulae=[]
+        )
+        self.assertEqual(plans, [])
+
+    def test_empty_upgradeable_still_upgrades_casks(self):
+        plans = breww.plan_brew_commands(
+            ["upgrade"], [], upgradeable_formulae=[]
+        )
+        self.assertEqual(plans, [["upgrade", "--cask"]])
+
+    def test_filter_with_skip_list_keeps_cask_skip(self):
+        plans = breww.plan_brew_commands(
+            ["upgrade"],
+            ["obs"],
+            outdated_casks=["maccy", "obs"],
+            upgradeable_formulae=self.UPGRADEABLE,
+        )
+        self.assertEqual(
+            plans,
+            [["upgrade", "--formula", "jq", "wget"], ["upgrade", "--cask", "maccy"]],
+        )
+
+    def test_filter_with_skip_list_formula_only(self):
+        plans = breww.plan_brew_commands(
+            ["upgrade", "--formula"],
+            ["obs"],
+            upgradeable_formulae=self.UPGRADEABLE,
+        )
+        self.assertEqual(plans, [["upgrade", "--formula", "jq", "wget"]])
+
+    def test_cask_only_upgrade_ignores_filter(self):
+        plans = breww.plan_brew_commands(
+            ["upgrade", "--cask"], [], upgradeable_formulae=self.UPGRADEABLE
+        )
+        self.assertEqual(plans, [["upgrade", "--cask"]])
+
+    def test_explicit_formula_name_is_honored(self):
+        plans = breww.plan_brew_commands(
+            ["upgrade", "gh"], [], upgradeable_formulae=self.UPGRADEABLE
+        )
+        self.assertEqual(plans, [["upgrade", "gh"]])
+
+    def test_none_means_filter_unavailable_so_unfiltered(self):
+        plans = breww.plan_brew_commands(
+            ["upgrade", "--formula"], [], upgradeable_formulae=None
+        )
+        self.assertEqual(plans, [["upgrade", "--formula"]])
+
+    def test_flags_are_kept(self):
+        plans = breww.plan_brew_commands(
+            ["upgrade", "--formula", "--verbose"],
+            [],
+            upgradeable_formulae=self.UPGRADEABLE,
+        )
+        self.assertEqual(plans, [["upgrade", "--formula", "--verbose", "jq", "wget"]])
+
+
+class BrewUpgradeableFormulae(unittest.TestCase):
+    def _run(self, **kw):
+        with unittest.mock.patch.object(
+            breww.subprocess, "run", return_value=unittest.mock.Mock(**kw)
+        ) as run:
+            return breww.brew_upgradeable_formulae(), run
+
+    def test_returns_names_from_filter_stdout(self):
+        names, run = self._run(returncode=0, stdout="jq\nwget\n")
+        self.assertEqual(names, ["jq", "wget"])
+        self.assertIn("--mode=upgradeable", run.call_args[0][0])
+
+    def test_empty_stdout_is_empty_list_not_none(self):
+        names, _ = self._run(returncode=0, stdout="")
+        self.assertEqual(names, [])
+
+    def test_filter_error_falls_back_to_none(self):
+        names, _ = self._run(returncode=1, stdout="")
+        self.assertIsNone(names)
+
+    def test_missing_filter_script_falls_back_to_none(self):
+        with unittest.mock.patch.object(breww, "_find_bottle_filter", return_value=None):
+            self.assertIsNone(breww.brew_upgradeable_formulae())
+
+
 class SkipFilePath(unittest.TestCase):
     def test_hostname_is_in_the_filename(self):
         path = breww.get_cu_skip_file()
