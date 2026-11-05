@@ -13,4 +13,3 @@ cask "claude", pin: true
 cask "claude-code"
 cask "fluidvoice"
 cask "microsoft-365-copilot"
-cask "paseo"
