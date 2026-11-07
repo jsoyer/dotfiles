@@ -41,6 +41,22 @@ python3 dot_local/bin/test_brewfile_filter_bottled.py
 
 To force a source build on this machine: `brew install --build-from-source <name>`.
 
+### misew
+
+The filter above stops brew from compiling, so skipped formulae never get updates. `misew` moves them to mise instead, from prebuilt sources only: aqua/github release binaries (checked with `mise lock --platform macos-x64`; a `github:` asset must name macOS and must not be a source tarball or `.dmg`), PyPI, npm or conda-forge. The tools go into the `{{ if $intel }}` block of `dot_config/mise/config.toml.tmpl`, so only Intel Macs get them.
+
+- `misew add <formula> [--backend B]`: resolve a backend (mise registry, then the formula's PyPI/npm source, then its GitHub repo), add it to the template, `chezmoi apply` + `mise install`, check that the formula's binaries now resolve through mise, then `brew uninstall`, drop it from the host Brewfile overlay and commit those two files. If any step fails, the template is restored and the brew copy is kept.
+- `misew suggest [--refresh]`: list outdated, on-request leaf formulae that mise can take over. `sysup` runs it on Intel Macs. Results are cached for 7 days in `~/.cache/misew/suggest.json`.
+
+Shared base Brewfiles are left alone: on Intel the filter already drops their unbottled lines.
+
+```bash
+misew suggest
+misew add railway
+misew add ansible --backend pipx:ansible
+python3 dot_local/bin/test_misew.py
+```
+
 ### brew-untap-blacklisted
 
 Untap leftover taps listed in `Brewfile_blacklist`. Homebrew 6 aborts `brew update` when a stale tap still ships disabled cask DSL (`sidneys/homebrew` used `depends_on macos: :sierra`). The blacklist already prevented re-adding; this actually removes the tap.
