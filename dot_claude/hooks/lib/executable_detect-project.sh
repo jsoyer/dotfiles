@@ -824,7 +824,7 @@ detect_formatter() {
         case "$PY_TOOL_NAME" in
           ruff)
             # check --fix handles import sorting + lint fixes, then format
-            FORMATTER_CMD="$fmt_cmd check --fix \"\$FILE\" && $fmt_cmd format"
+            FORMATTER_CMD="$fmt_cmd check --fix \"\$FILE\" && $fmt_cmd format \"\$FILE\""
             ;;
           black)
             FORMATTER_CMD="$fmt_cmd"
@@ -840,7 +840,7 @@ detect_formatter() {
       # Check pyproject.toml for tool configs
       if [ -z "$FORMATTER_CMD" ] && [ -f "$project_dir/pyproject.toml" ]; then
         if grep -q '\[tool.ruff\]' "$project_dir/pyproject.toml" 2>/dev/null; then
-          FORMATTER_CMD="ruff check --fix \"\$FILE\" && ruff format"
+          FORMATTER_CMD="ruff check --fix \"\$FILE\" && ruff format \"\$FILE\""
         elif grep -q '\[tool.black\]' "$project_dir/pyproject.toml" 2>/dev/null; then
           FORMATTER_CMD="black"
         fi
