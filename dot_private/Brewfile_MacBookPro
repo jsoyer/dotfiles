@@ -1,46 +1,62 @@
 # Host overlay for MacBookPro — extras beyond the shared base.
 # Managed by breww. Do not edit manually.
+tap "anomalyco/tap"
+tap "douglasdemoura/tap"
 tap "homebrew/cask"
 tap "homebrew/core"
+tap "iamrohithrnair/tap"
+tap "mcs-cli/tap", trusted: true
 tap "rjyo/moshi", trusted: true
 tap "teamookla/speedtest", trusted: true
-brew "icu4c@77"
 brew "crane"
 brew "depot"
+brew "icu4c@77"
 brew "sdl2-compat"
-brew "icu4c@76"
+brew "gtk+3"
+brew "gtk-vnc"
 brew "herdr"
+brew "hledger"
+brew "icu4c@76"
 brew "infisical"
 brew "kubelogin"
+brew "lazysql"
 brew "mactop"
 brew "mosh"
 brew "openspec"
 brew "ouch"
 brew "p7zip"
 brew "podcast-dl"
+brew "poetry"
+brew "psqlodbc"
 brew "rclone"
 brew "redis"
 brew "semgrep"
 brew "signal-cli"
 brew "tuicr"
 brew "unar"
+brew "iamrohithrnair/tap/emeraldian", trusted: true
+brew "mcs-cli/tap/mcs", trusted: true
 brew "rjyo/moshi/moshi-hook", trusted: true
 brew "teamookla/speedtest/speedtest"
 cask "antigravity-cli"
 cask "bettercapture"
 cask "theboredteam/boring-notch/boring-notch", trusted: true
 cask "chatgpt"
+cask "douglasdemoura/tap/chroncal", trusted: true
+cask "codex-app"
 cask "elgato-camera-hub"
 cask "elgato-stream-deck"
 cask "fluidvoice"
 cask "granola"
 cask "grok-bot"
 cask "grok-build"
+cask "anomalyco/tap/hex", trusted: true
 cask "ledger-wallet"
 cask "linear"
 cask "logi-options+"
 cask "logitune"
 cask "plaud"
+cask "spotify"
 cask "zoom"
 mas "Amphetamine", id: 937984704
 mas "FaceScreen", id: 6702028512
