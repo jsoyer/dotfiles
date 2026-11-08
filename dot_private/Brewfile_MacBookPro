@@ -44,6 +44,7 @@ cask "theboredteam/boring-notch/boring-notch", trusted: true
 cask "chatgpt"
 cask "douglasdemoura/tap/chroncal", trusted: true
 cask "codex-app"
+cask "davit"
 cask "elgato-camera-hub"
 cask "elgato-stream-deck"
 cask "fluidvoice"
