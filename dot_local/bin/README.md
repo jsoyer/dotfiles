@@ -31,7 +31,13 @@ Chezmoi's broad `[git] autoAdd/autoCommit/autoPush` defaults are disabled unless
 
 Homebrew 6 treats Intel macOS Sequoia as **Tier 3**: no bottles, and install/upgrade will not compile from source unless you pass `--build-from-source`. `brew bundle` does not pass that flag, so `chezmoi update` used to print `Installing X has failed!` for every unbottled formula.
 
-`run_onchange_03-brew-bundle.sh` pipes the Brewfile through this filter first. Formulae with no pourable bottle (or a required dep with no bottle that still needs installing/upgrading) are dropped. Already-installed copies stay. `run_onchange_update-homebrew.sh` uses `--mode=upgradeable` so `brew upgrade` only touches formulae it can pour.
+`run_onchange_03-brew-bundle.sh` pipes the Brewfile through this filter first for installation. Formulae with no pourable bottle (or a required dep with no bottle that still needs installing/upgrading) are dropped from that installation pass. Existing installations are not removed by this filter.
+
+Upgrades use a different policy: `bup` (`breww upgrade`) and `run_onchange_update-homebrew.sh` install available bottles, then explicitly build **every remaining outdated formula** with `--build-from-source`. There is no source-build allowlist and `BREWW_COMPILE_ALLOWLIST` no longer disables updates. Intel builds can take hours and require working Xcode Command Line Tools. If a package cannot build, it remains installed and the updater reports failure; it is never presented as up to date.
+
+After an upgrade, the wrapper checks `brew outdated` again. Pinned formulae and outdated casks deferred for admin permissions also cause a non-zero exit with their names. The non-admin work Mac's cask exclusions are respected, but deferred updates are reported as incomplete. `--dry-run` previews commands without requiring the pending updates to disappear.
+
+`sysup` updates mise before Homebrew on macOS and propagates failures from mise, Homebrew and the App Store. The existing Intel migration installs mise replacements and removes their Homebrew copies only after the replacement resolves and no installed formula depends on the old copy. Libraries still required by Homebrew remain managed and upgraded by Homebrew.
 
 ```bash
 python3 dot_local/bin/executable_brewfile-filter-bottled < Brewfile

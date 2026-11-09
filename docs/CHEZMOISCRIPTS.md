@@ -132,7 +132,7 @@ Runs on manifest changes or when triggered by chezmoi update flow.
 
 | Script | Trigger | OS | Purpose |
 |--------|---------|-----|---------|
-| `run_onchange_update-homebrew.sh` | Script/filter hash change | macOS | `brew update`, then upgrade only formulae with a pourable bottle (Tier 3 unbottled upgrades are skipped), then casks (`--greedy` on mac-personal) |
+| `run_onchange_update-homebrew.sh` | Script/filter/wrapper hash change | macOS | Upgrade via `breww`: bottles, then source builds for all remaining outdated formulae; casks (`--greedy` on mac-personal). Remaining outdated packages and failed steps return non-zero. |
 | `run_onchange_update-linux.sh` | Package manifest change | Linux (non-atomic) | Run `apt update && apt upgrade` or `dnf upgrade` or `pacman -Syu` |
 | `run_onchange_update-appstore.sh` | Once | macOS | Enable automatic app updates via Mac App Store CLI |
 | `run_onchange_update-windows.ps1` | Scoop manifest change | Windows | Run `scoop update` and upgrade installed packages |

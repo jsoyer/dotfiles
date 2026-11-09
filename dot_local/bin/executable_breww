@@ -10,7 +10,6 @@ only the delta: installed − base − blacklist.
 
 from __future__ import annotations
 
-import argparse
 import os
 import subprocess
 import sys
@@ -29,21 +28,6 @@ GREEN = "\033[0;32m"
 YELLOW = "\033[1;33m"
 RED = "\033[0;31m"
 NC = "\033[0m"
-
-
-# Security-sensitive formulae that must not lag behind on Homebrew Tier 3
-# (Intel macOS, no bottles): a bulk upgrade compiles them from source even
-# though everything else unbottled is skipped. Override with the env var
-# BREWW_COMPILE_ALLOWLIST (space-separated; empty string disables).
-COMPILE_ALLOWLIST = ("openssl@3", "curl", "git", "gnupg", "libssh2")
-
-
-def compile_allowlist() -> list[str]:
-    """Allowlist from BREWW_COMPILE_ALLOWLIST, else the built-in default."""
-    raw = os.environ.get("BREWW_COMPILE_ALLOWLIST")
-    if raw is None:
-        return list(COMPILE_ALLOWLIST)
-    return raw.split()
 
 
 NATIVE_PACKAGES = {
@@ -197,7 +181,7 @@ def plan_brew_commands(
 ) -> list[list[str]]:
     """
     Rewrite bulk `cu` / `upgrade` so host-local skip casks are not touched
-    and bulk formula upgrades only pour bottled formulae.
+    and split formula upgrades into bottles and source builds.
 
     Explicit package names (e.g. `breww cu -a obs`) are honored as-is.
     A bare `brew cu -a` must never be emitted when a skip list is active:
@@ -207,9 +191,9 @@ def plan_brew_commands(
     unavailable, keep the unfiltered `brew upgrade --formula`; [] = nothing
     can be poured, so no formula upgrade is planned).
 
-    `compile_formulae` are outdated-but-unbottled allowlisted formulae
-    (security libs); they get their own `--build-from-source` upgrade planned
-    after the bottled one. Ignored unless the bottle filter is active.
+    `compile_formulae` contains ALL remaining outdated formulae; they get a
+    `--build-from-source` upgrade after the bottled one. Ignored unless the
+    bottle filter is active. No installed formula is deliberately left stale.
     """
     if not args:
         return []
@@ -311,36 +295,33 @@ def brew_upgradeable_formulae() -> list[str] | None:
     return [ln.strip() for ln in result.stdout.splitlines() if ln.strip()]
 
 
-def select_compile_formulae(
-    outdated: list[str], upgradeable: list[str], allowlist: list[str]
-) -> list[str]:
-    """Allowlisted formulae that are outdated but not poured from a bottle."""
+def select_compile_formulae(outdated: list[str], upgradeable: list[str]) -> list[str]:
+    """All outdated formulae that cannot be upgraded from a bottle."""
     poured = set(upgradeable)
-    outdated_set = set(outdated)
-    return [
-        name for name in allowlist if name in outdated_set and name not in poured
-    ]
+    return [name for name in outdated if name not in poured]
 
 
 def brew_outdated_formulae() -> list[str]:
-    """Outdated formula names, or empty if the query fails."""
+    """Outdated formula names. Query failures must never mean 'up to date'."""
     result = subprocess.run(
         ["brew", "outdated", "--formula", "--quiet"],
         stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
         universal_newlines=True,
     )
+    if result.returncode != 0:
+        raise RuntimeError(f"brew outdated --formula failed: {(result.stderr or '').strip()}")
     return [ln.strip() for ln in result.stdout.splitlines() if ln.strip()]
 
 
 def brew_compile_formulae(upgradeable: list[str] | None) -> list[str]:
-    """Allowlisted outdated formulae the bottle filter skipped (to build)."""
-    allowlist = compile_allowlist()
-    if upgradeable is None or not allowlist:
+    """Build every outdated formula left outside the bottle upgrade plan."""
+    if upgradeable is None:
         return []
-    names = select_compile_formulae(brew_outdated_formulae(), upgradeable, allowlist)
+    names = select_compile_formulae(brew_outdated_formulae(), upgradeable)
     if names:
         print(
-            f"{YELLOW}Compiling security allowlist from source: "
+            f"{YELLOW}Upgrading from source (no usable bottle): "
             f"{', '.join(names)}{NC}"
         )
     return names
@@ -364,19 +345,59 @@ def brew_list_casks() -> list[str]:
 
 
 def brew_outdated_casks(*, greedy: bool = False) -> list[str]:
-    """Outdated cask tokens, or empty if the query fails (fail closed)."""
+    """Outdated cask tokens, including pinned casks. Raise on query failure."""
     cmd = ["brew", "outdated", "--cask", "--quiet"]
     if greedy:
         cmd.append("--greedy")
     result = subprocess.run(cmd, capture_output=True, text=True)
     names = [ln.strip() for ln in result.stdout.splitlines() if ln.strip()]
-    if result.returncode not in (0, 1) and not names:
-        print(
-            f"{RED}Warning: brew outdated --cask failed; "
-            f"skipping cask upgrades to honor the skip list{NC}"
-        )
-        return []
+    if result.returncode != 0:
+        raise RuntimeError(f"brew outdated --cask failed: {result.stderr.strip()}")
     return names
+
+
+def run_bulk_upgrade(args: list[str], skip: list[str]) -> int:
+    """Attempt every update, then check for stale/pinned/deferred packages."""
+    cmd, flags, _ = _split_brew_args(args)
+    dry_run = "--dry-run" in flags or "-n" in flags
+    formula_wanted = cmd == "upgrade" and "--cask" not in flags
+    cask_wanted = cmd == "cu" or "--formula" not in flags
+    greedy = "--greedy" in flags or (cmd == "cu" and ("-a" in flags or "--all" in flags))
+    returncode = 0
+    try:
+        returncode = run_brew_command(["update"])
+        if skip and cask_wanted:
+            print(f"{YELLOW}Deferred casks (admin required): {', '.join(skip)}{NC}")
+            print(f"{YELLOW}Update explicitly with an admin account: breww {cmd} <cask>{NC}")
+        upgradeable = brew_upgradeable_formulae() if formula_wanted else None
+        plans = plan_brew_commands(
+            args,
+            skip,
+            installed_casks=brew_list_casks() if cmd == "cu" else None,
+            outdated_casks=brew_outdated_casks(greedy=greedy) if cask_wanted and cmd == "upgrade" and skip else None,
+            upgradeable_formulae=upgradeable,
+            compile_formulae=brew_compile_formulae(upgradeable) if formula_wanted else None,
+        )
+        for plan in plans:
+            rc = run_brew_command(plan)
+            if rc:
+                returncode = rc
+        if not dry_run:
+            remaining = []
+            if formula_wanted:
+                remaining.extend(brew_outdated_formulae())
+            if cask_wanted:
+                remaining.extend(brew_outdated_casks(greedy=greedy))
+            if remaining:
+                print(
+                    f"{RED}Updates incomplete; packages still outdated (including pins/deferred casks): "
+                    f"{', '.join(remaining)}{NC}", file=sys.stderr,
+                )
+                returncode = returncode or 1
+    except (OSError, RuntimeError) as exc:
+        print(f"{RED}Cannot complete/verify upgrades: {exc}{NC}", file=sys.stderr)
+        returncode = returncode or 1
+    return returncode
 
 
 def _extract_identity(line: str) -> str | None:
@@ -572,8 +593,8 @@ def promote_entry(name: str, base_brewfile: Path | None):
 
     # Remove from host overlay
     host_lines = [
-        l for l in host_file.read_text().splitlines()
-        if _extract_identity(l) != name
+        line for line in host_file.read_text().splitlines()
+        if _extract_identity(line) != name
     ]
     host_file.write_text("\n".join(host_lines) + "\n")
     print(f"{GREEN}Removed '{name}' from {host_file.name}{NC}")
@@ -670,63 +691,21 @@ def main():
         print(
             "Warning: unrecognized machine profile. Running brew without Brewfile sync."
         )
-        run_brew_command(args)
-        return
 
     # Warn about native packages on Linux
     if "install" in args:
         check_native_available(args)
 
     skip = load_cu_skip()
-    cmd, flags, positionals = _split_brew_args(args)
-    bulk_upgrade = cmd == "upgrade" and not positionals
-    skip_bulk = bool(skip) and (
-        (cmd == "cu" and not positionals)
-        or (bulk_upgrade and "--formula" not in flags)
-    )
-    # Bulk formula upgrades only pour bottles (Intel macOS is Homebrew Tier 3:
-    # no bottles, so a bare `brew upgrade` would compile e.g. gh from source).
-    filter_bulk = bulk_upgrade and "--cask" not in flags
-    if skip_bulk or filter_bulk:
-        if skip_bulk:
-            print(
-                f"{YELLOW}Skipping casks (no admin on this host): {', '.join(skip)}{NC}"
-            )
-            print(f"{YELLOW}Override with an explicit name: breww {cmd} <cask>{NC}")
-            # Pin so unwrapped `brew upgrade` (cmupgrade, other scripts) skips them too.
-            subprocess.run(["brew", "pin", *skip], capture_output=True)
-        upgradeable = brew_upgradeable_formulae() if filter_bulk else None
-        plans = plan_brew_commands(
-            args,
-            skip,
-            installed_casks=brew_list_casks() if cmd == "cu" else None,
-            outdated_casks=(
-                brew_outdated_casks(greedy="--greedy" in flags)
-                if skip_bulk and cmd == "upgrade"
-                else None
-            ),
-            upgradeable_formulae=upgradeable,
-            compile_formulae=(
-                brew_compile_formulae(upgradeable)
-                if filter_bulk
-                else None
-            ),
-        )
-        if not plans:
-            print(f"{YELLOW}Nothing to upgrade (cask skip list / bottle filter applied).{NC}")
-            sys.exit(0)
-        returncode = 0
-        for plan in plans:
-            rc = run_brew_command(plan)
-            if rc != 0:
-                returncode = rc
-        sys.exit(returncode)
+    cmd, _flags, positionals = _split_brew_args(args)
+    if cmd in ("upgrade", "cu") and not positionals:
+        sys.exit(run_bulk_upgrade(args, skip))
 
     # Run the brew command
     returncode = run_brew_command(args)
 
     # If command succeeded and modified packages, dump the host overlay delta
-    if returncode == 0 and any(
+    if base_brewfile and returncode == 0 and any(
         cmd in args for cmd in ["install", "uninstall", "tap", "untap"]
     ):
         # An uninstall must also leave the base Brewfile, otherwise the entry

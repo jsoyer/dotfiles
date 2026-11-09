@@ -2,6 +2,7 @@
 #!/usr/bin/env bash
 # Update Homebrew packages
 # filter: {{ include "dot_local/bin/executable_brewfile-filter-bottled" | sha256sum }}
+# wrapper: {{ include "dot_local/bin/executable_breww" | sha256sum }}
 # untap:   {{ include "dot_local/bin/executable_brew-untap-blacklisted" | sha256sum }}
 # blacklist: {{ include "dot_private/Brewfile_blacklist" | sha256sum }}
 
@@ -13,59 +14,53 @@ if [[ "${CHEZMOI_AUTOUPDATE:-0}" == "1" && "${CHEZMOI_AUTOUPDATE_UPGRADES:-0}" !
 fi
 
 eval "$(brew shellenv)"
+export MACHINE_PROFILE="{{ index . "machine_profile" }}"
+upgrade_rc=0
 
 # Drop blacklisted taps before brew update. Homebrew 6 aborts the whole
 # update when a leftover tap still has disabled cask DSL (sidneys/homebrew).
 UNTAP_PY="{{ .chezmoi.sourceDir }}/dot_local/bin/executable_brew-untap-blacklisted"
 BLACKLIST="{{ .chezmoi.sourceDir }}/dot_private/Brewfile_blacklist"
 if [[ -f "$UNTAP_PY" ]] && command -v python3 >/dev/null; then
-    python3 "$UNTAP_PY" --blacklist "$BLACKLIST" || true
-fi
-
-echo "Updating Homebrew..."
-if ! brew update; then
-    echo "⚠️  brew update failed (broken third-party tap?). Continuing with upgrades."
+    python3 "$UNTAP_PY" --blacklist "$BLACKLIST" || upgrade_rc=1
 fi
 
 echo "Upgrading packages..."
-FILTER_PY="{{ .chezmoi.sourceDir }}/dot_local/bin/executable_brewfile-filter-bottled"
-# Intel macOS Sequoia is Homebrew Tier 3: unbottled upgrades fail with
-# "no bottle available" and abort this script (set -e). Only pour what we can.
-if [[ -f "$FILTER_PY" ]] && command -v python3 >/dev/null; then
-    bottled="$(python3 "$FILTER_PY" --mode=upgradeable || true)"
-    if [[ -n "$bottled" ]]; then
-        echo "Upgrading bottled formulae:"
-        echo "$bottled"
-        # Names are one-per-line; no spaces. bash 3.2 has no mapfile.
-        # One broken keg ("Cellar/<f>/<v> is not a directory") must not abort
-        # the casks, cleanup and npm steps below, nor the whole chezmoi apply.
-        # shellcheck disable=SC2086
-        brew upgrade --formula $bottled || echo "⚠️  formula upgrade failed; continuing."
-    else
-        echo "No bottled formulae to upgrade (unbottled Tier-3 upgrades skipped)."
-    fi
-else
-    brew upgrade --formula || echo "⚠️  formula upgrade failed; continuing."
-fi
+# Share bup's policy: bottles first, then source builds for every remaining
+# formula, and a final outdated check (pins/failed upgrades cannot look current).
+BREWW="{{ .chezmoi.sourceDir }}/dot_local/bin/executable_breww"
+python3 "$BREWW" upgrade --formula || upgrade_rc=1
 {{- if eq (index . "machine_profile") "mac-pro" }}
-brew upgrade --cask || echo "⚠️  cask upgrade failed; continuing."
+python3 "$BREWW" upgrade --cask || upgrade_rc=1
 {{- else }}
-brew upgrade --greedy --cask || echo "⚠️  cask upgrade failed; continuing."
+python3 "$BREWW" upgrade --greedy --cask || upgrade_rc=1
 {{- end }}
 
 echo "Cleaning up old versions..."
-brew cleanup
+brew cleanup || upgrade_rc=1
 
 if command -v npm &>/dev/null; then
     echo "📦 Updating global npm packages..."
     # `npm update -g` is a no-op for 0.x packages (caret pins the minor), so
     # reinstall each global at @latest instead — that is how codex fell behind.
-    while read -r _pkg; do
-        [[ -n "$_pkg" ]] || continue
-        echo "  ⬆️  $_pkg"
-        npm install -g "${_pkg}@latest" >/dev/null 2>&1 || echo "  ⚠️  failed: $_pkg"
-    done < <(npm ls -g --depth=0 2>/dev/null | tail -n +2 | sed -E 's/^[^a-zA-Z@]*//; s/@[0-9][^@]*$//')
+    if _npm_list="$(npm ls -g --depth=0)"; then
+        while read -r _pkg; do
+            [[ -n "$_pkg" ]] || continue
+            echo "  ⬆️  $_pkg"
+            if ! npm install -g "${_pkg}@latest"; then
+                echo "  ⚠️  failed: $_pkg" >&2
+                upgrade_rc=1
+            fi
+        done < <(printf '%s\n' "$_npm_list" | tail -n +2 | sed -E 's/^[^a-zA-Z@]*//; s/@[0-9][^@]*$//')
+    else
+        echo "⚠️  Cannot list global npm packages; update incomplete." >&2
+        upgrade_rc=1
+    fi
 fi
 
+if [[ "$upgrade_rc" != 0 ]]; then
+    echo "⚠️  Updates incomplete. See the failed or deferred packages above." >&2
+    exit "$upgrade_rc"
+fi
 echo "Upgrade complete!"
 {{- end -}}

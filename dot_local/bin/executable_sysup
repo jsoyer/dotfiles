@@ -201,16 +201,18 @@ _update_mise_if_present() {
   if ! command -v mise &>/dev/null; then
     return 0
   fi
+  local rc=0
   echo "🔧 Updating mise tools..."
   # A standalone mise (Intel macOS, where brew cannot pour it) is outside the
   # Homebrew prefix and updates itself; a brew-managed one is left to brew.
   if ! _ai_brew_owned mise; then
-    mise self-update --yes || true
+    mise self-update --yes || rc=1
   fi
-  mise upgrade || true
+  mise upgrade || rc=1
   if [[ "$(uname -s)" == Darwin ]] && command -v mise-java-macos-link &>/dev/null; then
-    mise-java-macos-link || true
+    mise-java-macos-link || rc=1
   fi
+  return "$rc"
 }
 
 _update_herdr_if_present() {
@@ -229,9 +231,8 @@ _update_herdr_if_present() {
 
 # `sysup --reboot` (Fedora desktop/server): stage the dnf upgrade offline and
 # reboot into it, so nothing is replaced under the running session.
-# Exit status: non-zero when the OS package manager step failed (the fleet agent
-# turns that into `failed`). Best-effort extras (flatpak, AI CLIs...) never
-# change it, as before.
+# Exit status: non-zero when an OS, Homebrew, App Store or mise update failed
+# (the fleet agent turns that into `failed`). AI CLI extras remain best-effort.
 _sysup_rc=0
 
 sysup() {
@@ -249,24 +250,24 @@ sysup() {
 
   case "$os" in
     darwin)
-      breww upgrade       # was alias bup
-      breww cu -a         # was alias bcu (brew-cask-upgrade)
+      _update_mise_if_present || _sysup_rc=1
+      breww upgrade || _sysup_rc=1       # was alias bup
+      breww cu -a || _sysup_rc=1         # was alias bcu (brew-cask-upgrade)
       if command -v mas &>/dev/null; then
         echo "📱 Updating App Store apps..."
-        mas upgrade
+        mas upgrade || _sysup_rc=1
       fi
       # bup/bcu upgrade but never reclaim: do it explicitly. See the Linux
       # branch below for what --prune=all -s actually removes.
       if command -v brew &>/dev/null; then
         echo "🍺 Cleaning up Homebrew cache..."
-        brew cleanup --prune=all -s
+        brew cleanup --prune=all -s || _sysup_rc=1
       fi
       echo "🐚 Updating oh-my-zsh..."
       update-omz
       # The AI CLIs update on macOS too — this call only existed in the
       # Linux branch, so Macs never updated any of them through sysup.
       update-ai
-      _update_mise_if_present
       _update_herdr_if_present
       ;;
     linux)
@@ -320,17 +321,21 @@ sysup() {
       if command -v brew &>/dev/null; then
         eval "$(brew shellenv)"
         echo "🍺 Updating Linuxbrew packages..."
-        brew update && brew upgrade
+        if command -v breww &>/dev/null; then
+          breww upgrade || _sysup_rc=1
+        else
+          brew update && brew upgrade || _sysup_rc=1
+        fi
         # --prune=all removes ALL cached downloads (not just those older than 120
         # days), -s also clears the download cache itself. On a Pi with a small
         # SD card this is the difference between a few hundred MB and a few GB.
-        brew cleanup --prune=all -s
+        brew cleanup --prune=all -s || _sysup_rc=1
       fi
 
       echo "🐚 Updating oh-my-zsh..."
       update-omz
       update-ai
-      _update_mise_if_present
+      _update_mise_if_present || _sysup_rc=1
       _update_herdr_if_present
 
       if [[ "$reboot" == 1 && ( "${MACHINE_PROFILE:-}" == fedora-desktop || "${MACHINE_PROFILE:-}" == fedora-server ) ]]; then

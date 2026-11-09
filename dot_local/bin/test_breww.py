@@ -11,6 +11,10 @@ cask is named explicitly.
 
 import importlib.machinery
 import importlib.util
+import json
+import os
+import subprocess
+import sys
 import tempfile
 import unittest
 import unittest.mock
@@ -171,7 +175,7 @@ class PlanBrewCommandsUpgrade(unittest.TestCase):
         self.assertEqual(plans, [["upgrade", "--formula"]])
 
 
-class PlanBrewCommandsCompileAllowlist(unittest.TestCase):
+class PlanBrewCommandsSourceBuilds(unittest.TestCase):
     def test_compile_plan_follows_bottled_plan(self):
         plans = breww.plan_brew_commands(
             ["upgrade"], [], upgradeable_formulae=["jq"], compile_formulae=["curl", "git"]
@@ -207,25 +211,138 @@ class PlanBrewCommandsCompileAllowlist(unittest.TestCase):
             [["upgrade", "--formula", "jq"], ["upgrade", "--cask"]],
         )
 
-    def test_select_keeps_only_outdated_unpoured_allowlisted(self):
-        allow = ["openssl@3", "curl", "git", "gnupg", "libssh2"]
+    def test_every_outdated_unpoured_formula_is_built(self):
         self.assertEqual(
             breww.select_compile_formulae(
-                ["curl", "git", "node", "gnupg"], ["git"], allow
+                ["curl", "git", "node", "gnupg", "libxml2"], ["git"]
             ),
-            ["curl", "gnupg"],
+            ["curl", "node", "gnupg", "libxml2"],
         )
 
-    def test_allowlist_env_override(self):
-        with unittest.mock.patch.dict("os.environ", {"BREWW_COMPILE_ALLOWLIST": "a b"}):
-            self.assertEqual(breww.compile_allowlist(), ["a", "b"])
-        with unittest.mock.patch.dict("os.environ", {"BREWW_COMPILE_ALLOWLIST": ""}):
-            self.assertEqual(breww.compile_allowlist(), [])
-        with unittest.mock.patch.dict("os.environ", {}, clear=True):
-            self.assertEqual(
-                breww.compile_allowlist(),
-                ["openssl@3", "curl", "git", "gnupg", "libssh2"],
+    def test_old_allowlist_cannot_silently_disable_updates(self):
+        with (
+            unittest.mock.patch.dict("os.environ", {"BREWW_COMPILE_ALLOWLIST": ""}),
+            unittest.mock.patch.object(breww, "brew_outdated_formulae", return_value=["node"]),
+        ):
+            self.assertEqual(breww.brew_compile_formulae([]), ["node"])
+
+
+class BulkUpgradeHealth(unittest.TestCase):
+    def run_main(self, args, *, formulae=None, casks=None, command_rc=0, profile=True):
+        with (
+            unittest.mock.patch.object(breww.sys, "argv", ["breww", *args]),
+            unittest.mock.patch.object(breww, "get_target_brewfile", return_value=Path("/tmp/Brewfile") if profile else None),
+            unittest.mock.patch.object(breww, "load_cu_skip", return_value=["obs"]),
+            unittest.mock.patch.object(breww, "brew_upgradeable_formulae", return_value=["jq"]),
+            unittest.mock.patch.object(breww, "brew_compile_formulae", return_value=["libxml2"]),
+            unittest.mock.patch.object(breww, "brew_outdated_formulae", return_value=formulae or []),
+            unittest.mock.patch.object(breww, "brew_outdated_casks", return_value=casks or []),
+            unittest.mock.patch.object(breww, "brew_list_casks", return_value=["obs", "zed"]),
+            unittest.mock.patch.object(breww.subprocess, "run"),
+            unittest.mock.patch.object(breww, "run_brew_command", return_value=command_rc) as run,
+        ):
+            with self.assertRaises(SystemExit) as exited:
+                breww.main()
+            return exited.exception.code, [call.args[0] for call in run.call_args_list]
+
+    def test_bulk_upgrade_builds_remaining_formulae_and_verifies(self):
+        rc, commands = self.run_main(["upgrade", "--formula"])
+        self.assertEqual(rc, 0)
+        self.assertIn(["upgrade", "--formula", "--build-from-source", "libxml2"], commands)
+
+    def test_pinned_or_failed_formula_is_reported_as_failure(self):
+        rc, _ = self.run_main(["upgrade", "--formula"], formulae=["pinned-lib"])
+        self.assertNotEqual(rc, 0)
+
+    def test_deferred_cask_is_reported_as_failure(self):
+        rc, _ = self.run_main(["upgrade", "--cask"], casks=["obs"])
+        self.assertNotEqual(rc, 0)
+
+    def test_failed_source_build_does_not_prevent_cask_attempt(self):
+        rc, commands = self.run_main(["upgrade"], casks=["zed"], command_rc=42)
+        self.assertEqual(rc, 42)
+        self.assertIn(["upgrade", "--cask", "zed"], commands)
+
+    def test_unknown_profile_still_uses_upgrade_policy(self):
+        rc, commands = self.run_main(["upgrade", "--formula"], profile=False)
+        self.assertEqual(rc, 0)
+        self.assertIn(["upgrade", "--formula", "--build-from-source", "libxml2"], commands)
+
+    def test_dry_run_does_not_fail_for_remaining_updates(self):
+        rc, _ = self.run_main(["upgrade", "--formula", "--dry-run"], formulae=["libxml2"])
+        self.assertEqual(rc, 0)
+
+
+class OutdatedQueries(unittest.TestCase):
+    def test_query_error_cannot_be_treated_as_up_to_date(self):
+        with unittest.mock.patch.object(
+            breww.subprocess, "run", return_value=unittest.mock.Mock(returncode=1, stdout="", stderr="network down")
+        ):
+            for query in (breww.brew_outdated_formulae, breww.brew_outdated_casks):
+                with self.subTest(query=query.__name__), self.assertRaises(RuntimeError):
+                    query()
+
+
+class SourceUpgradeIntegration(unittest.TestCase):
+    """Run the wrapper and bottle helper together against a fake Homebrew."""
+
+    def run_upgrade(self, *, stuck=False, failure=False):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            brew = root / "brew"
+            brew.write_text(f"#!{sys.executable}\n" + r'''
+import json, os, sys
+from pathlib import Path
+root = Path(os.environ["FAKE_BREW_ROOT"])
+args = sys.argv[1:]
+with (root / "calls").open("a") as handle:
+    handle.write(json.dumps(args) + "\n")
+names = [] if (root / "updated").exists() else ["libxml2", "node"]
+if args[0] == "list":
+    print("libxml2\nnode")
+elif args[0] == "outdated":
+    if "--json=v2" in args:
+        print(json.dumps({"formulae": [{"name": n} for n in names]}))
+    else:
+        print("\n".join(names))
+elif args[0] == "info":
+    print(json.dumps({"formulae": [
+        {"name": n, "dependencies": [], "bottle": {"stable": {"files": {}}}}
+        for n in names
+    ]}))
+elif args[0] == "upgrade":
+    if os.environ["FAIL"] == "1":
+        sys.exit(42)
+    if os.environ["STUCK"] != "1":
+        (root / "updated").touch()
+''')
+            brew.chmod(0o755)
+            proc = subprocess.run(
+                [sys.executable, str(_BREWW_PATH), "upgrade", "--formula"],
+                env={**os.environ, "PATH": str(root) + os.pathsep + os.environ["PATH"],
+                     "FAKE_BREW_ROOT": str(root), "MACHINE_PROFILE": "mac-personal",
+                     "CHEZMOI_SOURCE_PATH": str(root), "STUCK": str(int(stuck)),
+                     "FAIL": str(int(failure))},
+                capture_output=True, text=True, timeout=15,
             )
+            calls = [json.loads(line) for line in (root / "calls").read_text().splitlines()]
+            return proc, calls
+
+    def test_unbottled_tools_and_libraries_are_actually_upgraded(self):
+        proc, calls = self.run_upgrade()
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertIn(["upgrade", "--formula", "--build-from-source", "libxml2", "node"], calls)
+        self.assertNotIn("Skipping", proc.stderr)
+
+    def test_pinned_formula_cannot_look_updated(self):
+        proc, _ = self.run_upgrade(stuck=True)
+        self.assertNotEqual(proc.returncode, 0)
+        self.assertIn("still outdated", proc.stderr)
+        self.assertIn("node", proc.stderr)
+
+    def test_source_build_failure_is_reported(self):
+        proc, _ = self.run_upgrade(failure=True)
+        self.assertEqual(proc.returncode, 42)
 
 
 class DumpEnv(unittest.TestCase):
