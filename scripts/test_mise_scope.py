@@ -79,6 +79,15 @@ class TextualGating(unittest.TestCase):
 
 @unittest.skipUnless(shutil.which("chezmoi"), "chezmoi not installed")
 class RenderedGating(unittest.TestCase):
+    def test_chezmoi_has_an_active_default_on_intel_macs_only(self):
+        for profile, os_name, arch, _ in CASES:
+            with self.subTest(profile=profile, os=os_name, arch=arch):
+                out = render(MISE_CONFIG, profile, os_name, arch)
+                intel_mac = os_name == "darwin" and arch == "amd64"
+                self.assertEqual("aqua:twpayne/chezmoi" in tools_keys(out), intel_mac)
+                if intel_mac:
+                    self.assertIn('"aqua:twpayne/chezmoi" = "latest"', out)
+
     def test_config_languages_per_machine(self):
         for profile, os_name, arch, expected in CASES:
             with self.subTest(profile=profile, os=os_name, arch=arch):

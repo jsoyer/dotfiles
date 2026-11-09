@@ -8,10 +8,10 @@
 # =============================================================================
 # config hash: {{ include "dot_config/mise/config.toml.tmpl" | sha256sum }}
 #
-# Homebrew is Tier 3 on Intel (no bottles), so brew copies of these tools are
-# never upgraded (breww skips unbottled upgrades). mise ships prebuilt
-# binaries for the same tools (dot_config/mise/config.toml.tmpl), so the stale
-# brew copy is removed, but only when:
+# Homebrew is Tier 3 on Intel (no bottles), so updating these tools there may
+# require long source builds. mise ships prebuilt binaries for the same tools
+# (dot_config/mise/config.toml.tmpl), so the duplicate brew copy is removed,
+# but only when:
 #   - the mise tool binary really resolves (`mise which`), and
 #   - the formula is installed, and
 #   - no other installed formula depends on it (`brew uses --installed`).
@@ -23,6 +23,7 @@ set -uo pipefail
 
 # "formula:binary-provided-by-mise" pairs (bash 3.2: no associative arrays).
 PAIRS="
+chezmoi:chezmoi
 ripgrep:rg fd:fd bat:bat fzf:fzf jq:jq yq:yq gh:gh zoxide:zoxide
 starship:starship lazygit:lazygit uv:uv just:just k9s:k9s helm:helm
 lazydocker:lazydocker sops:sops watchexec:watchexec xh:xh yazi:yazi

@@ -46,6 +46,9 @@ java = ["lts", "temurin-26"]
 "conda:eza" = "latest"
 "conda:atuin" = "latest"
 "conda:git-delta" = "latest"
+# Keep the dotfiles entrypoint selected globally: an installed mise shim
+# otherwise shadows chezmoi without an active version after this file is applied.
+"aqua:twpayne/chezmoi" = "latest"
 "aqua:BurntSushi/ripgrep" = "latest"
 "aqua:sharkdp/fd" = "latest"
 "aqua:sharkdp/bat" = "latest"

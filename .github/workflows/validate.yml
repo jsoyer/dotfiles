@@ -109,6 +109,7 @@ jobs:
         run: |
           python3 -m unittest discover -s dot_local/bin -p 'test_brew*.py'
           python3 scripts/test_package_update_health.py
+          python3 -m unittest discover -s scripts -p 'test_mise*.py'
 
       - name: Validate Claude vendor metadata
         run: |
