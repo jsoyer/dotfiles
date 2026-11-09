@@ -433,12 +433,6 @@ cask "xquartz"
 cask "zed"
 mas "Infuse", id: 1136220934
 mas "Tailscale", id: 1475387142
-vscode "anthropic.claude-code"
-vscode "google.gemini-cli-vscode-ide-companion"
-vscode "mechatroner.rainbow-csv"
-vscode "ms-ceintl.vscode-language-pack-fr"
-vscode "phplasma.csv-to-table"
-vscode "wraith13.zoombar-vscode"
 go "golang.org/x/tools/cmd/callgraph"
 go "github.com/go-delve/delve/cmd/dlv"
 go "github.com/davidrjenni/reftools/cmd/fillswitch"
