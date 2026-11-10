@@ -59,7 +59,7 @@ exit "$_sysup_rc"
 
 @unittest.skipUnless(shutil.which("chezmoi"), "chezmoi required to render the script")
 class ChezmoiHomebrewHealth(unittest.TestCase):
-    def run_update(self, failure="", profile="mac-personal"):
+    def run_update(self, failure="", profile="mac-personal", npm_case="empty"):
         preamble = (
             '{{- $_ := set . "machine_profile" "%s" -}}'
             '{{- $_ := set .chezmoi "os" "darwin" -}}\n' % profile
@@ -82,7 +82,32 @@ class ChezmoiHomebrewHealth(unittest.TestCase):
             )
             for name, body in {
                 "brew": 'echo "brew $*"\nexit 0\n',
-                "npm": 'if [ "$1" = ls ]; then echo /tmp/npm; else exit 0; fi\n',
+                "npm": r'''
+case "$1" in
+    root)
+        [ "$NPM_CASE" != root-error ] || exit 42
+        printf '%s\n' "$NPM_TEST_ROOT"
+        ;;
+    ls)
+        if [ ! -d "$NPM_TEST_ROOT" ]; then
+            echo "ENOENT: global npm root does not exist" >&2
+            exit 254
+        fi
+        [ "$NPM_CASE" != ls-error ] || { echo "EACCES" >&2; exit 1; }
+        if [ "$NPM_CASE" = malformed ]; then
+            echo "invalid JSON"
+        elif [ "$NPM_CASE" = packages ] || [ "$NPM_CASE" = install-error ]; then
+            echo '{"dependencies":{"@scope/tool":{"version":"1"},"plain":{"version":"0.2"}}}'
+        else
+            echo '{}'
+        fi
+        ;;
+    install)
+        echo "npm $*"
+        [ "$NPM_CASE" != install-error ] || exit 42
+        ;;
+esac
+''',
             }.items():
                 path = bins / name
                 path.write_text("#!/bin/sh\n" + body)
@@ -90,7 +115,8 @@ class ChezmoiHomebrewHealth(unittest.TestCase):
             return subprocess.run(
                 ["bash", "-c", rendered.stdout.replace(str(ROOT), str(base))],
                 env={**os.environ, "PATH": str(bins) + ":/usr/bin:/bin", "FAIL": failure,
-                     "CHEZMOI_AUTOUPDATE": "0", "HOME": str(base)},
+                     "CHEZMOI_AUTOUPDATE": "0", "HOME": str(base), "NPM_CASE": npm_case,
+                     "NPM_TEST_ROOT": str(base / "npm globals/lib/node_modules")},
                 text=True, capture_output=True, timeout=15,
             )
 
@@ -110,6 +136,27 @@ class ChezmoiHomebrewHealth(unittest.TestCase):
         self.assertEqual(proc.returncode, 0, proc.stderr)
         self.assertIn("wrapper upgrade --cask", proc.stdout)
         self.assertNotIn("--greedy", proc.stdout)
+
+    def test_missing_global_prefix_is_initialized_as_empty(self):
+        proc = self.run_update(profile="mac-pro")
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertIn("No global npm packages", proc.stdout)
+        self.assertNotIn("npm install", proc.stdout)
+
+    def test_json_inventory_updates_scoped_and_regular_packages(self):
+        proc = self.run_update(npm_case="packages")
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertIn("npm install -g @scope/tool@latest", proc.stdout)
+        self.assertIn("npm install -g plain@latest", proc.stdout)
+
+    def test_real_npm_errors_still_fail_the_update(self):
+        for case in ("root-error", "ls-error", "malformed", "install-error"):
+            with self.subTest(case=case):
+                proc = self.run_update(npm_case=case)
+                self.assertNotEqual(proc.returncode, 0)
+                self.assertNotIn("Upgrade complete!", proc.stdout)
+                if case == "install-error":
+                    self.assertIn("npm install -g plain@latest", proc.stdout)
 
 
 if __name__ == "__main__":

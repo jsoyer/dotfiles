@@ -112,15 +112,13 @@ else
     _agy_install 2>/dev/null || echo "  ⚠️  failed: antigravity-cli"
 fi
 
+{{ includeTemplate "update-npm-globals" . }}
+
 if command -v npm &>/dev/null; then
-    echo "📦 Updating global npm packages..."
-    # `npm update -g` is a no-op for 0.x packages (caret pins the minor), so
-    # reinstall each global at @latest instead — that is how codex fell behind.
-    while read -r _pkg; do
-        [[ -n "$_pkg" ]] || continue
-        echo "  ⬆️  $_pkg"
-        npm install -g "${_pkg}@latest" >/dev/null 2>&1 || echo "  ⚠️  failed: $_pkg"
-    done < <(npm ls -g --depth=0 2>/dev/null | tail -n +2 | sed -E 's/^[^a-zA-Z@]*//; s/@[0-9][^@]*$//')
+    if ! _update_global_npm_packages; then
+        echo "⚠️  Cannot complete global npm updates." >&2
+        exit 1
+    fi
 fi
 {{- end }}
 

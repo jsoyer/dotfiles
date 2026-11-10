@@ -39,6 +39,8 @@ After an upgrade, the wrapper checks `brew outdated` again. Pinned formulae and 
 
 `sysup` updates mise before Homebrew on macOS and propagates failures from mise, Homebrew and the App Store. The existing Intel migration installs mise replacements and removes their Homebrew copies only after the replacement resolves and no installed formula depends on the old copy. Libraries still required by Homebrew remain managed and upgraded by Homebrew.
 
+The macOS and Linux chezmoi updaters share `.chezmoitemplates/update-npm-globals`: it creates the global root reported by `npm root -g` (the configured `~/.npm-global` prefix may not exist yet), reads `npm ls --json`, and installs each existing global package at `@latest`. An empty inventory is a successful no-op; discovery, permissions, JSON and installation failures remain errors.
+
 ```bash
 python3 dot_local/bin/executable_brewfile-filter-bottled < Brewfile
 python3 dot_local/bin/executable_brewfile-filter-bottled --mode=upgradeable

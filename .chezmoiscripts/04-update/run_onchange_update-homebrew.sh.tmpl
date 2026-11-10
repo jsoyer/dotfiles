@@ -39,21 +39,11 @@ python3 "$BREWW" upgrade --greedy --cask || upgrade_rc=1
 echo "Cleaning up old versions..."
 brew cleanup || upgrade_rc=1
 
+{{ includeTemplate "update-npm-globals" . }}
+
 if command -v npm &>/dev/null; then
-    echo "📦 Updating global npm packages..."
-    # `npm update -g` is a no-op for 0.x packages (caret pins the minor), so
-    # reinstall each global at @latest instead — that is how codex fell behind.
-    if _npm_list="$(npm ls -g --depth=0)"; then
-        while read -r _pkg; do
-            [[ -n "$_pkg" ]] || continue
-            echo "  ⬆️  $_pkg"
-            if ! npm install -g "${_pkg}@latest"; then
-                echo "  ⚠️  failed: $_pkg" >&2
-                upgrade_rc=1
-            fi
-        done < <(printf '%s\n' "$_npm_list" | tail -n +2 | sed -E 's/^[^a-zA-Z@]*//; s/@[0-9][^@]*$//')
-    else
-        echo "⚠️  Cannot list global npm packages; update incomplete." >&2
+    if ! _update_global_npm_packages; then
+        echo "⚠️  Cannot complete global npm updates." >&2
         upgrade_rc=1
     fi
 fi

@@ -1,0 +1,38 @@
+_update_global_npm_packages() {
+    local root inventory packages pkg rc=0
+    echo "📦 Updating global npm packages..."
+    # ~/.npmrc sets a user prefix which may never have been populated on a
+    # fresh machine. npm ls reports ENOENT until its global root exists.
+    root="$(npm root -g)" || return 1
+    if [[ "$root" != /* ]]; then
+        echo "⚠️  npm returned an invalid global root: $root" >&2
+        return 1
+    fi
+    mkdir -p -- "$root" || return 1
+    inventory="$(npm ls -g --depth=0 --json)" || return 1
+    packages="$(printf '%s\n' "$inventory" | python3 -c '
+import json, sys
+data = json.load(sys.stdin)
+if not isinstance(data, dict) or "error" in data:
+    sys.exit("Invalid global npm inventory")
+deps = data.get("dependencies", {})
+if not isinstance(deps, dict):
+    sys.exit("Invalid global npm dependencies")
+print("\n".join(deps))
+')" || return 1
+    if [[ -z "$packages" ]]; then
+        echo "No global npm packages to update."
+        return 0
+    fi
+    # `npm update -g` is a no-op for 0.x packages (caret pins the minor), so
+    # reinstall each global at @latest instead — that is how codex fell behind.
+    while IFS= read -r pkg; do
+        [[ -n "$pkg" ]] || continue
+        echo "  ⬆️  $pkg"
+        if ! npm install -g "${pkg}@latest"; then
+            echo "  ⚠️  failed: $pkg" >&2
+            rc=1
+        fi
+    done <<< "$packages"
+    return "$rc"
+}
