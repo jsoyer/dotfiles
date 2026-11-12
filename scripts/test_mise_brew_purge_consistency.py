@@ -22,6 +22,7 @@ PURGE_SCRIPT = (
 # mise tool short name -> Homebrew formula, when they differ.
 FORMULA_ALIASES = {
     "cli": "gh",  # aqua:cli/cli
+    "carapace-bin": "carapace",  # aqua:carapace-sh/carapace-bin
     "python": "python@3.13",
 }
 
