@@ -2550,5 +2550,94 @@ class UnHomonymeNePortePasLEpisodeDemande(unittest.TestCase):
         self.assertEqual(appels, ["/search/tv"])
 
 
+class UnTransfertEnCoursNEstPasImporte(unittest.TestCase):
+    """Un fichier en cours de copie ne doit jamais etre pris pour stable.
+
+    Origine : le 2026-11-14, Jackass a ete importe 4 fois (un passage cron sur
+    deux) et Vaiana a laisse un « (2).mkv » de 0 octet. L'outil de copie pose
+    la date du fichier source sur la destination des le debut : le mtime dit
+    « vieux de plusieurs heures » pendant que la copie ecrit encore. Le script
+    deplacait le fichier, la copie echouait et repartait, d'ou les doublons.
+    """
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.inbox = Path(self.tmp.name)
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def _copie_qui_antidate(self, nom, contenu=b"x" * 1024):
+        path = self.inbox / nom
+        path.write_bytes(contenu)
+        vieux = time.time() - 3600
+        os.utime(path, (vieux, vieux))
+        return path
+
+    def test_mtime_antidate_ne_suffit_pas(self):
+        path = self._copie_qui_antidate("Film.2026.1080p.mkv")
+        self.assertFalse(ma.is_stable_file(path, 300))
+        self.assertEqual(ma.gather_incoming_items(self.inbox, 300), [])
+
+    def test_fichier_vide_jamais_importe(self):
+        (self.inbox / "Film.2026.1080p.mkv").write_bytes(b"")
+        self.assertEqual(ma.gather_incoming_items(self.inbox, 0), [])
+
+    def test_fichier_termine_reste_importe(self):
+        (self.inbox / "Film.2026.1080p.mkv").write_bytes(b"x" * 1024)
+        items = ma.gather_incoming_items(self.inbox, 0)
+        self.assertEqual([i.video_path.name for i in items], ["Film.2026.1080p.mkv"])
+
+    def test_archive_antidatee_attend_aussi(self):
+        import media_extract_archives as mx
+
+        path = self._copie_qui_antidate("Show.zip", b"PK\x03\x04")
+        self.assertFalse(mx.is_stable_file(path, 300))
+
+
+def _mkv_bytes(declared_payload, actual_payload):
+    """Build a minimal EBML/Matroska file whose Segment announces a size."""
+    ebml_body = b"\x42\x82\x88matroska"
+    head = b"\x1a\x45\xdf\xa3" + bytes([0x80 | len(ebml_body)]) + ebml_body
+    seg_size = b"\x01" + declared_payload.to_bytes(7, "big")
+    return head + b"\x18\x53\x80\x67" + seg_size + b"\0" * actual_payload
+
+
+class UnMkvTronqueNEstPasImporte(unittest.TestCase):
+    """Un MKV coupe annonce quand meme sa duree complete : on lit sa taille.
+
+    Origine : le 2026-11-14, 8 MKV coupes dans la bibliotheque (Projet
+    Derniere Chance : 0,7 Go sur 12,9). ffprobe donnait la duree pleine, car
+    elle est ecrite dans l'en-tete ; seule la taille du Segment trahit la coupe.
+    """
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.inbox = Path(self.tmp.name)
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def test_mkv_tronque_detecte(self):
+        path = self.inbox / "Film.2026.1080p.mkv"
+        path.write_bytes(_mkv_bytes(4096, 1024))
+        self.assertTrue(ma.is_truncated_mkv(path))
+        self.assertEqual(ma.gather_incoming_items(self.inbox, 0), [])
+
+    def test_mkv_complet_importe(self):
+        path = self.inbox / "Film.2026.1080p.mkv"
+        path.write_bytes(_mkv_bytes(1024, 1024))
+        self.assertFalse(ma.is_truncated_mkv(path))
+        self.assertEqual(len(ma.gather_incoming_items(self.inbox, 0)), 1)
+
+    def test_taille_inconnue_ou_autre_format_non_bloquant(self):
+        live = self.inbox / "Live.mkv"
+        live.write_bytes(_mkv_bytes((1 << 56) - 1, 64))
+        autre = self.inbox / "Film.mp4"
+        autre.write_bytes(b"x" * 1024)
+        self.assertFalse(ma.is_truncated_mkv(live))
+        self.assertFalse(ma.is_truncated_mkv(autre))
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

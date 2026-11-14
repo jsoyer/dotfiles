@@ -57,8 +57,15 @@ def is_partial_file(path):
 
 
 def is_stable_file(path, stability_seconds):
-    """Return True when a file has not changed recently."""
-    return time.time() - path.stat().st_mtime >= stability_seconds
+    """Return True when a file has not changed recently.
+
+    mtime alone lies: copy tools (SMB/Explorer, rsync -a, cp -p) stamp the
+    source date on the destination as soon as the copy starts, so a file still
+    being written looks hours old. ctime is set by the kernel on every write
+    and no client can forge it, so the most recent of the two is the truth.
+    """
+    st = path.stat()
+    return time.time() - max(st.st_mtime, st.st_ctime) >= stability_seconds
 
 
 def is_primary_archive(path):
