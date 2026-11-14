@@ -4,7 +4,7 @@
        (mac-pro) and Intel Macs (no Homebrew bottles). Personal Apple Silicon
        Macs get them from Homebrew, Linux desktops from the native package
        manager; there mise only runs per-project versions. */ -}}
-{{- $mp := index . "machine_profile" -}}
+{{- $mp := includeTemplate "machine-profile" . -}}
 {{- $intel := and (eq .chezmoi.os "darwin") (eq .chezmoi.arch "amd64") -}}
 {{- $pp := index . "package_profile" | default "legacy" -}}
 {{- $base := eq $pp "base" -}}

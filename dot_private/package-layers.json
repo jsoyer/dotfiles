@@ -1,5 +1,8 @@
 {
   "version": 1,
+  "profile_aliases": {
+    "rpi/debian": "rpi"
+  },
   "profiles": {
     "mac-personal": {
       "os": "darwin",

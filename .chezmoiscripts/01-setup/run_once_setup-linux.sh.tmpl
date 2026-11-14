@@ -1,6 +1,6 @@
 {{- if eq (index . "package_profile" | default "legacy") "legacy" -}}
 {{- if and (eq .chezmoi.os "linux") (eq (includeTemplate "can-sudo" .) "true") -}}
-{{- $mp              := index . "machine_profile" -}}
+{{- $mp              := includeTemplate "machine-profile" . -}}
 {{- $isRPi           := eq $mp "rpi" -}}
 {{- $isDebian        := eq $mp "debian" -}}
 {{- $isUbuntuServer  := eq $mp "ubuntu-server" -}}

@@ -1,5 +1,5 @@
 {{- if eq .chezmoi.os "linux" -}}
-{{- $mp              := index . "machine_profile" -}}
+{{- $mp              := includeTemplate "machine-profile" . -}}
 {{- $isRPi           := eq $mp "rpi" -}}
 {{- $isDebian        := eq $mp "debian" -}}
 {{- $isUbuntuServer  := eq $mp "ubuntu-server" -}}

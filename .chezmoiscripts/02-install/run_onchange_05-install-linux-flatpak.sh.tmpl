@@ -1,7 +1,7 @@
 {{- /* New selections install Flatpak together with the other Linux layers. */ -}}
 {{- if eq (index . "package_profile" | default "legacy") "legacy" -}}
 {{- if and (eq .chezmoi.os "linux") (eq (includeTemplate "can-sudo" .) "true") -}}
-{{- $mp              := index . "machine_profile" -}}
+{{- $mp              := includeTemplate "machine-profile" . -}}
 {{- $isUbuntuDesktop := eq $mp "ubuntu-desktop" -}}
 {{- $isFedoraAtomic  := eq $mp "fedora-atomic" -}}
 {{- $isFedoraDesktop := eq $mp "fedora-desktop" -}}

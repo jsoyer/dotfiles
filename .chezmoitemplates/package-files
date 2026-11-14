@@ -2,7 +2,7 @@
 {{- $d := .data -}}
 {{- $manager := .manager -}}
 {{- $catalog := include "dot_private/package-layers.json" | fromJson -}}
-{{- $mp := index $d "machine_profile" | default "" -}}
+{{- $mp := includeTemplate "machine-profile" $d -}}
 {{- $pp := "legacy" -}}
 {{- if hasKey $d "package_profile" -}}{{- $pp = index $d "package_profile" -}}{{- end -}}
 {{- if not (has $pp (list "base" "personal" "professional" "server" "legacy")) -}}

@@ -1,0 +1,4 @@
+{{- /* Accept saved aliases without changing the selected package scope. */ -}}
+{{- $catalog := include "dot_private/package-layers.json" | fromJson -}}
+{{- $mp := index . "machine_profile" | default "" -}}
+{{- index $catalog.profile_aliases $mp | default $mp -}}

@@ -10,6 +10,9 @@ macOS, Linux and Windows select the union of three layers:
 work Mac, Atomic/Toolbox and OmArchy. `package_profile` selects the package scope.
 New initialization defaults to `base`; existing configurations without the field
 keep the compatibility selection `legacy`. Reinitialization preserves that choice.
+Saved `machine_profile = "rpi/debian"` values are accepted as `rpi` by installers
+and wrappers. Reinitialization writes the canonical `rpi` value without changing
+the package scope; editing existing machines' configuration is unnecessary.
 
 ## New MacBook Neo
 

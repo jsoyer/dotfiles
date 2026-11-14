@@ -7,7 +7,7 @@
 {{- if eq .chezmoi.hostname "jsoyer-macOS" -}}{{- $mp = "mac-pro" -}}{{- else -}}{{- $mp = "mac-personal" -}}{{- end -}}
 {{- else if eq .chezmoi.os "linux" -}}
 {{- if or (eq .chezmoi.osRelease.id "raspbian") (eq .chezmoi.osRelease.id "raspios") -}}{{- $mp = "rpi" -}}
-{{- else if stat "/proc/device-tree/model" -}}{{- $mp = promptStringOnce . "machine_profile" "Machine profile [rpi/debian]" "rpi" -}}
+{{- else if stat "/proc/device-tree/model" -}}{{- $mp = promptStringOnce . "machine_profile" "Machine profile (choose rpi or debian)" "rpi" -}}
 {{- else if env "CI" -}}{{- $mp = "ubuntu-server" -}}
 {{- else if eq .chezmoi.osRelease.id "ubuntu" -}}
 {{- if hasPrefix "ubuntu-desktop" .chezmoi.hostname -}}{{- $mp = "ubuntu-desktop" -}}
@@ -28,6 +28,7 @@
 {{- else -}}{{- $mp = promptStringOnce . "machine_profile" "Machine profile" "debian" -}}{{- end -}}
 {{- end -}}
 {{- end -}}
+{{- $mp = includeTemplate "machine-profile" (dict "machine_profile" $mp) -}}
 {{- $pp := index . "package_profile" | default "" -}}
 {{- if env "DOTFILES_PACKAGE_PROFILE" -}}{{- $pp = env "DOTFILES_PACKAGE_PROFILE" -}}{{- end -}}
 {{- if not $pp -}}

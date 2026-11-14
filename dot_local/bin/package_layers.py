@@ -72,6 +72,9 @@ class Context:
         self.source = Path(self.source)
         self.hostname = short_hostname(self.hostname)
         self.catalog = read_json(self.source / "dot_private/package-layers.json")
+        self.machine_profile = self.catalog.get("profile_aliases", {}).get(
+            self.machine_profile, self.machine_profile
+        )
         if self.machine_profile not in self.catalog["profiles"]:
             raise LayerError(f"Unknown machine_profile: {self.machine_profile!r}")
         if self.package_profile not in PROFILES:

@@ -1,6 +1,6 @@
 {{- $brewSelection := includeTemplate "package-files" (dict "data" . "manager" "brew") | fromJson -}}
 {{- if or (ne $brewSelection.package_profile "base") (stat (printf "%s/dot_private/%s" .chezmoi.sourceDir $brewSelection.host)) -}}
-{{- $mp := index . "machine_profile" -}}
+{{- $mp := $brewSelection.machine_profile -}}
 {{- /* Homebrew on Linux supports only x86_64 and arm64: 32-bit Pis (arch "arm") skip it and get mise as a standalone binary. */ -}}
 {{- $skipProfiles := list "windows" -}}
 {{- $brewArch := has .chezmoi.arch (list "amd64" "arm64") -}}

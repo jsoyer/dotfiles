@@ -90,6 +90,18 @@ class Selection(Fixture):
         )
         self.assertGreater(len(context.entries("brew")), 400)
 
+    def test_saved_rpi_debian_profile_keeps_omv_package_selection(self):
+        for pp in layers.PROFILES:
+            with self.subTest(package_profile=pp):
+                saved = layers.Context(self.source, "rpi/debian", pp, "omv-dijon")
+                canonical = layers.Context(self.source, "rpi", pp, "omv-dijon")
+                self.assertEqual(saved.machine_profile, "rpi")
+                for manager in canonical.managers:
+                    self.assertEqual(
+                        saved.selection(manager), canonical.selection(manager)
+                    )
+                    self.assertEqual(saved.entries(manager), canonical.entries(manager))
+
     def test_usage_is_optional_and_small(self):
         context = layers.Context(self.source, "mac-personal", "personal", "Neo")
         self.assertIn("brew:lazygit", context.entries("brew"))
@@ -331,7 +343,8 @@ class Templates(Fixture):
         self.config.write_text("", encoding="utf-8")
 
     def render(self, text, mp="mac-personal", pp="base", arch="arm64", host="Neo"):
-        os_name = CATALOG["profiles"][mp]["os"]
+        canonical = CATALOG["profile_aliases"].get(mp, mp)
+        os_name = CATALOG["profiles"][canonical]["os"]
         data = {
             "machine_profile": mp,
             "package_profile": pp,
@@ -403,6 +416,32 @@ class Templates(Fixture):
                 }
                 self.assertEqual(layers.parse_entries(path, "brew"), expected)
                 self.assertEqual(rendered, self.render(text, pp=pp))
+
+    def test_saved_rpi_alias_renders_the_same_installers_as_rpi(self):
+        paths = [
+            ".chezmoiscripts/01-setup/run_once_setup-linux.sh.tmpl",
+            ".chezmoiscripts/02-install/run_once_02-install-linuxbrew.sh.tmpl",
+            ".chezmoiscripts/02-install/run_onchange_03-brew-bundle.sh.tmpl",
+            ".chezmoiscripts/02-install/run_onchange_04-install-linux-packages.sh.tmpl",
+            ".chezmoiscripts/02-install/run_onchange_05-install-linux-flatpak.sh.tmpl",
+            ".chezmoiscripts/03-configure/run_once_configure-linux.sh.tmpl",
+            ".chezmoiscripts/04-update/run_onchange_update-linux.sh.tmpl",
+            "dot_config/dotfiles/package-context.json.tmpl",
+            "dot_config/mise/config.toml.tmpl",
+        ]
+        for pp in ("base", "legacy", "server"):
+            for name in paths:
+                with self.subTest(profile=pp, template=name):
+                    text = (ROOT / name).read_text(encoding="utf-8")
+                    actual = self.render(text, "rpi/debian", pp, host="omv-dijon")
+                    expected = self.render(text, "rpi", pp, host="omv-dijon")
+                    self.assertEqual(actual, expected)
+                    if name.endswith("run_once_02-install-linuxbrew.sh.tmpl"):
+                        self.assertFalse(actual.strip())
+                    if name.endswith("run_onchange_04-install-linux-packages.sh.tmpl"):
+                        self.assertIn("sudo apt", actual)
+                        if pp == "legacy":
+                            self.assertIn("Aptfile_rpi", actual)
 
     def test_optional_installers_are_empty_in_base(self):
         names = [
@@ -621,6 +660,16 @@ class Templates(Fixture):
         self.assertIn(
             'package_profile = "legacy"', self.config.read_text(encoding="utf-8")
         )
+        self.config.write_text(
+            '[data]\nmachine_profile="rpi/debian"\n', encoding="utf-8"
+        )
+        result = subprocess.run(
+            command, env=environment, text=True, capture_output=True, encoding="utf-8"
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        reinitialized = self.config.read_text(encoding="utf-8")
+        self.assertIn('machine_profile = "rpi"', reinitialized)
+        self.assertIn('package_profile = "legacy"', reinitialized)
         environment["DOTFILES_PACKAGE_PROFILE"] = "base"
         result = subprocess.run(
             command, env=environment, text=True, capture_output=True, encoding="utf-8"

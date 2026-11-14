@@ -1,5 +1,5 @@
 {{- if ne (index . "package_profile" | default "legacy") "base" -}}
-{{- $mp := index . "machine_profile" -}}
+{{- $mp := includeTemplate "machine-profile" . -}}
 {{- $skipProfiles := list "fedora-atomic" "rpi" "fedora-server" "ubuntu-server" "arch-server" "debian" "windows" -}}
 {{- $isOMV := or (hasPrefix "omv-" .chezmoi.hostname) (hasPrefix "bbh-network" .chezmoi.hostname) -}}
 {{- if and (eq .chezmoi.os "linux") (not (has $mp $skipProfiles)) (not $isOMV) -}}

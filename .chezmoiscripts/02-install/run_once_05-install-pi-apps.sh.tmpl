@@ -1,6 +1,6 @@
 {{- if ne (index . "package_profile" | default "legacy") "base" -}}
 {{- if eq .chezmoi.os "linux" -}}
-{{- if eq (index . "machine_profile") "rpi" -}}
+{{- if eq (includeTemplate "machine-profile" .) "rpi" -}}
 #!/usr/bin/env bash
 # =============================================================================
 # Pi-Apps Installation + GUI Apps (Raspberry Pi only, requires display server)

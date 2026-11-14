@@ -1,5 +1,5 @@
 {{- if and (eq .chezmoi.os "linux") (eq (includeTemplate "can-sudo" .) "true") -}}
-{{- $mp := index . "machine_profile" -}}
+{{- $mp := includeTemplate "machine-profile" . -}}
 #!/usr/bin/env bash
 # Native base + optional usage + this machine. No desktop/application auto-detection.
 set -uo pipefail

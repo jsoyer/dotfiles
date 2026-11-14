@@ -1,7 +1,7 @@
 # Single chezmoi ignore file (target paths, relative to $HOME).
 # Both .chezmoiignore and .chezmoiignore.tmpl used to exist; chezmoi merged
 # them, but docs only mentioned the .tmpl and rules landed in the wrong file.
-{{- $mp := index . "machine_profile" -}}
+{{- $mp := includeTemplate "machine-profile" . -}}
 
 .DS_Store
 README.md
