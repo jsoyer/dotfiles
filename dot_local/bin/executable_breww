@@ -424,6 +424,61 @@ def brew_outdated_casks(*, greedy: bool = False) -> list[str]:
     return names
 
 
+def brew_git_latest_receipts(names: list[str]) -> dict[str, tuple[str, str, int]]:
+    """Read installation receipts for unpinned, enabled Git `latest` casks.
+
+    Homebrew cannot checksum Git downloads, so its greedy outdated check always
+    returns true for these casks. Only a successful upgrade AND a newer installed
+    receipt can prove they were refreshed; `version == latest` alone cannot.
+    """
+    if not names:
+        return {}
+    result = subprocess.run(
+        ["brew", "info", "--cask", "--json=v2", *names],
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode:
+        raise RuntimeError(
+            f"brew info --cask failed for {', '.join(names)}: {result.stderr.strip()}"
+        )
+    try:
+        casks = json.loads(result.stdout)["casks"]
+        if not isinstance(casks, list) or any(not isinstance(c, dict) for c in casks):
+            raise ValueError("expected a list of cask objects")
+    except (ValueError, KeyError, TypeError) as exc:
+        raise RuntimeError(
+            f"Invalid brew info --cask JSON for {', '.join(names)}: {exc}"
+        ) from exc
+    receipts = {}
+    for cask in casks:
+        url, specs = cask.get("url"), cask.get("url_specs", {})
+        installed_time = cask.get("installed_time")
+        if (
+            cask.get("version") != "latest"
+            or cask.get("installed") != "latest"
+            or cask.get("pinned") is not False
+            or cask.get("disabled") is not False
+            or not isinstance(installed_time, int)
+            or isinstance(installed_time, bool)
+            or installed_time <= 0
+            or not isinstance(url, str)
+            or not isinstance(specs, dict)
+        ):
+            continue
+        using = specs.get("using")
+        if using != "git" and not (using is None and url.endswith(".git")):
+            continue
+        for name in names:
+            if name in (cask.get("token"), cask.get("full_token")):
+                receipts[name] = (
+                    url,
+                    json.dumps(specs, sort_keys=True),
+                    installed_time,
+                )
+    return receipts
+
+
 def run_bulk_upgrade(args: list[str], skip: list[str]) -> int:
     """Attempt every update, then check for stale/pinned/deferred packages."""
     cmd, flags, _ = _split_brew_args(args)
@@ -441,14 +496,22 @@ def run_bulk_upgrade(args: list[str], skip: list[str]) -> int:
             print(
                 f"{YELLOW}Update explicitly with an admin account: breww {cmd} <cask>{NC}"
             )
+        outdated_casks = brew_outdated_casks(greedy=greedy) if cask_wanted else []
+        before_git = {}
+        if outdated_casks and not dry_run:
+            try:
+                before_git = brew_git_latest_receipts(outdated_casks)
+            except (OSError, RuntimeError) as exc:
+                # Still attempt updates. Without receipts, the final outdated
+                # check remains authoritative and cannot claim a Git refresh.
+                print(f"{YELLOW}Cannot record cask refresh receipts: {exc}{NC}")
+        completed_casks = set()
         upgradeable = brew_upgradeable_formulae() if formula_wanted else None
         plans = plan_brew_commands(
             args,
             skip,
             installed_casks=brew_list_casks() if cmd == "cu" else None,
-            outdated_casks=brew_outdated_casks(greedy=greedy)
-            if cask_wanted and cmd == "upgrade" and skip
-            else None,
+            outdated_casks=outdated_casks,
             upgradeable_formulae=upgradeable,
             compile_formulae=brew_compile_formulae(upgradeable)
             if formula_wanted
@@ -458,12 +521,38 @@ def run_bulk_upgrade(args: list[str], skip: list[str]) -> int:
             rc = run_brew_command(plan)
             if rc:
                 returncode = rc
+            else:
+                plan_cmd, plan_flags, targets = _split_brew_args(plan)
+                if plan_cmd == "cu" or (
+                    plan_cmd == "upgrade" and "--formula" not in plan_flags
+                ):
+                    completed_casks.update(targets or outdated_casks)
         if not dry_run:
             remaining = []
             if formula_wanted:
                 remaining.extend(brew_outdated_formulae())
             if cask_wanted:
-                remaining.extend(brew_outdated_casks(greedy=greedy))
+                casks = brew_outdated_casks(greedy=greedy)
+                candidates = [
+                    name
+                    for name in casks
+                    if name in before_git
+                    and name in completed_casks
+                    and name not in skip
+                ]
+                after_git = brew_git_latest_receipts(candidates)
+                refreshed = {
+                    name
+                    for name, receipt in after_git.items()
+                    if receipt[:2] == before_git[name][:2]
+                    and receipt[2] > before_git[name][2]
+                }
+                if refreshed:
+                    print(
+                        f"{GREEN}Refreshed Git-based latest casks "
+                        f"(installation receipts changed): {', '.join(sorted(refreshed))}{NC}"
+                    )
+                remaining.extend(name for name in casks if name not in refreshed)
             if remaining:
                 print(
                     f"{RED}Updates incomplete; packages still outdated (including pins/deferred casks): "

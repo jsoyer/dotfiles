@@ -266,6 +266,9 @@ class BulkUpgradeHealth(unittest.TestCase):
             unittest.mock.patch.object(
                 breww, "brew_list_casks", return_value=["obs", "zed"]
             ),
+            unittest.mock.patch.object(
+                breww, "brew_git_latest_receipts", return_value={}
+            ),
             unittest.mock.patch.object(breww.subprocess, "run"),
             unittest.mock.patch.object(
                 breww, "run_brew_command", return_value=command_rc
@@ -399,6 +402,134 @@ elif args[0] == "upgrade":
     def test_source_build_failure_is_reported(self):
         proc, _ = self.run_upgrade(failure=True)
         self.assertEqual(proc.returncode, 42)
+
+
+class GitLatestCaskIntegration(unittest.TestCase):
+    """Git `latest` stays outdated even after a real Homebrew-style refresh."""
+
+    def run_upgrade(self, scenario="refreshed", *, command="upgrade", dry_run=False):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            brew = root / "brew"
+            brew.write_text(
+                f"#!{sys.executable}\n"
+                + r"""
+import json, os, sys
+from pathlib import Path
+root = Path(os.environ["FAKE_BREW_ROOT"])
+scenario = os.environ["SCENARIO"]
+args = sys.argv[1:]
+updated = (root / "updated").exists()
+with (root / "calls").open("a") as handle:
+    handle.write(json.dumps(args) + "\n")
+if args[0] == "outdated":
+    print("font-demo")  # latest Git downloads are never checksumable
+elif args[0] == "list":
+    print("font-demo")
+elif args[0] == "info":
+    if scenario == "bad-info" or (scenario == "bad-info-after" and updated):
+        print("invalid JSON")
+        sys.exit(0)
+    url = "https://example.org/fonts.git"
+    if scenario == "archive":
+        url = "https://example.org/fonts.zip"
+    if scenario == "source-changed" and updated:
+        url = "https://example.org/different.git"
+    print(json.dumps({"casks": [{
+        "token": "font-demo", "version": "2.0" if scenario == "versioned" else "latest",
+        "installed": "1.0" if scenario == "versioned" else "latest",
+        "url": url, "url_specs": {"branch": "main"},
+        "pinned": scenario == "pinned", "disabled": scenario == "disabled",
+        "installed_time": None if scenario == "no-receipt" else 2000 if updated else 1000,
+    }]}))
+elif args[0] in ("upgrade", "cu"):
+    if "--dry-run" not in args and scenario not in ("stuck", "pinned", "disabled"):
+        (root / "updated").touch()
+    if scenario == "failure":
+        sys.exit(42)  # even a newer receipt cannot turn a failed command into success
+""",
+                encoding="utf-8",
+            )
+            brew.chmod(0o755)
+            if scenario == "deferred":
+                (root / "dot_private").mkdir()
+                (root / "dot_private/Brewfile_cu_skip_mac-personal").write_text(
+                    "font-demo\n", encoding="utf-8"
+                )
+            args = (
+                [command, "-a"] if command == "cu" else [command, "--cask", "--greedy"]
+            )
+            if dry_run:
+                args.append("--dry-run")
+            proc = subprocess.run(
+                [sys.executable, str(_BREWW_PATH), *args],
+                env={
+                    **os.environ,
+                    "PATH": str(root) + os.pathsep + os.environ["PATH"],
+                    "FAKE_BREW_ROOT": str(root),
+                    "SCENARIO": scenario,
+                    "MACHINE_PROFILE": "mac-personal",
+                    "CHEZMOI_SOURCE_PATH": str(root),
+                    "PACKAGE_CONTEXT_FILE": str(root / "no-context.json"),
+                },
+                capture_output=True,
+                text=True,
+                timeout=15,
+                encoding="utf-8",
+            )
+            calls = [
+                json.loads(line) for line in (root / "calls").read_text().splitlines()
+            ]
+            return proc, calls
+
+    def test_successful_git_latest_refresh_requires_a_new_installation_receipt(self):
+        proc, calls = self.run_upgrade()
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertIn(["upgrade", "--cask", "--greedy"], calls)
+        self.assertIn("Refreshed Git-based latest casks", proc.stdout)
+        self.assertNotIn("Updates incomplete", proc.stderr)
+        self.assertEqual(sum(call[0] == "info" for call in calls), 2)
+
+    def test_cask_upgrade_plugin_refresh_also_checks_receipts(self):
+        proc, calls = self.run_upgrade(command="cu")
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertIn(["cu", "-a"], calls)
+        self.assertIn("Refreshed Git-based latest casks", proc.stdout)
+
+    def test_skips_pins_missing_receipts_and_real_outdated_casks_still_fail(self):
+        for scenario in (
+            "stuck",
+            "pinned",
+            "disabled",
+            "deferred",
+            "no-receipt",
+            "archive",
+            "versioned",
+            "source-changed",
+            "bad-info",
+            "bad-info-after",
+        ):
+            with self.subTest(scenario=scenario):
+                proc, calls = self.run_upgrade(scenario)
+                self.assertNotEqual(proc.returncode, 0)
+                self.assertNotIn("Refreshed Git-based latest casks", proc.stdout)
+                self.assertIn("font-demo", proc.stderr)
+                if scenario == "deferred":
+                    self.assertFalse(any(call[0] == "upgrade" for call in calls))
+                else:
+                    self.assertTrue(any(call[0] == "upgrade" for call in calls))
+
+    def test_failure_is_preserved_even_if_a_receipt_changes(self):
+        proc, _ = self.run_upgrade("failure")
+        self.assertEqual(proc.returncode, 42)
+        self.assertNotIn("Refreshed Git-based latest casks", proc.stdout)
+        self.assertIn("font-demo", proc.stderr)
+
+    def test_dry_run_does_not_claim_fonts_were_refreshed(self):
+        proc, calls = self.run_upgrade(dry_run=True)
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertNotIn("Refreshed Git-based latest casks", proc.stdout)
+        self.assertFalse(any(call[0] == "info" for call in calls))
 
 
 class DumpEnv(unittest.TestCase):
