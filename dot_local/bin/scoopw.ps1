@@ -15,7 +15,7 @@ function Write-AtomicUtf8([string]$Path, [string]$Content) {
     try {
         [System.IO.File]::WriteAllText($temporary, $Content, [System.Text.UTF8Encoding]::new($false))
         if (Test-Path -LiteralPath $Path) {
-            [System.IO.File]::Replace($temporary, $Path, $null)
+            [System.IO.File]::Replace($temporary, $Path, [NullString]::Value)
         } else {
             [System.IO.File]::Move($temporary, $Path)
         }
@@ -81,7 +81,7 @@ if (-not $export -or -not $export.PSObject.Properties['apps'] -or -not $export.P
 }
 if ($Subcommand -ne 'dump') {
     foreach ($package in $Arguments) {
-        $name = ($package -split '/')[-1]
+        $name = (($package -split '/')[-1]).ToLowerInvariant()
         if ($Subcommand -eq 'uninstall' -and $sharedApps.ContainsKey($name)) {
             if ($excluded -notcontains $name) { $excluded += $name }
         } elseif ($Subcommand -eq 'install') {

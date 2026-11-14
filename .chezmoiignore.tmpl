@@ -66,8 +66,7 @@ memory/
 {{/* Ignore macOS-only configs on non-macOS */}}
 {{- if ne .chezmoi.os "windows" }}
 .local/bin/sysup-os-check.ps1
-Documents/PowerShell/
-Documents/WindowsPowerShell/
+.config/dotfiles/package-shell.ps1
 .local/bin/scoopw.ps1
 .local/bin/package-plan.ps1
 {{- end }}

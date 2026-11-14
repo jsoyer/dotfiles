@@ -1,0 +1,48 @@
+{{- if eq .chezmoi.os "windows" -}}
+#Requires -Version 5.1
+# Import our owned module without replacing an existing PowerShell profile.
+# module: {{ include "dot_config/dotfiles/package-shell.ps1.tmpl" | sha256sum }}
+param([string]$PackageShellProfilePath = '')
+$ErrorActionPreference = 'Stop'
+$line = 'if (Test-Path "$HOME/.config/dotfiles/package-shell.ps1") { . "$HOME/.config/dotfiles/package-shell.ps1" } # chezmoi-package-layers'
+if ($PackageShellProfilePath) {
+    $paths = @($PackageShellProfilePath)
+} else {
+    # MyDocuments also handles redirection into OneDrive or a corporate folder.
+    $documents = [Environment]::GetFolderPath('MyDocuments')
+    $paths = @($PROFILE.CurrentUserAllHosts)
+    if ($documents) {
+        $paths += (Join-Path $documents 'PowerShell/profile.ps1')
+        $paths += (Join-Path $documents 'WindowsPowerShell/profile.ps1')
+    }
+}
+foreach ($path in @($paths | Select-Object -Unique)) {
+    $original = [byte[]]@()
+    $encoding = [Text.UTF8Encoding]::new($false)
+    if (Test-Path -LiteralPath $path) {
+        $reader = [IO.StreamReader]::new($path, [Text.Encoding]::UTF8, $true)
+        try {
+            $content = $reader.ReadToEnd()
+            $encoding = $reader.CurrentEncoding
+        } finally { $reader.Dispose() }
+        if ($content.Contains('# chezmoi-package-layers')) { continue }
+        # Append to the original bytes, preserving even legacy ANSI profile text.
+        $original = [IO.File]::ReadAllBytes($path)
+        $backup = $path + '.before-package-layers-' + [DateTime]::UtcNow.ToString('yyyyMMddHHmmssfffffff')
+        [IO.File]::Copy($path, $backup, $false)
+    }
+    $parent = Split-Path -Parent $path
+    [IO.Directory]::CreateDirectory($parent) | Out-Null
+    $temporary = Join-Path $parent ([IO.Path]::GetRandomFileName())
+    try {
+        $suffix = $encoding.GetBytes("`r`n" + $line + "`r`n")
+        [IO.File]::WriteAllBytes($temporary, [byte[]]($original + $suffix))
+        if (Test-Path -LiteralPath $path) {
+            [IO.File]::Replace($temporary, $path, [NullString]::Value)
+        } else { [IO.File]::Move($temporary, $path) }
+    } finally {
+        if (Test-Path -LiteralPath $temporary) { Remove-Item -LiteralPath $temporary }
+    }
+    Write-Host "Package shell import added to $path. Open a new terminal to activate it."
+}
+{{- end -}}

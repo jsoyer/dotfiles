@@ -322,6 +322,11 @@ class Templates(Fixture):
             ROOT / "dot_local/bin/executable_brewfile-filter-bottled",
             self.source / "dot_local/bin/executable_brewfile-filter-bottled",
         )
+        (self.source / "dot_config/dotfiles").mkdir(parents=True)
+        shutil.copy2(
+            ROOT / "dot_config/dotfiles/package-shell.ps1.tmpl",
+            self.source / "dot_config/dotfiles/package-shell.ps1.tmpl",
+        )
         self.config = self.root / "empty.toml"
         self.config.write_text("", encoding="utf-8")
 
@@ -488,7 +493,9 @@ class Templates(Fixture):
         templates = [
             ROOT
             / ".chezmoiscripts/02-install/run_onchange_04-install-windows-packages.ps1.tmpl",
-            ROOT / "Documents/PowerShell/Microsoft.PowerShell_profile.ps1.tmpl",
+            ROOT / "dot_config/dotfiles/package-shell.ps1.tmpl",
+            ROOT
+            / ".chezmoiscripts/03-configure/run_onchange_after_package-shell.ps1.tmpl",
         ]
         check = self.root / "check.ps1"
         check.write_text(
@@ -513,6 +520,52 @@ class Templates(Fixture):
                     self.assertEqual(
                         result.returncode, 0, result.stdout + result.stderr
                     )
+
+    @unittest.skipUnless(PS_ENGINE, "PowerShell not installed")
+    def test_shell_import_preserves_profile_bytes_and_is_idempotent(self):
+        script = self.root / "install-shell.ps1"
+        template = (
+            ROOT
+            / ".chezmoiscripts/03-configure/run_onchange_after_package-shell.ps1.tmpl"
+        )
+        script.write_text(
+            self.render(template.read_text(encoding="utf-8"), mp="windows"),
+            encoding="utf-8",
+        )
+        samples = [
+            ("utf8", b"\xef\xbb\xbf" + 'Write-Host "été"\r\n'.encode("utf-8"), "utf-8"),
+            (
+                "utf16",
+                b"\xff\xfe" + 'Write-Host "été"\r\n'.encode("utf-16-le"),
+                "utf-16-le",
+            ),
+            ("ansi", b'Write-Host "\xe9t\xe9"\r\n', "cp1252"),
+        ]
+        for name, original, encoding in samples:
+            with self.subTest(encoding=name):
+                profile = self.root / (name + ".ps1")
+                profile.write_bytes(original)
+                command = [
+                    PS_ENGINE,
+                    "-NoProfile",
+                    "-File",
+                    str(script),
+                    "-PackageShellProfilePath",
+                    str(profile),
+                ]
+                result = subprocess.run(command, text=True, capture_output=True)
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                after = profile.read_bytes()
+                self.assertTrue(after.startswith(original))
+                self.assertIn(
+                    "# chezmoi-package-layers", after[len(original) :].decode(encoding)
+                )
+                result = subprocess.run(command, text=True, capture_output=True)
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                self.assertEqual(profile.read_bytes(), after)
+                backups = list(self.root.glob(name + ".ps1.before-package-layers-*"))
+                self.assertEqual(len(backups), 1)
+                self.assertEqual(backups[0].read_bytes(), original)
 
     def test_new_init_defaults_to_base_and_reinit_preserves_legacy(self):
         shutil.copy2(ROOT / ".chezmoi.toml.tmpl", self.source / ".chezmoi.toml.tmpl")
@@ -686,6 +739,18 @@ exit $LASTEXITCODE
         self.assertIn(
             "commit --only", (self.root / "git.log").read_text(encoding="utf-8")
         )
+
+    def test_existing_scoop_manifest_can_be_replaced_atomically(self):
+        for _ in range(2):
+            result = self.run_scoop("install", ["machine-app"])
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+    def test_inherited_scoop_removal_uses_canonical_case(self):
+        result = self.run_scoop("uninstall", ["Git"])
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        context = layers.Context(self.source, "windows", "base", "WindowsA")
+        self.assertEqual(context.exclusions("scoop"), ["git"])
+        self.assertNotIn("git", context.entries("scoop"))
 
     def test_failed_install_and_invalid_export_leave_manifest_unchanged(self):
         path = self.private / "Scoopfile_WindowsA.json"

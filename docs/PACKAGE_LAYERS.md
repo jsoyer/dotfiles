@@ -70,9 +70,12 @@ An inherited package removed through a wrapper gets a machine-local exclusion in
 `PackageExcludes_<hostname>.json`, leaving the shared files and other machines
 unchanged. Installing it again clears the exclusion.
 
-Windows has `~/.local/bin/scoopw.ps1`; the managed PowerShell 7 and Windows
-PowerShell profiles alias `scoop` to it. It resolves the native Scoop command
-without recursing through that alias. The Unix `scoopw` launcher requires `pwsh`.
+Windows has `~/.local/bin/scoopw.ps1`. Setup adds an import to the all-hosts
+profiles of PowerShell 7 and Windows PowerShell, preserving their original bytes
+and saving a backup first. The owned module aliases `scoop` and `package-plan`;
+custom per-host profiles still load afterwards. Redirected Documents folders
+are supported. The wrapper resolves native Scoop without recursing through its
+alias. The Unix `scoopw` launcher requires `pwsh`.
 
 Successful wrapper changes commit/push only their own manifests, including newly
 created host/exclusion files. An installation or export failure prevents publishing
