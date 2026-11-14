@@ -226,6 +226,7 @@ def context_from_environment(args=None) -> Context:
             capture_output=True,
             text=True,
             check=True,
+            encoding="utf-8",
         )
         chezmoi_data = json.loads(result.stdout)
         mp = chezmoi_data.get("machine_profile")
@@ -453,6 +454,7 @@ def sync_manifests(context: Context, paths: list[Path], message: str) -> None:
         check=True,
         capture_output=True,
         text=True,
+        encoding="utf-8",
     )
     if not status.stdout.strip():
         return
@@ -467,7 +469,9 @@ def sync_manifests(context: Context, paths: list[Path], message: str) -> None:
 
 def installed_entries(context: Context, manager: str) -> dict:
     def query(*args):
-        return subprocess.run(args, check=True, capture_output=True, text=True).stdout
+        return subprocess.run(
+            args, check=True, capture_output=True, text=True, encoding="utf-8"
+        ).stdout
 
     if manager == "apt":
         names = query("apt-mark", "showmanual").splitlines()
@@ -722,6 +726,7 @@ def migrate(context: Context, target_profile: str, *, write=False, config=None) 
             capture_output=True,
             text=True,
             check=True,
+            encoding="utf-8",
         )
         config = Path(result.stdout.strip())
     config = Path(config)

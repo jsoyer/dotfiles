@@ -364,6 +364,7 @@ class Templates(Fixture):
             text=True,
             capture_output=True,
             timeout=30,
+            encoding="utf-8",
         )
         self.assertEqual(result.returncode, 0, result.stderr)
         return result.stdout
@@ -455,7 +456,11 @@ class Templates(Fixture):
                 with self.subTest(profile=mp, script=path.name):
                     rendered = self.render(path.read_text(encoding="utf-8"), mp=mp)
                     result = subprocess.run(
-                        ["bash", "-n"], input=rendered, text=True, capture_output=True
+                        ["bash", "-n"],
+                        input=rendered,
+                        text=True,
+                        capture_output=True,
+                        encoding="utf-8",
                     )
                     self.assertEqual(result.returncode, 0, result.stderr)
 
@@ -474,6 +479,7 @@ class Templates(Fixture):
             input=rendered + "\n_filter_pkg_exclusions apt <<EOF\ngit\ntmux\nEOF\n",
             text=True,
             capture_output=True,
+            encoding="utf-8",
         )
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(result.stdout, "tmux\n")
@@ -516,6 +522,7 @@ class Templates(Fixture):
                         [PS_ENGINE, "-NoProfile", "-File", str(check), str(output)],
                         text=True,
                         capture_output=True,
+                        encoding="utf-8",
                     )
                     self.assertEqual(
                         result.returncode, 0, result.stdout + result.stderr
@@ -553,14 +560,18 @@ class Templates(Fixture):
                     "-PackageShellProfilePath",
                     str(profile),
                 ]
-                result = subprocess.run(command, text=True, capture_output=True)
+                result = subprocess.run(
+                    command, text=True, capture_output=True, encoding="utf-8"
+                )
                 self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
                 after = profile.read_bytes()
                 self.assertTrue(after.startswith(original))
                 self.assertIn(
                     "# chezmoi-package-layers", after[len(original) :].decode(encoding)
                 )
-                result = subprocess.run(command, text=True, capture_output=True)
+                result = subprocess.run(
+                    command, text=True, capture_output=True, encoding="utf-8"
+                )
                 self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
                 self.assertEqual(profile.read_bytes(), after)
                 backups = list(self.root.glob(name + ".ps1.before-package-layers-*"))
@@ -594,7 +605,7 @@ class Templates(Fixture):
             "--promptDefaults",
         ]
         result = subprocess.run(
-            command, env=environment, text=True, capture_output=True
+            command, env=environment, text=True, capture_output=True, encoding="utf-8"
         )
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn(
@@ -604,7 +615,7 @@ class Templates(Fixture):
             '[data]\nmachine_profile="ubuntu-desktop"\n', encoding="utf-8"
         )
         result = subprocess.run(
-            command, env=environment, text=True, capture_output=True
+            command, env=environment, text=True, capture_output=True, encoding="utf-8"
         )
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn(
@@ -612,7 +623,7 @@ class Templates(Fixture):
         )
         environment["DOTFILES_PACKAGE_PROFILE"] = "base"
         result = subprocess.run(
-            command, env=environment, text=True, capture_output=True
+            command, env=environment, text=True, capture_output=True, encoding="utf-8"
         )
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn(
@@ -652,13 +663,13 @@ class Templates(Fixture):
             "--promptDefaults",
         ]
         result = subprocess.run(
-            command, env=environment, text=True, capture_output=True
+            command, env=environment, text=True, capture_output=True, encoding="utf-8"
         )
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("already owns package lists", result.stderr)
         environment["DOTFILES_REUSE_HOST_PACKAGES"] = "1"
         result = subprocess.run(
-            command, env=environment, text=True, capture_output=True
+            command, env=environment, text=True, capture_output=True, encoding="utf-8"
         )
         self.assertEqual(result.returncode, 0, result.stderr)
 
@@ -724,6 +735,7 @@ exit $LASTEXITCODE
             ],
             text=True,
             capture_output=True,
+            encoding="utf-8",
         )
 
     def test_windows_install_only_records_machine_delta_without_pin(self):

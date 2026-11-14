@@ -243,6 +243,7 @@ class PlanBrewCommandsSourceBuilds(unittest.TestCase):
 class BulkUpgradeHealth(unittest.TestCase):
     def run_main(self, args, *, formulae=None, casks=None, command_rc=0, profile=True):
         with (
+            unittest.mock.patch("shutil.which", return_value="/fake/bin/brew"),
             unittest.mock.patch.object(breww.sys, "argv", ["breww", *args]),
             unittest.mock.patch.object(
                 breww,

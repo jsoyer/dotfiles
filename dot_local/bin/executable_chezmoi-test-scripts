@@ -13,6 +13,14 @@ mkdir -p "${DESTINATION_DIR}"
 tmpdir="$(mktemp -d)"
 trap 'rm -rf "${tmpdir}"' EXIT
 
+cat > "${tmpdir}/parse.ps1" <<'POWERSHELL_PARSER'
+param([string]$Path)
+$tokens = $null
+$errors = $null
+[System.Management.Automation.Language.Parser]::ParseFile($Path, [ref]$tokens, [ref]$errors) | Out-Null
+if ($errors.Count) { $errors | Format-List; exit 1 }
+POWERSHELL_PARSER
+
 failures=0
 checked=0
 rendered=0
@@ -44,7 +52,7 @@ while IFS= read -r -d '' template; do
             ;;
         *pwsh*:*|*powershell*:*|*.ps1.tmpl)
             if command -v pwsh >/dev/null 2>&1; then
-                if ! pwsh -NoProfile -Command 'param([string]$Path) $errors = $null; [System.Management.Automation.PSParser]::Tokenize((Get-Content -Raw -LiteralPath $Path), [ref]$errors) | Out-Null; if ($errors) { throw $errors[0] }' "${out}"; then
+                if ! pwsh -NoProfile -File "${tmpdir}/parse.ps1" "${out}"; then
                     printf 'powershell syntax failed: %s\n' "${rel}" >&2
                     failures=$((failures + 1))
                 fi
