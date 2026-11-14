@@ -39,7 +39,11 @@ pub struct ResolvedScope {
 /// Explicit `--scope` always wins.
 pub fn resolve(cwd: &Path, explicit: Option<Scope>) -> Result<ResolvedScope> {
     let home = dirs::home_dir().unwrap_or_else(|| PathBuf::from("/tmp"));
-    let project_root = find_project_root(cwd);
+    resolve_with_home(cwd, explicit, &home)
+}
+
+fn resolve_with_home(cwd: &Path, explicit: Option<Scope>, home: &Path) -> Result<ResolvedScope> {
+    let project_root = find_project_root_until(cwd, home);
 
     let scope = match explicit {
         Some(s) => s,
@@ -55,7 +59,7 @@ pub fn resolve(cwd: &Path, explicit: Option<Scope>) -> Result<ResolvedScope> {
     match scope {
         Scope::Global => Ok(ResolvedScope {
             scope,
-            target_dir: home,
+            target_dir: home.to_path_buf(),
             project_root,
             supports_symlinks: true,
         }),
@@ -96,6 +100,10 @@ pub fn resolve(cwd: &Path, explicit: Option<Scope>) -> Result<ResolvedScope> {
 /// Stops at home directory.
 pub fn find_project_root(start: &Path) -> Option<PathBuf> {
     let home = dirs::home_dir().unwrap_or_default();
+    find_project_root_until(start, &home)
+}
+
+fn find_project_root_until(start: &Path, home: &Path) -> Option<PathBuf> {
     let mut dir = start.to_path_buf();
 
     loop {
@@ -153,7 +161,7 @@ mod tests {
     fn resolve_global_when_no_project() {
         let tmp = std::env::temp_dir().join("cctx-test-scope-noproj");
         let _ = std::fs::create_dir_all(&tmp);
-        let resolved = resolve(&tmp, None).unwrap();
+        let resolved = resolve_with_home(&tmp, None, &tmp).unwrap();
         assert_eq!(resolved.scope, Scope::Global);
         assert!(resolved.project_root.is_none());
         assert!(resolved.supports_symlinks);
@@ -164,7 +172,7 @@ mod tests {
     fn resolve_project_when_git_present() {
         let tmp = std::env::temp_dir().join("cctx-test-scope-proj");
         let _ = std::fs::create_dir_all(tmp.join(".git"));
-        let resolved = resolve(&tmp, None).unwrap();
+        let resolved = resolve_with_home(&tmp, None, tmp.parent().unwrap()).unwrap();
         assert_eq!(resolved.scope, Scope::Project);
         assert_eq!(resolved.project_root.unwrap(), tmp);
         assert!(resolved.supports_symlinks);
@@ -175,7 +183,8 @@ mod tests {
     fn resolve_user_project_no_symlinks() {
         let tmp = std::env::temp_dir().join("cctx-test-scope-userproj");
         let _ = std::fs::create_dir_all(tmp.join(".git"));
-        let resolved = resolve(&tmp, Some(Scope::UserProject)).unwrap();
+        let resolved =
+            resolve_with_home(&tmp, Some(Scope::UserProject), tmp.parent().unwrap()).unwrap();
         assert_eq!(resolved.scope, Scope::UserProject);
         assert!(!resolved.supports_symlinks);
         let hash = path_hash(&tmp);
@@ -187,8 +196,8 @@ mod tests {
     fn resolve_project_fails_outside_project() {
         let tmp = std::env::temp_dir().join("cctx-test-scope-fail");
         let _ = std::fs::create_dir_all(&tmp);
-        let result = resolve(&tmp, Some(Scope::Project));
-        assert!(result.is_err());
+        let result = resolve_with_home(&tmp, Some(Scope::Project), &tmp).unwrap_err();
+        assert!(result.to_string().contains("No project detected"));
         let _ = std::fs::remove_dir_all(&tmp);
     }
 }

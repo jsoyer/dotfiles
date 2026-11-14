@@ -12,6 +12,7 @@ mod plugins;
 mod profile;
 mod scanner;
 mod scope;
+mod settings;
 mod stats;
 mod symlinker;
 mod theme;

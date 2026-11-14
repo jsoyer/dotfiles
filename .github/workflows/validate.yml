@@ -45,6 +45,9 @@ jobs:
       - name: Chezmoi consistency guards
         run: python3 scripts/test_chezmoi_consistency.py
 
+      - name: Generated configurations preserve previous files
+        run: python3 scripts/test_generated_config.py
+
       - name: omp and herdr use official one-liners
         run: python3 scripts/test_omp_herdr_scope.py
 
@@ -217,8 +220,8 @@ jobs:
         working-directory: tools/aictx
         run: |
           cargo fmt --check
-          cargo check
-          cargo test
+          cargo check --locked
+          cargo test --locked
 
       - name: ShellCheck
         run: |
@@ -298,6 +301,14 @@ jobs:
           }
       - name: Test package layers and native Scoop wrapper
         run: python scripts/test_package_layers.py
+      - name: Test generated SSH configuration and shell secrets
+        if: runner.os != 'Windows'
+        run: python3 scripts/test_generated_config.py
+      - name: Setup Rust for settings preservation tests
+        uses: dtolnay/rust-toolchain@stable
+      - name: Test aictx settings preservation
+        working-directory: tools/aictx
+        run: cargo test --locked --bin aictx settings::
       - name: Test Windows PowerShell 5.1 compatibility
         if: runner.os == 'Windows'
         env:

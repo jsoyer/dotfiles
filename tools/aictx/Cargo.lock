@@ -4,7 +4,7 @@ version = 4
 
 [[package]]
 name = "aictx"
-version = "1.1.0"
+version = "1.1.1"
 dependencies = [
  "anyhow",
  "clap",
@@ -21,6 +21,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_yaml",
+ "tempfile",
  "thiserror 2.0.18",
  "walkdir",
 ]

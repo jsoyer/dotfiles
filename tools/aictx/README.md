@@ -132,6 +132,16 @@ cctx apply --scope project        # Apply to project scope
 cctx status --scope user-project  # Check user-project settings
 ```
 
+### Settings ownership and reset
+
+Applied plugin and MCP selections are tracked in a private `.aictx-state.json`
+sidecar next to the scope's settings file. `cctx reset` reverses only values
+that aictx added and that still have the value aictx set; personal entries and
+subsequent edits are retained. The first pre-change settings bytes are saved in
+a private `.aictx-backup` sidecar. Keep these sidecars with the settings file.
+Legacy settings without an ownership record are left unchanged by reset.
+Malformed settings or ownership JSON is reported without replacing the file.
+
 ## AI Refinement
 
 When `--smart` is used and AI is enabled, cctx queries an LLM to refine recommendations beyond what the scanner detects.

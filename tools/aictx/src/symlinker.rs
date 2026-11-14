@@ -290,17 +290,16 @@ pub fn reset(config: &AppConfig, resolved: &ResolvedScope) -> Result<()> {
             }
         }
 
-        // Remove settings file (settings.local.json for backward compat, settings.json for user-project)
+        // Reset only settings entries recorded as aictx-owned. Older files have
+        // no reliable provenance and must keep their user configuration.
         let settings_local = target.join("settings.local.json");
-        if settings_local.exists() {
-            std::fs::remove_file(&settings_local)?;
-        }
+        crate::settings::reset(&settings_local)?;
 
         // For user-project scope, also clean the settings.json managed keys
         if resolved.scope == Scope::UserProject {
             let settings = target.join("settings.json");
             if settings.exists() {
-                remove_cctx_keys_from_settings(&settings)?;
+                crate::settings::reset(&settings)?;
             }
         }
     }
@@ -541,75 +540,9 @@ fn settings_path_for_scope(cli_dir: &Path, scope: Scope) -> PathBuf {
     }
 }
 
-/// Merge MCP and plugin settings into a settings file (atomic write).
+/// Merge selected entries while keeping user settings and ownership provenance.
 fn merge_settings_file(path: &Path, extra_mcp: &[String], plugins: &[String]) -> Result<()> {
-    if extra_mcp.is_empty() && plugins.is_empty() {
-        return Ok(());
-    }
-
-    if let Some(parent) = path.parent() {
-        std::fs::create_dir_all(parent)?;
-    }
-
-    // Read existing settings if any
-    let mut settings: serde_json::Map<String, serde_json::Value> = if path.exists() {
-        let content = std::fs::read_to_string(path)?;
-        serde_json::from_str(&content).unwrap_or_default()
-    } else {
-        serde_json::Map::new()
-    };
-
-    // Record MCP server selections. aictx only tracks names here; concrete
-    // server definitions stay user-managed in the CLI's native config.
-    if !extra_mcp.is_empty() {
-        let mut enabled_mcp = serde_json::Map::new();
-        for server in extra_mcp {
-            enabled_mcp.insert(server.clone(), serde_json::Value::Bool(true));
-        }
-        settings.insert(
-            "enabledMcpServers".to_string(),
-            serde_json::Value::Object(enabled_mcp),
-        );
-    }
-
-    // Merge plugins
-    if !plugins.is_empty() {
-        let mut enabled = serde_json::Map::new();
-        for plugin in plugins {
-            enabled.insert(plugin.clone(), serde_json::Value::Bool(true));
-        }
-        settings.insert(
-            "enabledPlugins".to_string(),
-            serde_json::Value::Object(enabled),
-        );
-    }
-
-    // Atomic write via temp file
-    let json = serde_json::to_string_pretty(&settings)?;
-    let tmp_path = path.with_extension("json.tmp");
-    std::fs::write(&tmp_path, &json)?;
-    std::fs::rename(&tmp_path, path)?;
-
-    Ok(())
-}
-
-/// Remove aictx-managed keys from a settings.json without touching other keys.
-fn remove_cctx_keys_from_settings(path: &Path) -> Result<()> {
-    let content = std::fs::read_to_string(path)?;
-    let mut settings: serde_json::Map<String, serde_json::Value> =
-        serde_json::from_str(&content).unwrap_or_default();
-
-    settings.remove("enabledPlugins");
-    settings.remove("enabledMcpServers");
-
-    if settings.is_empty() {
-        std::fs::remove_file(path)?;
-    } else {
-        let json = serde_json::to_string_pretty(&settings)?;
-        std::fs::write(path, json)?;
-    }
-
-    Ok(())
+    crate::settings::merge(path, extra_mcp, plugins)
 }
 
 fn list_entries(dir: &Path) -> Vec<String> {
@@ -715,24 +648,7 @@ fn read_settings_from_file(path: &Path) -> (Vec<String>, Vec<String>) {
 
 /// Set all plugins to enabled or disabled in a settings file.
 pub fn set_all_plugins_enabled(path: &Path, enabled: bool) -> Result<()> {
-    if !path.exists() {
-        return Ok(());
-    }
-    let content = std::fs::read_to_string(path)?;
-    let mut settings: serde_json::Map<String, serde_json::Value> =
-        serde_json::from_str(&content).unwrap_or_default();
-
-    if let Some(serde_json::Value::Object(plugins)) = settings.get_mut("enabledPlugins") {
-        for value in plugins.values_mut() {
-            *value = serde_json::Value::Bool(enabled);
-        }
-    }
-
-    let json = serde_json::to_string_pretty(&settings)?;
-    let tmp = path.with_extension("json.tmp");
-    std::fs::write(&tmp, &json)?;
-    std::fs::rename(&tmp, path)?;
-    Ok(())
+    crate::settings::set_plugins_enabled(path, enabled)
 }
 
 impl ApplyPreview {

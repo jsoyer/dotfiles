@@ -4,7 +4,10 @@
 # Build aictx from source if cargo is available
 # Managed by chezmoi — reruns when source files change
 
-# source hash: {{ concat (glob "tools/aictx/src/**/*.rs") (glob "tools/aictx/Cargo.*") | join "\n" | sha256sum }}
+{{- $root := .chezmoi.sourceDir -}}
+{{- range concat (glob (printf "%s/tools/aictx/src/*.rs" $root)) (glob (printf "%s/tools/aictx/src/**/*.rs" $root)) (glob (printf "%s/tools/aictx/Cargo.*" $root)) | uniq | sortAlpha }}
+# source: {{ include . | sha256sum }}
+{{- end }}
 
 set -euo pipefail
 
@@ -27,7 +30,7 @@ fi
 echo "  🔨 aictx: building from source..."
 
 cd "$TOOL_DIR"
-if cargo build --release --quiet 2>/dev/null; then
+if cargo build --release --locked --quiet; then
   mkdir -p "$BIN_DIR"
   cp "target/release/$BIN_NAME" "$BIN_DIR/$BIN_NAME"
   chmod +x "$BIN_DIR/$BIN_NAME"
@@ -46,7 +49,8 @@ if cargo build --release --quiet 2>/dev/null; then
     "$BIN_DIR/$BIN_NAME" completions fish --install 2>/dev/null && echo "  🐚 fish completions installed" || true
   fi
 else
-  echo "  ❌ aictx: build failed (non-fatal, skipping)"
+  echo "  ❌ aictx: build failed; existing binary preserved. Rerun chezmoi apply after resolving the error." >&2
+  exit 1
 fi
 {{- end -}}
 

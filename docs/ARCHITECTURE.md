@@ -254,7 +254,8 @@ Wallpapers are only fetched on `mac-personal` and `ubuntu-desktop` profiles. Eve
 - **Secrets**: managed via 1Password CLI (`op`) or age encryption. Never hardcoded.
 - **Age encryption**: identity file at `~/.config/chezmoi/key.txt`, recipient public key from 1Password.
 - **File permissions**: `private_` prefix in chezmoi sets 0600 on target files.
-- **SSH config**: generated from 1Password vault. Gracefully skips when 1Password is unavailable.
+- **SSH config**: Linux preserves the user's config and adds a managed include; macOS validates the 1Password SSH document before replacing the generated config. Existing content is backed up before replacement.
+- **Shell secrets**: generated as a pair from one validated 1Password item read. Read or validation failures preserve the last valid files.
 - **MCP tokens**: environment variable references (`${ENV_VAR}`) resolved at runtime.
 - **`.chezmoiignore.tmpl`**: excludes `secrets.zsh`, NAS `bin/**` off omv, Claude runtime, and `.agents` / `.skills`.
 

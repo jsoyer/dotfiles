@@ -1,0 +1,324 @@
+#!/usr/bin/env python3
+"""Publish SSH configuration and shell secrets without losing the previous files."""
+
+from __future__ import annotations
+
+import argparse
+import contextlib
+import json
+import os
+from pathlib import Path
+import shlex
+import shutil
+import signal
+import stat
+import subprocess
+import sys
+import tempfile
+
+
+class ConfigError(ValueError):
+    pass
+
+
+SECRET_FIELDS = (
+    "GITHUB_TOKEN",
+    "CHEZMOI_NTFY_TOPIC",
+    "CHEZMOI_NTFY_URL",
+    "CHEZMOI_NTFY_TOKEN",
+    "TELEGRAM_BOT_TOKEN",
+    "TELEGRAM_CHAT_ID",
+    "DISCORD_WEBHOOK_URL",
+    "SLACK_BOT_TOKEN",
+    "SLACK_TEAM_ID",
+    "BRAVE_API_KEY",
+    "LINEAR_API_KEY",
+    "NOTION_API_KEY",
+    "OBSIDIAN_API_KEY",
+)
+
+
+@contextlib.contextmanager
+def locked(home: Path):
+    # These generators run only on Unix. An OS lock is released on interruption.
+    import fcntl
+
+    directory = home / ".local/state/dotfiles"
+    directory.mkdir(parents=True, exist_ok=True, mode=0o700)
+    descriptor = os.open(
+        directory / "generated-config.lock",
+        os.O_CREAT | os.O_RDWR | getattr(os, "O_NOFOLLOW", 0),
+        0o600,
+    )
+    try:
+        fcntl.flock(descriptor, fcntl.LOCK_EX)
+        yield
+    finally:
+        os.close(descriptor)
+
+
+def current_file(path: Path) -> tuple[bytes | None, int]:
+    try:
+        metadata = path.lstat()
+    except FileNotFoundError:
+        return None, 0o600
+    if not stat.S_ISREG(metadata.st_mode):
+        raise ConfigError(f"Refusing to replace a symlink or non-regular file: {path}")
+    return path.read_bytes(), stat.S_IMODE(metadata.st_mode)
+
+
+def stage(path: Path, content: bytes, *, backup=False, mode=0o600) -> Path:
+    prefix = f".{path.name}.before-chezmoi-" if backup else f".{path.name}.chezmoi-"
+    descriptor, name = tempfile.mkstemp(prefix=prefix, dir=path.parent)
+    temporary = Path(name)
+    try:
+        with os.fdopen(descriptor, "wb") as stream:
+            os.fchmod(stream.fileno(), mode)
+            stream.write(content)
+            stream.flush()
+            os.fsync(stream.fileno())
+    except BaseException:
+        temporary.unlink(missing_ok=True)
+        raise
+    return temporary
+
+
+def publish(files: dict[Path, bytes]) -> bool:
+    """Stage all replacements and rollback copies before publishing any file."""
+    snapshots = {path: current_file(path) for path in files}
+    changed = [path for path in files if snapshots[path][0] != files[path]]
+    replacements, rollback = {}, {}
+    committed = []
+    backups = []
+    try:
+        for path in changed:
+            path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+            replacements[path] = stage(path, files[path])
+            previous, mode = snapshots[path]
+            if previous is not None:
+                rollback[path] = stage(path, previous, mode=mode)
+        # A failed backup must also leave every live file unchanged.
+        for path in changed:
+            previous = snapshots[path][0]
+            if previous is not None:
+                backups.append(stage(path, previous, backup=True))
+        try:
+            for path in changed:
+                os.replace(replacements[path], path)
+                committed.append(path)
+        except BaseException:
+            for path in reversed(committed):
+                if path in rollback:
+                    os.replace(rollback[path], path)
+                else:
+                    path.unlink(missing_ok=True)
+            raise
+        for path in files:
+            path.chmod(0o600)
+    except BaseException as error:
+        if backups:
+            print(
+                "Previous files backed up at: " + ", ".join(map(str, backups)),
+                file=sys.stderr,
+            )
+        raise error
+    finally:
+        for temporary in (*replacements.values(), *rollback.values()):
+            temporary.unlink(missing_ok=True)
+    return bool(changed)
+
+
+def op_output(arguments: list[str]) -> bytes:
+    result = subprocess.run(
+        ["op", *arguments], capture_output=True, check=False, timeout=60
+    )
+    if result.returncode:
+        # Do not echo CLI output: it can contain secrets or a partial document.
+        raise ConfigError("1Password read failed; existing files were preserved")
+    return result.stdout
+
+
+def secret_values(raw: bytes) -> dict[str, str]:
+    try:
+        item = json.loads(raw)
+        fields = item["fields"]
+        if not isinstance(fields, list) or any(not isinstance(f, dict) for f in fields):
+            raise ValueError("invalid fields")
+    except (ValueError, KeyError, TypeError, UnicodeError) as error:
+        raise ConfigError(
+            "Invalid 1Password item JSON; existing secrets were preserved"
+        ) from error
+    values = {}
+    seen = set()
+    for field in fields:
+        label = field.get("label")
+        if label not in SECRET_FIELDS:
+            continue
+        if label in seen:
+            raise ConfigError(
+                f"Ambiguous 1Password field {label}; existing secrets were preserved"
+            )
+        seen.add(label)
+        value = field.get("value")
+        if value is None or value == "":
+            continue  # Missing optional fields are different from a failed read.
+        if not isinstance(value, str) or "\0" in value:
+            raise ConfigError(
+                f"Invalid 1Password field {label}; existing secrets were preserved"
+            )
+        values[label] = value
+    if "GITHUB_TOKEN" in values:
+        values["HOMEBREW_GITHUB_API_TOKEN"] = values["GITHUB_TOKEN"]
+    return values
+
+
+def generate_secrets(home: Path) -> None:
+    with locked(home):
+        values = secret_values(
+            op_output(
+                ["item", "get", "Shell Secrets", "--vault", "Private", "--format=json"]
+            )
+        )
+        exports = "".join(
+            f"export {name}={shlex.quote(value)}\n" for name, value in values.items()
+        )
+        files = {}
+        for shell, directory, name in (
+            ("zsh", ".zsh", "secrets.zsh"),
+            ("bash", ".bash", "secrets.bash"),
+        ):
+            if shell == "bash" and not (home / directory).is_dir():
+                continue
+            content = (
+                f"#!/usr/bin/env {shell}\n"
+                "# Generated from 1Password; refresh with: dotfiles-generated-config secrets\n"
+                + exports
+            ).encode("utf-8")
+            # Parse synthetic shell code without sourcing it or expanding values.
+            result = subprocess.run(
+                ["bash", "-n"],
+                input=content,
+                capture_output=True,
+                check=False,
+                timeout=15,
+            )
+            if result.returncode:
+                raise ConfigError(
+                    "Generated secrets failed syntax validation; previous files preserved"
+                )
+            files[home / directory / name] = content
+        publish(files)
+    print(f"Shell secrets generated ({len(values)} exports from one 1Password read)")
+
+
+def validate_ssh(content: bytes) -> None:
+    try:
+        text = content.decode("utf-8")
+        if not text.strip() or "\0" in text:
+            raise ValueError("empty document or NUL character")
+        lines = ["IgnoreUnknown UseKeychain\n"]
+        for line in text.splitlines(keepends=True):
+            words = shlex.split(line, comments=True)
+            # Validation must not execute a Match exec predicate or load other
+            # files that may contain one. The published document is unchanged.
+            if words and words[0].lower() == "include":
+                lines.append("# Include omitted during validation\n")
+            elif (
+                words
+                and words[0].lower() == "match"
+                and "exec" in [w.lower() for w in words[1:]]
+            ):
+                lines.append("Match all\n")
+            else:
+                lines.append(line)
+    except (UnicodeError, ValueError) as error:
+        raise ConfigError(
+            "Invalid SSH document; existing configuration was preserved"
+        ) from error
+    with tempfile.NamedTemporaryFile(prefix="chezmoi-ssh-") as temporary:
+        temporary.write("".join(lines).encode("utf-8"))
+        temporary.flush()
+        result = subprocess.run(
+            ["ssh", "-G", "-F", temporary.name, "localhost"],
+            capture_output=True,
+            check=False,
+            timeout=15,
+        )
+    if result.returncode:
+        raise ConfigError(
+            "SSH syntax validation failed; existing configuration was preserved"
+        )
+
+
+def generate_ssh(home: Path, platform: str) -> None:
+    with locked(home):
+        directory = home / ".ssh"
+        directory.mkdir(parents=True, exist_ok=True, mode=0o700)
+        directory.chmod(0o700)
+        target = directory / "config"
+        previous, _ = current_file(target)
+        if platform == "darwin":
+            # The established macOS source of truth is the 1Password document.
+            if not shutil.which("op"):
+                print("1Password CLI unavailable; SSH configuration unchanged")
+                return
+            identity = subprocess.run(
+                ["op", "whoami"], capture_output=True, check=False, timeout=15
+            )
+            if identity.returncode:
+                print("1Password not authenticated; SSH configuration unchanged")
+                return
+            content = op_output(["document", "get", "--vault", "Private", "SSH Config"])
+            validate_ssh(content)
+            publish({target: content})
+        else:
+            fragment = directory / "config.d/chezmoi.conf"
+            # An absolute quoted path also works for homes containing spaces.
+            quoted = str(fragment).replace("\\", "\\\\").replace('"', '\\"')
+            include = f'Include "{quoted}"\n'.encode("utf-8")
+            current = previous or b""
+            # Keep the owned Include global even if somebody moved it inside a
+            # Host block. All other original lines retain their byte order.
+            content = include + b"".join(
+                line for line in current.splitlines(keepends=True) if line != include
+            )
+            patterns = "UseKeychain"
+            for line in current.decode("utf-8").splitlines():
+                words = shlex.split(line, comments=True)
+                if words and words[0].lower() in ("host", "match"):
+                    break
+                if words and words[0].lower() == "ignoreunknown" and len(words) == 2:
+                    patterns += "," + words[1]
+                    break
+            publish({fragment: f"IgnoreUnknown {patterns}\n".encode(), target: content})
+    print("SSH configuration generated; previous changed files were backed up")
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("kind", choices=("ssh", "secrets"))
+    parser.add_argument(
+        "--home", type=Path, default=Path.home(), help=argparse.SUPPRESS
+    )
+    parser.add_argument("--platform", default=sys.platform, help=argparse.SUPPRESS)
+    args = parser.parse_args()
+
+    def interrupted(_signal, _frame):
+        raise InterruptedError("Generation interrupted")
+
+    signal.signal(signal.SIGTERM, interrupted)
+    if hasattr(signal, "SIGHUP"):
+        signal.signal(signal.SIGHUP, interrupted)
+    try:
+        if args.kind == "ssh":
+            generate_ssh(args.home, args.platform)
+        else:
+            generate_secrets(args.home)
+    except (OSError, ConfigError, subprocess.SubprocessError) as error:
+        print(f"Cannot generate {args.kind}: {error}", file=sys.stderr)
+        return 1
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

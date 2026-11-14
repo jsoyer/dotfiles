@@ -67,6 +67,23 @@ selection data to wrappers, including ones run outside an interactive shell.
 
 ## Add and remove packages
 
+You can edit the inventory files in the chezmoi source directly. Edit the
+short-hostname file for one machine, or the base/usage inventory when the
+package should apply to every machine in that layer. Use `package-plan preview`
+to check which files are active before editing. Examples include
+`dot_private/Brewfile_Jerome-Soyers-Mac-Mini-M6`, `dot_private/Aptfile_rpi`,
+and `dot_private/Scoopfile_personal.json`; use the filename pattern for your
+own machine and keep JSON inventories valid JSON.
+Review and commit manual edits normally. The wrappers update inventories after
+successful installs and uninstalls, so avoid editing a file while a wrapper is
+running.
+
+These files describe desired packages. Removing a line does not uninstall a
+package. A later `dump` can add back a removed line if that package is still
+installed, because dumps export the machine's installed inventory. Also,
+removing a package from a host file does not cancel an inherited base/usage
+package; use the host's `PackageExcludes_<hostname>.json` for that.
+
 Use `breww`, `aptw`, `dnfw`, `pacmanw`, `yayw`, `ostreew`, `flatpakw` or `snapw`.
 Their normal installation syntax records additions in the current host file.
 An inherited package removed through a wrapper gets a machine-local exclusion in

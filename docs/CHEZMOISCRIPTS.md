@@ -117,8 +117,10 @@ Runs once or on manifest changes to configure services, generate configs, and sy
 - **Cleanup**: Removes stale symlinks if cache entries disappear
 
 **SSH Config Generation:**
-- Reads SSH key passphrases from 1Password (skips gracefully if unavailable)
-- Generates `~/.ssh/config` from template
+- Linux preserves `~/.ssh/config` and adds the validated managed fragment under `config.d/`
+- macOS validates and installs the SSH document from 1Password; skips when 1Password is unavailable
+- Shell secrets are read once from 1Password and published as a validated pair; failed reads preserve prior files
+- Existing generated files are backed up privately before replacement; see [recovery guide](GENERATED_CONFIG.md)
 
 **Mail Configuration:**
 - Integrates with 1Password CLI for password retrieval
