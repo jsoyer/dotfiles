@@ -8,6 +8,7 @@
 # Chezmoi is the source of truth (hostname detection lives in
 # .chezmoi.toml.tmpl). Do not re-derive MACHINE_PROFILE from hostname.
 export MACHINE_PROFILE="{{ .machine_profile }}"
+export PACKAGE_PROFILE="{{ index . "package_profile" | default "legacy" }}"
 
 # Default values
 export STARSHIP_CONFIG="${HOME}/.config/starship/starship-desktop.toml"

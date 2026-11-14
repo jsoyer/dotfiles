@@ -11,14 +11,40 @@ only the delta: installed − base − blacklist.
 from __future__ import annotations
 
 import os
+import json
 import subprocess
 import sys
 import tempfile
 from pathlib import Path
 
+# The same module is deployed next to breww and is importable from source tests.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from package_layers import (
+    Context,
+    LayerError,
+    context_from_environment,
+    clear_exclusions,
+    dump_overlay,
+    parse_entries,
+    promote,
+    record,
+)
+
 # --- Configuration ---
+_context_path = Path(
+    os.environ.get(
+        "PACKAGE_CONTEXT_FILE", Path.home() / ".config/dotfiles/package-context.json"
+    )
+)
+_saved_context = (
+    json.loads(_context_path.read_text(encoding="utf-8-sig"))
+    if _context_path.exists()
+    else {}
+)
 CHEZMOI_SOURCE_PATH = Path(
-    os.environ.get("CHEZMOI_SOURCE_PATH", Path.home() / ".local" / "share" / "chezmoi")
+    os.environ.get("CHEZMOI_SOURCE_PATH")
+    or _saved_context.get("source_dir")
+    or Path.home() / ".local/share/chezmoi"
 )
 BREWFILE_DIR = CHEZMOI_SOURCE_PATH / "dot_private"
 
@@ -31,9 +57,27 @@ NC = "\033[0m"
 
 
 NATIVE_PACKAGES = {
-    "bat", "chezmoi", "curl", "eza", "fd", "fontconfig", "fzf", "git",
-    "jq", "neovim", "ripgrep", "starship", "tmux", "unzip", "vivid",
-    "wget", "zoxide", "zsh", "atuin", "htop", "tree",
+    "bat",
+    "chezmoi",
+    "curl",
+    "eza",
+    "fd",
+    "fontconfig",
+    "fzf",
+    "git",
+    "jq",
+    "neovim",
+    "ripgrep",
+    "starship",
+    "tmux",
+    "unzip",
+    "vivid",
+    "wget",
+    "zoxide",
+    "zsh",
+    "atuin",
+    "htop",
+    "tree",
 }
 
 NATIVE_WRAPPER = {
@@ -53,21 +97,37 @@ def get_hostname() -> str:
     return os.uname().nodename.split(".")[0]
 
 
+def get_layer_context():
+    if not (BREWFILE_DIR / "package-layers.json").is_file():
+        return None  # isolated pre-catalog test fixtures
+    context = context_from_environment()
+    return Context(
+        BREWFILE_DIR.parent,
+        context.machine_profile,
+        context.package_profile,
+        get_hostname(),
+        context.install_mas,
+    )
+
+
 def get_target_brewfile():
-    """Return the shared base Brewfile path for the current profile (read-only reference)."""
+    """Reference file for display; dumps subtract ALL active shared layers."""
+    context = get_layer_context()
+    if context is not None:
+        files = context.selection("brew")["shared"]
+        return BREWFILE_DIR / files[-1] if files else None
     profile = os.environ.get("MACHINE_PROFILE")
-    if profile == "mac-pro":
-        return BREWFILE_DIR / "Brewfile_pro"
-    elif profile == "mac-personal":
-        return BREWFILE_DIR / "Brewfile_personal"
-    elif profile == "rpi":
-        return BREWFILE_DIR / "Brewfile_rpi"
-    elif profile == "fedora-atomic":
-        return BREWFILE_DIR / "Brewfile_fedora_atomic"
-    elif profile in ("ubuntu-desktop", "fedora-desktop", "arch-desktop", "toolbox"):
-        return BREWFILE_DIR / "Brewfile_brew_only"
-    else:
-        return None
+    names = {
+        "mac-pro": "Brewfile_pro",
+        "mac-personal": "Brewfile_personal",
+        "rpi": "Brewfile_rpi",
+        "fedora-atomic": "Brewfile_fedora_atomic",
+        "ubuntu-desktop": "Brewfile_brew_only",
+        "fedora-desktop": "Brewfile_brew_only",
+        "arch-desktop": "Brewfile_brew_only",
+        "toolbox": "Brewfile_brew_only",
+    }
+    return BREWFILE_DIR / names[profile] if profile in names else None
 
 
 def get_host_brewfile() -> Path:
@@ -199,6 +259,12 @@ def plan_brew_commands(
         return []
 
     cmd, flags, positionals = _split_brew_args(args)
+    if cmd in ("install", "uninstall", "tap", "untap"):
+        context = get_layer_context()
+        if context is not None:
+            context.entries(
+                "brew"
+            )  # reject conflicts before changing installed packages
     skip_set = set(skip)
 
     if cmd == "cu":
@@ -310,7 +376,9 @@ def brew_outdated_formulae() -> list[str]:
         universal_newlines=True,
     )
     if result.returncode != 0:
-        raise RuntimeError(f"brew outdated --formula failed: {(result.stderr or '').strip()}")
+        raise RuntimeError(
+            f"brew outdated --formula failed: {(result.stderr or '').strip()}"
+        )
     return [ln.strip() for ln in result.stdout.splitlines() if ln.strip()]
 
 
@@ -362,21 +430,29 @@ def run_bulk_upgrade(args: list[str], skip: list[str]) -> int:
     dry_run = "--dry-run" in flags or "-n" in flags
     formula_wanted = cmd == "upgrade" and "--cask" not in flags
     cask_wanted = cmd == "cu" or "--formula" not in flags
-    greedy = "--greedy" in flags or (cmd == "cu" and ("-a" in flags or "--all" in flags))
+    greedy = "--greedy" in flags or (
+        cmd == "cu" and ("-a" in flags or "--all" in flags)
+    )
     returncode = 0
     try:
         returncode = run_brew_command(["update"])
         if skip and cask_wanted:
             print(f"{YELLOW}Deferred casks (admin required): {', '.join(skip)}{NC}")
-            print(f"{YELLOW}Update explicitly with an admin account: breww {cmd} <cask>{NC}")
+            print(
+                f"{YELLOW}Update explicitly with an admin account: breww {cmd} <cask>{NC}"
+            )
         upgradeable = brew_upgradeable_formulae() if formula_wanted else None
         plans = plan_brew_commands(
             args,
             skip,
             installed_casks=brew_list_casks() if cmd == "cu" else None,
-            outdated_casks=brew_outdated_casks(greedy=greedy) if cask_wanted and cmd == "upgrade" and skip else None,
+            outdated_casks=brew_outdated_casks(greedy=greedy)
+            if cask_wanted and cmd == "upgrade" and skip
+            else None,
             upgradeable_formulae=upgradeable,
-            compile_formulae=brew_compile_formulae(upgradeable) if formula_wanted else None,
+            compile_formulae=brew_compile_formulae(upgradeable)
+            if formula_wanted
+            else None,
         )
         for plan in plans:
             rc = run_brew_command(plan)
@@ -391,7 +467,8 @@ def run_bulk_upgrade(args: list[str], skip: list[str]) -> int:
             if remaining:
                 print(
                     f"{RED}Updates incomplete; packages still outdated (including pins/deferred casks): "
-                    f"{', '.join(remaining)}{NC}", file=sys.stderr,
+                    f"{', '.join(remaining)}{NC}",
+                    file=sys.stderr,
                 )
                 returncode = returncode or 1
     except (OSError, RuntimeError) as exc:
@@ -422,7 +499,7 @@ def _extract_identity(line: str) -> str | None:
                 if start != -1:
                     end = stripped.find(q, start + 1)
                     if end != -1:
-                        return stripped[start + 1:end]
+                        return stripped[start + 1 : end]
     return None
 
 
@@ -492,6 +569,18 @@ def dump_host_overlay(base_brewfile: Path | None):
         )
         if result.returncode != 0:
             print(f"{RED}Warning: brew bundle dump failed: {result.stderr}{NC}")
+            raise LayerError("brew bundle dump failed; host manifest left unchanged")
+
+        context = get_layer_context()
+        if context is not None:
+            entries = parse_entries(tmp_path, "brew")
+            blacklist = load_blacklist()
+            entries = {
+                key: line
+                for key, line in entries.items()
+                if not _is_blacklisted(line, blacklist)
+            }
+            dump_overlay(context, "brew", entries)
             return
 
         tmp_entries = parse_brewfile_entries(tmp_path)
@@ -511,7 +600,9 @@ def dump_host_overlay(base_brewfile: Path | None):
             f"# Host overlay for {hostname} — extras beyond the shared base.\n"
             f"# Managed by breww. Do not edit manually.\n"
         )
-        host_file.write_text(header + "\n".join(host_lines) + ("\n" if host_lines else ""))
+        host_file.write_text(
+            header + "\n".join(host_lines) + ("\n" if host_lines else "")
+        )
         print(
             f"{GREEN}Host overlay written: {len(host_lines)} entries "
             f"({len(tmp_entries) - len(host_lines)} in base/blacklist){NC}"
@@ -520,93 +611,18 @@ def dump_host_overlay(base_brewfile: Path | None):
         tmp_path.unlink(missing_ok=True)
 
 
-def remove_from_base(
-    names: list[str],
-    base_brewfile: Path | None,
-    shared_files: list[Path] | None = None,
-) -> list[str]:
-    """
-    Drop <names> from the profile base Brewfile so an uninstall actually sticks.
-
-    brew bundle never uninstalls, and a dump only ever rewrites the host
-    overlay, so an entry left in the base gets reinstalled on the next
-    `chezmoi apply` — the remove/resurrect loop.
-
-    Files shared beyond the current profile (Brewfile_macos feeds both mac-pro
-    and mac-personal) are reported, never edited: dropping an entry there is a
-    decision about the *other* machine too.
-
-    Returns the names actually removed.
-    """
-    if shared_files is None:
-        shared_files = [BREWFILE_DIR / "Brewfile_macos"]
-
-    for shared in shared_files:
-        shared_entries = parse_brewfile_entries(shared)
-        for name in names:
-            if name in shared_entries:
-                print(
-                    f"{YELLOW}'{name}' also lives in {shared.name}, shared with "
-                    f"other profiles — left untouched, remove it by hand if you "
-                    f"want it gone everywhere.{NC}"
-                )
-
-    if base_brewfile is None or not base_brewfile.exists():
-        return []
-
-    targets = set(names)
-    kept, removed = [], []
-    for line in base_brewfile.read_text().splitlines():
-        identity = _extract_identity(line)
-        if identity is not None and identity in targets:
-            removed.append(identity)
-            continue
-        kept.append(line)
-
-    if removed:
-        base_brewfile.write_text("\n".join(kept) + "\n")
-        for name in removed:
-            print(f"{GREEN}Removed '{name}' from {base_brewfile.name}{NC}")
-
-    return removed
-
-
-def promote_entry(name: str, base_brewfile: Path | None):
-    """
-    Move a single entry identified by <name> from the host overlay into the base file.
-    """
-    if base_brewfile is None:
-        print(f"{RED}Error: no base Brewfile for current profile — cannot promote{NC}")
-        sys.exit(1)
-
-    host_file = get_host_brewfile()
-    if not host_file.exists():
-        print(f"{RED}Error: host overlay {host_file.name} does not exist{NC}")
-        sys.exit(1)
-
-    host_entries = parse_brewfile_entries(host_file)
-    if name not in host_entries:
-        print(f"{RED}Error: '{name}' not found in {host_file.name}{NC}")
-        sys.exit(1)
-
-    line_to_promote = host_entries[name]
-
-    # Remove from host overlay
-    host_lines = [
-        line for line in host_file.read_text().splitlines()
-        if _extract_identity(line) != name
-    ]
-    host_file.write_text("\n".join(host_lines) + "\n")
-    print(f"{GREEN}Removed '{name}' from {host_file.name}{NC}")
-
-    # Append to base
-    base_content = base_brewfile.read_text()
-    if not base_content.endswith("\n"):
-        base_content += "\n"
-    base_brewfile.write_text(base_content + line_to_promote + "\n")
-    print(f"{GREEN}Added '{name}' to {base_brewfile.name}{NC}")
-
-    sync_to_git([host_file, base_brewfile])
+def record_uninstall(names: list[str], flags: list[str]) -> list[Path]:
+    """A local uninstall excludes inherited packages without editing other machines."""
+    context = get_layer_context()
+    if context is None:
+        raise LayerError(
+            "Package layer catalog missing; refusing to edit a shared Brewfile"
+        )
+    qualified = []
+    for name in names:
+        kind = "cask" if "--cask" in flags else "brew" if "--formula" in flags else None
+        qualified.append(f"{kind}:{name}" if kind else name)
+    return record(context, "brew", "remove", qualified)
 
 
 def sync_to_git(paths):
@@ -623,40 +639,62 @@ def sync_to_git(paths):
         return
     print(f"\n{BLUE}Syncing with Git...{NC}")
     try:
+        status = subprocess.run(
+            ["git", "status", "--porcelain", "--", *[str(p) for p in existing]],
+            cwd=CHEZMOI_SOURCE_PATH,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        if not status.stdout.strip():
+            return
         subprocess.run(
             ["git", "add", "--", *[str(p) for p in existing]],
             cwd=CHEZMOI_SOURCE_PATH,
             check=True,
         )
-        result = subprocess.run(
-            ["git", "commit", "--no-gpg-sign", "-m", "style(brew): update brewfiles via breww"],
+        subprocess.run(
+            [
+                "git",
+                "commit",
+                "--only",
+                "-m",
+                "style(brew): update brewfiles via breww",
+                "--",
+                *[str(p) for p in existing],
+            ],
             cwd=CHEZMOI_SOURCE_PATH,
+            check=True,
         )
-        if result.returncode not in (0, 1):
-            raise subprocess.CalledProcessError(result.returncode, "git commit")
         # Pull --rebase before push to avoid "rejected: fetch first" errors
         subprocess.run(
             ["git", "pull", "--rebase", "origin", "main"],
             cwd=CHEZMOI_SOURCE_PATH,
+            check=True,
         )
         subprocess.run(["git", "push"], cwd=CHEZMOI_SOURCE_PATH, check=True)
         print(f"{GREEN}Pushed to remote.{NC}")
     except subprocess.CalledProcessError as e:
-        print(f"Warning: Git sync failed: {e}")
+        raise LayerError(f"Git manifest sync failed: {e}") from e
 
 
 def main():
     import shutil
 
-    # Handle --promote before the brew-binary check (it's a pure-manifest operation)
+    # Promotion always names its shared scope; legacy lists stay read-only.
     if "--promote" in sys.argv:
-        idx = sys.argv.index("--promote")
-        if idx + 1 >= len(sys.argv):
-            print(f"{RED}Error: --promote requires a package name argument{NC}")
-            sys.exit(1)
-        entry_name = sys.argv[idx + 1]
-        base_brewfile = get_target_brewfile()
-        promote_entry(entry_name, base_brewfile)
+        args = sys.argv[1:]
+        if (
+            len(args) != 4
+            or args[0] != "--promote"
+            or args[2] != "--to"
+            or args[3] not in ("base", "usage")
+        ):
+            raise LayerError("Usage: breww --promote NAME --to base|usage")
+        context = get_layer_context()
+        if context is None:
+            raise LayerError("Package layer catalog missing")
+        sync_to_git(promote(context, "brew", args[1], args[3]))
         return
 
     if not shutil.which("brew"):
@@ -672,10 +710,10 @@ def main():
             f"breww — Homebrew wrapper with per-host overlay manifest sync\n\n"
             f"Usage:\n"
             f"  breww install <pkg>         Install + update host overlay\n"
-            f"  breww uninstall <pkg>       Uninstall + drop from base + update host overlay\n"
+            f"  breww uninstall <pkg>       Uninstall + exclude locally + update host overlay\n"
             f"  breww tap <repo>            Tap + update host overlay\n"
             f"  breww untap <repo>          Untap + update host overlay\n"
-            f"  breww --promote <name>      Move entry from host overlay to base\n"
+            f"  breww --promote NAME --to base|usage  Promote explicitly\n"
             f"  breww <command>             Passthrough to brew\n\n"
             f"Base file (read-only): {base_brewfile or 'unknown (check MACHINE_PROFILE)'}\n"
             f"Host overlay:          {get_host_brewfile()}\n"
@@ -697,7 +735,7 @@ def main():
         check_native_available(args)
 
     skip = load_cu_skip()
-    cmd, _flags, positionals = _split_brew_args(args)
+    cmd, flags, positionals = _split_brew_args(args)
     if cmd in ("upgrade", "cu") and not positionals:
         sys.exit(run_bulk_upgrade(args, skip))
 
@@ -705,18 +743,37 @@ def main():
     returncode = run_brew_command(args)
 
     # If command succeeded and modified packages, dump the host overlay delta
-    if base_brewfile and returncode == 0 and any(
-        cmd in args for cmd in ["install", "uninstall", "tap", "untap"]
+    if (
+        base_brewfile
+        and returncode == 0
+        and any(cmd in args for cmd in ["install", "uninstall", "tap", "untap"])
     ):
-        # An uninstall must also leave the base Brewfile, otherwise the entry
-        # survives there and the next `chezmoi apply` reinstalls it.
+        changed = [get_host_brewfile()]
         if cmd in ("uninstall", "untap") and positionals:
-            remove_from_base(positionals, base_brewfile)
+            if cmd == "untap":
+                positionals = [f"tap:{name}" for name in positionals]
+            changed.extend(record_uninstall(positionals, flags))
+        elif cmd == "install" and positionals:
+            context = get_layer_context()
+            if context is not None:
+                kind = (
+                    "cask"
+                    if "--cask" in flags
+                    else "brew"
+                    if "--formula" in flags
+                    else None
+                )
+                names = [f"{kind}:{name}" if kind else name for name in positionals]
+                changed.extend(clear_exclusions(context, names))
         dump_host_overlay(base_brewfile)
-        sync_to_git([get_host_brewfile(), base_brewfile])
+        sync_to_git(changed)
 
     sys.exit(returncode)
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except (LayerError, OSError) as error:
+        print(f"breww: {error}", file=sys.stderr)
+        sys.exit(1)

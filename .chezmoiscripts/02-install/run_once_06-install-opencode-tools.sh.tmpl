@@ -1,3 +1,4 @@
+{{- if ne (index . "package_profile" | default "legacy") "base" -}}
 {{- if index . "install_ocx" | default false -}}
 {{- $mp := index . "machine_profile" -}}
 {{- $ocxProfiles := list "mac-personal" "fedora-desktop" "toolbox" "ubuntu-desktop" "arch-desktop" "omarchy" -}}
@@ -102,3 +103,5 @@ fi
 echo "OpenCode tools installation complete!"
 {{- end }}
 {{- end }}
+
+{{- end -}}

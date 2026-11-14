@@ -1,3 +1,4 @@
+{{- if ne (index . "package_profile" | default "legacy") "base" -}}
 {{- /* Intel macOS only, runs only here (mise is now installed everywhere; this purge is Intel-only). Runs after it (alphabetical order). */ -}}
 {{- $mp := index . "machine_profile" -}}
 {{- if not (and (eq .chezmoi.os "darwin") (eq .chezmoi.arch "amd64")) -}}
@@ -76,3 +77,5 @@ echo "brew-purge: removed:${removed:- none}"
 echo "brew-purge: kept:${kept:- none}"
 exit 0
 {{- end }}
+
+{{- end -}}

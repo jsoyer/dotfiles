@@ -1,5 +1,6 @@
-# Unified package manifest — single source of truth
-# Platform-specific manifests (Brewfile_*, Aptfile_*, etc.) are generated from this file.
+# Historical package mapping reference (not an active generator).
+# Active layers are selected by package-layers.json from the native manifests.
+# See docs/PACKAGE_LAYERS.md; wrappers edit host manifests directly.
 #
 # Format: each package has a name and optional per-platform overrides.
 # If a platform key is missing, the package name is used as-is.

@@ -1,3 +1,4 @@
+{{- if ne (index . "package_profile" | default "legacy") "base" -}}
 {{- $mp := index . "machine_profile" -}}
 {{- $desktopProfiles := list "mac-personal" "fedora-desktop" "toolbox" "ubuntu-desktop" "arch-desktop" -}}
 {{- if has $mp $desktopProfiles -}}
@@ -36,3 +37,5 @@ fi
 
 echo "✅ Claude Code plugins installation complete!"
 {{- end }}
+
+{{- end -}}

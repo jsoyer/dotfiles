@@ -1,3 +1,4 @@
+{{- if ne (index . "package_profile" | default "legacy") "base" -}}
 {{- if and (ne .chezmoi.os "windows") (lookPath "claude") -}}
 #!/usr/bin/env bash
 # Install Claude Code plugins from Pluginfile
@@ -75,4 +76,6 @@ case "$reply" in
     echo "Run manually: claude plugins install <name> --marketplace <marketplace>"
     ;;
 esac
+{{- end -}}
+
 {{- end -}}

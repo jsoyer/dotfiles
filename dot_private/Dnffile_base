@@ -1,0 +1,16 @@
+chezmoi
+zsh
+git
+curl
+wget
+tmux
+fzf
+neovim
+fd-find
+ripgrep
+jq
+unzip
+bat
+fontconfig
+python3
+zoxide

@@ -107,9 +107,23 @@ graph LR
 | 04 | `update-windows.ps1` | onchange | Windows |
 | 05 | `maintenance-container.sh` | always | All |
 
+## Package Layers
+
+Package scope is independent of the technical `machine_profile`:
+
+```text
+platform base + optional usage (personal/professional/server) + current host
+```
+
+`package_profile=base` is the initial default. Missing saved scope retains legacy
+behavior on existing machines. The shared catalog is `dot_private/package-layers.json`;
+chezmoi templates and native wrappers resolve the same active lists. Host-local
+exclusions make removals persistent without changing shared files. See
+[Package layers](PACKAGE_LAYERS.md) for previews, migration, compatibility and rollback.
+
 ## Package Management
 
-Every supported package manager has a wrapper script that installs packages **and** updates a tracked manifest. The manifest change triggers chezmoi's `run_onchange_` scripts on all machines.
+Every supported package manager has a wrapper script that installs packages **and** updates a tracked manifest. Active manifest changes trigger the corresponding `run_onchange_` scripts. New installations are recorded for their host; promotion into a shared layer is explicit.
 
 ```mermaid
 graph TD

@@ -1,3 +1,4 @@
+{{- if ne (index . "package_profile" | default "legacy") "base" -}}
 {{- $mp := index . "machine_profile" -}}
 {{- if and (eq .chezmoi.os "linux") (eq $mp "ubuntu-desktop") -}}
 #!/usr/bin/env bash
@@ -33,3 +34,5 @@ done
 flatpak uninstall --unused -y 2>/dev/null || true
 echo "✅ Removed $removed duplicate flatpak(s)."
 {{ end -}}
+
+{{- end -}}

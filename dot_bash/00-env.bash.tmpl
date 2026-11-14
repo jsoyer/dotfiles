@@ -65,6 +65,7 @@ export HOMEBREW_NO_ASK=1
 # Chezmoi is the source of truth (hostname detection lives in
 # .chezmoi.toml.tmpl). Do not re-derive MACHINE_PROFILE from hostname.
 export MACHINE_PROFILE="{{ .machine_profile }}"
+export PACKAGE_PROFILE="{{ index . "package_profile" | default "legacy" }}"
 
 case "$OSTYPE" in
   darwin*)

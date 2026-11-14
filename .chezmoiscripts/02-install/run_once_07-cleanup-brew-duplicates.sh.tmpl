@@ -1,3 +1,4 @@
+{{- if ne (index . "package_profile" | default "legacy") "base" -}}
 {{- $mp := index . "machine_profile" -}}
 {{- $skipProfiles := list "fedora-atomic" "rpi" "fedora-server" "ubuntu-server" "arch-server" "debian" "windows" -}}
 {{- $isOMV := or (hasPrefix "omv-" .chezmoi.hostname) (hasPrefix "bbh-network" .chezmoi.hostname) -}}
@@ -49,3 +50,5 @@ else
     echo "✅ No brew duplicates found."
 fi
 {{ end -}}
+
+{{- end -}}

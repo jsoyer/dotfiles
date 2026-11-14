@@ -1,0 +1,3 @@
+{{- /* Native wrappers read this instead of independently detecting a different profile. */ -}}
+{{- $selection := includeTemplate "package-files" (dict "data" . "manager" "brew") | fromJson -}}
+{{- dict "machine_profile" $selection.machine_profile "package_profile" $selection.package_profile "hostname" $selection.hostname "source_dir" .chezmoi.sourceDir "install_mas" (index . "install_mas" | default false) | toPrettyJson }}

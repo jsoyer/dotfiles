@@ -1,3 +1,4 @@
+{{- if ne (index . "package_profile" | default "legacy") "base" -}}
 {{- if eq .chezmoi.os "linux" -}}
 #!/usr/bin/env bash
 # Noxys tracker-audit cron — weekly tracker-vs-staging reconciliation review.
@@ -19,4 +20,6 @@ kept="$(printf '%s\n' "$current" | grep -vF "$MARKER" || true)"
 printf '%s\n%s\n' "$kept" "$ENTRY" | grep -v '^[[:space:]]*$' | crontab -
 
 echo "✓ noxys tracker-audit cron installed (weekly, Mon 09:00)"
+{{- end -}}
+
 {{- end -}}

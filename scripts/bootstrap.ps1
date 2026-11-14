@@ -9,7 +9,11 @@
 # =============================================================================
 
 #Requires -Version 5.1
-param([string]$GitHubUser = "jsoyer")
+param(
+    [string]$GitHubUser = "jsoyer",
+    [ValidateSet('base', 'personal', 'professional', 'server')]
+    [string]$PackageProfile = 'base'
+)
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 
@@ -28,13 +32,6 @@ if (-not (Get-Command scoop -ErrorAction SilentlyContinue)) {
 } else {
     Write-Host "[bootstrap] Scoop already installed" -ForegroundColor Green
 }
-
-# =============================================================================
-# Add buckets
-# =============================================================================
-Write-Host "[bootstrap] Adding Scoop buckets..." -ForegroundColor Yellow
-if (-not (scoop bucket list | Select-String -Quiet 'extras')) { scoop bucket add extras 2>$null }
-if (-not (scoop bucket list | Select-String -Quiet 'versions')) { scoop bucket add versions 2>$null }
 
 # =============================================================================
 # Install git + chezmoi
@@ -67,6 +64,7 @@ if (Test-Path $chezmoiDir) {
     Write-Host "[bootstrap] chezmoi already initialized, updating..." -ForegroundColor Yellow
     chezmoi update
 } else {
+    $env:DOTFILES_PACKAGE_PROFILE = $PackageProfile
     chezmoi init --apply $GitHubUser
 }
 

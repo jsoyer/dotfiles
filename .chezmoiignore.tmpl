@@ -66,6 +66,10 @@ memory/
 {{/* Ignore macOS-only configs on non-macOS */}}
 {{- if ne .chezmoi.os "windows" }}
 .local/bin/sysup-os-check.ps1
+Documents/PowerShell/
+Documents/WindowsPowerShell/
+.local/bin/scoopw.ps1
+.local/bin/package-plan.ps1
 {{- end }}
 
 {{- if ne .chezmoi.os "darwin" }}
@@ -289,3 +293,14 @@ Library/LaunchAgents/com.jsoyer.fleet-pull.plist
 # chaque apply. On les sort du perimetre (ignore AND not chezmoiremove).
 .agents
 .skills
+
+{{/* Base installs do not activate application/agent stacks on next login. */}}
+{{ if eq (index . "package_profile" | default "legacy") "base" }}
+Library/LaunchAgents/com.jsoyer.moshi-hook.plist
+Library/LaunchAgents/com.jsoyer.moshi-update.plist
+Library/LaunchAgents/com.jsoyer.fleet-pull.plist
+.config/systemd/user/moshi-*
+.config/systemd/user/cursor-*
+.config/systemd/user/herdr-*
+.config/systemd/user/fleet-*
+{{ end }}

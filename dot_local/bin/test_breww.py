@@ -20,6 +20,7 @@ import unittest
 import unittest.mock
 from pathlib import Path
 
+
 # chezmoi strips the "executable_" prefix on apply, so the script sits next to
 # this test under its bare name once deployed to ~/.local/bin.
 _BREWW_PATH = Path(__file__).resolve().parent / "executable_breww"
@@ -30,6 +31,7 @@ _SPEC = importlib.util.spec_from_loader("breww", _LOADER)
 assert _SPEC is not None
 breww = importlib.util.module_from_spec(_SPEC)
 _LOADER.exec_module(breww)
+LayerError = breww.LayerError
 
 
 class LoadPackageList(unittest.TestCase):
@@ -178,7 +180,10 @@ class PlanBrewCommandsUpgrade(unittest.TestCase):
 class PlanBrewCommandsSourceBuilds(unittest.TestCase):
     def test_compile_plan_follows_bottled_plan(self):
         plans = breww.plan_brew_commands(
-            ["upgrade"], [], upgradeable_formulae=["jq"], compile_formulae=["curl", "git"]
+            ["upgrade"],
+            [],
+            upgradeable_formulae=["jq"],
+            compile_formulae=["curl", "git"],
         )
         self.assertEqual(
             plans,
@@ -191,7 +196,10 @@ class PlanBrewCommandsSourceBuilds(unittest.TestCase):
 
     def test_compile_plan_runs_even_when_nothing_pours(self):
         plans = breww.plan_brew_commands(
-            ["upgrade", "--formula"], [], upgradeable_formulae=[], compile_formulae=["curl"]
+            ["upgrade", "--formula"],
+            [],
+            upgradeable_formulae=[],
+            compile_formulae=["curl"],
         )
         self.assertEqual(
             plans, [["upgrade", "--formula", "--build-from-source", "curl"]]
@@ -200,7 +208,10 @@ class PlanBrewCommandsSourceBuilds(unittest.TestCase):
     def test_no_compile_plan_for_cask_only_or_empty(self):
         self.assertEqual(
             breww.plan_brew_commands(
-                ["upgrade", "--cask"], [], upgradeable_formulae=[], compile_formulae=["curl"]
+                ["upgrade", "--cask"],
+                [],
+                upgradeable_formulae=[],
+                compile_formulae=["curl"],
             ),
             [["upgrade", "--cask"]],
         )
@@ -222,7 +233,9 @@ class PlanBrewCommandsSourceBuilds(unittest.TestCase):
     def test_old_allowlist_cannot_silently_disable_updates(self):
         with (
             unittest.mock.patch.dict("os.environ", {"BREWW_COMPILE_ALLOWLIST": ""}),
-            unittest.mock.patch.object(breww, "brew_outdated_formulae", return_value=["node"]),
+            unittest.mock.patch.object(
+                breww, "brew_outdated_formulae", return_value=["node"]
+            ),
         ):
             self.assertEqual(breww.brew_compile_formulae([]), ["node"])
 
@@ -231,15 +244,31 @@ class BulkUpgradeHealth(unittest.TestCase):
     def run_main(self, args, *, formulae=None, casks=None, command_rc=0, profile=True):
         with (
             unittest.mock.patch.object(breww.sys, "argv", ["breww", *args]),
-            unittest.mock.patch.object(breww, "get_target_brewfile", return_value=Path("/tmp/Brewfile") if profile else None),
+            unittest.mock.patch.object(
+                breww,
+                "get_target_brewfile",
+                return_value=Path("/tmp/Brewfile") if profile else None,
+            ),
             unittest.mock.patch.object(breww, "load_cu_skip", return_value=["obs"]),
-            unittest.mock.patch.object(breww, "brew_upgradeable_formulae", return_value=["jq"]),
-            unittest.mock.patch.object(breww, "brew_compile_formulae", return_value=["libxml2"]),
-            unittest.mock.patch.object(breww, "brew_outdated_formulae", return_value=formulae or []),
-            unittest.mock.patch.object(breww, "brew_outdated_casks", return_value=casks or []),
-            unittest.mock.patch.object(breww, "brew_list_casks", return_value=["obs", "zed"]),
+            unittest.mock.patch.object(
+                breww, "brew_upgradeable_formulae", return_value=["jq"]
+            ),
+            unittest.mock.patch.object(
+                breww, "brew_compile_formulae", return_value=["libxml2"]
+            ),
+            unittest.mock.patch.object(
+                breww, "brew_outdated_formulae", return_value=formulae or []
+            ),
+            unittest.mock.patch.object(
+                breww, "brew_outdated_casks", return_value=casks or []
+            ),
+            unittest.mock.patch.object(
+                breww, "brew_list_casks", return_value=["obs", "zed"]
+            ),
             unittest.mock.patch.object(breww.subprocess, "run"),
-            unittest.mock.patch.object(breww, "run_brew_command", return_value=command_rc) as run,
+            unittest.mock.patch.object(
+                breww, "run_brew_command", return_value=command_rc
+            ) as run,
         ):
             with self.assertRaises(SystemExit) as exited:
                 breww.main()
@@ -248,7 +277,9 @@ class BulkUpgradeHealth(unittest.TestCase):
     def test_bulk_upgrade_builds_remaining_formulae_and_verifies(self):
         rc, commands = self.run_main(["upgrade", "--formula"])
         self.assertEqual(rc, 0)
-        self.assertIn(["upgrade", "--formula", "--build-from-source", "libxml2"], commands)
+        self.assertIn(
+            ["upgrade", "--formula", "--build-from-source", "libxml2"], commands
+        )
 
     def test_pinned_or_failed_formula_is_reported_as_failure(self):
         rc, _ = self.run_main(["upgrade", "--formula"], formulae=["pinned-lib"])
@@ -266,20 +297,30 @@ class BulkUpgradeHealth(unittest.TestCase):
     def test_unknown_profile_still_uses_upgrade_policy(self):
         rc, commands = self.run_main(["upgrade", "--formula"], profile=False)
         self.assertEqual(rc, 0)
-        self.assertIn(["upgrade", "--formula", "--build-from-source", "libxml2"], commands)
+        self.assertIn(
+            ["upgrade", "--formula", "--build-from-source", "libxml2"], commands
+        )
 
     def test_dry_run_does_not_fail_for_remaining_updates(self):
-        rc, _ = self.run_main(["upgrade", "--formula", "--dry-run"], formulae=["libxml2"])
+        rc, _ = self.run_main(
+            ["upgrade", "--formula", "--dry-run"], formulae=["libxml2"]
+        )
         self.assertEqual(rc, 0)
 
 
 class OutdatedQueries(unittest.TestCase):
     def test_query_error_cannot_be_treated_as_up_to_date(self):
         with unittest.mock.patch.object(
-            breww.subprocess, "run", return_value=unittest.mock.Mock(returncode=1, stdout="", stderr="network down")
+            breww.subprocess,
+            "run",
+            return_value=unittest.mock.Mock(
+                returncode=1, stdout="", stderr="network down"
+            ),
         ):
             for query in (breww.brew_outdated_formulae, breww.brew_outdated_casks):
-                with self.subTest(query=query.__name__), self.assertRaises(RuntimeError):
+                with self.subTest(query=query.__name__), self.assertRaises(
+                    RuntimeError
+                ):
                     query()
 
 
@@ -290,7 +331,9 @@ class SourceUpgradeIntegration(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             brew = root / "brew"
-            brew.write_text(f"#!{sys.executable}\n" + r'''
+            brew.write_text(
+                f"#!{sys.executable}\n"
+                + r"""
 import json, os, sys
 from pathlib import Path
 root = Path(os.environ["FAKE_BREW_ROOT"])
@@ -315,23 +358,35 @@ elif args[0] == "upgrade":
         sys.exit(42)
     if os.environ["STUCK"] != "1":
         (root / "updated").touch()
-''')
+"""
+            )
             brew.chmod(0o755)
             proc = subprocess.run(
                 [sys.executable, str(_BREWW_PATH), "upgrade", "--formula"],
-                env={**os.environ, "PATH": str(root) + os.pathsep + os.environ["PATH"],
-                     "FAKE_BREW_ROOT": str(root), "MACHINE_PROFILE": "mac-personal",
-                     "CHEZMOI_SOURCE_PATH": str(root), "STUCK": str(int(stuck)),
-                     "FAIL": str(int(failure))},
-                capture_output=True, text=True, timeout=15,
+                env={
+                    **os.environ,
+                    "PATH": str(root) + os.pathsep + os.environ["PATH"],
+                    "FAKE_BREW_ROOT": str(root),
+                    "MACHINE_PROFILE": "mac-personal",
+                    "CHEZMOI_SOURCE_PATH": str(root),
+                    "STUCK": str(int(stuck)),
+                    "FAIL": str(int(failure)),
+                },
+                capture_output=True,
+                text=True,
+                timeout=15,
             )
-            calls = [json.loads(line) for line in (root / "calls").read_text().splitlines()]
+            calls = [
+                json.loads(line) for line in (root / "calls").read_text().splitlines()
+            ]
             return proc, calls
 
     def test_unbottled_tools_and_libraries_are_actually_upgraded(self):
         proc, calls = self.run_upgrade()
         self.assertEqual(proc.returncode, 0, proc.stderr)
-        self.assertIn(["upgrade", "--formula", "--build-from-source", "libxml2", "node"], calls)
+        self.assertIn(
+            ["upgrade", "--formula", "--build-from-source", "libxml2", "node"], calls
+        )
         self.assertNotIn("Skipping", proc.stderr)
 
     def test_pinned_formula_cannot_look_updated(self):
@@ -353,9 +408,14 @@ class DumpEnv(unittest.TestCase):
 
     def test_dump_host_overlay_passes_env_to_subprocess(self):
         fake = unittest.mock.Mock(returncode=1, stderr="x", stdout="")
-        with unittest.mock.patch.object(breww.subprocess, "run", return_value=fake) as run:
-            breww.dump_host_overlay(None)
-        self.assertEqual(run.call_args.kwargs["env"]["HOMEBREW_BUNDLE_DUMP_NO_KREW"], "1")
+        with unittest.mock.patch.object(
+            breww.subprocess, "run", return_value=fake
+        ) as run:
+            with self.assertRaises(LayerError):
+                breww.dump_host_overlay(None)
+        self.assertEqual(
+            run.call_args.kwargs["env"]["HOMEBREW_BUNDLE_DUMP_NO_KREW"], "1"
+        )
 
 
 class PlanBrewCommandsBottledFilter(unittest.TestCase):
@@ -385,9 +445,7 @@ class PlanBrewCommandsBottledFilter(unittest.TestCase):
         self.assertEqual(plans, [])
 
     def test_empty_upgradeable_still_upgrades_casks(self):
-        plans = breww.plan_brew_commands(
-            ["upgrade"], [], upgradeable_formulae=[]
-        )
+        plans = breww.plan_brew_commands(["upgrade"], [], upgradeable_formulae=[])
         self.assertEqual(plans, [["upgrade", "--cask"]])
 
     def test_filter_with_skip_list_keeps_cask_skip(self):
@@ -458,7 +516,9 @@ class BrewUpgradeableFormulae(unittest.TestCase):
         self.assertIsNone(names)
 
     def test_missing_filter_script_falls_back_to_none(self):
-        with unittest.mock.patch.object(breww, "_find_bottle_filter", return_value=None):
+        with unittest.mock.patch.object(
+            breww, "_find_bottle_filter", return_value=None
+        ):
             self.assertIsNone(breww.brew_upgradeable_formulae())
 
 
@@ -508,118 +568,6 @@ class LoadCuSkip(unittest.TestCase):
         ):
             with unittest.mock.patch.dict("os.environ", {"MACHINE_PROFILE": "mac-pro"}):
                 self.assertEqual(breww.load_cu_skip(), ["obs", "xquartz", "logitune"])
-
-
-class RemoveFromBase(unittest.TestCase):
-    """`breww uninstall` must also drop the entry from the profile base Brewfile.
-
-    Origin: removing a cask only from the machine left the line in
-    Brewfile_personal, so the next `chezmoi apply` reinstalled it — the
-    remove/resurrect loop visible on firefox and visual-studio-code.
-    """
-
-    def setUp(self):
-        self._tmp = tempfile.TemporaryDirectory()
-        self.tmp = Path(self._tmp.name)
-        self.base = self.tmp / "Brewfile_personal"
-        self.shared = self.tmp / "Brewfile_macos"
-
-    def tearDown(self):
-        self._tmp.cleanup()
-
-    def test_removes_cask_and_leaves_every_other_line_untouched(self):
-        self.base.write_text(
-            "# Personal casks\n"
-            'cask "firefox"\n'
-            'cask "visual-studio-code"\n'
-            "\n"
-            'brew "git"\n'
-        )
-        removed = breww.remove_from_base(["visual-studio-code"], self.base, [])
-        self.assertEqual(removed, ["visual-studio-code"])
-        self.assertEqual(
-            self.base.read_text(),
-            '# Personal casks\ncask "firefox"\n\nbrew "git"\n',
-        )
-
-    def test_removes_formula(self):
-        self.base.write_text('brew "git"\nbrew "wget"\n')
-        self.assertEqual(breww.remove_from_base(["wget"], self.base, []), ["wget"])
-        self.assertEqual(self.base.read_text(), 'brew "git"\n')
-
-    def test_removes_several_names_at_once(self):
-        self.base.write_text('cask "firefox"\ncask "microsoft-edge"\nbrew "git"\n')
-        removed = breww.remove_from_base(["firefox", "microsoft-edge"], self.base, [])
-        self.assertEqual(sorted(removed), ["firefox", "microsoft-edge"])
-        self.assertEqual(self.base.read_text(), 'brew "git"\n')
-
-    def test_absent_name_is_a_noop(self):
-        original = 'cask "firefox"\nbrew "git"\n'
-        self.base.write_text(original)
-        self.assertEqual(breww.remove_from_base(["nope"], self.base, []), [])
-        self.assertEqual(self.base.read_text(), original)
-
-    def test_shared_file_is_reported_but_never_modified(self):
-        self.base.write_text('brew "git"\n')
-        self.shared.write_text('cask "firefox"\n')
-        with unittest.mock.patch.object(breww, "print") as _p:
-            removed = breww.remove_from_base(["firefox"], self.base, [self.shared])
-        self.assertEqual(removed, [])
-        self.assertEqual(self.shared.read_text(), 'cask "firefox"\n')
-
-    def test_missing_base_is_a_noop(self):
-        self.assertEqual(breww.remove_from_base(["firefox"], None, []), [])
-        self.assertEqual(
-            breww.remove_from_base(["firefox"], self.tmp / "absent", []), []
-        )
-
-    def test_fully_qualified_tap_entry(self):
-        self.base.write_text(
-            'brew "infisical/get-cli/infisical", trusted: true\nbrew "git"\n'
-        )
-        removed = breww.remove_from_base(["infisical/get-cli/infisical"], self.base, [])
-        self.assertEqual(removed, ["infisical/get-cli/infisical"])
-        self.assertEqual(self.base.read_text(), 'brew "git"\n')
-
-
-class UninstallWiring(unittest.TestCase):
-    """main() must route uninstall through remove_from_base, not just the dump."""
-
-    def _run(self, argv):
-        calls = {}
-        with (
-            unittest.mock.patch.object(breww.sys, "argv", ["breww", *argv]),
-            unittest.mock.patch("shutil.which", return_value="/usr/bin/brew"),
-            unittest.mock.patch.object(
-                breww,
-                "get_target_brewfile",
-                return_value=Path("/tmp/Brewfile_personal"),
-            ),
-            unittest.mock.patch.object(breww, "run_brew_command", return_value=0),
-            unittest.mock.patch.object(breww, "load_cu_skip", return_value=[]),
-            unittest.mock.patch.object(breww, "check_native_available"),
-            unittest.mock.patch.object(breww, "dump_host_overlay"),
-            unittest.mock.patch.object(breww, "sync_to_git"),
-            unittest.mock.patch.object(breww, "remove_from_base") as remove,
-        ):
-            remove.return_value = []
-            with self.assertRaises(SystemExit):
-                breww.main()
-            calls["remove"] = remove.call_args_list
-        return calls
-
-    def test_uninstall_drops_the_entry_from_the_base(self):
-        calls = self._run(["uninstall", "--cask", "visual-studio-code"])
-        self.assertEqual(len(calls["remove"]), 1)
-        self.assertEqual(calls["remove"][0].args[0], ["visual-studio-code"])
-
-    def test_uninstall_handles_several_packages(self):
-        calls = self._run(["uninstall", "firefox", "microsoft-edge"])
-        self.assertEqual(calls["remove"][0].args[0], ["firefox", "microsoft-edge"])
-
-    def test_install_never_touches_the_base(self):
-        calls = self._run(["install", "ripgrep"])
-        self.assertEqual(calls["remove"], [])
 
 
 class SyncToGitStaging(unittest.TestCase):

@@ -11,7 +11,7 @@ Set-StrictMode -Version Latest
 $pkgFailures = [System.Collections.Generic.List[string]]::new()
 
 $scoopManifest = @'
-{{ include "dot_private/Scoopfile.json" }}
+{{ includeTemplate "package-manifest" (dict "data" . "manager" "scoop") }}
 '@ | ConvertFrom-Json
 
 # =============================================================================
@@ -23,17 +23,21 @@ if (-not (Get-Command scoop -ErrorAction SilentlyContinue)) {
     Invoke-RestMethod -Uri https://get.scoop.sh | Invoke-Expression
 }
 
+# Bypass the interactive scoop alias while provisioning the declared selection.
+$nativeScoop = Get-Command scoop -CommandType Function, ExternalScript, Application -ErrorAction Stop | Select-Object -First 1
+
 # =============================================================================
 # Add buckets
 # =============================================================================
 Write-Host "Adding Scoop buckets..." -ForegroundColor Cyan
 foreach ($bucket in $scoopManifest.buckets) {
-    if (-not (scoop bucket list | Select-String -Quiet $bucket.name)) {
+    if (-not (& $nativeScoop bucket list | Select-String -Quiet $bucket.name)) {
         if ($bucket.source) {
-            scoop bucket add $bucket.name $bucket.source
+            & $nativeScoop bucket add $bucket.name $bucket.source
         } else {
-            scoop bucket add $bucket.name
+            & $nativeScoop bucket add $bucket.name
         }
+        if ($LASTEXITCODE -ne 0) { $pkgFailures.Add("scoop bucket: $($bucket.name)") }
     }
 }
 
@@ -43,10 +47,20 @@ foreach ($bucket in $scoopManifest.buckets) {
 $scoopPath = if ($env:SCOOP) { $env:SCOOP } else { Join-Path $env:USERPROFILE 'scoop' }
 
 function Install-ScoopPackages {
-    param([string[]]$Packages)
-    $missing = $Packages | Where-Object { -not (Test-Path "$scoopPath\apps\$_\current") }
-    if ($missing) {
-        scoop install $missing
+    param($App)
+    $package = $App.name
+    if ($App.PSObject.Properties['bucket'] -and $App.bucket) { $package = "$($App.bucket)/$package" }
+    $hasVersion = $App.PSObject.Properties['version'] -and $App.version
+    if ($hasVersion) { $package += "@$($App.version)" }
+    $installArgs = @('install', $package)
+    if ($App.PSObject.Properties['architecture'] -and $App.architecture) { $installArgs += @('--arch', $App.architecture) }
+    $root = $scoopPath
+    if ($App.PSObject.Properties['global'] -and $App.global) {
+        $installArgs += '--global'
+        $root = if ($env:SCOOP_GLOBAL) { $env:SCOOP_GLOBAL } else { Join-Path $env:ProgramData 'scoop' }
+    }
+    if ($hasVersion -or -not (Test-Path (Join-Path $root "apps/$($App.name)/current"))) {
+        & $nativeScoop @installArgs
         if ($LASTEXITCODE -ne 0) { return $false }
     }
     return $true
@@ -55,7 +69,7 @@ function Install-ScoopPackages {
 Write-Host "Installing Scoop packages (main)..." -ForegroundColor Cyan
 foreach ($app in $scoopManifest.apps) {
     try {
-        $ok = Install-ScoopPackages @($app.name)
+        $ok = Install-ScoopPackages $app
         if (-not $ok) {
             $msg = "scoop: $($app.name)"
             Write-Warning "  ⚠️  $msg failed — continuing so the rest of the config still applies"
@@ -73,6 +87,7 @@ if ($pkgFailures.Count -gt 0) {
     Write-Host "⚠️  Some packages failed to install (your dotfiles config was still applied):" -ForegroundColor Yellow
     foreach ($f in $pkgFailures) { Write-Host "   - $f" -ForegroundColor Yellow }
     Write-Host "   Fix the cause and re-run: chezmoi apply" -ForegroundColor Yellow
+    exit 1
 }
 
 Write-Host "Scoop setup complete." -ForegroundColor Green

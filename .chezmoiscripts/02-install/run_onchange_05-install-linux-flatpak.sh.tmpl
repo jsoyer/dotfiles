@@ -1,3 +1,5 @@
+{{- /* New selections install Flatpak together with the other Linux layers. */ -}}
+{{- if eq (index . "package_profile" | default "legacy") "legacy" -}}
 {{- if and (eq .chezmoi.os "linux") (eq (includeTemplate "can-sudo" .) "true") -}}
 {{- $mp              := index . "machine_profile" -}}
 {{- $isUbuntuDesktop := eq $mp "ubuntu-desktop" -}}
@@ -49,6 +51,8 @@
 
 set -uo pipefail
 
+{{ includeTemplate "package-exclusion-filter" . }}
+
 # A single failed package must never abort `chezmoi apply` and block the rest of
 # the config (mirrors run_onchange_03-brew-bundle.sh). Failures are collected and
 # reported at the end instead of aborting.
@@ -94,14 +98,14 @@ _install_flatpak_atomic() {
 # --- base manifest (fedora-atomic) ---
 _base="{{ printf "%s/dot_private/Flatpakfile_fedora_atomic" .chezmoi.sourceDir }}"
 if [[ -f "$_base" && -s "$_base" ]]; then
-    mapfile -t _apps < <(grep -v '^\s*#' "$_base" | grep -v '^\s*$')
+    mapfile -t _apps < <(grep -v '^\s*#' "$_base" | grep -v '^\s*$' | _filter_pkg_exclusions flatpak)
     for pkg in "${_apps[@]}"; do _install_flatpak_atomic "$pkg"; done
 fi
 
 # --- per-hostname overlay ---
 _host_file="{{ $hostOverlayPath }}"
 if [[ -f "$_host_file" && -s "$_host_file" ]]; then
-    mapfile -t _host_apps < <(grep -v '^\s*#' "$_host_file" | grep -v '^\s*$')
+    mapfile -t _host_apps < <(grep -v '^\s*#' "$_host_file" | grep -v '^\s*$' | _filter_pkg_exclusions flatpak)
     if (( ${#_host_apps[@]} > 0 )); then
         echo "Installing host-overlay Flatpak packages ({{ .chezmoi.hostname }}, Fedora Atomic)..."
         for pkg in "${_host_apps[@]}"; do _install_flatpak_atomic "$pkg"; done
@@ -145,14 +149,14 @@ _install_flatpak_ubuntu() {
 # --- base manifest (ubuntu-desktop) ---
 _base="{{ printf "%s/dot_private/Flatpakfile_ubuntu_desktop" .chezmoi.sourceDir }}"
 if [[ -f "$_base" && -s "$_base" ]]; then
-    mapfile -t _apps < <(grep -v '^\s*#' "$_base" | grep -v '^\s*$')
+    mapfile -t _apps < <(grep -v '^\s*#' "$_base" | grep -v '^\s*$' | _filter_pkg_exclusions flatpak)
     for pkg in "${_apps[@]}"; do _install_flatpak_ubuntu "$pkg"; done
 fi
 
 # --- per-hostname overlay ---
 _host_file="{{ $hostOverlayPath }}"
 if [[ -f "$_host_file" && -s "$_host_file" ]]; then
-    mapfile -t _host_apps < <(grep -v '^\s*#' "$_host_file" | grep -v '^\s*$')
+    mapfile -t _host_apps < <(grep -v '^\s*#' "$_host_file" | grep -v '^\s*$' | _filter_pkg_exclusions flatpak)
     if (( ${#_host_apps[@]} > 0 )); then
         echo "Installing host-overlay Flatpak packages ({{ .chezmoi.hostname }}, Ubuntu Desktop)..."
         for pkg in "${_host_apps[@]}"; do _install_flatpak_ubuntu "$pkg"; done
@@ -194,14 +198,14 @@ _install_flatpak_fedora() {
 # --- base manifest (fedora-desktop) ---
 _base="{{ printf "%s/dot_private/Flatpakfile_fedora_desktop" .chezmoi.sourceDir }}"
 if [[ -f "$_base" && -s "$_base" ]]; then
-    mapfile -t _apps < <(grep -v '^\s*#' "$_base" | grep -v '^\s*$')
+    mapfile -t _apps < <(grep -v '^\s*#' "$_base" | grep -v '^\s*$' | _filter_pkg_exclusions flatpak)
     for pkg in "${_apps[@]}"; do _install_flatpak_fedora "$pkg"; done
 fi
 
 # --- per-hostname overlay ---
 _host_file="{{ $hostOverlayPath }}"
 if [[ -f "$_host_file" && -s "$_host_file" ]]; then
-    mapfile -t _host_apps < <(grep -v '^\s*#' "$_host_file" | grep -v '^\s*$')
+    mapfile -t _host_apps < <(grep -v '^\s*#' "$_host_file" | grep -v '^\s*$' | _filter_pkg_exclusions flatpak)
     if (( ${#_host_apps[@]} > 0 )); then
         echo "Installing host-overlay Flatpak packages ({{ .chezmoi.hostname }}, Fedora Desktop)..."
         for pkg in "${_host_apps[@]}"; do _install_flatpak_fedora "$pkg"; done
@@ -245,14 +249,14 @@ _install_flatpak_rpi() {
 # --- base manifest (rpi) ---
 _base="{{ printf "%s/dot_private/Flatpakfile_rpi" .chezmoi.sourceDir }}"
 if [[ -f "$_base" && -s "$_base" ]]; then
-    mapfile -t _apps < <(grep -v '^\s*#' "$_base" | grep -v '^\s*$')
+    mapfile -t _apps < <(grep -v '^\s*#' "$_base" | grep -v '^\s*$' | _filter_pkg_exclusions flatpak)
     for pkg in "${_apps[@]}"; do _install_flatpak_rpi "$pkg"; done
 fi
 
 # --- per-hostname overlay ---
 _host_file="{{ $hostOverlayPath }}"
 if [[ -f "$_host_file" && -s "$_host_file" ]]; then
-    mapfile -t _host_apps < <(grep -v '^\s*#' "$_host_file" | grep -v '^\s*$')
+    mapfile -t _host_apps < <(grep -v '^\s*#' "$_host_file" | grep -v '^\s*$' | _filter_pkg_exclusions flatpak)
     if (( ${#_host_apps[@]} > 0 )); then
         echo "Installing host-overlay Flatpak packages ({{ .chezmoi.hostname }}, Raspberry Pi)..."
         for pkg in "${_host_apps[@]}"; do _install_flatpak_rpi "$pkg"; done
@@ -270,3 +274,5 @@ fi
 echo "Flatpak packages installation complete."
 {{ end -}}
 {{- end }}
+
+{{- end -}}

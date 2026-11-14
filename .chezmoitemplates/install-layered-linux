@@ -1,0 +1,83 @@
+{{- if and (eq .chezmoi.os "linux") (eq (includeTemplate "can-sudo" .) "true") -}}
+{{- $mp := index . "machine_profile" -}}
+#!/usr/bin/env bash
+# Native base + optional usage + this machine. No desktop/application auto-detection.
+set -uo pipefail
+_failed=0
+_install() {
+    if ! "$@"; then
+        printf 'Package installation failed: %s\n' "$*" >&2
+        _failed=1
+    fi
+}
+
+{{- range $manager := list "apt" "dnf" "pacman" "rpm" "aur" "flatpak" "snap" }}
+{{- $selection := includeTemplate "package-files" (dict "data" $ "manager" $manager) | fromJson }}
+{{- if $selection.supported }}
+# {{ $manager }} selection: {{ $selection | toJson | sha256sum }}
+{{- range $selection.files }}
+# {{ . }}: {{ include (printf "dot_private/%s" .) | sha256sum }}
+{{- end }}
+_packages=()
+while IFS= read -r _package; do
+    [[ -n "$_package" ]] && _packages+=("$_package")
+done <<'CHEZMOI_SELECTED_PACKAGES'
+{{ includeTemplate "package-manifest" (dict "data" $ "manager" $manager) }}
+CHEZMOI_SELECTED_PACKAGES
+if (( ${#_packages[@]} )); then
+    echo "Installing {{ $manager }} packages ({{ $selection.package_profile }}, {{ $selection.hostname }})"
+{{- if eq $manager "apt" }}
+    _install sudo apt-get update
+    _install sudo apt-get install -y "${_packages[@]}"
+{{- else if eq $manager "dnf" }}
+    _install sudo dnf install -y "${_packages[@]}"
+{{- else if eq $manager "pacman" }}
+    _install sudo pacman -S --needed --noconfirm "${_packages[@]}"
+{{- else if eq $manager "rpm" }}
+    _install sudo rpm-ostree install --apply-live --idempotent "${_packages[@]}"
+{{- else if eq $manager "aur" }}
+    if command -v yay >/dev/null 2>&1; then
+        _install yay -S --needed --noconfirm "${_packages[@]}"
+    else
+        echo 'Selected AUR packages require yay; install it and rerun chezmoi apply.' >&2
+        _failed=1
+    fi
+{{- else if eq $manager "flatpak" }}
+    if command -v flatpak >/dev/null 2>&1; then
+{{- if eq $mp "fedora-atomic" }}
+        _install flatpak remote-add --system --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+        _install flatpak install --system -y flathub "${_packages[@]}"
+{{- else }}
+        _install flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+        _install flatpak install --user -y flathub "${_packages[@]}"
+{{- end }}
+    else
+        echo 'Selected Flatpak applications require flatpak; install it and rerun chezmoi apply.' >&2
+        _failed=1
+    fi
+{{- else if eq $manager "snap" }}
+    if command -v snap >/dev/null 2>&1; then
+        for _package in "${_packages[@]}"; do
+            # Explicit flags (e.g. classic confinement) remain in the declaration.
+            read -r -a _snap_args <<<"$_package"
+            _install sudo snap install "${_snap_args[@]}"
+        done
+    else
+        echo 'Selected Snap applications require snapd; install it and rerun chezmoi apply.' >&2
+        _failed=1
+    fi
+{{- end }}
+fi
+{{- end }}
+{{- end }}
+{{- if has $mp (list "debian" "rpi" "ubuntu-desktop" "ubuntu-server") }}
+mkdir -p "$HOME/.local/bin"
+if command -v batcat >/dev/null 2>&1 && ! command -v bat >/dev/null 2>&1; then
+    ln -s "$(command -v batcat)" "$HOME/.local/bin/bat"
+fi
+if command -v fdfind >/dev/null 2>&1 && ! command -v fd >/dev/null 2>&1; then
+    ln -s "$(command -v fdfind)" "$HOME/.local/bin/fd"
+fi
+{{- end }}
+exit "$_failed"
+{{- end -}}

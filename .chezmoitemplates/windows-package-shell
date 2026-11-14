@@ -1,0 +1,10 @@
+# Package selection is managed by chezmoi. Use native scoop.ps1 to bypass tracking.
+$env:CHEZMOI_SOURCE_PATH = '{{ .chezmoi.sourceDir | replace "'" "''" }}'
+$env:MACHINE_PROFILE = '{{ .machine_profile }}'
+$env:PACKAGE_PROFILE = '{{ index . "package_profile" | default "legacy" }}'
+$packageBin = Join-Path $HOME '.local/bin'
+if (($env:PATH -split ';') -notcontains $packageBin) { $env:PATH = "$packageBin;$env:PATH" }
+if (Get-Command scoop -CommandType Function, ExternalScript, Application -ErrorAction SilentlyContinue) {
+    Set-Alias -Name scoop -Value (Join-Path $packageBin 'scoopw.ps1')
+}
+Set-Alias -Name package-plan -Value (Join-Path $packageBin 'package-plan.ps1')

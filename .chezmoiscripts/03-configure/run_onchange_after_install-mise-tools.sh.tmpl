@@ -8,6 +8,7 @@
 # =============================================================================
 # Install the toolchains / CLI tools declared in ~/.config/mise/config.toml
 # =============================================================================
+# scope: {{ $mp }}/{{ index . "package_profile" | default "legacy" }}/{{ .chezmoi.arch }}
 # config hash: {{ include "dot_config/mise/config.toml.tmpl" | sha256sum }}
 #
 # mise is normally installed by Homebrew (brew "mise" in the Brewfiles), and a
@@ -166,7 +167,7 @@ if "$MISE" install --yes; then
 else
     echo "mise: some tools failed to install (non-fatal); rerun 'mise install'."
 fi
-{{- if not (or (eq $mp "mac-pro") $intelMac) }}
+{{- if and (eq (index . "package_profile" | default "legacy") "legacy") (not (or (eq $mp "mac-pro") $intelMac)) }}
 
 # No global languages here (Homebrew / the native package manager provide them,
 # see dot_config/mise/config.toml.tmpl): drop toolchain versions installed by an
@@ -178,7 +179,7 @@ else
     echo "mise: prune failed (non-fatal)."
 fi
 {{- end }}
-{{- if and (eq .chezmoi.os "darwin") (ne $mp "mac-pro") }}
+{{- if and (eq .chezmoi.os "darwin") (ne $mp "mac-pro") (ne (index . "package_profile" | default "legacy") "base") }}
 
 # Expose the JDKs to /usr/libexec/java_home and GUI apps (needs sudo; the helper
 # prints the manual commands instead when it cannot elevate). Skipped on

@@ -6,6 +6,7 @@ Linux desktops the native package manager; they keep an empty [tools].
 """
 
 import shutil
+import json
 import subprocess
 import unittest
 from pathlib import Path
@@ -36,14 +37,19 @@ STANDALONE_ASSETS = ("linux-x64", "linux-arm64", "linux-armv7")
 
 def render(path: Path, profile: str, os_name: str, arch: str) -> str:
     preamble = (
+        '{{- $_ := set . "package_profile" "legacy" -}}'
         '{{- $_ := set . "machine_profile" "%s" -}}'
         '{{- $_ := set .chezmoi "os" "%s" -}}'
-        '{{- $_ := set .chezmoi "arch" "%s" -}}\n' % (profile, os_name, arch)
+        '{{- $_ := set .chezmoi "arch" "%s" -}}'
+        '{{- $_ := set .chezmoi "hostname" "MiseScopeTest" -}}\n'
+        % (profile, os_name, arch)
     )
     res = subprocess.run(
         ["chezmoi", "execute-template", "--source", str(ROOT)],
         input=preamble + path.read_text(),
-        capture_output=True, text=True, timeout=60,
+        capture_output=True,
+        text=True,
+        timeout=60,
     )
     assert res.returncode == 0, res.stderr
     return res.stdout
@@ -68,7 +74,7 @@ class TextualGating(unittest.TestCase):
         end = text.index("{{ if $intel }}", start)
         block = text[start:end]
         for lang in LANGS:
-            self.assertIn(f'\n{lang} = ', block)
+            self.assertIn(f"\n{lang} = ", block)
         self.assertNotIn("[settings]", block)
 
     def test_install_script_prunes_only_without_global_languages(self):
@@ -95,7 +101,9 @@ class RenderedGating(unittest.TestCase):
             with self.subTest(profile=profile, os=os_name, arch=arch):
                 keys = tools_keys(render(MISE_CONFIG, profile, os_name, arch))
                 for lang in LANGS:
-                    self.assertEqual(lang in keys, expected, f"{lang} in {sorted(keys)}")
+                    self.assertEqual(
+                        lang in keys, expected, f"{lang} in {sorted(keys)}"
+                    )
                 self.assertEqual("ruby" in keys or "conda:ruby" in keys, expected)
 
     def test_settings_kept_everywhere(self):
@@ -119,25 +127,48 @@ class RenderedGating(unittest.TestCase):
                 for asset in STANDALONE_ASSETS:
                     self.assertIn(asset, out)
                 self.assertNotIn("macos-x64", out)
-                res = subprocess.run(["bash", "-n"], input=out, text=True, capture_output=True)
+                res = subprocess.run(
+                    ["bash", "-n"], input=out, text=True, capture_output=True
+                )
                 self.assertEqual(res.returncode, 0, res.stderr)
 
     def test_server_rpi_debian_config_empty_and_pruned(self):
-        for profile in ("rpi", "debian", "ubuntu-server", "fedora-server", "arch-server"):
+        for profile in (
+            "rpi",
+            "debian",
+            "ubuntu-server",
+            "fedora-server",
+            "arch-server",
+        ):
             with self.subTest(profile=profile):
-                self.assertEqual(tools_keys(render(MISE_CONFIG, profile, "linux", "arm64")), set())
-                self.assertIn("prune --yes", render(INSTALL_SCRIPT, profile, "linux", "arm64"))
+                self.assertEqual(
+                    tools_keys(render(MISE_CONFIG, profile, "linux", "arm64")), set()
+                )
+                self.assertIn(
+                    "prune --yes", render(INSTALL_SCRIPT, profile, "linux", "arm64")
+                )
 
     def test_nothing_ignores_mise_config(self):
-        for profile, os_name, arch in [("rpi", "linux", "arm"), ("ubuntu-server", "linux", "amd64"),
-                                       ("debian", "linux", "arm64"), ("windows", "windows", "amd64")]:
+        for profile, os_name, arch in [
+            ("rpi", "linux", "arm"),
+            ("ubuntu-server", "linux", "amd64"),
+            ("debian", "linux", "arm64"),
+            ("windows", "windows", "amd64"),
+        ]:
             with self.subTest(profile=profile):
-                self.assertNotIn(".config/mise/", render(ROOT / ".chezmoiignore.tmpl", profile, os_name, arch))
+                self.assertNotIn(
+                    ".config/mise/",
+                    render(ROOT / ".chezmoiignore.tmpl", profile, os_name, arch),
+                )
                 render(MISE_CONFIG, profile, os_name, arch)
 
     def test_windows_has_no_bash_install_script(self):
-        self.assertEqual(render(INSTALL_SCRIPT, "windows", "windows", "amd64").strip(), "")
-        self.assertIn('"name": "mise"', (ROOT / "dot_private/Scoopfile.json").read_text())
+        self.assertEqual(
+            render(INSTALL_SCRIPT, "windows", "windows", "amd64").strip(), ""
+        )
+        self.assertIn(
+            '"name": "mise"', (ROOT / "dot_private/Scoopfile.json").read_text()
+        )
 
 
 class LinuxbrewDefault(unittest.TestCase):
@@ -151,22 +182,44 @@ class LinuxbrewDefault(unittest.TestCase):
         self.assertEqual(render(self.BREW, "windows", "windows", "amd64").strip(), "")
 
     def test_server_profiles_use_minimal_brewfile(self):
-        self.assertEqual((ROOT / "dot_private/Brewfile_minimal").read_text().split("\n")[2:3], ['brew "mise"'])
-        lines = [line for line in (ROOT / "dot_private/Brewfile_minimal").read_text().splitlines()
-                 if line and not line.startswith("#")]
+        self.assertEqual(
+            (ROOT / "dot_private/Brewfile_minimal").read_text().split("\n")[2:3],
+            ['brew "mise"'],
+        )
+        lines = [
+            line
+            for line in (ROOT / "dot_private/Brewfile_minimal").read_text().splitlines()
+            if line and not line.startswith("#")
+        ]
         self.assertEqual(lines, ['brew "mise"'])
-        text = self.BUNDLE.read_text()
-        self.assertIn('"ubuntu-server" "fedora-server" "arch-server"', text)
-        self.assertIn("Brewfile_minimal", text)
-        self.assertIn('(list "rpi" "debian" "ubuntu-server" "fedora-server" "arch-server")', text)
+        catalog = json.loads((ROOT / "dot_private/package-layers.json").read_text())
+        for profile in (
+            "rpi",
+            "debian",
+            "ubuntu-server",
+            "fedora-server",
+            "arch-server",
+        ):
+            self.assertEqual(
+                catalog["profiles"][profile]["managers"]["brew"]["legacy"],
+                ["Brewfile_minimal"],
+            )
 
     def test_light_profiles_render_mise_only_brewfile(self):
         tmpl = ROOT / "dot_private/Brewfile.tmpl"
-        for profile, arch in (("rpi", "arm64"), ("debian", "amd64"), ("ubuntu-server", "amd64"),
-                              ("fedora-server", "amd64"), ("arch-server", "amd64")):
+        for profile, arch in (
+            ("rpi", "arm64"),
+            ("debian", "amd64"),
+            ("ubuntu-server", "amd64"),
+            ("fedora-server", "amd64"),
+            ("arch-server", "amd64"),
+        ):
             with self.subTest(profile=profile):
-                entries = [line.strip() for line in render(tmpl, profile, "linux", arch).splitlines()
-                           if line.strip() and not line.strip().startswith("#")]
+                entries = [
+                    line.strip()
+                    for line in render(tmpl, profile, "linux", arch).splitlines()
+                    if line.strip() and not line.strip().startswith("#")
+                ]
                 self.assertEqual(entries, ['brew "mise"'])
 
 

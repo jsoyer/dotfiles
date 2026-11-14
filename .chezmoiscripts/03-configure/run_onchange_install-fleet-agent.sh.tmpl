@@ -1,3 +1,4 @@
+{{- if ne (index . "package_profile" | default "legacy") "base" -}}
 {{- if and (eq .chezmoi.os "linux") (eq (includeTemplate "can-sudo" .) "true") -}}
 #!/usr/bin/env bash
 # Installe l'agent fleet (spec fleet-updates, sprint 1) sur cette machine Linux :
@@ -156,3 +157,5 @@ else
 fi
 exit 0
 {{- end }}
+
+{{- end -}}

@@ -20,6 +20,7 @@ set -euo pipefail
 # =============================================================================
 # Nerd Fonts Installation (all Linux distros)
 # =============================================================================
+{{- if ne (index . "package_profile" | default "legacy") "base" }}
 if [[ ! -d "$HOME/.local/share/fonts/JetBrainsMonoNerdFont" ]]; then
     echo "Installing JetBrains Mono Nerd Font..."
     mkdir -p "$HOME/.local/share/fonts/JetBrainsMonoNerdFont"
@@ -30,6 +31,8 @@ if [[ ! -d "$HOME/.local/share/fonts/JetBrainsMonoNerdFont" ]]; then
     fc-cache -f > /dev/null 2>&1
     echo "Nerd Font installed"
 fi
+
+{{- end }}
 
 # =============================================================================
 # Set Zsh as default shell (not for Fedora Atomic)

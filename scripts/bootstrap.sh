@@ -2,7 +2,7 @@
 # =============================================================================
 # Multiplatform Bootstrap Script
 # =============================================================================
-# Installs git, chezmoi, and gh (GitHub CLI) on any platform, then applies dotfiles.
+# Installs git and chezmoi, then lets package layers select the remaining tools.
 #
 # Usage:
 #   curl -fsSL https://raw.githubusercontent.com/jsoyer/dotfiles/main/scripts/bootstrap.sh | bash
@@ -355,44 +355,6 @@ install_macos() {
         log_success "chezmoi installed"
     fi
 
-    # gh CLI via Homebrew (available before brew bundle runs)
-    if command -v gh &>/dev/null; then
-        log_warn "gh already installed"
-    else
-        log_info "Installing gh (GitHub CLI) via Homebrew..."
-        brew install gh
-        log_success "gh installed"
-    fi
-}
-
-install_linuxbrew() {
-    if command -v brew &>/dev/null; then
-        log_warn "🍺 Homebrew (Linuxbrew) already installed"
-        return
-    fi
-
-    log_info "Installing Homebrew (Linuxbrew)..."
-
-    # Prerequisites
-    case "$PLATFORM" in
-        fedora-desktop|fedora-server|toolbox)
-            sudo dnf install -y gcc gcc-c++ make procps-ng curl file git
-            ;;
-        rpi|debian|ubuntu-server|ubuntu-desktop)
-            sudo apt install -y build-essential procps curl file gcc
-            ;;
-    esac
-
-    /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-
-    # Set up PATH for current session
-    if [[ -d "/home/linuxbrew/.linuxbrew" ]]; then
-        eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
-    elif [[ -d "$HOME/.linuxbrew" ]]; then
-        eval "$("$HOME/.linuxbrew/bin/brew" shellenv)"
-    fi
-
-    log_success "🍺 Homebrew (Linuxbrew) installed"
 }
 
 install_fedora() {
@@ -417,19 +379,7 @@ install_fedora() {
         export PATH="$HOME/.local/bin:$PATH"
     fi
 
-    # Install gh CLI via official dnf repo
-    install_gh_dnf
-
-    # Install 1Password CLI
-    install_op_dnf
-
-    # Install uv (for uvx / MCP servers using Python)
-    install_uv
-
-    # Install Linuxbrew
-    install_linuxbrew
-
-    log_success "🐧 git, chezmoi, gh, op, uv, and Homebrew installed"
+    log_success "🐧 git and chezmoi installed"
 }
 
 install_fedora_atomic() {
@@ -484,120 +434,7 @@ install_toolbox() {
         export PATH="$HOME/.local/bin:$PATH"
     fi
 
-    # Install gh CLI via official dnf repo
-    install_gh_dnf
-
-    # Install 1Password CLI
-    install_op_dnf
-
-    # Install uv (for uvx / MCP servers using Python)
-    install_uv
-
-    # Install Linuxbrew
-    install_linuxbrew
-
-    log_success "📦 git, chezmoi, gh, op, uv, and Homebrew installed"
-}
-
-install_op_apt() {
-    if command -v op &>/dev/null; then
-        log_warn "op (1Password CLI) already installed"
-        return
-    fi
-
-    log_info "Installing op (1Password CLI) via official apt repo..."
-
-    local keyring_dir="/usr/share/keyrings"
-    local sources_dir="/etc/apt/sources.list.d"
-    local tmp_key
-    tmp_key="$(mktemp)"
-
-    sudo mkdir -p -m 755 "$keyring_dir" "$sources_dir"
-    curl -sS https://downloads.1password.com/linux/keys/1password.asc -o "$tmp_key"
-    sudo gpg --dearmor < "$tmp_key" | sudo tee "$keyring_dir/1password-archive-keyring.gpg" > /dev/null
-    rm -f "$tmp_key"
-
-    echo "deb [arch=$(dpkg --print-architecture) signed-by=${keyring_dir}/1password-archive-keyring.gpg] https://downloads.1password.com/linux/debian/$(dpkg --print-architecture) stable main" \
-        | sudo tee "$sources_dir/1password.list" > /dev/null
-
-    sudo apt update
-    sudo apt install -y 1password-cli
-
-    log_success "op installed ($(op --version))"
-}
-
-install_op_dnf() {
-    if command -v op &>/dev/null; then
-        log_warn "op (1Password CLI) already installed"
-        return
-    fi
-
-    log_info "Installing op (1Password CLI) via official rpm repo..."
-    sudo rpm --import https://downloads.1password.com/linux/keys/1password.asc
-    sudo sh -c 'echo -e "[1password]\nname=1Password Stable Channel\nbaseurl=https://downloads.1password.com/linux/rpm/stable/\$basearch\nenabled=1\ngpgcheck=1\nrepo_gpgcheck=1\ngpgkey=https://downloads.1password.com/linux/keys/1password.asc" > /etc/yum.repos.d/1password.repo'
-    sudo dnf install -y 1password-cli
-
-    log_success "op installed ($(op --version))"
-}
-
-install_uv() {
-    if command -v uv &>/dev/null; then
-        log_warn "uv already installed"
-        return
-    fi
-
-    log_info "Installing uv (Python package runner / uvx)..."
-    curl -LsSf https://astral.sh/uv/install.sh | sh
-    export PATH="$HOME/.local/bin:$PATH"
-
-    log_success "uv installed ($(uv --version))"
-}
-
-install_gh_dnf() {
-    if command -v gh &>/dev/null; then
-        log_warn "gh already installed"
-        return
-    fi
-
-    log_info "Installing gh (GitHub CLI) via official dnf repo..."
-    sudo dnf install -y dnf5-plugins
-    sudo dnf config-manager addrepo --from-repofile=https://cli.github.com/packages/rpm/gh-cli.repo
-    sudo dnf install -y gh --repo gh-cli
-
-    log_success "gh installed"
-}
-
-install_gh_apt() {
-    if command -v gh &>/dev/null; then
-        log_warn "gh already installed"
-        return
-    fi
-
-    log_info "Installing gh (GitHub CLI) via official apt repo..."
-
-    # Ensure wget is available
-    if ! command -v wget &>/dev/null; then
-        sudo apt update
-        sudo apt install -y wget
-    fi
-
-    local keyring_dir="/etc/apt/keyrings"
-    local sources_dir="/etc/apt/sources.list.d"
-    local tmp_key
-    tmp_key="$(mktemp)"
-
-    sudo mkdir -p -m 755 "$keyring_dir" "$sources_dir"
-    wget -nv -O "$tmp_key" https://cli.github.com/packages/githubcli-archive-keyring.gpg
-    sudo install -m 644 "$tmp_key" "$keyring_dir/githubcli-archive-keyring.gpg"
-    rm -f "$tmp_key"
-
-    echo "deb [arch=$(dpkg --print-architecture) signed-by=${keyring_dir}/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" \
-        | sudo tee "$sources_dir/github-cli.list" > /dev/null
-
-    sudo apt update
-    sudo apt install -y gh
-
-    log_success "gh installed"
+    log_success "📦 git and chezmoi installed"
 }
 
 install_apt() {
@@ -623,19 +460,7 @@ install_apt() {
         export PATH="$HOME/.local/bin:$PATH"
     fi
 
-    # Install gh CLI via official apt repo
-    install_gh_apt
-
-    # Install 1Password CLI
-    install_op_apt
-
-    # Install uv (for uvx / MCP servers using Python)
-    install_uv
-
-    # Install Linuxbrew
-    install_linuxbrew
-
-    log_success "$EMOJI git, chezmoi, gh, op, uv, and Homebrew installed"
+    log_success "$EMOJI git and chezmoi installed"
 }
 
 install_debian()         { install_apt; }
@@ -643,30 +468,8 @@ install_rpi()            { install_apt; }
 install_ubuntu_server()  { install_apt; }
 install_ubuntu_desktop() { install_apt; }
 
-install_yay() {
-    if command -v yay &>/dev/null; then
-        log_warn "yay already installed"
-        return
-    fi
-
-    log_info "Installing yay (AUR helper)..."
-    local _yay_tmp
-    _yay_tmp="$(mktemp -d)"
-    trap 'rm -rf "$_yay_tmp"' EXIT
-
-    git clone https://aur.archlinux.org/yay.git "$_yay_tmp/yay"
-    (cd "$_yay_tmp/yay" && makepkg -si --noconfirm)
-    log_success "yay installed"
-}
-
 install_arch() {
     log_info "Installing Arch Linux prerequisites..."
-
-    # base-devel (needed for AUR/makepkg)
-    if ! pacman -Qq base-devel &>/dev/null; then
-        log_info "Installing base-devel..."
-        sudo pacman -S --noconfirm --needed base-devel
-    fi
 
     # git
     if command -v git &>/dev/null; then
@@ -684,25 +487,6 @@ install_arch() {
             sh -c "$(curl -fsLS get.chezmoi.io)" -- -b "$HOME/.local/bin"
         log_success "chezmoi installed"
     fi
-
-    # gh (GitHub CLI)
-    if command -v gh &>/dev/null; then
-        log_warn "gh already installed"
-    else
-        log_info "Installing gh (GitHub CLI)..."
-        sudo pacman -S --noconfirm github-cli
-        log_success "gh installed"
-    fi
-
-    # uv
-    if ! command -v uv &>/dev/null; then
-        log_info "Installing uv..."
-        curl -LsSf https://astral.sh/uv/install.sh | sh
-        log_success "uv installed"
-    fi
-
-    # yay (AUR helper)
-    install_yay
 
     log_success "Arch Linux prerequisites installed"
 }
@@ -723,103 +507,13 @@ esac
 # Ensure persistent packages survive Fedora Atomic upgrades
 # =============================================================================
 
-setup_fedora_atomic_base_layer() {
-    if [[ "$PLATFORM" != "fedora-atomic" ]]; then
-        return
-    fi
-
-    log_info "Setting up Fedora Atomic base layer packages..."
-
-    # Read from Rpmfile_fedora_atomic if chezmoi source is available
-    local _pacfile="${HOME}/.local/share/chezmoi/dot_private/Rpmfile_fedora_atomic"
-    local -a BASE_PACKAGES
-
-    if [[ -f "$_pacfile" ]]; then
-        mapfile -t BASE_PACKAGES < <(grep -v '^\s*#' "$_pacfile" | grep -v '^\s*$')
-    else
-        # Fallback before chezmoi apply
-        BASE_PACKAGES=( git openssh-server curl chezmoi )
-    fi
-
-    for pkg in "${BASE_PACKAGES[@]}"; do
-        if ! rpm -q "$pkg" &>/dev/null; then
-            log_info "Installing $pkg to base layer..."
-            sudo rpm-ostree install --apply-live "$pkg" 2>/dev/null || \
-                log_warn "Could not install $pkg (may need reboot)"
-        fi
-    done
-
-    log_success "Fedora Atomic base layer configured"
-    log_warn "Reboot may be required for some base layer packages to be fully active."
-}
-
-setup_fedora_atomic_base_layer
+# Package layers own Atomic extras; bootstrap only needs git and chezmoi.
 
 # =============================================================================
 # Check and install SSH if needed (Linux only)
 # =============================================================================
 
-check_ssh() {
-    if [[ "$OS" != "Linux" ]]; then
-        return
-    fi
-    
-    log_info "Checking SSH server..."
-    
-    # Check if sshd is installed (various methods, sshd might not be in PATH)
-    if [[ -f "/usr/sbin/sshd" ]] || [[ -f "/usr/bin/sshd" ]] || dpkg -l 2>/dev/null | grep -q "openssh-server" || rpm -q openssh-server &>/dev/null 2>&1; then
-        log_info "🔐 SSH server already installed"
-        
-        # Check if service is enabled/running
-        if systemctl is-active --quiet sshd 2>/dev/null || systemctl is-active --quiet ssh 2>/dev/null; then
-            log_success "🔐 SSH service is running"
-        elif systemctl is-enabled --quiet sshd 2>/dev/null || systemctl is-enabled --quiet ssh 2>/dev/null; then
-            log_success "🔐 SSH service is enabled (not running, starting now...)"
-            sudo systemctl start sshd 2>/dev/null || sudo systemctl start ssh 2>/dev/null
-        else
-            log_warn "🔐 SSH is installed but not enabled"
-            read -p "Enable and start SSH service now? (y/N) " -n 1 -r
-            echo
-            if [[ $REPLY =~ ^[Yy]$ ]]; then
-                sudo systemctl enable --now sshd 2>/dev/null || sudo systemctl enable --now ssh 2>/dev/null
-                log_success "🔐 SSH service enabled and started"
-            fi
-        fi
-    else
-        log_warn "🔐 SSH server is not installed"
-        read -p "Install and enable SSH server? (y/N) " -n 1 -r
-        echo
-        if [[ $REPLY =~ ^[Yy]$ ]]; then
-            case "$PLATFORM" in
-                fedora-desktop|fedora-server)
-                    sudo dnf install -y openssh-server
-                    sudo systemctl enable --now sshd
-                    log_success "🔐 SSH server installed and enabled"
-                    ;;
-                fedora-atomic)
-                    sudo rpm-ostree install openssh-server
-                    log_warn "SSH will be active after reboot. Run 'sudo systemctl enable --now sshd' after reboot."
-                    ;;
-                rpi|debian|ubuntu-server|ubuntu-desktop)
-                    sudo apt update
-                    sudo apt install -y openssh-server
-                    sudo systemctl enable --now ssh
-                    ;;
-                toolbox)
-                    sudo dnf install -y openssh-server
-                    sudo systemctl enable --now sshd
-                    ;;
-            esac
-            if [[ "$PLATFORM" == "fedora-atomic" ]]; then
-                log_warn "🔐 SSH will be active after reboot"
-            else
-                log_success "🔐 SSH server installed and enabled"
-            fi
-        fi
-    fi
-}
-
-check_ssh
+# SSH installation/activation is an explicit server or machine choice.
 
 # =============================================================================
 # Apply dotfiles
@@ -840,12 +534,11 @@ if [[ -d "$HOME/.local/share/chezmoi" ]]; then
     log_info "Fetching latest dotfiles..."
     git fetch origin
 
-    # Merge or reset to remote HEAD
+    # Keep local changes and stop on divergence instead of discarding them
     current_branch="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo main)"
     if git rev-parse --verify "origin/${current_branch}" &>/dev/null 2>&1; then
         git branch --set-upstream-to="origin/${current_branch}" "${current_branch}" 2>/dev/null || true
-        git merge --ff-only "origin/${current_branch}" 2>/dev/null || \
-            git reset --hard "origin/${current_branch}"
+        git merge --ff-only "origin/${current_branch}"
     fi
 
     # Apply dotfiles (we already have latest source)

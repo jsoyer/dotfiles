@@ -1,3 +1,61 @@
+{{- /* Preserve the technical profile on re-init; package scope is independent. */ -}}
+{{- $mp := index . "machine_profile" | default "" -}}
+{{- $existingMachine := and $mp (stat .chezmoi.configFile) -}}
+{{- if not $mp -}}
+{{- if eq .chezmoi.os "windows" -}}{{- $mp = "windows" -}}
+{{- else if eq .chezmoi.os "darwin" -}}
+{{- if eq .chezmoi.hostname "jsoyer-macOS" -}}{{- $mp = "mac-pro" -}}{{- else -}}{{- $mp = "mac-personal" -}}{{- end -}}
+{{- else if eq .chezmoi.os "linux" -}}
+{{- if or (eq .chezmoi.osRelease.id "raspbian") (eq .chezmoi.osRelease.id "raspios") -}}{{- $mp = "rpi" -}}
+{{- else if stat "/proc/device-tree/model" -}}{{- $mp = promptStringOnce . "machine_profile" "Machine profile [rpi/debian]" "rpi" -}}
+{{- else if env "CI" -}}{{- $mp = "ubuntu-server" -}}
+{{- else if eq .chezmoi.osRelease.id "ubuntu" -}}
+{{- if hasPrefix "ubuntu-desktop" .chezmoi.hostname -}}{{- $mp = "ubuntu-desktop" -}}
+{{- else if hasPrefix "ubuntu-server" .chezmoi.hostname -}}{{- $mp = "ubuntu-server" -}}
+{{- else -}}{{- $mp = promptStringOnce . "machine_profile" "Machine profile [ubuntu-server/ubuntu-desktop]" "ubuntu-server" -}}{{- end -}}
+{{- else if and (lookPath "rpm-ostree") (not (stat "/.toolboxenv")) (not (env "TOOLBOX_PATH")) -}}{{- $mp = "fedora-atomic" -}}
+{{- else if or (stat "/.toolboxenv") (env "TOOLBOX_PATH") -}}{{- $mp = "toolbox" -}}
+{{- else if lookPath "dnf" -}}
+{{- if hasPrefix "fedora-server" .chezmoi.hostname -}}{{- $mp = "fedora-server" -}}
+{{- else if hasPrefix "fedora-desktop" .chezmoi.hostname -}}{{- $mp = "fedora-desktop" -}}
+{{- else -}}{{- $mp = promptStringOnce . "machine_profile" "Machine profile [fedora-desktop/fedora-server]" "fedora-desktop" -}}{{- end -}}
+{{- else if eq .chezmoi.osRelease.id "omarchy" -}}{{- $mp = "omarchy" -}}
+{{- else if eq .chezmoi.osRelease.id "arch" -}}
+{{- if hasPrefix "arch-server" .chezmoi.hostname -}}{{- $mp = "arch-server" -}}
+{{- else if hasPrefix "arch-desktop" .chezmoi.hostname -}}{{- $mp = "arch-desktop" -}}
+{{- else -}}{{- $mp = promptStringOnce . "machine_profile" "Machine profile [arch-desktop/arch-server]" "arch-desktop" -}}{{- end -}}
+{{- else if eq .chezmoi.osRelease.id "debian" -}}{{- $mp = "debian" -}}
+{{- else -}}{{- $mp = promptStringOnce . "machine_profile" "Machine profile" "debian" -}}{{- end -}}
+{{- end -}}
+{{- end -}}
+{{- $pp := index . "package_profile" | default "" -}}
+{{- if env "DOTFILES_PACKAGE_PROFILE" -}}{{- $pp = env "DOTFILES_PACKAGE_PROFILE" -}}{{- end -}}
+{{- if not $pp -}}
+{{- if and (index . "machine_profile") (stat .chezmoi.configFile) -}}
+{{- $pp = "legacy" -}}
+{{- else if env "CI" -}}{{- $pp = "base" -}}
+{{- else -}}{{- $pp = promptStringOnce . "package_profile" "Packages [base/personal/professional/server]" "base" -}}{{- end -}}
+{{- end -}}
+{{- if not (has $pp (list "base" "personal" "professional" "server" "legacy")) -}}{{- fail "Invalid package_profile: choose base, personal, professional or server" -}}{{- end -}}
+{{- /* A new machine must not silently reuse another Mac's generic hostname. */ -}}
+{{- if not $existingMachine -}}
+{{- $catalog := include "dot_private/package-layers.json" | fromJson -}}
+{{- $host := first (splitList "." .chezmoi.hostname) -}}
+{{- $collision := false -}}
+{{- if hasKey $catalog.profiles $mp -}}
+{{- range $manager, $_ := (index $catalog.profiles $mp).managers -}}
+{{- $suffix := "" -}}{{- if eq $manager "scoop" -}}{{- $suffix = ".json" -}}{{- end -}}
+{{- if stat (printf "%s/dot_private/%s%s%s" $.chezmoi.sourceDir (index $catalog.host_prefixes $manager) $host $suffix) -}}{{- $collision = true -}}{{- end -}}
+{{- end -}}
+{{- end -}}
+{{- if $collision -}}
+{{- $reuse := eq (env "DOTFILES_REUSE_HOST_PACKAGES") "1" -}}
+{{- if not $reuse -}}{{- $reuse = promptBoolOnce . "reuse_host_packages" (printf "Package lists already exist for %s. Reuse them for the same machine" $host) false -}}{{- end -}}
+{{- if not $reuse -}}{{- fail (printf "Hostname %s already owns package lists. Choose a unique hostname, or explicitly reuse this machine with DOTFILES_REUSE_HOST_PACKAGES=1" $host) -}}{{- end -}}
+{{- end -}}
+{{- end -}}
+{{- $_ := set . "machine_profile" $mp -}}
+{{- $_ := set . "package_profile" $pp -}}
 [git]
     autoAdd = {{ if eq (env "CHEZMOI_AUTO_GIT") "1" }}true{{ else }}false{{ end }}
     autoCommit = {{ if eq (env "CHEZMOI_AUTO_GIT") "1" }}true{{ else }}false{{ end }}
@@ -6,47 +64,21 @@
 
 [data]
     github_user       = "jsoyer"
-    xdgCacheDir       = "{{ .chezmoi.homeDir }}/.cache"
-    xdgConfigDir      = "{{ .chezmoi.homeDir }}/.config"
-    xdgDataDir        = "{{ .chezmoi.homeDir }}/.local/share"
-    xdgStateDir       = "{{ .chezmoi.homeDir }}/.local/state"
+    xdgCacheDir       = {{ printf "%s/.cache" .chezmoi.homeDir | quote }}
+    xdgConfigDir      = {{ printf "%s/.config" .chezmoi.homeDir | quote }}
+    xdgDataDir        = {{ printf "%s/.local/share" .chezmoi.homeDir | quote }}
+    xdgStateDir       = {{ printf "%s/.local/state" .chezmoi.homeDir | quote }}
     name = "Jerome Soyer"
     email = "jeromesoyer@gmail.com"
     work_email = "jsoyer@varonis.com"
-    # Profile detection — order matters: most specific first.
-    # Scripts and shells must branch on machine_profile, not hostname.
-    # jsoyer-macOS is the detector for mac-pro, not a second source of truth.
-    # Profiles: windows, mac-pro, mac-personal, rpi, ubuntu-server, ubuntu-desktop,
-    #   fedora-atomic, toolbox, fedora-server, fedora-desktop, omarchy, arch-server, arch-desktop, debian
-    machine_profile   = "{{- if eq .chezmoi.os "windows" -}}windows
-{{- else if eq .chezmoi.os "darwin" -}}{{- if eq .chezmoi.hostname "jsoyer-macOS" -}}mac-pro{{- else -}}mac-personal{{- end -}}
-{{- else if eq .chezmoi.os "linux" -}}
-{{- if or (eq .chezmoi.osRelease.id "raspbian") (eq .chezmoi.osRelease.id "raspios") -}}rpi
-{{- else if stat "/proc/device-tree/model" -}}{{ promptStringOnce . "machine_profile" "Machine profile [rpi/debian]" "rpi" }}
-{{- else if env "CI" -}}ubuntu-server
-{{- else if eq .chezmoi.osRelease.id "ubuntu" -}}
-{{- if hasPrefix "ubuntu-server" .chezmoi.hostname -}}ubuntu-server
-{{- else if hasPrefix "ubuntu-desktop" .chezmoi.hostname -}}ubuntu-desktop
-{{- else -}}{{ promptStringOnce . "machine_profile" "Machine profile [ubuntu-server/ubuntu-desktop]" "ubuntu-server" }}
-{{- end -}}
-{{- else if and (lookPath "rpm-ostree") (not (stat "/.toolboxenv")) (not (env "TOOLBOX_PATH")) -}}fedora-atomic
-{{- else if or (stat "/.toolboxenv") (env "TOOLBOX_PATH") -}}toolbox
-{{- else if lookPath "dnf" -}}
-{{- if hasPrefix "fedora-server" .chezmoi.hostname -}}fedora-server
-{{- else if hasPrefix "fedora-desktop" .chezmoi.hostname -}}fedora-desktop
-{{- else -}}{{ promptStringOnce . "machine_profile" "Machine profile [fedora-desktop/fedora-server]" "fedora-desktop" }}
-{{- end -}}
-{{- else if eq .chezmoi.osRelease.id "omarchy" -}}omarchy
-{{- else if eq .chezmoi.osRelease.id "arch" -}}
-{{- if hasPrefix "arch-server" .chezmoi.hostname -}}arch-server
-{{- else if hasPrefix "arch-desktop" .chezmoi.hostname -}}arch-desktop
-{{- else -}}{{ promptStringOnce . "machine_profile" "Machine profile [arch-desktop/arch-server]" "arch-desktop" }}
-{{- end -}}
-{{- else if eq .chezmoi.osRelease.id "debian" -}}debian
-{{- else -}}{{ promptStringOnce . "machine_profile" "Machine profile" "debian" }}
-{{- end -}}
-{{- end -}}"
-{{- $mp := index . "machine_profile" -}}
+    # Technical configuration and package scope are independent.
+    machine_profile = {{ $mp | quote }}
+    package_profile = {{ $pp | quote }}
+{{- if eq $pp "base" }}
+    install_ocx = false
+    install_mas = false
+    install_docker = false
+{{- else }}
 {{- $desktopProfiles := list "mac-personal" "fedora-desktop" "toolbox" "ubuntu-desktop" "arch-desktop" "omarchy" -}}
 {{- if has $mp $desktopProfiles }}
     install_ocx = {{ promptBoolOnce . "install_ocx" "Install OpenCode extensions (ocx + npm plugins)" false }}
@@ -56,6 +88,8 @@
 {{- end }}
 {{- if and (ne $mp "toolbox") (not (env "CI")) }}
     install_docker = {{ promptBoolOnce . "install_docker" "Install a container engine (Docker; Podman on Fedora; Colima on macOS)" false }}
+{{- end }}
+
 {{- end }}
 
 {{- if eq $mp "omarchy" }}

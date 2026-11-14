@@ -1,0 +1,29 @@
+{
+  "buckets": [
+    {
+      "name": "main"
+    }
+  ],
+  "apps": [
+    {
+      "name": "gh",
+      "bucket": "main"
+    },
+    {
+      "name": "git-lfs",
+      "bucket": "main"
+    },
+    {
+      "name": "lazygit",
+      "bucket": "main"
+    },
+    {
+      "name": "delta",
+      "bucket": "main"
+    },
+    {
+      "name": "direnv",
+      "bucket": "main"
+    }
+  ]
+}

@@ -1,0 +1,55 @@
+{{- $d := .data -}}
+{{- $manager := .manager -}}
+{{- $selection := includeTemplate "package-files" . | fromJson -}}
+{{- $seen := dict -}}
+{{- if eq $manager "scoop" -}}
+{{- $buckets := dict -}}{{- $apps := dict -}}
+{{- range $selection.files -}}
+{{- $manifest := include (printf "dot_private/%s" .) | fromJson -}}
+{{- range $manifest.buckets -}}
+{{- $old := index $buckets .name -}}
+{{- if and $old (ne (toJson $old) (toJson .)) -}}{{- fail (printf "Conflicting Scoop bucket %s" .name) -}}{{- end -}}
+{{- $_ := set $buckets .name . -}}
+{{- end -}}
+{{- range $manifest.apps -}}
+{{- if not (has .name $selection.excluded) -}}
+{{- $old := index $apps .name -}}
+{{- if and $old (ne (toJson $old) (toJson .)) -}}{{- fail (printf "Conflicting Scoop app %s" .name) -}}{{- end -}}
+{{- $_ := set $apps .name . -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+{{- $bucketList := list -}}{{- $appList := list -}}
+{{- range keys $buckets | sortAlpha -}}{{- $bucketList = append $bucketList (index $buckets .) -}}{{- end -}}
+{{- range keys $apps | sortAlpha -}}{{- $appList = append $appList (index $apps .) -}}{{- end -}}
+{{- dict "buckets" $bucketList "apps" $appList | toJson -}}
+{{- else -}}
+{{- range $file := $selection.files -}}
+{{- range $line := splitList "\n" (include (printf "dot_private/%s" $file)) -}}
+{{- $line = trim $line -}}
+{{- if and $line (not (hasPrefix "#" $line)) -}}
+{{- $identity := $line -}}
+{{- if eq $manager "snap" -}}{{- $identity = first (splitList " " $line) -}}{{- end -}}
+{{- $value := $line -}}
+{{- if eq $manager "brew" -}}
+{{- $declaration := regexFind `^(brew|cask|tap|mas|go|npm|cargo|uv|krew|vscode|flatpak|winget)\s+["'][^"']+["']` $line -}}
+{{- if not $declaration -}}{{- fail (printf "Unsupported Brewfile declaration in %s: %s" $file $line) -}}{{- end -}}
+{{- $kind := regexFind `^\w+` $line -}}
+{{- $name := regexFind `["'][^"']+["']` $declaration | trimAll `"'` -}}
+{{- $identity = printf "%s:%s" $kind $name -}}
+{{- $value = regexReplaceAll `\s+#.*$` $line "" | trim -}}
+{{- end -}}
+{{- if not (has $identity $selection.excluded) -}}
+{{- $old := index $seen $identity -}}
+{{- if and $old (ne $old $value) -}}{{- fail (printf "Conflicting package %s in %s" $identity $file) -}}{{- end -}}
+{{- if not $old -}}
+{{- if or (ne $manager "brew") (not (hasPrefix "mas:" $identity)) (index $d "install_mas" | default false) (and (eq $selection.package_profile "legacy") (eq $file $selection.host)) -}}
+{{ printf "%s\n" $line }}
+{{- $_ := set $seen $identity $value -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}

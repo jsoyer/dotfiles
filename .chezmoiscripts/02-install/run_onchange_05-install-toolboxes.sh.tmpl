@@ -1,3 +1,4 @@
+{{- if ne (index . "package_profile" | default "legacy") "base" -}}
 {{- if and (lookPath "rpm-ostree") (not (stat "/.toolboxenv")) -}}
 #!/usr/bin/env bash
 # =============================================================================
@@ -57,4 +58,6 @@ if ((${#_PKG_FAILURES[@]})); then
 fi
 
 echo "✅ Toolboxes setup complete!"
+{{- end -}}
+
 {{- end -}}

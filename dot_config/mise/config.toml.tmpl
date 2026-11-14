@@ -6,13 +6,19 @@
        manager; there mise only runs per-project versions. */ -}}
 {{- $mp := index . "machine_profile" -}}
 {{- $intel := and (eq .chezmoi.os "darwin") (eq .chezmoi.arch "amd64") -}}
-{{- $globalLangs := or (eq $mp "mac-pro") $intel -}}
+{{- $pp := index . "package_profile" | default "legacy" -}}
+{{- $base := eq $pp "base" -}}
+{{- $globalLangs := and (not $base) (or (eq $mp "mac-pro") $intel) -}}
 # ~/.config/mise/config.toml -- managed by chezmoi.
 # Per-project versions go in a project-local mise.toml (then `mise trust`).
 
 # Global languages: mac-pro + Intel Macs only (see the header comment in the
 # template). Other machines keep an empty [tools] and use project mise.toml.
 [tools]
+{{- if and $base $intel }}
+# Python is the runtime used by package-plan and package wrappers.
+python = "latest"
+{{- end }}
 {{- if $globalLangs }}
 node = "latest"
 python = "latest"
@@ -42,10 +48,12 @@ java = ["lts", "temurin-26"]
 # eza to a cargo build), and ruby has no jdx/ruby Intel build: these four come
 # from conda-forge's prebuilt osx-64 packages through the conda backend.
 # Note: a project .ruby-version still asks the core ruby backend (source build).
-"conda:ruby" = "latest"
 "conda:eza" = "latest"
+{{- if not $base }}
+"conda:ruby" = "latest"
 "conda:atuin" = "latest"
 "conda:git-delta" = "latest"
+{{- end }}
 # Keep the dotfiles entrypoint selected globally: an installed mise shim
 # otherwise shadows chezmoi without an active version after this file is applied.
 "aqua:twpayne/chezmoi" = "latest"
@@ -56,26 +64,60 @@ java = ["lts", "temurin-26"]
 "aqua:sharkdp/bat" = "latest"
 "aqua:junegunn/fzf" = "latest"
 "aqua:jqlang/jq" = "latest"
+{{- if not $base }}
 "aqua:mikefarah/yq" = "latest"
+{{- end }}
+{{- if not $base }}
 "aqua:cli/cli" = "latest"
+{{- end }}
 "aqua:ajeetdsouza/zoxide" = "latest"
 "aqua:starship/starship" = "latest"
+{{- if not $base }}
 "aqua:jesseduffield/lazygit" = "latest"
+{{- end }}
+{{- if not $base }}
 "aqua:astral-sh/uv" = "latest"
+{{- end }}
+{{- if not $base }}
 "aqua:casey/just" = "latest"
+{{- end }}
+{{- if not $base }}
 "aqua:derailed/k9s" = "latest"
+{{- end }}
+{{- if not $base }}
 "aqua:helm/helm" = "latest"
+{{- end }}
+{{- if not $base }}
 "aqua:jesseduffield/lazydocker" = "latest"
+{{- end }}
+{{- if not $base }}
 "aqua:getsops/sops" = "latest"
+{{- end }}
+{{- if not $base }}
 "aqua:watchexec/watchexec" = "latest"
+{{- end }}
+{{- if not $base }}
 "aqua:ducaale/xh" = "latest"
+{{- end }}
+{{- if not $base }}
 "aqua:sxyazi/yazi" = "latest"
+{{- end }}
+{{- if not $base }}
 "aqua:zellij-org/zellij" = "latest"
+{{- end }}
+{{- if not $base }}
 "aqua:astral-sh/ruff" = "latest"
+{{- end }}
+{{- if not $base }}
 "aqua:direnv/direnv" = "latest"
+{{- end }}
+{{- if not $base }}
 "aqua:tealdeer-rs/tealdeer" = "latest"
+{{- end }}
 "aqua:neovim/neovim" = "latest"
+{{- if not $base }}
 "aqua:jj-vcs/jj" = "latest"
+{{- end }}
 {{ end }}
 [settings]
 # Never force source builds: python/node/go/java come precompiled (python via

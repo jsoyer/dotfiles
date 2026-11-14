@@ -1,0 +1,3 @@
+# Runtime for package-plan and per-project tools; no global language toolchains.
+brew "python"
+brew "mise"

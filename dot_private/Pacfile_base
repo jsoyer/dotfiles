@@ -1,0 +1,17 @@
+git
+curl
+wget
+zsh
+tmux
+fzf
+neovim
+fd
+ripgrep
+jq
+unzip
+bat
+fontconfig
+python
+starship
+zoxide
+eza

@@ -1,0 +1,251 @@
+{
+  "reference": "da8ee005",
+  "date": "2026-11-14",
+  "files": {
+    "Aptfile_bbh-network": {
+      "sha256": "fa6f7426a913d8188acbeb01d4454700763fcb5dea708332722668f1e23dafb8",
+      "lines": 1,
+      "scope": "machine-or-policy"
+    },
+    "Aptfile_debian": {
+      "sha256": "767f76543840e3bc373b4fb6e71474cd4ea9e3eb06052ece941d4568c4cbd854",
+      "lines": 20,
+      "scope": "compatibility-shared"
+    },
+    "Aptfile_diabolo": {
+      "sha256": "fa6f7426a913d8188acbeb01d4454700763fcb5dea708332722668f1e23dafb8",
+      "lines": 1,
+      "scope": "machine-or-policy"
+    },
+    "Aptfile_looping": {
+      "sha256": "451a2f40c9097b072ad80b3367d106738a9378ea85c80adef045fafc04ce4a3b",
+      "lines": 3,
+      "scope": "machine-or-policy"
+    },
+    "Aptfile_penelope": {
+      "sha256": "ddba1bc01a3d21f408aa0b4d8105d17e9bac60b6e7612d42afb22407b255ff25",
+      "lines": 2,
+      "scope": "machine-or-policy"
+    },
+    "Aptfile_rpi": {
+      "sha256": "348aa06268226ff5e8bf0e18a03224bf5ccd1830cedc4ed9283df8aefb1700d9",
+      "lines": 67,
+      "scope": "compatibility-shared"
+    },
+    "Aptfile_ubuntu_desktop": {
+      "sha256": "eebaf0a6870d7b74427118c2059cd468efde72204d7556075036fede837f969e",
+      "lines": 47,
+      "scope": "compatibility-shared"
+    },
+    "Aptfile_ubuntu_server": {
+      "sha256": "4bc6f52a7c2aa9c689277eeb5a9ff6204e20985ecb58d1b0bd9cc926574b7be6",
+      "lines": 27,
+      "scope": "compatibility-shared"
+    },
+    "Brewfile_Jerome-Soyers-Mac-Mini-M6": {
+      "sha256": "656f4c4f239cece72409a093588c6f2cae8c3d86ccb2014de58dd836a3e928a3",
+      "lines": 16,
+      "scope": "machine-or-policy"
+    },
+    "Brewfile_Jerome-Soyers-Mac-mini-M4": {
+      "sha256": "b7715634c234c186804a152180cee667d6af292697b2703776ff0bc2c5547046",
+      "lines": 69,
+      "scope": "machine-or-policy"
+    },
+    "Brewfile_Jerome-Soyers-MacBook-Pro-14": {
+      "sha256": "4e666cc79ba08baafe8167704a08d62d590cd07a8fce8ab07b824f6130d1c7e1",
+      "lines": 71,
+      "scope": "machine-or-policy"
+    },
+    "Brewfile_Jerome-Soyers-MacMini-Intel": {
+      "sha256": "7f307be59ae832f1f3481eb62cfb97bbcb9b7b7bb9638c0b763fb7a7e0d3bd47",
+      "lines": 12,
+      "scope": "machine-or-policy"
+    },
+    "Brewfile_Jerome-Soyers-MacMini-M4": {
+      "sha256": "437a0b6796264923581d2de8c7596263330df75395d8297ef1396a42a675df8c",
+      "lines": 67,
+      "scope": "machine-or-policy"
+    },
+    "Brewfile_JeromeSacMiniM6": {
+      "sha256": "fd583d86669fa15d960c96ce8cd354cba33531b816660206a644cffb56ae0106",
+      "lines": 29,
+      "scope": "machine-or-policy"
+    },
+    "Brewfile_JeromeSrsMiniM6": {
+      "sha256": "1febed48952ee236e4bfc2edf293e49f6497b7e4ff9a6335a2f29b62993509e7",
+      "lines": 29,
+      "scope": "machine-or-policy"
+    },
+    "Brewfile_Mac": {
+      "sha256": "c88a4f4c803793708c88aa18f0bb0ebc48be8f9095b09fa8684c8536f91ebe64",
+      "lines": 62,
+      "scope": "machine-or-policy"
+    },
+    "Brewfile_MacBookPro": {
+      "sha256": "d6122f66452795e5990cf857a8c9a2051d268cbe633cffaa9d7b496f905d0722",
+      "lines": 74,
+      "scope": "machine-or-policy"
+    },
+    "Brewfile_MacMiniIntel": {
+      "sha256": "8b48d0902cdd817c926ef467f61883cf1e2548d6e7c7ef44d9f9854c699b3fba",
+      "lines": 20,
+      "scope": "machine-or-policy"
+    },
+    "Brewfile_blacklist": {
+      "sha256": "f9330ce73ea6e27244f78ba7a89e51dac4daee8d2e0798669f7aa63d8a9f5c63",
+      "lines": 137,
+      "scope": "machine-or-policy"
+    },
+    "Brewfile_brew_only": {
+      "sha256": "996ebc53c7e6cff3f978113bc398d717e0fc354d9c1857ad8d200363eb863a35",
+      "lines": 74,
+      "scope": "compatibility-shared"
+    },
+    "Brewfile_cu_skip_jsoyer-macOS": {
+      "sha256": "613f87c1a83a1c6c7257b73b38d89aab11e22bd36da8ba4ea50edc7951aed015",
+      "lines": 13,
+      "scope": "machine-or-policy"
+    },
+    "Brewfile_cu_skip_mac-pro": {
+      "sha256": "cecba0e546934fdab21d55e593e74372b9e03d01d84e6a2fbcb038f1404cf661",
+      "lines": 14,
+      "scope": "machine-or-policy"
+    },
+    "Brewfile_diabolo": {
+      "sha256": "ec4d48a64afc8f36932f0ec65247a5ce5cc62d37b78c96f9e81d6eb777ae3a03",
+      "lines": 32,
+      "scope": "machine-or-policy"
+    },
+    "Brewfile_fedora-pve": {
+      "sha256": "e539559110ca2a10a4e1ce5125971f9ab0aeec999bdb44d6ff0e30c9bff81399",
+      "lines": 8,
+      "scope": "machine-or-policy"
+    },
+    "Brewfile_fedora_atomic": {
+      "sha256": "2ff5af760c3db885d0075638ce22f5359c68adc497bd37ac1345f3c2906614f9",
+      "lines": 13,
+      "scope": "compatibility-shared"
+    },
+    "Brewfile_jsoyer-macOS": {
+      "sha256": "b7431fa4012c7e053d2fcbe27e05b9e454941cc82cda135106ca3f3900673e21",
+      "lines": 15,
+      "scope": "machine-or-policy"
+    },
+    "Brewfile_looping": {
+      "sha256": "e83d6d2d7c58fae4ee8243cf9f1f53a5a0a7ee74b8e3e1f5162d2fab3903c21d",
+      "lines": 32,
+      "scope": "machine-or-policy"
+    },
+    "Brewfile_macos": {
+      "sha256": "ad73127d8493406fef2fdf26703266b47d829f39729449adf78a398bf3380ca8",
+      "lines": 20,
+      "scope": "compatibility-shared"
+    },
+    "Brewfile_minimal": {
+      "sha256": "ebf3cd2e7774659a63083501b9042ac8900d5d7c623cd421ed25c081129fcab2",
+      "lines": 3,
+      "scope": "compatibility-shared"
+    },
+    "Brewfile_personal": {
+      "sha256": "83b97864bd36865e583adde47a2b862c605ff7c866480a6b52b902142f31ad4f",
+      "lines": 457,
+      "scope": "compatibility-shared"
+    },
+    "Brewfile_pro": {
+      "sha256": "28ebc7591bb9bfaa5072d5d6d92fc5a623a816064d500adcb73c74337a5d962d",
+      "lines": 324,
+      "scope": "compatibility-shared"
+    },
+    "Brewfile_rpi": {
+      "sha256": "f3327499acedfe6850be7d4e26f5889052b232b53ce532c34f34698f348bf9b9",
+      "lines": 7,
+      "scope": "compatibility-shared"
+    },
+    "Brewfile_synapse": {
+      "sha256": "e8e0fcd221d1bb291cdd409eea421a32cfae2afd16a028e78084f62bb38c63b5",
+      "lines": 2,
+      "scope": "machine-or-policy"
+    },
+    "Dnffile_fedora-pve": {
+      "sha256": "eced0eb633d491d5a445cc1940e4c17cd22ed8637ff80cdfc32723858a204601",
+      "lines": 5,
+      "scope": "machine-or-policy"
+    },
+    "Dnffile_fedora_desktop": {
+      "sha256": "96d08bfe9c741006fdf42c76e2dde5c04841eeb787597366fd276593f86d8c67",
+      "lines": 59,
+      "scope": "compatibility-shared"
+    },
+    "Dnffile_fedora_server": {
+      "sha256": "d8d5f7d25d1b2d7001c64feab1ce044c7ea2038c8fb8ee18b5b319f4b6ff26b7",
+      "lines": 28,
+      "scope": "compatibility-shared"
+    },
+    "Dnffile_synapse": {
+      "sha256": "fa6f7426a913d8188acbeb01d4454700763fcb5dea708332722668f1e23dafb8",
+      "lines": 1,
+      "scope": "machine-or-policy"
+    },
+    "Flatpakfile_fedora_atomic": {
+      "sha256": "fed8a9764bda4078399ed4571d55d384648fab2f4f7083d7e1c12214306bbf56",
+      "lines": 26,
+      "scope": "compatibility-shared"
+    },
+    "Flatpakfile_fedora_desktop": {
+      "sha256": "962afa38f4d44d5c078f92dabf6b44bdb350ea996dc52e63332580cfbfeb4645",
+      "lines": 7,
+      "scope": "compatibility-shared"
+    },
+    "Flatpakfile_rpi": {
+      "sha256": "35e0376958540cada4983f48dd8c4ec2f627ea1973e77113b96c401df4c4e460",
+      "lines": 5,
+      "scope": "compatibility-shared"
+    },
+    "Flatpakfile_ubuntu_desktop": {
+      "sha256": "651d80d7cfb3dbb6d6cc77b169d57665ba5a4f21127e80c861724ab70cbcf0b2",
+      "lines": 3,
+      "scope": "compatibility-shared"
+    },
+    "Pacfile_arch_desktop": {
+      "sha256": "4f18548d233b425eeab915bdc5f92261acb09ea1b620c667c356c712bc9ef4e8",
+      "lines": 39,
+      "scope": "compatibility-shared"
+    },
+    "Pacfile_arch_gui": {
+      "sha256": "e848110202b7c2253ca4ad29f43937ab3097791aabe90c119d996242768bd2cf",
+      "lines": 10,
+      "scope": "compatibility-shared"
+    },
+    "Pacfile_arch_server": {
+      "sha256": "11f55cc37e2f9c514b7cd64bd7301c7057ca7218abee27ba61319d036a9ba1ec",
+      "lines": 22,
+      "scope": "compatibility-shared"
+    },
+    "Pacfile_aur_desktop": {
+      "sha256": "12c400790d9b29715b35107d52a941b3a743862cf235f4f90777a2eb897d5987",
+      "lines": 5,
+      "scope": "compatibility-shared"
+    },
+    "Pacfile_aur_gui": {
+      "sha256": "cfa3c6a3e8a958b2bbffa0cbc138c34f5ea4a49d150e2d3bb6345c5e1c359101",
+      "lines": 8,
+      "scope": "compatibility-shared"
+    },
+    "Rpmfile_fedora_atomic": {
+      "sha256": "df405984e429cdf79ca582262b3c5b08d9ec5ce73ba5120e989ab72fc7b99cfc",
+      "lines": 5,
+      "scope": "compatibility-shared"
+    },
+    "Scoopfile.json": {
+      "sha256": "e4b6b5285cb18c27a6d1bd73dc3f8a74e7589d1d8279d501b90789a75f60d321",
+      "lines": 40,
+      "scope": "compatibility-shared"
+    },
+    "Snapfile_ubuntu_desktop": {
+      "sha256": "0fdc50b906d2f1e735918afadc81844983e1be781a23afb6d2d3e33a85bdc881",
+      "lines": 7,
+      "scope": "compatibility-shared"
+    }
+  }
+}

@@ -175,6 +175,12 @@ sh -c "$(curl -fsLS get.chezmoi.io)" -- init --apply jsoyer
 
 ---
 
+**Package scope:** new machines default to the base only. Set
+`DOTFILES_PACKAGE_PROFILE=base` during initialization to choose it explicitly.
+Technical profiles stay independent from package usage; existing installations
+keep compatibility until migrated. See [Package layers](docs/PACKAGE_LAYERS.md)
+for the MacBook Neo procedure, previews and per-machine migration.
+
 ## 📋 Manual Installation (Step-by-Step)
 
 ### 1. Install Homebrew (macOS/Linux)

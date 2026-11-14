@@ -105,6 +105,9 @@ jobs:
           python3 -m py_compile dot_local/bin/executable_update-zellij-plugins
           python3 dot_local/bin/executable_update-zellij-plugins
 
+      - name: Package layer selection and machine isolation
+        run: python3 scripts/test_package_layers.py
+
       - name: Package updates never silently leave outdated formulae
         run: |
           python3 -m unittest discover -s dot_local/bin -p 'test_brew*.py'
@@ -262,3 +265,41 @@ jobs:
             exit 1
           fi
           echo "ShellCheck: PASS"
+
+  package-layers-native:
+    name: Package layers (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-15, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+        env:
+          FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install chezmoi (Unix)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/chezmoi-bin"
+          sh -c "$(curl -fsLS get.chezmoi.io)" -- -b "$RUNNER_TEMP/chezmoi-bin"
+          echo "$RUNNER_TEMP/chezmoi-bin" >> "$GITHUB_PATH"
+      - name: Install chezmoi (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          if (-not (Get-Command chezmoi -ErrorAction SilentlyContinue)) {
+            choco install chezmoi --no-progress -y
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
+      - name: Test package layers and native Scoop wrapper
+        run: python scripts/test_package_layers.py
+      - name: Test Windows PowerShell 5.1 compatibility
+        if: runner.os == 'Windows'
+        env:
+          PACKAGE_TEST_POWERSHELL: powershell
+        run: python scripts/test_package_layers.py

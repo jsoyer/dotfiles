@@ -1,0 +1,47 @@
+{{- /* One catalog for installers, previews and wrappers. Missing package_profile is legacy ONLY. */ -}}
+{{- $d := .data -}}
+{{- $manager := .manager -}}
+{{- $catalog := include "dot_private/package-layers.json" | fromJson -}}
+{{- $mp := index $d "machine_profile" | default "" -}}
+{{- $pp := "legacy" -}}
+{{- if hasKey $d "package_profile" -}}{{- $pp = index $d "package_profile" -}}{{- end -}}
+{{- if not (has $pp (list "base" "personal" "professional" "server" "legacy")) -}}
+{{- fail (printf "Unknown package_profile %q; choose base, personal, professional or server" $pp) -}}
+{{- end -}}
+{{- if not (hasKey $catalog.profiles $mp) -}}{{- fail (printf "Unknown machine_profile %q" $mp) -}}{{- end -}}
+{{- $p := index $catalog.profiles $mp -}}
+{{- if ne $p.os $d.chezmoi.os -}}{{- fail (printf "machine_profile %s is for %s, not %s" $mp $p.os $d.chezmoi.os) -}}{{- end -}}
+{{- if not (hasKey $catalog.host_prefixes $manager) -}}{{- fail (printf "Unknown package manager %q" $manager) -}}{{- end -}}
+{{- $host := first (splitList "." $d.chezmoi.hostname) -}}
+{{- if not (regexMatch "^[A-Za-z0-9][A-Za-z0-9_-]*$" $host) -}}{{- fail "Unsafe package hostname" -}}{{- end -}}
+{{- $suffix := "" -}}{{- if eq $manager "scoop" -}}{{- $suffix = ".json" -}}{{- end -}}
+{{- $hostfile := printf "%s%s%s" (index $catalog.host_prefixes $manager) $host $suffix -}}
+{{- $reserved := dict -}}
+{{- range $catalog.profiles -}}{{- range .managers -}}{{- range . -}}{{- range . -}}{{- $_ := set $reserved . true -}}{{- end -}}{{- end -}}{{- end -}}{{- end -}}
+{{- range $catalog.legacy_brew_host_prefixes -}}{{- range . -}}{{- $_ := set $reserved . true -}}{{- end -}}{{- end -}}
+{{- range $catalog.reserved_files -}}{{- $_ := set $reserved . true -}}{{- end -}}
+{{- if hasKey $reserved $hostfile -}}{{- fail (printf "Hostname %q collides with shared package file %s" $host $hostfile) -}}{{- end -}}
+{{- $base := list -}}{{- $usage := list -}}
+{{- if hasKey $p.managers $manager -}}
+{{- $m := index $p.managers $manager -}}
+{{- if eq $pp "legacy" -}}
+{{- $base = $m.legacy -}}
+{{- if and (eq $manager "brew") (eq $d.chezmoi.os "linux") -}}
+{{- range $prefix, $files := $catalog.legacy_brew_host_prefixes -}}{{- if hasPrefix $prefix $host -}}{{- $base = $files -}}{{- end -}}{{- end -}}
+{{- end -}}
+{{- else -}}
+{{- $base = $m.base -}}
+{{- if ne $pp "base" -}}{{- $usage = index $m $pp -}}{{- end -}}
+{{- end -}}
+{{- end -}}
+{{- $shared := concat $base $usage | uniq -}}
+{{- $files := $shared -}}
+{{- $supported := hasKey $p.managers $manager -}}
+{{- if and $supported (stat (printf "%s/dot_private/%s" $d.chezmoi.sourceDir $hostfile)) -}}{{- $files = append $files $hostfile -}}{{- end -}}
+{{- $excluded := list -}}
+{{- $excludefile := printf "PackageExcludes_%s.json" $host -}}
+{{- if stat (printf "%s/dot_private/%s" $d.chezmoi.sourceDir $excludefile) -}}
+{{- $excludes := include (printf "dot_private/%s" $excludefile) | fromJson -}}
+{{- $excluded = index $excludes $manager | default list -}}
+{{- end -}}
+{{- dict "machine_profile" $mp "package_profile" $pp "hostname" $host "manager" $manager "supported" $supported "base" $base "usage" $usage "shared" $shared "files" $files "host" $hostfile "exclude_file" $excludefile "excluded" $excluded | toJson -}}

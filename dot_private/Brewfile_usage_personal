@@ -1,0 +1,9 @@
+# Small personal CLI layer. Promote additional packages explicitly with package-plan.
+brew "atuin"
+brew "carapace"
+brew "git-delta"
+brew "direnv"
+brew "gh"
+brew "git-lfs"
+brew "lazygit"
+brew "btop"

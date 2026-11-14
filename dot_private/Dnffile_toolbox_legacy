@@ -1,0 +1,24 @@
+# Compatibility: the previously inline Toolbox package list.
+chezmoi
+zsh
+git
+curl
+wget
+tmux
+fzf
+neovim
+fd-find
+ripgrep
+jq
+unzip
+bat
+fontconfig
+starship
+zoxide
+vivid
+fish
+kitty
+nushell
+util-linux-user
+cargo
+rust

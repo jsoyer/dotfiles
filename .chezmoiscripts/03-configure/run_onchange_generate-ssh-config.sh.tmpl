@@ -1,3 +1,4 @@
+{{- if ne (index . "package_profile" | default "legacy") "base" -}}
 {{- if ne .chezmoi.os "windows" -}}
 #!/usr/bin/env bash
 # chezmoi:template:left-delimiter="{{" right-delimiter="}}"
@@ -26,3 +27,5 @@ fi
 
 {{- end }}
 {{ end -}}
+
+{{- end -}}

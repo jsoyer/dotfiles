@@ -1,22 +1,2 @@
-# Main Brewfile
-# macOS: full Homebrew (formulae + casks + mas)
-# Linux: brew-only packages (native packages handled by apt/dnf/pacman)
-
-{{- $mp := index . "machine_profile" -}}
-{{- if eq .chezmoi.os "darwin" }}
-{{ include "dot_private/Brewfile_macos" | trim }}
-
-{{-   if eq $mp "mac-pro" }}
-{{ include "dot_private/Brewfile_pro" | trim }}
-{{-   else }}
-{{ include "dot_private/Brewfile_personal" | trim }}
-{{-   end }}
-{{- else if eq .chezmoi.os "linux" }}
-{{-   if eq $mp "fedora-atomic" }}
-{{ include "dot_private/Brewfile_fedora_atomic" | trim }}
-{{-   else if has $mp (list "rpi" "debian" "ubuntu-server" "fedora-server" "arch-server") }}
-{{ include "dot_private/Brewfile_minimal" | trim }}
-{{-   else }}
-{{ include "dot_private/Brewfile_brew_only" | trim }}
-{{-   end }}
-{{- end }}
+# Selected packages: common base + optional usage + this machine only.
+{{ includeTemplate "package-manifest" (dict "data" . "manager" "brew") }}

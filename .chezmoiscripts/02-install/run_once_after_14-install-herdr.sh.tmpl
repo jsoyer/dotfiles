@@ -1,3 +1,4 @@
+{{- if ne (index . "package_profile" | default "legacy") "base" -}}
 {{- if eq .chezmoi.os "linux" -}}
 #!/usr/bin/env bash
 # =============================================================================
@@ -20,4 +21,6 @@ fi
 export PATH="${HOME}/.local/bin:${PATH}"
 echo "📺 Installing herdr (official installer, no service/timer)…"
 "$SETUP" --no-service || echo "herdr-setup failed (non-fatal)"
+{{- end -}}
+
 {{- end -}}

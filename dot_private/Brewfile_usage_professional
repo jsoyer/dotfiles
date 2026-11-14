@@ -1,0 +1,7 @@
+# Shared professional CLI layer; employer/admin restrictions remain machine-specific.
+brew "carapace"
+brew "git-delta"
+brew "direnv"
+brew "gh"
+brew "git-lfs"
+brew "lazygit"

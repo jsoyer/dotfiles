@@ -1,0 +1,17 @@
+# Machine-local exclusions also apply while legacy provisioning is retained.
+_filter_pkg_exclusions() {
+    local _manager="$1" _line _identity
+    while IFS= read -r _line; do
+        _identity="${_line%% *}"
+        case "$_manager:$_identity" in
+{{- range $manager := list "apt" "dnf" "pacman" "aur" "rpm" "flatpak" "snap" }}
+{{- $selection := includeTemplate "package-files" (dict "data" $ "manager" $manager) | fromJson }}
+{{- range $selection.excluded }}
+{{- if not (regexMatch "^[A-Za-z0-9][A-Za-z0-9._+@/:-]*$" .) }}{{ fail "Invalid native package exclusion" }}{{ end }}
+            "{{ $manager }}:{{ . }}") continue ;;
+{{- end }}
+{{- end }}
+            *) printf '%s\n' "$_line" ;;
+        esac
+    done
+}

@@ -1,0 +1,6 @@
+#!/usr/bin/env python3
+"""Inspect package layers without installing anything; explicit edits use subcommands."""
+
+from package_layers import main
+
+raise SystemExit(main())

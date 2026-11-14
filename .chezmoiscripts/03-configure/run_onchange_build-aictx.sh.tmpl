@@ -1,3 +1,4 @@
+{{- if ne (index . "package_profile" | default "legacy") "base" -}}
 {{- if ne .chezmoi.os "windows" -}}
 #!/usr/bin/env bash
 # Build aictx from source if cargo is available
@@ -47,4 +48,6 @@ if cargo build --release --quiet 2>/dev/null; then
 else
   echo "  ❌ aictx: build failed (non-fatal, skipping)"
 fi
+{{- end -}}
+
 {{- end -}}

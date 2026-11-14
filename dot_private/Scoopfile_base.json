@@ -1,0 +1,61 @@
+{
+  "buckets": [
+    {
+      "name": "main"
+    }
+  ],
+  "apps": [
+    {
+      "name": "7zip",
+      "bucket": "main"
+    },
+    {
+      "name": "git",
+      "bucket": "main"
+    },
+    {
+      "name": "chezmoi",
+      "bucket": "main"
+    },
+    {
+      "name": "mise",
+      "bucket": "main"
+    },
+    {
+      "name": "neovim",
+      "bucket": "main"
+    },
+    {
+      "name": "python",
+      "bucket": "main"
+    },
+    {
+      "name": "ripgrep",
+      "bucket": "main"
+    },
+    {
+      "name": "fd",
+      "bucket": "main"
+    },
+    {
+      "name": "fzf",
+      "bucket": "main"
+    },
+    {
+      "name": "bat",
+      "bucket": "main"
+    },
+    {
+      "name": "jq",
+      "bucket": "main"
+    },
+    {
+      "name": "starship",
+      "bucket": "main"
+    },
+    {
+      "name": "zoxide",
+      "bucket": "main"
+    }
+  ]
+}

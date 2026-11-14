@@ -1,0 +1,592 @@
+{
+  "version": 1,
+  "profiles": {
+    "mac-personal": {
+      "os": "darwin",
+      "managers": {
+        "brew": {
+          "base": [
+            "Brewfile_macos",
+            "Brewfile_package_tools"
+          ],
+          "legacy": [
+            "Brewfile_macos",
+            "Brewfile_personal"
+          ],
+          "personal": [
+            "Brewfile_usage_personal"
+          ],
+          "professional": [
+            "Brewfile_usage_professional"
+          ],
+          "server": []
+        }
+      }
+    },
+    "mac-pro": {
+      "os": "darwin",
+      "managers": {
+        "brew": {
+          "base": [
+            "Brewfile_macos",
+            "Brewfile_package_tools"
+          ],
+          "legacy": [
+            "Brewfile_macos",
+            "Brewfile_pro"
+          ],
+          "personal": [
+            "Brewfile_usage_personal"
+          ],
+          "professional": [
+            "Brewfile_usage_professional"
+          ],
+          "server": []
+        }
+      }
+    },
+    "ubuntu-desktop": {
+      "os": "linux",
+      "managers": {
+        "apt": {
+          "base": [
+            "Aptfile_base"
+          ],
+          "legacy": [
+            "Aptfile_ubuntu_desktop"
+          ],
+          "personal": [
+            "Aptfile_usage_personal"
+          ],
+          "professional": [
+            "Aptfile_usage_professional"
+          ],
+          "server": [
+            "Aptfile_usage_server"
+          ]
+        },
+        "brew": {
+          "base": [
+            "Brewfile_minimal"
+          ],
+          "legacy": [
+            "Brewfile_brew_only"
+          ],
+          "personal": [],
+          "professional": [],
+          "server": []
+        },
+        "flatpak": {
+          "base": [
+            "Flatpakfile_base"
+          ],
+          "legacy": [
+            "Flatpakfile_ubuntu_desktop"
+          ],
+          "personal": [
+            "Flatpakfile_usage_personal"
+          ],
+          "professional": [
+            "Flatpakfile_usage_professional"
+          ],
+          "server": [
+            "Flatpakfile_usage_server"
+          ]
+        },
+        "snap": {
+          "base": [
+            "Snapfile_base"
+          ],
+          "legacy": [
+            "Snapfile_ubuntu_desktop"
+          ],
+          "personal": [
+            "Snapfile_usage_personal"
+          ],
+          "professional": [
+            "Snapfile_usage_professional"
+          ],
+          "server": [
+            "Snapfile_usage_server"
+          ]
+        }
+      }
+    },
+    "ubuntu-server": {
+      "os": "linux",
+      "managers": {
+        "apt": {
+          "base": [
+            "Aptfile_base"
+          ],
+          "legacy": [
+            "Aptfile_ubuntu_server"
+          ],
+          "personal": [
+            "Aptfile_usage_personal"
+          ],
+          "professional": [
+            "Aptfile_usage_professional"
+          ],
+          "server": [
+            "Aptfile_usage_server"
+          ]
+        },
+        "brew": {
+          "base": [
+            "Brewfile_minimal"
+          ],
+          "legacy": [
+            "Brewfile_minimal"
+          ],
+          "personal": [],
+          "professional": [],
+          "server": []
+        }
+      }
+    },
+    "debian": {
+      "os": "linux",
+      "managers": {
+        "apt": {
+          "base": [
+            "Aptfile_base"
+          ],
+          "legacy": [
+            "Aptfile_debian"
+          ],
+          "personal": [
+            "Aptfile_usage_personal"
+          ],
+          "professional": [
+            "Aptfile_usage_professional"
+          ],
+          "server": [
+            "Aptfile_usage_server"
+          ]
+        },
+        "brew": {
+          "base": [
+            "Brewfile_minimal"
+          ],
+          "legacy": [
+            "Brewfile_minimal"
+          ],
+          "personal": [],
+          "professional": [],
+          "server": []
+        }
+      }
+    },
+    "rpi": {
+      "os": "linux",
+      "managers": {
+        "apt": {
+          "base": [
+            "Aptfile_base"
+          ],
+          "legacy": [
+            "Aptfile_rpi"
+          ],
+          "personal": [
+            "Aptfile_usage_personal"
+          ],
+          "professional": [
+            "Aptfile_usage_professional"
+          ],
+          "server": [
+            "Aptfile_usage_server"
+          ]
+        },
+        "brew": {
+          "base": [
+            "Brewfile_minimal"
+          ],
+          "legacy": [
+            "Brewfile_minimal"
+          ],
+          "personal": [],
+          "professional": [],
+          "server": []
+        },
+        "flatpak": {
+          "base": [
+            "Flatpakfile_base"
+          ],
+          "legacy": [
+            "Flatpakfile_rpi"
+          ],
+          "personal": [
+            "Flatpakfile_usage_personal"
+          ],
+          "professional": [
+            "Flatpakfile_usage_professional"
+          ],
+          "server": [
+            "Flatpakfile_usage_server"
+          ]
+        }
+      }
+    },
+    "fedora-desktop": {
+      "os": "linux",
+      "managers": {
+        "dnf": {
+          "base": [
+            "Dnffile_base"
+          ],
+          "legacy": [
+            "Dnffile_fedora_desktop"
+          ],
+          "personal": [
+            "Dnffile_usage_personal"
+          ],
+          "professional": [
+            "Dnffile_usage_professional"
+          ],
+          "server": [
+            "Dnffile_usage_server"
+          ]
+        },
+        "brew": {
+          "base": [
+            "Brewfile_minimal"
+          ],
+          "legacy": [
+            "Brewfile_brew_only"
+          ],
+          "personal": [],
+          "professional": [],
+          "server": []
+        },
+        "flatpak": {
+          "base": [
+            "Flatpakfile_base"
+          ],
+          "legacy": [
+            "Flatpakfile_fedora_desktop"
+          ],
+          "personal": [
+            "Flatpakfile_usage_personal"
+          ],
+          "professional": [
+            "Flatpakfile_usage_professional"
+          ],
+          "server": [
+            "Flatpakfile_usage_server"
+          ]
+        }
+      }
+    },
+    "fedora-server": {
+      "os": "linux",
+      "managers": {
+        "dnf": {
+          "base": [
+            "Dnffile_base"
+          ],
+          "legacy": [
+            "Dnffile_fedora_server"
+          ],
+          "personal": [
+            "Dnffile_usage_personal"
+          ],
+          "professional": [
+            "Dnffile_usage_professional"
+          ],
+          "server": [
+            "Dnffile_usage_server"
+          ]
+        },
+        "brew": {
+          "base": [
+            "Brewfile_minimal"
+          ],
+          "legacy": [
+            "Brewfile_minimal"
+          ],
+          "personal": [],
+          "professional": [],
+          "server": []
+        }
+      }
+    },
+    "toolbox": {
+      "os": "linux",
+      "managers": {
+        "dnf": {
+          "base": [
+            "Dnffile_base"
+          ],
+          "legacy": [
+            "Dnffile_toolbox_legacy"
+          ],
+          "personal": [
+            "Dnffile_usage_personal"
+          ],
+          "professional": [
+            "Dnffile_usage_professional"
+          ],
+          "server": [
+            "Dnffile_usage_server"
+          ]
+        },
+        "brew": {
+          "base": [
+            "Brewfile_minimal"
+          ],
+          "legacy": [
+            "Brewfile_brew_only"
+          ],
+          "personal": [],
+          "professional": [],
+          "server": []
+        }
+      }
+    },
+    "fedora-atomic": {
+      "os": "linux",
+      "managers": {
+        "rpm": {
+          "base": [
+            "Rpmfile_base"
+          ],
+          "legacy": [
+            "Rpmfile_fedora_atomic"
+          ],
+          "personal": [],
+          "professional": [],
+          "server": [
+            "Rpmfile_usage_server"
+          ]
+        },
+        "flatpak": {
+          "base": [
+            "Flatpakfile_base"
+          ],
+          "legacy": [
+            "Flatpakfile_fedora_atomic"
+          ],
+          "personal": [
+            "Flatpakfile_usage_personal"
+          ],
+          "professional": [
+            "Flatpakfile_usage_professional"
+          ],
+          "server": [
+            "Flatpakfile_usage_server"
+          ]
+        },
+        "brew": {
+          "base": [
+            "Brewfile_minimal"
+          ],
+          "legacy": [
+            "Brewfile_fedora_atomic"
+          ],
+          "personal": [],
+          "professional": [],
+          "server": []
+        }
+      }
+    },
+    "arch-desktop": {
+      "os": "linux",
+      "managers": {
+        "pacman": {
+          "base": [
+            "Pacfile_base"
+          ],
+          "legacy": [
+            "Pacfile_arch_desktop",
+            "Pacfile_arch_gui"
+          ],
+          "personal": [
+            "Pacfile_usage_personal"
+          ],
+          "professional": [
+            "Pacfile_usage_professional"
+          ],
+          "server": [
+            "Pacfile_usage_server"
+          ]
+        },
+        "aur": {
+          "base": [
+            "Pacfile_aur_base"
+          ],
+          "legacy": [
+            "Pacfile_aur_desktop",
+            "Pacfile_aur_gui"
+          ],
+          "personal": [
+            "Pacfile_aur_usage_personal"
+          ],
+          "professional": [
+            "Pacfile_aur_usage_professional"
+          ],
+          "server": [
+            "Pacfile_aur_usage_server"
+          ]
+        },
+        "brew": {
+          "base": [
+            "Brewfile_minimal"
+          ],
+          "legacy": [
+            "Brewfile_brew_only"
+          ],
+          "personal": [],
+          "professional": [],
+          "server": []
+        }
+      }
+    },
+    "arch-server": {
+      "os": "linux",
+      "managers": {
+        "pacman": {
+          "base": [
+            "Pacfile_base"
+          ],
+          "legacy": [
+            "Pacfile_arch_server"
+          ],
+          "personal": [
+            "Pacfile_usage_personal"
+          ],
+          "professional": [
+            "Pacfile_usage_professional"
+          ],
+          "server": [
+            "Pacfile_usage_server"
+          ]
+        },
+        "aur": {
+          "base": [
+            "Pacfile_aur_base"
+          ],
+          "legacy": [],
+          "personal": [
+            "Pacfile_aur_usage_personal"
+          ],
+          "professional": [
+            "Pacfile_aur_usage_professional"
+          ],
+          "server": [
+            "Pacfile_aur_usage_server"
+          ]
+        },
+        "brew": {
+          "base": [
+            "Brewfile_minimal"
+          ],
+          "legacy": [
+            "Brewfile_minimal"
+          ],
+          "personal": [],
+          "professional": [],
+          "server": []
+        }
+      }
+    },
+    "omarchy": {
+      "os": "linux",
+      "managers": {
+        "pacman": {
+          "base": [
+            "Pacfile_base"
+          ],
+          "legacy": [
+            "Pacfile_arch_desktop",
+            "Pacfile_arch_gui"
+          ],
+          "personal": [
+            "Pacfile_usage_personal"
+          ],
+          "professional": [
+            "Pacfile_usage_professional"
+          ],
+          "server": [
+            "Pacfile_usage_server"
+          ]
+        },
+        "aur": {
+          "base": [
+            "Pacfile_aur_base"
+          ],
+          "legacy": [
+            "Pacfile_aur_desktop",
+            "Pacfile_aur_gui"
+          ],
+          "personal": [
+            "Pacfile_aur_usage_personal"
+          ],
+          "professional": [
+            "Pacfile_aur_usage_professional"
+          ],
+          "server": [
+            "Pacfile_aur_usage_server"
+          ]
+        },
+        "brew": {
+          "base": [
+            "Brewfile_minimal"
+          ],
+          "legacy": [
+            "Brewfile_brew_only"
+          ],
+          "personal": [],
+          "professional": [],
+          "server": []
+        }
+      }
+    },
+    "windows": {
+      "os": "windows",
+      "managers": {
+        "scoop": {
+          "base": [
+            "Scoopfile_base.json"
+          ],
+          "legacy": [
+            "Scoopfile.json"
+          ],
+          "personal": [
+            "Scoopfile_personal.json"
+          ],
+          "professional": [
+            "Scoopfile_professional.json"
+          ],
+          "server": []
+        }
+      }
+    }
+  },
+  "host_prefixes": {
+    "brew": "Brewfile_",
+    "apt": "Aptfile_",
+    "dnf": "Dnffile_",
+    "pacman": "Pacfile_",
+    "aur": "Pacfile_aur_",
+    "rpm": "Rpmfile_",
+    "flatpak": "Flatpakfile_",
+    "snap": "Snapfile_",
+    "scoop": "Scoopfile_"
+  },
+  "legacy_brew_host_prefixes": {
+    "omv-": [
+      "Brewfile_brew_only",
+      "Brewfile_rpi"
+    ],
+    "bbh-network": [
+      "Brewfile_brew_only",
+      "Brewfile_rpi"
+    ]
+  },
+  "reserved_files": [
+    "Brewfile_blacklist",
+    "Brewfile_cu_skip_mac-pro",
+    "Brewfile_cu_skip_jsoyer-macOS"
+  ]
+}

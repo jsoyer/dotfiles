@@ -1,3 +1,6 @@
+{{- if ne (index . "package_profile" | default "legacy") "legacy" -}}
+{{ includeTemplate "install-layered-linux" . }}
+{{- else -}}
 {{- if and (eq .chezmoi.os "linux") (eq (includeTemplate "can-sudo" .) "true") -}}
 {{- $mp              := index . "machine_profile" -}}
 {{- $isRPi           := eq $mp "rpi" -}}
@@ -55,6 +58,8 @@
 {{- end }}
 
 set -uo pipefail
+
+{{ includeTemplate "package-exclusion-filter" . }}
 
 # A single failed package must never abort `chezmoi apply` and block the rest of
 # the config (mirrors run_onchange_03-brew-bundle.sh). Failures are collected and
@@ -207,14 +212,14 @@ echo "Installing Raspberry Pi packages via apt..."
 # Install packages from Aptfile manifest
 _aptfile="{{ .chezmoi.sourceDir }}/dot_private/Aptfile_rpi"
 if [[ -f "$_aptfile" ]]; then
-    mapfile -t _pkgs < <(grep -v '^\s*#' "$_aptfile" | grep -v '^\s*$')
+    mapfile -t _pkgs < <(grep -v '^\s*#' "$_aptfile" | grep -v '^\s*$' | _filter_pkg_exclusions apt)
     sudo apt update && sudo apt-get install -y "${_pkgs[@]}" || _pkgfail "apt: rpi base packages"
 fi
 
 # Per-hostname overlay: machine-specific apt packages layered on top of the base.
 _hostaptfile="{{ .chezmoi.sourceDir }}/dot_private/Aptfile_{{ .chezmoi.hostname }}"
 if [[ -f "$_hostaptfile" ]]; then
-    mapfile -t _hostpkgs < <(grep -v '^\s*#' "$_hostaptfile" | grep -v '^\s*$')
+    mapfile -t _hostpkgs < <(grep -v '^\s*#' "$_hostaptfile" | grep -v '^\s*$' | _filter_pkg_exclusions apt)
     if (( ${#_hostpkgs[@]} )); then
         echo "📦 apt install (hostname overlay: {{ .chezmoi.hostname }})"
         sudo apt-get install -y "${_hostpkgs[@]}" || _pkgfail "apt: hostname overlay"
@@ -256,14 +261,14 @@ echo "Installing Debian packages via apt..."
 # Install packages from Aptfile manifest
 _aptfile="{{ .chezmoi.sourceDir }}/dot_private/Aptfile_debian"
 if [[ -f "$_aptfile" ]]; then
-    mapfile -t _pkgs < <(grep -v '^\s*#' "$_aptfile" | grep -v '^\s*$')
+    mapfile -t _pkgs < <(grep -v '^\s*#' "$_aptfile" | grep -v '^\s*$' | _filter_pkg_exclusions apt)
     sudo apt update && sudo apt-get install -y "${_pkgs[@]}" || _pkgfail "apt: debian base packages"
 fi
 
 # Per-hostname overlay: machine-specific apt packages layered on top of the base.
 _hostaptfile="{{ .chezmoi.sourceDir }}/dot_private/Aptfile_{{ .chezmoi.hostname }}"
 if [[ -f "$_hostaptfile" ]]; then
-    mapfile -t _hostpkgs < <(grep -v '^\s*#' "$_hostaptfile" | grep -v '^\s*$')
+    mapfile -t _hostpkgs < <(grep -v '^\s*#' "$_hostaptfile" | grep -v '^\s*$' | _filter_pkg_exclusions apt)
     if (( ${#_hostpkgs[@]} )); then
         echo "📦 apt install (hostname overlay: {{ .chezmoi.hostname }})"
         sudo apt-get install -y "${_hostpkgs[@]}" || _pkgfail "apt: hostname overlay"
@@ -319,14 +324,14 @@ echo "Installing Ubuntu Server packages via apt..."
 # Install packages from Aptfile manifest
 _aptfile="{{ .chezmoi.sourceDir }}/dot_private/Aptfile_ubuntu_server"
 if [[ -f "$_aptfile" ]]; then
-    mapfile -t _pkgs < <(grep -v '^\s*#' "$_aptfile" | grep -v '^\s*$')
+    mapfile -t _pkgs < <(grep -v '^\s*#' "$_aptfile" | grep -v '^\s*$' | _filter_pkg_exclusions apt)
     sudo apt update && sudo apt-get install -y "${_pkgs[@]}" || _pkgfail "apt: ubuntu-server base packages"
 fi
 
 # Per-hostname overlay: machine-specific apt packages layered on top of the base.
 _hostaptfile="{{ .chezmoi.sourceDir }}/dot_private/Aptfile_{{ .chezmoi.hostname }}"
 if [[ -f "$_hostaptfile" ]]; then
-    mapfile -t _hostpkgs < <(grep -v '^\s*#' "$_hostaptfile" | grep -v '^\s*$')
+    mapfile -t _hostpkgs < <(grep -v '^\s*#' "$_hostaptfile" | grep -v '^\s*$' | _filter_pkg_exclusions apt)
     if (( ${#_hostpkgs[@]} )); then
         echo "📦 apt install (hostname overlay: {{ .chezmoi.hostname }})"
         sudo apt-get install -y "${_hostpkgs[@]}" || _pkgfail "apt: hostname overlay"
@@ -385,14 +390,14 @@ echo "Installing Ubuntu Desktop packages via apt..."
 # Install packages from Aptfile manifest
 _aptfile="{{ .chezmoi.sourceDir }}/dot_private/Aptfile_ubuntu_desktop"
 if [[ -f "$_aptfile" ]]; then
-    mapfile -t _pkgs < <(grep -v '^\s*#' "$_aptfile" | grep -v '^\s*$')
+    mapfile -t _pkgs < <(grep -v '^\s*#' "$_aptfile" | grep -v '^\s*$' | _filter_pkg_exclusions apt)
     sudo apt update && sudo apt-get install -y "${_pkgs[@]}" || _pkgfail "apt: ubuntu-desktop base packages"
 fi
 
 # Per-hostname overlay: machine-specific apt packages layered on top of the base.
 _hostaptfile="{{ .chezmoi.sourceDir }}/dot_private/Aptfile_{{ .chezmoi.hostname }}"
 if [[ -f "$_hostaptfile" ]]; then
-    mapfile -t _hostpkgs < <(grep -v '^\s*#' "$_hostaptfile" | grep -v '^\s*$')
+    mapfile -t _hostpkgs < <(grep -v '^\s*#' "$_hostaptfile" | grep -v '^\s*$' | _filter_pkg_exclusions apt)
     if (( ${#_hostpkgs[@]} )); then
         echo "📦 apt install (hostname overlay: {{ .chezmoi.hostname }})"
         sudo apt-get install -y "${_hostpkgs[@]}" || _pkgfail "apt: hostname overlay"
@@ -459,7 +464,7 @@ fi
 if command -v snap &>/dev/null; then
     _snapfile="{{ .chezmoi.sourceDir }}/dot_private/Snapfile_ubuntu_desktop"
     if [[ -f "$_snapfile" ]]; then
-        mapfile -t _snappkgs < <(grep -v '^\s*#' "$_snapfile" | grep -v '^\s*$')
+        mapfile -t _snappkgs < <(grep -v '^\s*#' "$_snapfile" | grep -v '^\s*$' | _filter_pkg_exclusions snap)
         for _pkg in "${_snappkgs[@]}"; do
             if ! snap list "$_pkg" &>/dev/null 2>&1; then
                 echo "📦 Installing snap: $_pkg..."
@@ -471,7 +476,7 @@ if command -v snap &>/dev/null; then
     # Per-hostname snap overlay.
     _hostsnapfile="{{ .chezmoi.sourceDir }}/dot_private/Snapfile_{{ .chezmoi.hostname }}"
     if [[ -f "$_hostsnapfile" ]]; then
-        mapfile -t _hostsnapkgs < <(grep -v '^\s*#' "$_hostsnapfile" | grep -v '^\s*$')
+        mapfile -t _hostsnapkgs < <(grep -v '^\s*#' "$_hostsnapfile" | grep -v '^\s*$' | _filter_pkg_exclusions snap)
         if (( ${#_hostsnapkgs[@]} )); then
             echo "📦 snap install (hostname overlay: {{ .chezmoi.hostname }})"
             for _pkg in "${_hostsnapkgs[@]}"; do
@@ -493,14 +498,14 @@ echo "Installing Fedora Server packages via dnf..."
 # Install packages from Dnffile manifest
 _dnffile="{{ .chezmoi.sourceDir }}/dot_private/Dnffile_fedora_server"
 if [[ -f "$_dnffile" ]]; then
-    mapfile -t _pkgs < <(grep -v '^\s*#' "$_dnffile" | grep -v '^\s*$')
+    mapfile -t _pkgs < <(grep -v '^\s*#' "$_dnffile" | grep -v '^\s*$' | _filter_pkg_exclusions dnf)
     sudo dnf install -y --skip-unavailable "${_pkgs[@]}" || _pkgfail "dnf: fedora-server packages"
 fi
 
 # Per-hostname overlay: machine-specific dnf packages layered on top of the base.
 _hostdnffile="{{ .chezmoi.sourceDir }}/dot_private/Dnffile_{{ .chezmoi.hostname }}"
 if [[ -f "$_hostdnffile" ]]; then
-    mapfile -t _hostpkgs < <(grep -v '^\s*#' "$_hostdnffile" | grep -v '^\s*$')
+    mapfile -t _hostpkgs < <(grep -v '^\s*#' "$_hostdnffile" | grep -v '^\s*$' | _filter_pkg_exclusions dnf)
     if (( ${#_hostpkgs[@]} )); then
         echo "📦 dnf install (hostname overlay: {{ .chezmoi.hostname }})"
         sudo dnf install -y --skip-unavailable "${_hostpkgs[@]}" || _pkgfail "dnf: hostname overlay"
@@ -520,14 +525,14 @@ echo "Installing Fedora Desktop packages via dnf..."
 # Install packages from Dnffile manifest
 _dnffile="{{ .chezmoi.sourceDir }}/dot_private/Dnffile_fedora_desktop"
 if [[ -f "$_dnffile" ]]; then
-    mapfile -t _pkgs < <(grep -v '^\s*#' "$_dnffile" | grep -v '^\s*$')
+    mapfile -t _pkgs < <(grep -v '^\s*#' "$_dnffile" | grep -v '^\s*$' | _filter_pkg_exclusions dnf)
     sudo dnf install -y --skip-unavailable "${_pkgs[@]}" || _pkgfail "dnf: fedora-desktop packages"
 fi
 
 # Per-hostname overlay: machine-specific dnf packages layered on top of the base.
 _hostdnffile="{{ .chezmoi.sourceDir }}/dot_private/Dnffile_{{ .chezmoi.hostname }}"
 if [[ -f "$_hostdnffile" ]]; then
-    mapfile -t _hostpkgs < <(grep -v '^\s*#' "$_hostdnffile" | grep -v '^\s*$')
+    mapfile -t _hostpkgs < <(grep -v '^\s*#' "$_hostdnffile" | grep -v '^\s*$' | _filter_pkg_exclusions dnf)
     if (( ${#_hostpkgs[@]} )); then
         echo "📦 dnf install (hostname overlay: {{ .chezmoi.hostname }})"
         sudo dnf install -y --skip-unavailable "${_hostpkgs[@]}" || _pkgfail "dnf: hostname overlay"
@@ -545,30 +550,11 @@ _install_eza || true
 {{- if and (lookPath "dnf") (or (stat "/.toolboxenv") (env "TOOLBOX_PATH")) }}
 echo "Installing Fedora Toolbox packages via dnf..."
 
-sudo dnf install -y --skip-unavailable \
-    chezmoi \
-    zsh \
-    git \
-    curl \
-    wget \
-    tmux \
-    fzf \
-    neovim \
-    fd-find \
-    ripgrep \
-    jq \
-    unzip \
-    bat \
-    fontconfig \
-    starship \
-    zoxide \
-    vivid \
-    fish \
-    kitty \
-    nushell \
-    util-linux-user \
-    cargo \
-    rust || _pkgfail "dnf: toolbox packages"
+mapfile -t _pkgs < <(_filter_pkg_exclusions dnf <<'CHEZMOI_TOOLBOX_PACKAGES'
+{{ include "dot_private/Dnffile_toolbox_legacy" }}
+CHEZMOI_TOOLBOX_PACKAGES
+)
+sudo dnf install -y --skip-unavailable "${_pkgs[@]}" || _pkgfail "dnf: toolbox packages"
 
 # Install eza (cargo fallback)
 _install_eza || true
@@ -583,7 +569,7 @@ echo "Installing Arch Linux Desktop packages via pacman..."
 # Install packages from Pacfile manifest
 _pacfile="{{ .chezmoi.sourceDir }}/dot_private/Pacfile_arch_desktop"
 if [[ -f "$_pacfile" ]]; then
-    mapfile -t _pkgs < <(grep -v '^\s*#' "$_pacfile" | grep -v '^\s*$')
+    mapfile -t _pkgs < <(grep -v '^\s*#' "$_pacfile" | grep -v '^\s*$' | _filter_pkg_exclusions pacman)
     sudo pacman -S --noconfirm --needed "${_pkgs[@]}" || _pkgfail "pacman: arch-desktop packages"
 fi
 
@@ -599,7 +585,7 @@ fi
 # Install AUR packages from Pacfile_aur_desktop
 _aurfile="{{ .chezmoi.sourceDir }}/dot_private/Pacfile_aur_desktop"
 if [[ -f "$_aurfile" ]] && command -v yay &>/dev/null; then
-    mapfile -t _aurpkgs < <(grep -v '^\s*#' "$_aurfile" | grep -v '^\s*$')
+    mapfile -t _aurpkgs < <(grep -v '^\s*#' "$_aurfile" | grep -v '^\s*$' | _filter_pkg_exclusions aur)
     if (( ${#_aurpkgs[@]} )); then
         yay -S --noconfirm --needed --answerdiff=None --answerclean=None "${_aurpkgs[@]}" || _pkgfail "aur: arch-desktop AUR packages"
     fi
@@ -608,7 +594,7 @@ fi
 # Per-hostname overlay: machine-specific pacman packages layered on top of the base.
 _hostpacfile="{{ .chezmoi.sourceDir }}/dot_private/Pacfile_{{ .chezmoi.hostname }}"
 if [[ -f "$_hostpacfile" ]]; then
-    mapfile -t _hostpkgs < <(grep -v '^\s*#' "$_hostpacfile" | grep -v '^\s*$')
+    mapfile -t _hostpkgs < <(grep -v '^\s*#' "$_hostpacfile" | grep -v '^\s*$' | _filter_pkg_exclusions pacman)
     if (( ${#_hostpkgs[@]} )); then
         echo "📦 pacman install (hostname overlay: {{ .chezmoi.hostname }})"
         sudo pacman -S --noconfirm --needed "${_hostpkgs[@]}" || _pkgfail "pacman: hostname overlay"
@@ -618,7 +604,7 @@ fi
 # Per-hostname AUR overlay.
 _hostaur="{{ .chezmoi.sourceDir }}/dot_private/Pacfile_aur_{{ .chezmoi.hostname }}"
 if [[ -f "$_hostaur" ]] && command -v yay &>/dev/null; then
-    mapfile -t _hostaurpkgs < <(grep -v '^\s*#' "$_hostaur" | grep -v '^\s*$')
+    mapfile -t _hostaurpkgs < <(grep -v '^\s*#' "$_hostaur" | grep -v '^\s*$' | _filter_pkg_exclusions aur)
     if (( ${#_hostaurpkgs[@]} )); then
         echo "📦 yay install (hostname AUR overlay: {{ .chezmoi.hostname }})"
         yay -S --noconfirm --needed --answerdiff=None --answerclean=None "${_hostaurpkgs[@]}" || _pkgfail "aur: hostname overlay"
@@ -641,14 +627,14 @@ echo "Installing Arch Linux Server packages via pacman..."
 # Install packages from Pacfile manifest
 _pacfile="{{ .chezmoi.sourceDir }}/dot_private/Pacfile_arch_server"
 if [[ -f "$_pacfile" ]]; then
-    mapfile -t _pkgs < <(grep -v '^\s*#' "$_pacfile" | grep -v '^\s*$')
+    mapfile -t _pkgs < <(grep -v '^\s*#' "$_pacfile" | grep -v '^\s*$' | _filter_pkg_exclusions pacman)
     sudo pacman -S --noconfirm --needed "${_pkgs[@]}" || _pkgfail "pacman: arch-server packages"
 fi
 
 # Per-hostname overlay: machine-specific pacman packages layered on top of the base.
 _hostpacfile="{{ .chezmoi.sourceDir }}/dot_private/Pacfile_{{ .chezmoi.hostname }}"
 if [[ -f "$_hostpacfile" ]]; then
-    mapfile -t _hostpkgs < <(grep -v '^\s*#' "$_hostpacfile" | grep -v '^\s*$')
+    mapfile -t _hostpkgs < <(grep -v '^\s*#' "$_hostpacfile" | grep -v '^\s*$' | _filter_pkg_exclusions pacman)
     if (( ${#_hostpkgs[@]} )); then
         echo "📦 pacman install (hostname overlay: {{ .chezmoi.hostname }})"
         sudo pacman -S --noconfirm --needed "${_hostpkgs[@]}" || _pkgfail "pacman: hostname overlay"
@@ -658,7 +644,7 @@ fi
 # Per-hostname AUR overlay.
 _hostaur="{{ .chezmoi.sourceDir }}/dot_private/Pacfile_aur_{{ .chezmoi.hostname }}"
 if [[ -f "$_hostaur" ]] && command -v yay &>/dev/null; then
-    mapfile -t _hostaurpkgs < <(grep -v '^\s*#' "$_hostaur" | grep -v '^\s*$')
+    mapfile -t _hostaurpkgs < <(grep -v '^\s*#' "$_hostaur" | grep -v '^\s*$' | _filter_pkg_exclusions aur)
     if (( ${#_hostaurpkgs[@]} )); then
         echo "📦 yay install (hostname AUR overlay: {{ .chezmoi.hostname }})"
         yay -S --noconfirm --needed --answerdiff=None --answerclean=None "${_hostaurpkgs[@]}" || _pkgfail "aur: hostname overlay"
@@ -680,7 +666,7 @@ echo "Installing Fedora Atomic base layer packages via rpm-ostree..."
 
 _pacfile="{{ .chezmoi.sourceDir }}/dot_private/Rpmfile_fedora_atomic"
 if [[ -f "$_pacfile" ]]; then
-    mapfile -t _pkgs < <(grep -v '^\s*#' "$_pacfile" | grep -v '^\s*$')
+    mapfile -t _pkgs < <(grep -v '^\s*#' "$_pacfile" | grep -v '^\s*$' | _filter_pkg_exclusions rpm)
     for _pkg in "${_pkgs[@]}"; do
         if ! rpm -q "$_pkg" &>/dev/null; then
             echo "  Installing $_pkg..."
@@ -692,7 +678,7 @@ fi
 # Per-hostname overlay: machine-specific rpm-ostree packages layered on top of the base.
 _hostrpmfile="{{ .chezmoi.sourceDir }}/dot_private/Rpmfile_{{ .chezmoi.hostname }}"
 if [[ -f "$_hostrpmfile" ]]; then
-    mapfile -t _hostpkgs < <(grep -v '^\s*#' "$_hostrpmfile" | grep -v '^\s*$')
+    mapfile -t _hostpkgs < <(grep -v '^\s*#' "$_hostrpmfile" | grep -v '^\s*$' | _filter_pkg_exclusions rpm)
     if (( ${#_hostpkgs[@]} )); then
         echo "📦 rpm-ostree install (hostname overlay: {{ .chezmoi.hostname }})"
         for _pkg in "${_hostpkgs[@]}"; do
@@ -734,7 +720,7 @@ if _has_gui; then
 {{- if or $isArchDesktop $isOmArchy }}
     _guifile="{{ .chezmoi.sourceDir }}/dot_private/Pacfile_arch_gui"
     if [[ -f "$_guifile" ]]; then
-        mapfile -t _guipkgs < <(grep -v '^\s*#' "$_guifile" | grep -v '^\s*$')
+        mapfile -t _guipkgs < <(grep -v '^\s*#' "$_guifile" | grep -v '^\s*$' | _filter_pkg_exclusions pacman)
         if (( ${#_guipkgs[@]} )); then
             sudo pacman -S --noconfirm --needed "${_guipkgs[@]}" || _pkgfail "pacman: arch-desktop GUI packages"
         fi
@@ -742,7 +728,7 @@ if _has_gui; then
 
     _aurguifile="{{ .chezmoi.sourceDir }}/dot_private/Pacfile_aur_gui"
     if [[ -f "$_aurguifile" ]] && command -v yay &>/dev/null; then
-        mapfile -t _aurguipkgs < <(grep -v '^\s*#' "$_aurguifile" | grep -v '^\s*$')
+        mapfile -t _aurguipkgs < <(grep -v '^\s*#' "$_aurguifile" | grep -v '^\s*$' | _filter_pkg_exclusions aur)
         if (( ${#_aurguipkgs[@]} )); then
             yay -S --noconfirm --needed --answerdiff=None --answerclean=None "${_aurguipkgs[@]}" || _pkgfail "aur: arch-desktop AUR GUI packages"
         fi
@@ -857,3 +843,5 @@ fi
 
 echo "Linux packages installation complete!"
 {{- end }}
+
+{{- end -}}

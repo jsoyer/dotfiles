@@ -1,3 +1,4 @@
+{{- if ne (index . "package_profile" | default "legacy") "base" -}}
 {{- if ne .chezmoi.os "windows" -}}
 #!/usr/bin/env bash
 # =============================================================================
@@ -68,3 +69,5 @@ brew cleanup --prune=all -s 2>/dev/null || true
 
 echo "✅ Purge cleanup done ($removed package(s) removed)."
 {{ end -}}
+
+{{- end -}}

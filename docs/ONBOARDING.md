@@ -4,7 +4,7 @@ This guide picks up where the [README Quick Start](../README.md#-quick-start) le
 
 ## Understanding Your Profile
 
-Your machine profile drives which configs are applied, which packages are installed, and which scripts run.
+Your `machine_profile` selects technical configuration. `package_profile` selects base, optional usage and this machine's package additions. See [Package layers](PACKAGE_LAYERS.md) for setup and migration.
 
 ```bash
 # Check your current profile
@@ -14,13 +14,18 @@ chezmoi data | grep machine_profile
 chezmoi data
 ```
 
-To change your profile, edit `~/.config/chezmoi/chezmoi.toml` and update the `machine_profile` value, then re-apply:
+To change your technical profile, edit `~/.config/chezmoi/chezmoi.toml` and update the `machine_profile` value, then re-apply:
 
 ```bash
 chezmoi apply -v
 ```
 
 See [ARCHITECTURE.md Profile Detection](ARCHITECTURE.md#profile-detection) for the full decision tree.
+
+For package scope, preview first and migrate existing machines with the commands
+in [Package layers](PACKAGE_LAYERS.md#migrate-an-existing-machine). Fresh machines
+default to `base`; existing ones retain `legacy` until migrated. A package scope
+change does not remove installed software.
 
 ## Adding a New Tool Configuration
 
