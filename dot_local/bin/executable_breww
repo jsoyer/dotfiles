@@ -457,7 +457,10 @@ def brew_git_latest_receipts(names: list[str]) -> dict[str, tuple[str, str, int]
         if (
             cask.get("version") != "latest"
             or cask.get("installed") != "latest"
-            or cask.get("pinned") is not False
+            # Older Homebrew versions have no cask pinning fields. A new
+            # installed receipt is still required before confirming a refresh.
+            or cask.get("pinned", False) is not False
+            or cask.get("pinned_version") is not None
             or cask.get("disabled") is not False
             or not isinstance(installed_time, int)
             or isinstance(installed_time, bool)

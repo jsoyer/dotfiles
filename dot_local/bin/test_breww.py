@@ -435,15 +435,19 @@ elif args[0] == "info":
         url = "https://example.org/fonts.zip"
     if scenario == "source-changed" and updated:
         url = "https://example.org/different.git"
-    print(json.dumps({"casks": [{
+    cask = {
         "token": "font-demo", "version": "2.0" if scenario == "versioned" else "latest",
         "installed": "1.0" if scenario == "versioned" else "latest",
         "url": url, "url_specs": {"branch": "main"},
         "pinned": scenario == "pinned", "disabled": scenario == "disabled",
         "installed_time": None if scenario == "no-receipt" else 2000 if updated else 1000,
-    }]}))
+    }
+    # Homebrew 5.0 Cask#to_h has installed_time, but no cask pinning fields.
+    if scenario in ("homebrew5", "homebrew5-stuck"):
+        cask.pop("pinned")
+    print(json.dumps({"casks": [cask]}))
 elif args[0] in ("upgrade", "cu"):
-    if "--dry-run" not in args and scenario not in ("stuck", "pinned", "disabled"):
+    if "--dry-run" not in args and scenario not in ("stuck", "pinned", "disabled", "homebrew5-stuck"):
         (root / "updated").touch()
     if scenario == "failure":
         sys.exit(42)  # even a newer receipt cannot turn a failed command into success
@@ -496,6 +500,11 @@ elif args[0] in ("upgrade", "cu"):
         self.assertIn(["cu", "-a"], calls)
         self.assertIn("Refreshed Git-based latest casks", proc.stdout)
 
+    def test_homebrew_without_cask_pin_fields_accepts_a_proven_refresh(self):
+        proc, _ = self.run_upgrade("homebrew5")
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertIn("Refreshed Git-based latest casks", proc.stdout)
+
     def test_skips_pins_missing_receipts_and_real_outdated_casks_still_fail(self):
         for scenario in (
             "stuck",
@@ -508,6 +517,7 @@ elif args[0] in ("upgrade", "cu"):
             "source-changed",
             "bad-info",
             "bad-info-after",
+            "homebrew5-stuck",
         ):
             with self.subTest(scenario=scenario):
                 proc, calls = self.run_upgrade(scenario)
