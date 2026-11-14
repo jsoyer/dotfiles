@@ -2423,5 +2423,221 @@ Encrypted = +
         self.assertEqual(found, [])
 
 
+class UnPackDeSaisonNommeSesEpisodesParLeurRang(unittest.TestCase):
+    """« 052 Titre.mkv » dans « Serie S02 E52-114 … » : seul le dossier dit tout.
+
+    Origine : 140 episodes de City Hunter restaient dans downloads. Le fichier
+    ne porte qu'un rang absolu et le titre d'episode ; la serie, la saison et
+    la plage d'episodes ne figurent que sur le dossier. Pris pour des films,
+    ils etaient ignores a chaque passage faute de correspondance TMDb.
+    """
+
+    DOSSIER_S1 = "City Hunter S01 E01-51 NC MULTI 1080p HDLight BluRay AC3 x265-Thebatou8652"
+    DOSSIER_S2 = "City Hunter S02 E52-114 NC MULTI 1080p HDLight BluRay AC3 x265-Thebatou8652"
+
+    def test_premiere_saison(self):
+        self.assertEqual(
+            ma.parse_episode_filename("001 Un Cocktail Dangereux.mkv", self.DOSSIER_S1),
+            ("City Hunter", 1, [1]),
+        )
+
+    def test_le_rang_absolu_devient_un_rang_dans_la_saison(self):
+        # 052 ouvre la saison 2 : c'est son premier episode, pas le 52e.
+        self.assertEqual(
+            ma.parse_episode_filename(
+                "052 La Jeune Fiancée De Nicky 1.mkv", self.DOSSIER_S2
+            ),
+            ("City Hunter", 2, [1]),
+        )
+        self.assertEqual(
+            ma.parse_episode_filename("114 Un Grand Amour 3.mkv", self.DOSSIER_S2),
+            ("City Hunter", 2, [63]),
+        )
+
+    def test_un_rang_hors_de_la_plage_n_est_pas_un_episode(self):
+        title, _, _ = ma.parse_episode_filename("300 Un Titre.mkv", self.DOSSIER_S2)
+        self.assertIsNone(title)
+
+    def test_sans_plage_sur_le_dossier_un_nombre_en_tete_reste_un_film(self):
+        # « 300 » ou « 2001 l'Odyssee de l'espace » ne sont pas des episodes.
+        for nom, dossier in [
+            ("300.2006.1080p.BluRay.mkv", "300.2006.1080p.BluRay"),
+            ("2001 l'Odyssee de l'espace.mkv", "Films S01"),
+            ("12 Hommes en colere.mkv", "Downloads"),
+        ]:
+            with self.subTest(nom=nom):
+                title, _, _ = ma.parse_episode_filename(nom, dossier)
+                self.assertIsNone(title)
+
+
+class UnHomonymeNePortePasLEpisodeDemande(unittest.TestCase):
+    """Le titre exact ne suffit pas quand la serie n'a pas l'episode cherche.
+
+    Origine : « City Hunter » designe sur TMDb un drama coreen de 2011 (une
+    saison de 20 episodes) avant l'anime de 1987, liste sous « Nicky Larson »
+    avec City Hunter en titre alternatif. Les 140 episodes partaient dans
+    « City Hunter (2011) » sans titre d'episode, TMDb repondant 404.
+    """
+
+    RECHERCHE = [
+        {"id": 39346, "name": "City Hunter", "original_name": "시티헌터", "popularity": 30.0},
+        {"id": 45952, "name": "Hunter × Hunter", "original_name": "HUNTER×HUNTER", "popularity": 90.0},
+        {"id": 36046, "name": "Nicky Larson", "original_name": "シティーハンター", "popularity": 20.0},
+    ]
+    FICHES = {
+        39346: {"seasons": [{"season_number": 1, "episode_count": 20}],
+                "alternative_titles": {"results": [{"title": "City Hunter"}]}},
+        45952: {"seasons": [{"season_number": 1, "episode_count": 62}],
+                "alternative_titles": {"results": [{"title": "Hunter x Hunter"}]}},
+        36046: {"seasons": [{"season_number": n, "episode_count": c}
+                            for n, c in [(1, 51), (2, 63), (3, 13), (4, 13)]],
+                "alternative_titles": {"results": [{"title": "City Hunter"}]}},
+    }
+
+    def chercher(self, saison=None, episode=None, fiches=None):
+        fiches = self.FICHES if fiches is None else fiches
+        appels = []
+
+        def faux_request(path, api_key, params):
+            appels.append(path)
+            if path == "/search/tv":
+                return {"results": self.RECHERCHE}
+            return fiches[int(path.rsplit("/", 1)[1])]
+
+        ma._fiche_tv_pour_controle.cache_clear()
+        with mock.patch.object(ma, "tmdb_request", faux_request):
+            trouve = ma.search_tmdb_tv("City Hunter", None, "cle", "fr-FR",
+                                       saison=saison, episode=episode)
+        return trouve, appels
+
+    def test_l_homonyme_sans_la_saison_est_ecarte(self):
+        trouve, _ = self.chercher(saison=4, episode=13)
+        self.assertEqual(trouve["id"], 36046)
+
+    def test_une_serie_populaire_sans_le_titre_ne_passe_pas_devant(self):
+        # Hunter × Hunter a bien un S01E40, mais ne s'appelle pas City Hunter.
+        trouve, _ = self.chercher(saison=1, episode=40)
+        self.assertEqual(trouve["id"], 36046)
+
+    def test_le_titre_exact_garde_la_priorite_quand_il_porte_l_episode(self):
+        trouve, _ = self.chercher(saison=1, episode=5)
+        self.assertEqual(trouve["id"], 39346)
+
+    def test_sans_aucun_candidat_valable_le_choix_habituel_demeure(self):
+        # Une release qui numerote autrement que TMDb ne doit pas perdre sa serie.
+        trouve, _ = self.chercher(saison=9, episode=1)
+        self.assertEqual(trouve["id"], 39346)
+
+    def test_le_pack_annonce_la_taille_de_sa_saison(self):
+        # S01E05 existe chez le drama, pas les 51 episodes que le pack annonce.
+        nombre = ma.episodes_annonces_par_le_pack(
+            UnPackDeSaisonNommeSesEpisodesParLeurRang.DOSSIER_S1
+        )
+        self.assertEqual(nombre, 51)
+        trouve, _ = self.chercher(saison=1, episode=nombre)
+        self.assertEqual(trouve["id"], 36046)
+        self.assertEqual(
+            ma.episodes_annonces_par_le_pack(
+                UnPackDeSaisonNommeSesEpisodesParLeurRang.DOSSIER_S2
+            ),
+            63,
+        )
+        self.assertIsNone(ma.episodes_annonces_par_le_pack("Show.Season.3.1080p"))
+
+    def test_sans_saison_aucune_fiche_n_est_demandee(self):
+        trouve, appels = self.chercher()
+        self.assertEqual(trouve["id"], 39346)
+        self.assertEqual(appels, ["/search/tv"])
+
+
+class UnTransfertEnCoursNEstPasImporte(unittest.TestCase):
+    """Un fichier en cours de copie ne doit jamais etre pris pour stable.
+
+    Origine : le 2026-11-14, Jackass a ete importe 4 fois (un passage cron sur
+    deux) et Vaiana a laisse un « (2).mkv » de 0 octet. L'outil de copie pose
+    la date du fichier source sur la destination des le debut : le mtime dit
+    « vieux de plusieurs heures » pendant que la copie ecrit encore. Le script
+    deplacait le fichier, la copie echouait et repartait, d'ou les doublons.
+    """
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.inbox = Path(self.tmp.name)
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def _copie_qui_antidate(self, nom, contenu=b"x" * 1024):
+        path = self.inbox / nom
+        path.write_bytes(contenu)
+        vieux = time.time() - 3600
+        os.utime(path, (vieux, vieux))
+        return path
+
+    def test_mtime_antidate_ne_suffit_pas(self):
+        path = self._copie_qui_antidate("Film.2026.1080p.mkv")
+        self.assertFalse(ma.is_stable_file(path, 300))
+        self.assertEqual(ma.gather_incoming_items(self.inbox, 300), [])
+
+    def test_fichier_vide_jamais_importe(self):
+        (self.inbox / "Film.2026.1080p.mkv").write_bytes(b"")
+        self.assertEqual(ma.gather_incoming_items(self.inbox, 0), [])
+
+    def test_fichier_termine_reste_importe(self):
+        (self.inbox / "Film.2026.1080p.mkv").write_bytes(b"x" * 1024)
+        items = ma.gather_incoming_items(self.inbox, 0)
+        self.assertEqual([i.video_path.name for i in items], ["Film.2026.1080p.mkv"])
+
+    def test_archive_antidatee_attend_aussi(self):
+        import media_extract_archives as mx
+
+        path = self._copie_qui_antidate("Show.zip", b"PK\x03\x04")
+        self.assertFalse(mx.is_stable_file(path, 300))
+
+
+def _mkv_bytes(declared_payload, actual_payload):
+    """Build a minimal EBML/Matroska file whose Segment announces a size."""
+    ebml_body = b"\x42\x82\x88matroska"
+    head = b"\x1a\x45\xdf\xa3" + bytes([0x80 | len(ebml_body)]) + ebml_body
+    seg_size = b"\x01" + declared_payload.to_bytes(7, "big")
+    return head + b"\x18\x53\x80\x67" + seg_size + b"\0" * actual_payload
+
+
+class UnMkvTronqueNEstPasImporte(unittest.TestCase):
+    """Un MKV coupe annonce quand meme sa duree complete : on lit sa taille.
+
+    Origine : le 2026-11-14, 8 MKV coupes dans la bibliotheque (Projet
+    Derniere Chance : 0,7 Go sur 12,9). ffprobe donnait la duree pleine, car
+    elle est ecrite dans l'en-tete ; seule la taille du Segment trahit la coupe.
+    """
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.inbox = Path(self.tmp.name)
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def test_mkv_tronque_detecte(self):
+        path = self.inbox / "Film.2026.1080p.mkv"
+        path.write_bytes(_mkv_bytes(4096, 1024))
+        self.assertTrue(ma.is_truncated_mkv(path))
+        self.assertEqual(ma.gather_incoming_items(self.inbox, 0), [])
+
+    def test_mkv_complet_importe(self):
+        path = self.inbox / "Film.2026.1080p.mkv"
+        path.write_bytes(_mkv_bytes(1024, 1024))
+        self.assertFalse(ma.is_truncated_mkv(path))
+        self.assertEqual(len(ma.gather_incoming_items(self.inbox, 0)), 1)
+
+    def test_taille_inconnue_ou_autre_format_non_bloquant(self):
+        live = self.inbox / "Live.mkv"
+        live.write_bytes(_mkv_bytes((1 << 56) - 1, 64))
+        autre = self.inbox / "Film.mp4"
+        autre.write_bytes(b"x" * 1024)
+        self.assertFalse(ma.is_truncated_mkv(live))
+        self.assertFalse(ma.is_truncated_mkv(autre))
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

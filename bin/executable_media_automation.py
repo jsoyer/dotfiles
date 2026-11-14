@@ -27,6 +27,7 @@ Multi-version films get quality subdirectories:
 """
 
 import argparse
+import functools
 import json
 import logging
 import os
@@ -142,6 +143,17 @@ EPISODE_PATTERNS = [
 SEASON_HINT_RE = re.compile(
     r"(?:^|[.\s_-])(?:S|SAISON|SEASON)[.\s_-]?(\d{1,2})(?=[.\s_-]|$)", re.I
 )
+
+# Pack de saison dont les fichiers ne portent qu'un rang absolu :
+# « City Hunter S02 E52-114 … / 052 La Jeune Fiancee.mkv ». Le dossier donne
+# la serie, la saison et la plage ; sans cette plage, un nombre en tete de nom
+# (« 300 », « 2001 l'Odyssee ») reste un film.
+PACK_RANGE_RE = re.compile(
+    r"^(?P<title>.+?)[.\s_-]+S(?P<season>\d{1,2})[.\s_-]*E(?P<first>\d{1,4})"
+    r"[.\s_]*-[.\s_]*E?(?P<last>\d{1,4})(?!\d)",
+    re.I,
+)
+RANK_PREFIX_RE = re.compile(r"^(?P<rank>\d{1,4})(?:\s+-\s+|[.\s_]+)\S")
 
 # Release noise stripped from a parsed series title before querying TMDb.
 SERIES_TITLE_NOISE_RE = re.compile(
@@ -934,7 +946,29 @@ def parse_episode_filename(filename, parent_name=None):
         if groups.get("episode2"):
             episodes.append(int(groups["episode2"]))
         return title, season, episodes
+
+    rang = RANK_PREFIX_RE.match(name)
+    pack = PACK_RANGE_RE.match(parent_name or "")
+    if rang and pack:
+        numero = int(rang.group("rank"))
+        premier, dernier = int(pack.group("first")), int(pack.group("last"))
+        title = clean_series_title(pack.group("title"))
+        if title and premier <= numero <= dernier:
+            return title, int(pack.group("season")), [numero - premier + 1]
     return None, None, []
+
+
+def episodes_annonces_par_le_pack(parent_name):
+    """Nombre d'episodes qu'un dossier « Serie S02 E52-114 » annonce, ou None.
+
+    Sert a departager les homonymes TMDb : le drama City Hunter (2011) porte
+    bien un S01E05, mais pas les 51 episodes que le pack de l'anime annonce.
+    """
+    pack = PACK_RANGE_RE.match(parent_name or "")
+    if not pack:
+        return None
+    premier, dernier = int(pack.group("first")), int(pack.group("last"))
+    return dernier - premier + 1 if dernier >= premier else None
 
 
 def is_partial_file(path):
@@ -943,9 +977,72 @@ def is_partial_file(path):
 
 
 def is_stable_file(path, stability_seconds):
-    """Return True when a file has not changed recently."""
-    age = time.time() - path.stat().st_mtime
+    """Return True when a file has not changed recently.
+
+    mtime alone lies: copy tools (SMB/Explorer, rsync -a, cp -p) stamp the
+    source date on the destination as soon as the copy starts, so a file still
+    being written looks hours old. ctime is set by the kernel on every write
+    and no client can forge it, so the most recent of the two is the truth.
+    """
+    st = path.stat()
+    age = time.time() - max(st.st_mtime, st.st_ctime)
     return age >= stability_seconds
+
+
+_EBML_ID = b"\x1a\x45\xdf\xa3"
+_SEGMENT_ID = b"\x18\x53\x80\x67"
+
+
+def _read_ebml_size(handle):
+    """Read an EBML variable-size integer; None when unknown or unreadable."""
+    first = handle.read(1)
+    if not first:
+        return None
+    length = 1
+    mask = 0x80
+    while length <= 8 and not first[0] & mask:
+        mask >>= 1
+        length += 1
+    if length > 8:
+        return None
+    rest = handle.read(length - 1)
+    if len(rest) != length - 1:
+        return None
+    value = first[0] & (mask - 1)
+    all_ones = value == mask - 1
+    for byte in rest:
+        value = (value << 8) | byte
+        all_ones = all_ones and byte == 0xFF
+    return None if all_ones else value
+
+
+def is_truncated_mkv(path):
+    """Return True when a Matroska file is shorter than its header announces.
+
+    Duration lives in the header, so a cut copy still reports its full length;
+    only the Segment size gives it away. Anything that is not a readable MKV
+    with a known Segment size is left to the other checks.
+    """
+    if path.suffix.lower() not in {".mkv", ".mka", ".webm"}:
+        return False
+    try:
+        actual = path.stat().st_size
+        with path.open("rb") as handle:
+            if handle.read(4) != _EBML_ID:
+                return False
+            header_size = _read_ebml_size(handle)
+            if header_size is None:
+                return False
+            handle.seek(header_size, os.SEEK_CUR)
+            if handle.read(4) != _SEGMENT_ID:
+                return False
+            segment_size = _read_ebml_size(handle)
+            if segment_size is None:
+                return False
+            return handle.tell() + segment_size > actual
+    except OSError as error:
+        log_message(f"[SCAN] Cannot inspect {path}: {error}", level="warning")
+        return False
 
 
 def gather_incoming_items(incoming_dir, stability_seconds):
@@ -960,6 +1057,15 @@ def gather_incoming_items(incoming_dir, stability_seconds):
         if is_partial_file(video_path) or not is_stable_file(
             video_path, stability_seconds
         ):
+            continue
+        # A copy that is created then stalls leaves a 0-byte file: never import it.
+        if video_path.stat().st_size == 0:
+            continue
+        if is_truncated_mkv(video_path):
+            log_message(
+                f"[SCAN] Skipping truncated MKV (copy incomplete): {video_path}",
+                level="warning",
+            )
             continue
 
         related = [
@@ -1881,7 +1987,7 @@ def titres_de_recherche_tv(title):
     return queries
 
 
-def search_tmdb_tv(title, year, api_key, language):
+def search_tmdb_tv(title, year, api_key, language, saison=None, episode=None):
     """Search TMDb for a TV show candidate.
 
     The year is a hint, never a requirement. Release folders name the year of
@@ -1892,6 +1998,9 @@ def search_tmdb_tv(title, year, api_key, language):
 
     The same applies to a season subtitle glued onto the series name: try the
     full string first, then a shortened one, rather than skip the pack.
+
+    With a season and an episode, a homonym lacking them gives way to a show
+    that carries both: see _candidat_qui_porte_l_episode.
     """
     for query in titres_de_recherche_tv(title):
         params = {"query": query, "language": language}
@@ -1915,7 +2024,63 @@ def search_tmdb_tv(title, year, api_key, language):
         choisi = _meilleur_candidat_tv(query, results)
         if query != title and not _titre_tv_exact(query, choisi):
             continue
+        if saison and episode:
+            choisi = (
+                _candidat_qui_porte_l_episode(
+                    query, results, saison, episode, api_key, language
+                )
+                or choisi
+            )
         return choisi
+    return None
+
+
+# Fiches consultees pour departager des homonymes : un pack de saison pose la
+# meme question pour chacun de ses episodes, une fiche suffit par serie.
+@functools.lru_cache(maxsize=256)
+def _fiche_tv_pour_controle(tv_id, api_key, language):
+    return tmdb_request(
+        f"/tv/{tv_id}",
+        api_key,
+        {"language": language, "append_to_response": "alternative_titles"},
+    )
+
+
+def _candidat_qui_porte_l_episode(
+    query, results, saison, episode, api_key, language, limite=8
+):
+    """First candidate named `query` that actually has SxxEyy, or None.
+
+    « City Hunter » designe sur TMDb un drama coreen d'une saison avant
+    l'anime de 1987, liste sous « Nicky Larson ». Le titre exact ne suffit
+    donc pas : la serie doit aussi porter la saison et l'episode. Un titre
+    alternatif compte comme un nom, sans quoi l'anime ne serait jamais
+    retenu ; l'exiger evite qu'une serie populaire sans rapport (Hunter x
+    Hunter a aussi un S01E40) passe devant.
+    """
+    cible = normalize(query)
+    exacts = [r for r in results if _titre_tv_exact(query, r)]
+    autres = [r for r in results if r not in exacts]
+    par_preference = sorted(
+        exacts, key=lambda r: r.get("popularity") or 0, reverse=True
+    ) + sorted(autres, key=lambda r: r.get("popularity") or 0, reverse=True)
+    for candidat in par_preference[:limite]:
+        try:
+            fiche = _fiche_tv_pour_controle(candidat["id"], api_key, language)
+        except Exception as exc:
+            LOGGER.warning("TMDb fiche %s indisponible : %s", candidat["id"], exc)
+            continue
+        alternatifs = {
+            normalize(t.get("title") or "")
+            for t in (fiche.get("alternative_titles") or {}).get("results", [])
+        }
+        if candidat not in exacts and cible not in alternatifs:
+            continue
+        if any(
+            s.get("season_number") == saison and (s.get("episode_count") or 0) >= episode
+            for s in fiche.get("seasons", [])
+        ):
+            return candidat
     return None
 
 
@@ -2413,7 +2578,15 @@ def import_tv_item(item, config, dry_run, summary):
         year_hint = file_year.group(1) if file_year else None
 
     candidate = search_tmdb_tv(
-        title, year_hint, config.tmdb_api_key, config.tmdb_language
+        title,
+        year_hint,
+        config.tmdb_api_key,
+        config.tmdb_language,
+        saison=season_number,
+        episode=max(
+            episodes
+            + [episodes_annonces_par_le_pack(item.video_path.parent.name) or 0]
+        ),
     )
     if not candidate:
         summary.skipped_items += 1
