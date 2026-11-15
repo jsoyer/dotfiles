@@ -67,16 +67,22 @@ selection data to wrappers, including ones run outside an interactive shell.
 
 ## Add and remove packages
 
-You can edit the inventory files in the chezmoi source directly. Edit the
-short-hostname file for one machine, or the base/usage inventory when the
-package should apply to every machine in that layer. Use `package-plan preview`
-to check which files are active before editing. Examples include
+You can edit the inventory files in the chezmoi source directly. First use
+`package-plan preview` to see which files are active. For a migrated machine,
+edit its short-hostname file or the base/usage inventory when the package should
+apply to every machine in that layer. Examples include
 `dot_private/Brewfile_Jerome-Soyers-Mac-Mini-M6`, `dot_private/Aptfile_rpi`,
 and `dot_private/Scoopfile_personal.json`; use the filename pattern for your
 own machine and keep JSON inventories valid JSON.
 Review and commit manual edits normally. The wrappers update inventories after
 successful installs and uninstalls, so avoid editing a file while a wrapper is
 running.
+
+Unmigrated `legacy` machines still read compatibility files such as
+`Brewfile_personal` and `Brewfile_pro`. Those files are protected by the hashes
+in `docs/PACKAGE_BASELINE_2026-11-14.json`; migrate before changing their
+package selection where possible. An intentional compatibility fix (such as a
+Homebrew rename) must update its baseline hash in the same commit.
 
 These files describe desired packages. Removing a line does not uninstall a
 package. A later `dump` can add back a removed line if that package is still
