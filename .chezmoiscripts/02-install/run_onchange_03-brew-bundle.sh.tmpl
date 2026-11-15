@@ -45,8 +45,21 @@ combined="$(_filter_unbottled <<'CHEZMOI_SELECTED_BREWFILE'
 CHEZMOI_SELECTED_BREWFILE
 )" || exit 1
 [[ -n "$combined" ]] || exit 0
-printf '%s\n' "$combined" | grep -E '^(brew |tap |cask |mas )' | brew bundle install --file=- || true
+
+# mas may need to prompt for sudo. Feeding the Brewfile on stdin leaves its
+# child commands at EOF, so mas cannot read the password. Use private temp
+# manifests and keep stdin attached to chezmoi's terminal instead.
+umask 077
+BREWFILE_TMP="$(mktemp "${TMPDIR:-/tmp}/chezmoi-brewfile.XXXXXX")" || exit 1
+BREWFILE_BOOTSTRAP="$(mktemp "${TMPDIR:-/tmp}/chezmoi-brewfile-bootstrap.XXXXXX")" || {
+  rm -f "$BREWFILE_TMP"
+  exit 1
+}
+trap 'rm -f "$BREWFILE_TMP" "$BREWFILE_BOOTSTRAP"' EXIT
+printf '%s\n' "$combined" > "$BREWFILE_TMP" || exit 1
+grep -E '^(brew |tap |cask |mas )' "$BREWFILE_TMP" > "$BREWFILE_BOOTSTRAP" || true
+brew bundle install --file="$BREWFILE_BOOTSTRAP" || true
 _refresh_brew_path
 # The final pass must fail visibly so chezmoi retries instead of recording success.
-printf '%s\n' "$combined" | brew bundle install --file=-
+brew bundle install --file="$BREWFILE_TMP"
 {{ end -}}
