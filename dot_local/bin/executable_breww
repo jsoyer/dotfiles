@@ -629,10 +629,13 @@ DUMP_DISABLE_ENV = tuple(
 
 
 def dump_env() -> dict[str, str]:
-    """Process env with the unneeded bundle dumpers disabled."""
+    """Process env with unused dumpers and descriptions disabled."""
     env = dict(os.environ)
     for name in DUMP_DISABLE_ENV:
         env[name] = "1"
+    # Multi-line cask descriptions can leak un-commented continuation lines
+    # into Brewfiles, which the strict inventory parser correctly rejects.
+    env["HOMEBREW_BUNDLE_NO_DESCRIBE"] = "1"
     return env
 
 
