@@ -721,6 +721,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(unix)]
     fn collect_broken_symlinks_detects_dangling_link() {
         let tmp = make_tmp("broken-symlinks");
         let link = tmp.join("broken_link");
@@ -734,6 +735,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(unix)]
     fn collect_broken_symlinks_ignores_valid_symlinks() {
         let tmp = make_tmp("good-symlinks");
         let real_file = tmp.join("real.md");
