@@ -308,7 +308,7 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
       - name: Test aictx settings preservation
         working-directory: tools/aictx
-        run: cargo test --locked --bin aictx settings::
+        run: "cargo test --locked --bin aictx settings::"
       - name: Test Windows PowerShell 5.1 compatibility
         if: runner.os == 'Windows'
         env:
