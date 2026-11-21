@@ -215,22 +215,30 @@ fi
 
 {{- if $isRpi }}
 # Raspberry Pi OS is Debian-based: same apt/user-scope flow as ubuntu-desktop.
-# Only aarch64-capable apps are listed -- Discord and Signal ship x86_64 only on
-# Flathub, which is what used to make `brew bundle` fail here.
-if ! command -v flatpak &>/dev/null; then
-    echo "Flatpak not found, installing via apt..."
-    sudo apt update
-    sudo apt install -y flatpak
-fi
+# Keep Flatpak optional on headless Pis: do not install the CLI or initialize
+# Flathub unless the selected base/host manifests actually request an app.
+_base="{{ printf "%s/dot_private/Flatpakfile_rpi" .chezmoi.sourceDir }}"
+_host_file="{{ $hostOverlayPath }}"
+mapfile -t _apps < <(grep -v '^\s*#' "$_base" 2>/dev/null | grep -v '^\s*$' | _filter_pkg_exclusions flatpak)
+mapfile -t _host_apps < <(grep -v '^\s*#' "$_host_file" 2>/dev/null | grep -v '^\s*$' | _filter_pkg_exclusions flatpak)
 
-if ! flatpak remote-list --user 2>/dev/null | grep -q flathub; then
-    flatpak remote-add --user --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
-fi
+if ((${#_apps[@]} + ${#_host_apps[@]} == 0)); then
+    echo "No Flatpak apps selected for Raspberry Pi; skipping Flatpak setup."
+else
+    if ! command -v flatpak &>/dev/null; then
+        echo "Flatpak not found, installing via apt..."
+        sudo apt update
+        sudo apt install -y flatpak
+    fi
 
-echo "Refreshing Flathub metadata..."
-flatpak update --appstream flathub --user 2>/dev/null || true
+    if ! flatpak remote-list --user 2>/dev/null | grep -q flathub; then
+        flatpak remote-add --user --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+    fi
 
-echo "Installing Flatpak packages (Raspberry Pi)..."
+    echo "Refreshing Flathub metadata..."
+    flatpak update --appstream flathub --user 2>/dev/null || true
+
+    echo "Installing Flatpak packages (Raspberry Pi)..."
 
 _install_flatpak_rpi() {
     local pkg="$1"
@@ -246,17 +254,10 @@ _install_flatpak_rpi() {
     fi
 }
 
-# --- base manifest (rpi) ---
-_base="{{ printf "%s/dot_private/Flatpakfile_rpi" .chezmoi.sourceDir }}"
-if [[ -f "$_base" && -s "$_base" ]]; then
-    mapfile -t _apps < <(grep -v '^\s*#' "$_base" | grep -v '^\s*$' | _filter_pkg_exclusions flatpak)
+    # --- base manifest (rpi) ---
     for pkg in "${_apps[@]}"; do _install_flatpak_rpi "$pkg"; done
-fi
 
-# --- per-hostname overlay ---
-_host_file="{{ $hostOverlayPath }}"
-if [[ -f "$_host_file" && -s "$_host_file" ]]; then
-    mapfile -t _host_apps < <(grep -v '^\s*#' "$_host_file" | grep -v '^\s*$' | _filter_pkg_exclusions flatpak)
+    # --- per-hostname overlay ---
     if (( ${#_host_apps[@]} > 0 )); then
         echo "Installing host-overlay Flatpak packages ({{ .chezmoi.hostname }}, Raspberry Pi)..."
         for pkg in "${_host_apps[@]}"; do _install_flatpak_rpi "$pkg"; done

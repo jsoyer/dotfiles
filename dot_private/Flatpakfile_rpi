@@ -1,5 +1,1 @@
-# rpi flatpak base (aarch64 only -- Discord and Signal have no arm64 build)
-io.github.shiftey.Desktop
-md.obsidian.Obsidian
-org.localsend.localsend_app
-tech.feliciano.pocket-casts
+# Raspberry Pi base intentionally contains no desktop Flatpak applications.

@@ -277,7 +277,7 @@ sysup --reboot   # Fedora desktop/server: stage the dnf upgrade offline, then re
   - With `--reboot` (desktop/server): `dnf offline clean`, `dnf upgrade --refresh --offline -y`, then `dnf offline reboot -y` once the user-level updates are done
   - Ends with a reboot warning when `dnf needs-restarting` reports one (kernel, glibc, systemd...)
 - **Fedora Atomic:** `rpm-ostree upgrade`
-- **All Linux:** Flatpak updates if installed
+- **All Linux:** Flatpak updates only for scopes with installed applications; listing/update failures are reported
 - **All Linux:** Linuxbrew updates if installed
 - **All Linux:** Calls `update-ai` after package updates
 

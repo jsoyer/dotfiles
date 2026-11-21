@@ -307,14 +307,34 @@ sysup() {
       esac
 
       if command -v flatpak &>/dev/null; then
-        echo "📦 Updating Flatpak apps..."
-        # Split by scope. A bare `flatpak update` also targets system-scope
-        # installs, and polkit refuses a non-interactive deploy for a normal
-        # user: "Flatpak system operation Deploy not allowed for user", which
-        # then makes the whole command exit non-zero.
-        flatpak update --user -y || true
-        if flatpak list --system --columns=application 2>/dev/null | grep -q .; then
-          _sysup_sudo flatpak update --system -y || true
+        # Update only scopes that actually have installed applications. The
+        # Flatpak CLI can be present on headless hosts with no Flatpaks; calling
+        # update there is noisy (XDG_DATA_DIRS warnings) and looks like work is
+        # happening when there is nothing to update. Preserve failures so sysup
+        # and fleet report an incomplete update instead of silently succeeding.
+        local flatpak_user_list="" flatpak_system_list="" flatpak_user_apps="" flatpak_system_apps=""
+        if ! flatpak_user_list="$(flatpak list --user --app --columns=application 2>/dev/null)"; then
+          echo "⚠️  Could not inspect user Flatpak applications." >&2
+          _sysup_rc=1
+        else
+          flatpak_user_apps="$(printf '%s\n' "$flatpak_user_list" | awk 'NR > 1 && NF { print $1 }')"
+        fi
+        if ! flatpak_system_list="$(flatpak list --system --app --columns=application 2>/dev/null)"; then
+          echo "⚠️  Could not inspect system Flatpak applications." >&2
+          _sysup_rc=1
+        else
+          flatpak_system_apps="$(printf '%s\n' "$flatpak_system_list" | awk 'NR > 1 && NF { print $1 }')"
+        fi
+        if [[ -n "$flatpak_user_apps" || -n "$flatpak_system_apps" ]]; then
+          echo "📦 Updating Flatpak apps..."
+          # Split by scope: system deploys require sudo and the explicit
+          # sudoers rule; user installs must stay unprivileged.
+          if [[ -n "$flatpak_user_apps" ]]; then
+            flatpak update --user -y || _sysup_rc=1
+          fi
+          if [[ -n "$flatpak_system_apps" ]]; then
+            _sysup_sudo flatpak update --system -y || _sysup_rc=1
+          fi
         fi
       fi
 
