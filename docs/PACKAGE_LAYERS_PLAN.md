@@ -38,6 +38,44 @@ On évite ainsi de multiplier les profils techniques pour toutes les combinaison
 OS × usage × architecture. Le libellé « mac-base » correspond à un Mac dont
 `package_profile = "base"`, sans remplacer son profil technique.
 
+## Éditeur convivial des profils — orientation retenue (2026-11-21)
+
+L'éditeur futur doit rester une interface simple au-dessus des manifestes et de
+la logique existants, sans devenir un second système de gestion des paquets.
+
+Le parcours de création d'une cible demande :
+
+1. La famille de système : macOS, Linux ou Windows ; BSD apparaît dans « Autres ».
+2. La variante technique : distribution Linux, variante BSD ou environnement
+   hôte/conteneur. Les Linux principaux sont Debian, Fedora et Omarchy ; Alpine
+   et Arch doivent aussi être pris en charge pour les conteneurs.
+3. La base de cette plateforme, puis l'usage facultatif (`personal`,
+   `professional` ou `server`).
+4. Pour une machine hôte, son hostname et, si besoin, ses ajouts propres.
+
+La résolution reste `base de plateforme + usage + ajouts/exclusions locaux`.
+Elle ne doit pas créer une variante pour chaque produit cartésien OS × distro ×
+usage. Les distributions Linux utilisent leurs gestionnaires natifs ; Omarchy
+reste identifiable comme environnement particulier. Les profils de conteneur
+sont distincts des machines physiques et ne reçoivent pas implicitement les
+paquets ou configurations d'un poste/NAS.
+
+L'interface de base est un CLI guidé, avec trois actions visibles : créer une
+cible, modifier ses paquets, prévisualiser les changements. Le cœur et les
+commandes restent en Python en réutilisant `package_layers.py`; un TUI Textual
+peut être ajouté comme dépendance optionnelle si le menu guidé ne suffit pas.
+Le catalogue existant reste la référence pour les profils et gestionnaires.
+Un registre léger des machines/cibles pourra associer hostname, famille,
+variante technique et usage afin que l'outil crée les manifestes locaux et que
+chezmoi retrouve ces choix lors de l'initialisation.
+
+Toute édition montre les paquets avec leur provenance et un diff avant écriture.
+Retirer un paquet hérité crée une exclusion locale ; le partager nécessite une
+promotion explicite. Les changements portent uniquement sur les manifestes :
+l'éditeur ne lance pas d'installation ou de suppression. Les fichiers restent
+éditables à la main, et les profils `legacy` gardent leur protection/migration
+explicite.
+
 Pour une installation neuve, proposer la base par défaut et enregistrer le choix
 avant toute installation. Une configuration existante conserve son comportement
 jusqu'à sa migration explicite. L'absence du nouveau champ ne suffit pas à
