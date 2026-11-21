@@ -41,7 +41,6 @@ Handles manifests-based package installation and CLI tool setup, runs on manifes
 | `run_once_install-windows-packages.ps1` | Once | Windows | Install packages from Scoop manifests |
 | `run_once_install-toolboxes.sh` | Once | Fedora (host) | Create and configure Fedora toolbox containers |
 | `run_once_install-linux-flatpak.sh` | Once | Linux Desktop | Install Flatpak and optional Flatpak apps (fallback GUI apps) |
-| `run_once_16-cleanup-rpi-desktop-flatpaks.sh` | Once | Raspberry Pi | Remove desktop Flatpaks formerly included in every RPi profile; preserve app data |
 | `run_once_cleanup-flatpak-to-native.sh` | Once | Linux Desktop | Remove Flatpak duplicates when native packages become available |
 | `run_once_install-pi-apps.sh` | Once | Raspberry Pi (GUI) | Install Pi-Apps manager and GUI applications (Brave, Signal, Obsidian, etc.) |
 | `run_once_install-claude-plugins.sh` | Once | Desktop profiles | Install Claude Code plugins (octo@nyldn-plugins, LSP plugins) if `install_ocx` enabled |
@@ -77,7 +76,8 @@ command -v startx &>/dev/null
 
 GUI-specific scripts (Pi-Apps, Flatpak, plugins) should be scoped to desktop
 profiles or explicit package layers. Raspberry Pi base intentionally has no
-Flatpak desktop apps; legacy installs clean up the old shared list once.
+Flatpak desktop apps. Existing apps are not automatically uninstalled; declare
+ones to keep in the machine's `Flatpakfile_<hostname>` before removing them.
 
 **install_ocx toggle:**
 Defined in `.chezmoi.toml.tmpl` (line 51), this boolean prompt appears on first apply for desktop profiles (mac-personal, fedora-desktop, toolbox, ubuntu-desktop, arch-desktop, omarchy). When enabled, it triggers:

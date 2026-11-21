@@ -53,6 +53,13 @@ Le parcours de création d'une cible demande :
    `professional` ou `server`).
 4. Pour une machine hôte, son hostname et, si besoin, ses ajouts propres.
 
+L'interface distingue aussi les cibles graphiques des cibles headless : « RPi »
+décrit le matériel, pas la présence d'un bureau. La base RPi ne déclare donc pas
+d'applications graphiques. Une application à conserver sur un Pi donné doit
+figurer dans son overlay `Flatpakfile_<hostname>` ou dans un usage explicitement
+choisi. Une migration ne désinstalle jamais automatiquement des applications
+sur tous les RPi ; elle présente les retraits et demande une portée explicite.
+
 La résolution reste `base de plateforme + usage + ajouts/exclusions locaux`.
 Elle ne doit pas créer une variante pour chaque produit cartésien OS × distro ×
 usage. Les distributions Linux utilisent leurs gestionnaires natifs ; Omarchy
