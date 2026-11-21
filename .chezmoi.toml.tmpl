@@ -4,7 +4,9 @@
 {{- $host := first (splitList "." .chezmoi.hostname) -}}
 {{- $registered := dict -}}
 {{- if and (not (index . "machine_profile")) (not (stat .chezmoi.configFile)) -}}
-{{- $registered = index $registry.machines $host | default dict -}}
+{{- range $registeredHost, $details := $registry.machines -}}
+{{- if eq (lower $registeredHost) (lower $host) -}}{{- $registered = $details -}}{{- end -}}
+{{- end -}}
 {{- end -}}
 {{- $registeredMp := "" -}}
 {{- $registeredPp := "" -}}

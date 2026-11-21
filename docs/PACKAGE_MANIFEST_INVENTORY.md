@@ -78,7 +78,8 @@ renommage ou suppression.
 
 - `package_profile` absent sélectionne encore `legacy`. Les listes historiques
   (`Brewfile_personal`, `Brewfile_pro`, anciennes listes de distribution et
-  `Scoopfile.json`) restent donc actives pour les machines non migrées.
+  `Scoopfile.json`) restent actives pour les machines non enregistrées ou
+  explicitement conservées en `legacy`.
 - `legacy_brew_host_prefixes` donne à `omv-*` et `bbh-network*` des fichiers
   Linuxbrew dédiés (`Brewfile_brew_only`, `Brewfile_rpi`) au lieu du simple
   `Brewfile_<hostname>`.
@@ -120,7 +121,8 @@ renommage ou suppression.
 les déclarations avec leurs fichiers sources, ajoutent/suppriment via wrappers,
 gèrent les exclusions, promeuvent explicitement des paquets et migrent une
 machine en mode aperçu par défaut. `package-plan create` enregistre le profil et
-l'usage d'une nouvelle machine dans `package-machines.json` ; `package-plan tui`
-permet d'ajouter ou retirer des paquets après aperçu du diff et confirmation.
+l'usage d'une machine dans `package-machines.json` ; `package-plan tui` permet
+de sélectionner une machine, éditer ses couches base/usage/machine et d'ajouter
+ou retirer des paquets après aperçu du diff et confirmation.
 L'outil reste au-dessus des manifestes existants. BSD et les sources d'installation
 hors manifestes restent à intégrer ou présenter explicitement comme hors périmètre.

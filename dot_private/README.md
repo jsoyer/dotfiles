@@ -3,7 +3,7 @@
 All three operating systems use **platform base + optional usage + machine**.
 The catalog is [package-layers.json](package-layers.json). See
 [Package layers](../docs/PACKAGE_LAYERS.md) for setup, migration and rollback.
-The optional per-host defaults created by `package-plan create` live in
+Per-host profile choices created or edited by `package-plan create` / `tui` live in
 `package-machines.json`.
 
 ## Selection
@@ -51,9 +51,11 @@ Migration preserves this host's declarations in its own file, with local backups
 it does not modify another host, uninstall software or automatically publish files.
 Keep compatibility until actual machine inventories and hostname mappings are verified.
 
-For guided editing, run `package-plan tui`; for a new machine, run
-`package-plan create`. Both commands preview their scope and only update source
-files after confirmation. They never install or uninstall packages.
+For guided editing, run `package-plan tui`; to register a machine directly, run
+`package-plan create`. The TUI can select a registered host, discover an
+unregistered host manifest, or configure a new hostname. It can edit machine,
+base and usage layers, previews diffs, and writes only after confirmation. It
+never installs or uninstalls packages.
 
 ## Wrappers and shared changes
 

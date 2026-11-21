@@ -208,8 +208,28 @@ def context_from_environment(args=None) -> Context:
         and Path(data["source_dir"]).resolve() != source.resolve()
     ):
         data = {}
+    hostname = short_hostname(
+        getattr(args, "hostname", None) or data.get("hostname") or platform.node()
+    )
+    registered = {}
+    registry_path = machine_registry(source)
+    if registry_path.exists():
+        registry = read_json(registry_path)
+        if not isinstance(registry, dict) or not isinstance(registry.get("machines"), dict):
+            raise LayerError(f"Invalid machine registry: {registry_path}")
+        registered = next(
+            (
+                value
+                for key, value in registry["machines"].items()
+                if key.casefold() == hostname.casefold()
+            ),
+            {},
+        )
+        if not isinstance(registered, dict):
+            raise LayerError(f"Invalid machine entry for {hostname!r} in {registry_path}")
     mp = (
         getattr(args, "machine_profile", None)
+        or registered.get("machine_profile")
         or data.get("machine_profile")
         or os.environ.get("MACHINE_PROFILE")
     )
@@ -218,6 +238,7 @@ def context_from_environment(args=None) -> Context:
             value
             for value in (
                 getattr(args, "profile", None),
+                registered.get("package_profile"),
                 data.get("package_profile"),
                 os.environ.get("PACKAGE_PROFILE"),
             )
@@ -241,7 +262,7 @@ def context_from_environment(args=None) -> Context:
         source,
         mp or "",
         "legacy" if pp is None else pp,
-        getattr(args, "hostname", None) or data.get("hostname") or platform.node(),
+        hostname,
         bool(data.get("install_mas", False)),
     )
 
@@ -297,14 +318,24 @@ def show_file_changes(source: Path, updates: dict[Path, str]) -> None:
             print("(aucune différence)")
 
 
-def create_machine(source: Path) -> int:
+def configure_machine(
+    source: Path,
+    host: str | None = None,
+    *,
+    replace_existing: bool = False,
+    allow_legacy: bool = False,
+) -> Context | None:
     """Register a machine's package layers without installing any software."""
     source = Path(source)
     catalog = read_json(source / "dot_private/package-layers.json")
     profiles = catalog["profiles"]
-    host = input("Nom court de la machine : ").strip().split(".", 1)[0]
+    host = (host or input("Nom court de la machine : ").strip()).split(".", 1)[0]
     if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_-]*", host):
         raise LayerError(f"Nom de machine invalide : {host!r}")
+    discovered = discover_machine_manifests(source)
+    matched_host = next((name for name in discovered if name.casefold() == host.casefold()), None)
+    if matched_host:
+        host = matched_host
 
     labels = {
         "mac-personal": "macOS — personnel",
@@ -339,7 +370,12 @@ def create_machine(source: Path) -> int:
         "professional": "Professionnel",
         "server": "Serveur",
     }
-    selected_usage = choose("Usage des paquets", list(usage_labels.values()))
+    existing_manifests = discovered.get(host, [])
+    usage_options = list(usage_labels.values())
+    if existing_manifests or replace_existing or allow_legacy:
+        usage_labels["legacy"] = "Conserver les listes historiques (legacy)"
+        usage_options.append(usage_labels["legacy"])
+    selected_usage = choose("Usage des paquets", usage_options)
     usage = next(key for key, label in usage_labels.items() if label == selected_usage)
 
     registry_path = machine_registry(source)
@@ -351,46 +387,181 @@ def create_machine(source: Path) -> int:
     if not isinstance(registry, dict) or not isinstance(registry.get("machines", {}), dict):
         raise LayerError(f"Invalid machine registry: {registry_path}")
     machines = registry.setdefault("machines", {})
-    if host in machines:
+    existing_key = next((key for key in machines if key.casefold() == host.casefold()), None)
+    if existing_key and not replace_existing:
         raise LayerError(f"{host} is already registered in {registry_path.name}")
+    if existing_key:
+        host = existing_key
+        previous = machines[existing_key]
+        print(
+            f"Profil enregistré : {previous.get('machine_profile', '?')} / "
+            f"{previous.get('package_profile', '?')}"
+        )
+        if not confirm("Remplacer ce profil ?", default=False):
+            return None
 
     context = Context(source, machine_profile, usage, host)
-    collisions = [
-        context.selection(manager)["host"]
-        for manager in context.managers
-        if (context.directory / context.selection(manager)["host"]).exists()
-    ]
+    collisions = discover_machine_manifests(source).get(host, [])
     if collisions:
-        raise LayerError(
-            f"Host manifests already exist for {host}: {', '.join(collisions)}. "
-            "Review them before registering this machine."
-        )
+        print("Manifestes déjà présents : " + ", ".join(collisions))
+        if not confirm(
+            "Associer ces manifestes à cette machine ? Vérifie le hostname.",
+            default=False,
+        ):
+            print("Enregistrement annulé ; aucun fichier modifié.")
+            return None
 
-    print(f"\nNouvelle machine : {host}")
+    title = (
+        "Profil de machine mis à jour"
+        if existing_key
+        else "Machine existante à configurer"
+        if collisions
+        else "Nouvelle machine"
+    )
+    print(f"\n{title} : {host}")
     print(f"  Système : {labels.get(machine_profile, machine_profile)}")
     print(f"  Usage :   {usage_labels[usage]}")
     for manager in context.managers:
         plan = context.selection(manager)
-        print(f"  {manager} : " + ", ".join(plan["shared"] or ["aucun paquet partagé"]))
+        count = len(context.entries(manager))
+        print(f"  {manager} : {count} paquets déclarés")
+        print("    couches : " + ", ".join(plan["files"] or ["aucun manifeste actif"]))
         print(f"    manifeste machine : {plan['host']}")
     print("  Aucun paquet ne sera installé.")
     if not confirm("Enregistrer cette machine dans package-machines.json ?", default=False):
         print("Aucun fichier modifié.")
-        return 0
+        return None
 
     machines[host] = {"machine_profile": machine_profile, "package_profile": usage}
     registry["version"] = 1
     atomic_write(registry_path, json.dumps(registry, indent=2, ensure_ascii=False) + "\n")
     print(f"Créé : {registry_path.relative_to(source)}")
-    print(
-        "Sur la nouvelle machine, initialise chezmoi normalement : son hostname "
-        "chargera ce système et cet usage."
-    )
+    print("Le prochain `chezmoi apply` utilisera ce profil pour sélectionner les paquets.")
+    if not existing_key:
+        print("Une première initialisation chezmoi sur ce hostname enregistrera aussi ce choix localement.")
+    return context
+
+
+def create_machine(source: Path) -> int:
+    configure_machine(source)
     return 0
 
 
+def discover_machine_manifests(source: Path) -> dict[str, list[str]]:
+    catalog = read_json(source / "dot_private/package-layers.json")
+    shared = {
+        filename
+        for profile in catalog["profiles"].values()
+        for manager in profile["managers"].values()
+        for layer in manager.values()
+        for filename in layer
+    }
+    shared.update(
+        filename
+        for files in catalog["legacy_brew_host_prefixes"].values()
+        for filename in files
+    )
+    shared.update(catalog.get("reserved_files", []))
+    found: dict[str, list[str]] = {}
+    for manager, prefix in catalog["host_prefixes"].items():
+        for path in sorted((source / "dot_private").glob(f"{prefix}*")):
+            if not path.is_file() or path.name in shared:
+                continue
+            suffix = ".json" if manager == "scoop" else ""
+            if suffix and not path.name.endswith(suffix):
+                continue
+            hostname = path.name[len(prefix) : -len(suffix)] if suffix else path.name[len(prefix) :]
+            if re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_-]*", hostname):
+                found.setdefault(hostname, []).append(path.name)
+    return found
+
+
+def select_machine_for_tui(current: Context) -> Context | None:
+    registry_path = machine_registry(current.source)
+    registry = read_json(registry_path) if registry_path.exists() else {"machines": {}}
+    if not isinstance(registry, dict) or not isinstance(registry.get("machines"), dict):
+        raise LayerError(f"Invalid machine registry: {registry_path}")
+    machines = registry["machines"]
+    registered_names = {hostname.casefold() for hostname in machines}
+    candidates = discover_machine_manifests(current.source)
+    choices = [f"Cette machine — {current.hostname} ({current.machine_profile}, {current.package_profile})"]
+    targets = [(choices[0], "current", current.hostname)]
+    for hostname, details in sorted(machines.items(), key=lambda item: item[0].casefold()):
+        if hostname.casefold() == current.hostname.casefold():
+            continue
+        if not isinstance(details, dict):
+            raise LayerError(f"Invalid machine entry for {hostname!r} in {registry_path}")
+        label = (
+            f"{hostname} — {details.get('machine_profile', '?')}, "
+            f"{details.get('package_profile', '?')} (enregistrée)"
+        )
+        choices.append(label)
+        targets.append((label, "registered", hostname))
+    for hostname, files in sorted(candidates.items(), key=lambda item: item[0].casefold()):
+        if hostname.casefold() in registered_names or hostname.casefold() == current.hostname.casefold():
+            continue
+        label = f"{hostname} — machine à configurer ({', '.join(files)})"
+        choices.append(label)
+        targets.append((label, "candidate", hostname))
+    choices.append("Configurer un autre hostname…")
+    targets.append((choices[-1], "manual", ""))
+    choices.append("Configurer le profil de cette machine…")
+    targets.append((choices[-1], "reconfigure_current", current.hostname))
+    if machines:
+        choices.append("Modifier le profil d'une machine enregistrée…")
+        targets.append((choices[-1], "reconfigure", ""))
+
+    selected = choose("Quelle machine veux-tu gérer ?", choices)
+    _, kind, hostname = next(item for item in targets if item[0] == selected)
+    if kind == "current":
+        return current
+    if kind == "registered":
+        details = next(
+            value
+            for key, value in machines.items()
+            if key.casefold() == hostname.casefold()
+        )
+        return Context(
+            current.source,
+            details.get("machine_profile", ""),
+            details.get("package_profile", "legacy"),
+            hostname,
+            current.install_mas,
+        )
+    if kind == "manual":
+        hostname = input("Nom court de la machine : ").strip().split(".", 1)[0]
+        registered = next(
+            (value for key, value in machines.items() if key.casefold() == hostname.casefold()),
+            None,
+        )
+        if registered:
+            return Context(
+                current.source,
+                registered.get("machine_profile", ""),
+                registered.get("package_profile", "legacy"),
+                hostname,
+                current.install_mas,
+            )
+    if kind == "candidate":
+        return configure_machine(current.source, hostname)
+    if kind == "reconfigure_current":
+        registered_current = any(
+            key.casefold() == current.hostname.casefold() for key in machines
+        )
+        return configure_machine(
+            current.source,
+            current.hostname,
+            replace_existing=registered_current,
+            allow_legacy=current.package_profile == "legacy",
+        )
+    if kind == "reconfigure":
+        host = choose("Machine à reconfigurer", sorted(machines))
+        return configure_machine(current.source, host, replace_existing=True)
+    return configure_machine(current.source, hostname)
+
+
 def edit_packages(context: Context) -> int:
-    """Guided editor for a host overlay; edits stay local for review."""
+    """Guided editor for machine and shared layers; writes always show a diff."""
     manager_labels = {
         "brew": "Homebrew / Linuxbrew",
         "apt": "APT",
@@ -408,14 +579,39 @@ def edit_packages(context: Context) -> int:
         [manager_labels.get(item, item) for item in managers],
     )
     manager = managers[[manager_labels.get(item, item) for item in managers].index(manager_label)]
+    selection = context.selection(manager)
+    scopes = [("machine", f"Cette machine — {selection['host']}", None)]
+    if context.package_profile != "legacy":
+        scopes.extend(
+            ("base", f"Base partagée — {filename}", filename)
+            for filename in selection["base"]
+        )
+        scopes.extend(
+            ("usage", f"Usage partagé — {filename}", filename)
+            for filename in selection["usage"]
+        )
+    scope_label = choose("Quelle couche veux-tu modifier ?", [item[1] for item in scopes])
+    scope, _, filename = next(item for item in scopes if item[1] == scope_label)
+    if scope in ("base", "usage"):
+        consumers = manifest_consumers(context, manager, filename)
+        print(f"Ce manifeste est partagé par : {', '.join(consumers) or 'aucun autre profil'}")
+
     while True:
-        entries = context.entries(manager)
+        if scope == "machine":
+            entries = context.entries(manager)
+            source_files = selection["files"]
+        else:
+            entries = parse_entries(context.directory / filename, manager) if (context.directory / filename).exists() else {}
+            source_files = [filename]
         origins = {}
-        for filename in context.selection(manager)["files"]:
-            for identity in parse_entries(context.directory / filename, manager):
+        for source_file in source_files:
+            source_path = context.directory / source_file
+            if not source_path.exists():
+                continue
+            for identity in parse_entries(source_path, manager):
                 if identity in entries:
-                    origins.setdefault(identity, []).append(filename)
-        print(f"\n{manager_label} : {len(entries)} paquets déclarés")
+                    origins.setdefault(identity, []).append(source_file)
+        print(f"\n{manager_label} · {scope_label} · {len(entries)} paquets déclarés")
         action = choose(
             "Que veux-tu faire ?",
             ["Afficher les paquets et leur provenance", "Ajouter un paquet", "Retirer un paquet", "Terminer"],
@@ -433,7 +629,11 @@ def edit_packages(context: Context) -> int:
             if not name:
                 print("Aucun nom saisi.")
                 continue
-            updates = plan_record(context, manager, "add", [name])
+            updates = (
+                plan_record(context, manager, "add", [name])
+                if scope == "machine"
+                else plan_layer_record(context, manager, filename, "add", name)
+            )
         else:
             query = input("Filtrer les paquets à retirer (Entrée = tous) : ").strip().lower()
             identities = [
@@ -448,7 +648,16 @@ def edit_packages(context: Context) -> int:
                 print("Aucun paquet correspondant.")
                 continue
             identity = choose("Paquet à retirer", identities)
-            updates = plan_record(context, manager, "remove", [identity])
+            if scope in ("base", "usage"):
+                print(
+                    "Retrait du manifeste partagé. Profils concernés : "
+                    + ", ".join(consumers or [context.machine_profile])
+                )
+            updates = (
+                plan_record(context, manager, "remove", [identity])
+                if scope == "machine"
+                else plan_layer_record(context, manager, filename, "remove", identity)
+            )
         if updates:
             show_file_changes(context.source, updates)
             if not confirm("Confirmer l'écriture ?", default=False):
@@ -532,6 +741,35 @@ def serialize_entries(entries: dict, manager: str) -> str:
     return "\n".join(entries.values()) + ("\n" if entries else "")
 
 
+def serialize_preserving_comments(entries: dict, manager: str, original: str) -> str:
+    """Keep handwritten comments, blank lines and declaration ordering on edits."""
+    if manager == "scoop":
+        return serialize_entries(entries, manager)
+    remaining = set(entries)
+    output = []
+    for raw in original.splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#"):
+            output.append(raw)
+            continue
+        if manager == "brew":
+            match = BREW_ENTRY.fullmatch(line)
+            identity = f"{match[1]}:{match[2]}" if match else None
+        elif manager == "snap":
+            parts = shlex.split(line)
+            identity = parts[0] if parts else None
+        else:
+            identity = line
+        if identity in remaining:
+            output.append(raw)
+            remaining.remove(identity)
+    if remaining:
+        if output and output[-1].strip():
+            output.append("")
+        output.extend(str(entries[identity]) for identity in entries if identity in remaining)
+    return "\n".join(output) + ("\n" if output else "")
+
+
 def entry_identity(manager: str, name: str, entries: dict | None = None) -> str:
     if not SAFE_NAME.fullmatch(name):
         raise LayerError(f"Invalid package name: {name!r}")
@@ -576,7 +814,8 @@ def plan_record(
                 else:
                     local[identity] = name
     updates = {}
-    content = serialize_entries(local, manager)
+    original = host.read_text(encoding="utf-8-sig") if host.exists() else ""
+    content = serialize_preserving_comments(local, manager, original)
     if (host.exists() and host.read_text(encoding="utf-8-sig") != content) or (
         not host.exists() and local
     ):
@@ -592,6 +831,48 @@ def record(context: Context, manager: str, action: str, names: list[str]) -> lis
     for path, content in updates.items():
         atomic_write(path, content)
     return list(updates)
+
+
+def plan_layer_record(
+    context: Context,
+    manager: str,
+    filename: str,
+    action: str,
+    name: str,
+) -> dict[Path, str]:
+    path = context.directory / filename
+    entries = parse_entries(path, manager) if path.exists() else {}
+    shared = context.entries(manager, shared=True, exclusions=False)
+    identity = entry_identity(manager, name, shared | entries)
+    if action == "add":
+        if identity in shared and identity not in entries:
+            raise LayerError(
+                f"{identity} is already declared in another active shared layer; "
+                "remove it there before adding it to this layer"
+            )
+        if manager == "brew":
+            kind, value = identity.split(":", 1)
+            entries[identity] = f'{kind} "{value}"'
+        elif manager == "scoop":
+            value = identity.split(":", 1)[1] if identity.startswith("bucket:") else name
+            entries[identity] = {"name": value}
+        else:
+            entries[identity] = name
+    else:
+        entries.pop(identity, None)
+    previous = path.read_text(encoding="utf-8-sig") if path.exists() else ""
+    content = serialize_preserving_comments(entries, manager, previous)
+    return {path: content} if content != previous else {}
+
+
+def manifest_consumers(context: Context, manager: str, filename: str) -> list[str]:
+    consumers = []
+    for profile_name, profile in context.catalog["profiles"].items():
+        config = profile["managers"].get(manager, {})
+        for layer_name, files in config.items():
+            if filename in files:
+                consumers.append(f"{profile_name}/{layer_name}")
+    return consumers
 
 
 def dump_overlay(context: Context, manager: str, installed: dict) -> list[Path]:
@@ -1086,7 +1367,10 @@ def main(argv=None) -> int:
         context = context_from_environment(args)
         manager = getattr(args, "manager", None)
         if command in ("edit", "tui"):
-            return edit_packages(context)
+            selected_context = select_machine_for_tui(context)
+            if selected_context is None:
+                return 0
+            return edit_packages(selected_context)
         if command not in ("preview", "migrate") and not manager:
             raise LayerError("--manager is required")
         if command == "preview":

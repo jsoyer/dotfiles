@@ -1,8 +1,9 @@
-{{- if ne (index . "package_profile" | default "legacy") "legacy" -}}
+{{- $packageSelection := includeTemplate "package-files" (dict "data" . "manager" "apt") | fromJson -}}
+{{- if ne $packageSelection.package_profile "legacy" -}}
 {{ includeTemplate "install-layered-linux" . }}
 {{- else -}}
 {{- if and (eq .chezmoi.os "linux") (eq (includeTemplate "can-sudo" .) "true") -}}
-{{- $mp              := includeTemplate "machine-profile" . -}}
+{{- $mp              := $packageSelection.machine_profile -}}
 {{- $isRPi           := eq $mp "rpi" -}}
 {{- $isDebian        := eq $mp "debian" -}}
 {{- $isUbuntuServer  := eq $mp "ubuntu-server" -}}

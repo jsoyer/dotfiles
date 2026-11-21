@@ -72,19 +72,23 @@ package-plan tui
 ```
 
 `create` asks for the short hostname, OS/distribution profile and package usage.
-It shows the selected shared files and future host manifest names, then asks
-before recording the choice in `dot_private/package-machines.json`. A first
-chezmoi initialization on that hostname reads the registered values. Existing
-chezmoi configurations keep their saved values, including `legacy` when no
-package scope was previously selected. The wizard does not install software.
+It shows the selected shared files and host manifest names, then asks before
+recording the choice in `dot_private/package-machines.json`. Existing host
+manifests are detected and require explicit association. Registered values
+drive package selection on the next `chezmoi apply`; a first initialization
+also saves them in chezmoi's local configuration. Unregistered machines keep
+their current saved values, including `legacy`. The wizard does not install
+software. Changing a selection does not uninstall packages already present on
+the machine.
 
-`tui` is a dependency-free, numbered terminal interface. It lists the active
-declarations and their source manifests, then adds or
-removes packages in the current machine's manifest or exclusion file. Changes
-are local for review; the command does not run the package manager, commit or
-push. Shared inherited packages are removed through a host exclusion. Use
-`package-plan promote` when a package should move from the host list into a
-shared base or usage layer.
+`tui` is a dependency-free, numbered terminal interface. It lets you select a
+registered machine or configure one from an existing host manifest. For the
+selected manager, edit the machine overlay, shared base or usage layer. Shared
+edits show which profiles consume that file; removing an inherited package from
+one machine writes a host exclusion. Every write shows a diff and requires
+confirmation. Changes stay local for review; the command does not run a package
+manager, commit or push. `package-plan promote` remains available for explicit
+promotion from a machine overlay.
 
 The catalog `dot_private/package-layers.json` is read by both chezmoi and the
 wrappers. The generated `~/.config/dotfiles/package-context.json` supplies saved

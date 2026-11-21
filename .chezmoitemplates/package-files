@@ -2,9 +2,18 @@
 {{- $d := .data -}}
 {{- $manager := .manager -}}
 {{- $catalog := include "dot_private/package-layers.json" | fromJson -}}
+{{- $host := first (splitList "." $d.chezmoi.hostname) -}}
 {{- $mp := includeTemplate "machine-profile" $d -}}
-{{- $pp := "legacy" -}}
-{{- if hasKey $d "package_profile" -}}{{- $pp = index $d "package_profile" -}}{{- end -}}
+{{- $pp := index $d "package_profile" | default "legacy" -}}
+{{- $registry := include "dot_private/package-machines.json" | fromJson -}}
+{{- $registered := dict -}}
+{{- range $registeredHost, $details := $registry.machines -}}
+{{- if eq (lower $registeredHost) (lower $host) -}}{{- $registered = $details -}}{{- end -}}
+{{- end -}}
+{{- if $registered -}}
+{{- $mp = includeTemplate "machine-profile" (dict "machine_profile" (index $registered "machine_profile")) -}}
+{{- $pp = index $registered "package_profile" -}}
+{{- end -}}
 {{- if not (has $pp (list "base" "personal" "professional" "server" "legacy")) -}}
 {{- fail (printf "Unknown package_profile %q; choose base, personal, professional or server" $pp) -}}
 {{- end -}}
@@ -12,7 +21,6 @@
 {{- $p := index $catalog.profiles $mp -}}
 {{- if ne $p.os $d.chezmoi.os -}}{{- fail (printf "machine_profile %s is for %s, not %s" $mp $p.os $d.chezmoi.os) -}}{{- end -}}
 {{- if not (hasKey $catalog.host_prefixes $manager) -}}{{- fail (printf "Unknown package manager %q" $manager) -}}{{- end -}}
-{{- $host := first (splitList "." $d.chezmoi.hostname) -}}
 {{- if not (regexMatch "^[A-Za-z0-9][A-Za-z0-9_-]*$" $host) -}}{{- fail "Unsafe package hostname" -}}{{- end -}}
 {{- $suffix := "" -}}{{- if eq $manager "scoop" -}}{{- $suffix = ".json" -}}{{- end -}}
 {{- $hostfile := printf "%s%s%s" (index $catalog.host_prefixes $manager) $host $suffix -}}

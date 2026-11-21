@@ -1,5 +1,6 @@
 {{- if and (eq .chezmoi.os "linux") (eq (includeTemplate "can-sudo" .) "true") -}}
-{{- $mp := includeTemplate "machine-profile" . -}}
+{{- $effectiveProfile := includeTemplate "package-files" (dict "data" . "manager" "apt") | fromJson -}}
+{{- $mp := $effectiveProfile.machine_profile -}}
 #!/usr/bin/env bash
 # Native base + optional usage + this machine. No desktop/application auto-detection.
 set -uo pipefail
@@ -44,6 +45,20 @@ if (( ${#_packages[@]} )); then
     fi
 {{- else if eq $manager "flatpak" }}
     if command -v flatpak >/dev/null 2>&1; then
+        :
+    else
+{{- if has $mp (list "debian" "rpi" "ubuntu-desktop" "ubuntu-server") }}
+        _install sudo apt-get update
+        _install sudo apt-get install -y flatpak
+{{- else if has $mp (list "fedora-desktop" "fedora-server" "toolbox") }}
+        _install sudo dnf install -y flatpak
+{{- else if has $mp (list "arch-desktop" "arch-server" "omarchy") }}
+        _install sudo pacman -S --needed --noconfirm flatpak
+{{- else if eq $mp "fedora-atomic" }}
+        _install sudo rpm-ostree install flatpak
+{{- end }}
+    fi
+    if command -v flatpak >/dev/null 2>&1; then
 {{- if eq $mp "fedora-atomic" }}
         _install flatpak remote-add --system --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
         _install flatpak install --system -y flathub "${_packages[@]}"
@@ -52,7 +67,7 @@ if (( ${#_packages[@]} )); then
         _install flatpak install --user -y flathub "${_packages[@]}"
 {{- end }}
     else
-        echo 'Selected Flatpak applications require flatpak; install it and rerun chezmoi apply.' >&2
+        echo 'Flatpak CLI is still unavailable; reboot if rpm-ostree installed it, then rerun chezmoi apply.' >&2
         _failed=1
     fi
 {{- else if eq $manager "snap" }}
