@@ -1,6 +1,6 @@
 # Package layers
 
-macOS, Linux and Windows select the union of three layers:
+macOS, Linux, Windows and FreeBSD select the union of three layers:
 
 1. A small base adapted to the OS/distribution.
 2. An optional usage: `personal`, `professional` or `server`.
@@ -13,6 +13,10 @@ keep the compatibility selection `legacy`. Reinitialization preserves that choic
 Saved `machine_profile = "rpi/debian"` values are accepted as `rpi` by installers
 and wrappers. Reinitialization writes the canonical `rpi` value without changing
 the package scope; editing existing machines' configuration is unnecessary.
+Linux profiles include Alpine and Arch containers. Their package base is kept
+small and uses `apk` or `pacman`; FreeBSD uses `pkg`. The machine registry also
+records whether a Linux selection is a host or container. Alpine is detected
+from `/etc/os-release`; Arch initialization offers a container profile.
 
 ## New MacBook Neo
 
@@ -89,6 +93,10 @@ one machine writes a host exclusion. Every write shows a diff and requires
 confirmation. Changes stay local for review; the command does not run a package
 manager, commit or push. `package-plan promote` remains available for explicit
 promotion from a machine overlay.
+
+The `apk` and `pkg` wrappers mirror the existing native-manager wrappers. `sysup`
+updates Alpine with `apk update/upgrade` and FreeBSD with `pkg update/upgrade`;
+container execution as root does not require sudo.
 
 The catalog `dot_private/package-layers.json` is read by both chezmoi and the
 wrappers. The generated `~/.config/dotfiles/package-context.json` supplies saved

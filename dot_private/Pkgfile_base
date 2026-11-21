@@ -1,0 +1,11 @@
+ca_root_nss
+curl
+fd-find
+fzf
+git
+jq
+neovim
+python3
+ripgrep
+tmux
+zsh

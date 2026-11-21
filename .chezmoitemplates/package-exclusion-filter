@@ -4,7 +4,7 @@ _filter_pkg_exclusions() {
     while IFS= read -r _line; do
         _identity="${_line%% *}"
         case "$_manager:$_identity" in
-{{- range $manager := list "apt" "dnf" "pacman" "aur" "rpm" "flatpak" "snap" }}
+{{- range $manager := list "apt" "dnf" "pacman" "aur" "rpm" "flatpak" "snap" "apk" "pkg" }}
 {{- $selection := includeTemplate "package-files" (dict "data" $ "manager" $manager) | fromJson }}
 {{- range $selection.excluded }}
 {{- if not (regexMatch "^[A-Za-z0-9][A-Za-z0-9._+@/:-]*$" .) }}{{ fail "Invalid native package exclusion" }}{{ end }}

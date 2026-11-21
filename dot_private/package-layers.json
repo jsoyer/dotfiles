@@ -1,7 +1,9 @@
 {
   "version": 1,
   "profile_aliases": {
-    "rpi/debian": "rpi"
+    "rpi/debian": "rpi",
+    "arch/container": "arch-container",
+    "alpine/container": "alpine"
   },
   "profiles": {
     "mac-personal": {
@@ -445,6 +447,19 @@
         }
       }
     },
+    "alpine": {
+      "os": "linux",
+      "target_kind": "container",
+      "managers": {
+        "apk": {
+          "base": ["Apkfile_base"],
+          "legacy": ["Apkfile_alpine"],
+          "personal": ["Apkfile_usage_personal"],
+          "professional": ["Apkfile_usage_professional"],
+          "server": ["Apkfile_usage_server"]
+        }
+      }
+    },
     "arch-server": {
       "os": "linux",
       "managers": {
@@ -490,6 +505,19 @@
           "personal": [],
           "professional": [],
           "server": []
+        }
+      }
+    },
+    "arch-container": {
+      "os": "linux",
+      "target_kind": "container",
+      "managers": {
+        "pacman": {
+          "base": ["Pacfile_base"],
+          "legacy": ["Pacfile_arch_server"],
+          "personal": ["Pacfile_usage_personal"],
+          "professional": ["Pacfile_usage_professional"],
+          "server": ["Pacfile_usage_server"]
         }
       }
     },
@@ -545,6 +573,18 @@
         }
       }
     },
+    "freebsd": {
+      "os": "freebsd",
+      "managers": {
+        "pkg": {
+          "base": ["Pkgfile_base"],
+          "legacy": ["Pkgfile_freebsd"],
+          "personal": ["Pkgfile_usage_personal"],
+          "professional": ["Pkgfile_usage_professional"],
+          "server": ["Pkgfile_usage_server"]
+        }
+      }
+    },
     "windows": {
       "os": "windows",
       "managers": {
@@ -572,6 +612,8 @@
     "dnf": "Dnffile_",
     "pacman": "Pacfile_",
     "aur": "Pacfile_aur_",
+    "apk": "Apkfile_",
+    "pkg": "Pkgfile_",
     "rpm": "Rpmfile_",
     "flatpak": "Flatpakfile_",
     "snap": "Snapfile_",

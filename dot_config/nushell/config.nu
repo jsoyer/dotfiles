@@ -1550,6 +1550,16 @@ source ~/.cache/mise/init.nu
 # =============================================================================
 # Package manager wrappers
 # =============================================================================
+def apk [...args: string] {
+    let mp = ($env.MACHINE_PROFILE? | default "")
+    if $mp == "alpine" { ^apkw ...$args } else { ^apk ...$args }
+}
+
+def pkg [...args: string] {
+    let mp = ($env.MACHINE_PROFILE? | default "")
+    if $mp == "freebsd" { ^pkgw ...$args } else { ^pkg ...$args }
+}
+
 def apt [...args: string] {
     let mp = ($env.MACHINE_PROFILE? | default "")
     if ($mp == "rpi") or ($mp | str starts-with "ubuntu") or ($mp == "debian") {

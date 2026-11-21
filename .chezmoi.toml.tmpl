@@ -20,8 +20,10 @@
 {{- if eq .chezmoi.os "windows" -}}{{- $mp = "windows" -}}
 {{- else if eq .chezmoi.os "darwin" -}}
 {{- if eq .chezmoi.hostname "jsoyer-macOS" -}}{{- $mp = "mac-pro" -}}{{- else -}}{{- $mp = "mac-personal" -}}{{- end -}}
+{{- else if eq .chezmoi.os "freebsd" -}}{{- $mp = "freebsd" -}}
 {{- else if eq .chezmoi.os "linux" -}}
-{{- if or (eq .chezmoi.osRelease.id "raspbian") (eq .chezmoi.osRelease.id "raspios") -}}{{- $mp = "rpi" -}}
+{{- if eq .chezmoi.osRelease.id "alpine" -}}{{- $mp = "alpine" -}}
+{{- else if or (eq .chezmoi.osRelease.id "raspbian") (eq .chezmoi.osRelease.id "raspios") -}}{{- $mp = "rpi" -}}
 {{- else if stat "/proc/device-tree/model" -}}{{- $mp = promptStringOnce . "machine_profile" "Machine profile (choose rpi or debian)" "rpi" -}}
 {{- else if env "CI" -}}{{- $mp = "ubuntu-server" -}}
 {{- else if eq .chezmoi.osRelease.id "ubuntu" -}}
@@ -37,8 +39,9 @@
 {{- else if eq .chezmoi.osRelease.id "omarchy" -}}{{- $mp = "omarchy" -}}
 {{- else if eq .chezmoi.osRelease.id "arch" -}}
 {{- if hasPrefix "arch-server" .chezmoi.hostname -}}{{- $mp = "arch-server" -}}
+{{- else if hasPrefix "arch-container" .chezmoi.hostname -}}{{- $mp = "arch-container" -}}
 {{- else if hasPrefix "arch-desktop" .chezmoi.hostname -}}{{- $mp = "arch-desktop" -}}
-{{- else -}}{{- $mp = promptStringOnce . "machine_profile" "Machine profile [arch-desktop/arch-server]" "arch-desktop" -}}{{- end -}}
+{{- else -}}{{- $mp = promptStringOnce . "machine_profile" "Machine profile [arch-desktop/arch-server/arch-container]" "arch-desktop" -}}{{- end -}}
 {{- else if eq .chezmoi.osRelease.id "debian" -}}{{- $mp = "debian" -}}
 {{- else -}}{{- $mp = promptStringOnce . "machine_profile" "Machine profile" "debian" -}}{{- end -}}
 {{- end -}}

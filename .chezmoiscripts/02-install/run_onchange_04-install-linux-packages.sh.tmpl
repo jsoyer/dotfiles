@@ -1,5 +1,9 @@
 {{- $packageSelection := includeTemplate "package-files" (dict "data" . "manager" "apt") | fromJson -}}
-{{- if ne $packageSelection.package_profile "legacy" -}}
+{{- if and (eq .chezmoi.os "freebsd") (ne $packageSelection.package_profile "legacy") -}}
+{{ includeTemplate "install-layered-freebsd" . }}
+{{- else if and (eq .chezmoi.os "linux") (eq $packageSelection.machine_profile "alpine") (ne $packageSelection.package_profile "legacy") -}}
+{{ includeTemplate "install-layered-alpine" . }}
+{{- else if ne $packageSelection.package_profile "legacy" -}}
 {{ includeTemplate "install-layered-linux" . }}
 {{- else -}}
 {{- if and (eq .chezmoi.os "linux") (eq (includeTemplate "can-sudo" .) "true") -}}

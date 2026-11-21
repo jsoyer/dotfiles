@@ -69,6 +69,7 @@ class Context:
     package_profile: str
     hostname: str
     install_mas: bool = False
+    target_kind: str | None = None
 
     def __post_init__(self):
         self.source = Path(self.source)
@@ -81,6 +82,12 @@ class Context:
             raise LayerError(f"Unknown machine_profile: {self.machine_profile!r}")
         if self.package_profile not in PROFILES:
             raise LayerError(f"Unknown package_profile: {self.package_profile!r}")
+        if self.target_kind is None:
+            self.target_kind = self.catalog["profiles"][self.machine_profile].get(
+                "target_kind", "host"
+            )
+        if self.target_kind not in ("host", "container"):
+            raise LayerError(f"Unknown target_kind: {self.target_kind!r}")
 
     @property
     def directory(self) -> Path:
@@ -215,7 +222,9 @@ def context_from_environment(args=None) -> Context:
     registry_path = machine_registry(source)
     if registry_path.exists():
         registry = read_json(registry_path)
-        if not isinstance(registry, dict) or not isinstance(registry.get("machines"), dict):
+        if not isinstance(registry, dict) or not isinstance(
+            registry.get("machines"), dict
+        ):
             raise LayerError(f"Invalid machine registry: {registry_path}")
         registered = next(
             (
@@ -226,7 +235,9 @@ def context_from_environment(args=None) -> Context:
             {},
         )
         if not isinstance(registered, dict):
-            raise LayerError(f"Invalid machine entry for {hostname!r} in {registry_path}")
+            raise LayerError(
+                f"Invalid machine entry for {hostname!r} in {registry_path}"
+            )
     mp = (
         getattr(args, "machine_profile", None)
         or registered.get("machine_profile")
@@ -264,6 +275,7 @@ def context_from_environment(args=None) -> Context:
         "legacy" if pp is None else pp,
         hostname,
         bool(data.get("install_mas", False)),
+        registered.get("target_kind"),
     )
 
 
@@ -333,7 +345,9 @@ def configure_machine(
     if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_-]*", host):
         raise LayerError(f"Nom de machine invalide : {host!r}")
     discovered = discover_machine_manifests(source)
-    matched_host = next((name for name in discovered if name.casefold() == host.casefold()), None)
+    matched_host = next(
+        (name for name in discovered if name.casefold() == host.casefold()), None
+    )
     if matched_host:
         host = matched_host
 
@@ -351,19 +365,42 @@ def configure_machine(
         "arch-desktop": "Linux — Arch avec bureau",
         "arch-server": "Linux — Arch serveur",
         "omarchy": "Linux — Omarchy",
+        "alpine": "Linux — Alpine",
+        "arch-container": "Linux — Arch en conteneur",
+        "freebsd": "BSD — FreeBSD",
         "windows": "Windows",
     }
     groups = {}
     for key, config in profiles.items():
         groups.setdefault(config["os"], []).append(key)
-    os_names = {"darwin": "macOS", "linux": "Linux", "windows": "Windows"}
-    os_keys = sorted(groups, key=lambda key: {"darwin": 0, "linux": 1, "windows": 2}.get(key, 3))
-    selected_os = choose("Système d'exploitation", [os_names.get(key, key) for key in os_keys])
+    os_names = {
+        "darwin": "macOS",
+        "linux": "Linux",
+        "freebsd": "BSD",
+        "windows": "Windows",
+    }
+    os_keys = sorted(
+        groups,
+        key=lambda key: {"darwin": 0, "linux": 1, "freebsd": 2, "windows": 3}.get(
+            key, 4
+        ),
+    )
+    selected_os = choose(
+        "Système d'exploitation", [os_names.get(key, key) for key in os_keys]
+    )
     os_key = next(key for key in os_keys if os_names.get(key, key) == selected_os)
     available = groups[os_key]
     profile_labels = [labels.get(key, key) for key in available]
     selected_label = choose("Distribution ou profil système", profile_labels)
     machine_profile = available[profile_labels.index(selected_label)]
+    target_kind = profiles[machine_profile].get("target_kind", "host")
+    if os_key == "linux":
+        target_options = ["Machine hôte", "Conteneur"]
+        default_target = 1 if target_kind == "container" else 0
+        selected_target = choose(
+            "Type de cible", target_options, default=default_target
+        )
+        target_kind = "container" if selected_target == "Conteneur" else "host"
     usage_labels = {
         "base": "Base uniquement",
         "personal": "Personnel",
@@ -384,10 +421,14 @@ def configure_machine(
         if registry_path.exists()
         else {"version": 1, "machines": {}}
     )
-    if not isinstance(registry, dict) or not isinstance(registry.get("machines", {}), dict):
+    if not isinstance(registry, dict) or not isinstance(
+        registry.get("machines", {}), dict
+    ):
         raise LayerError(f"Invalid machine registry: {registry_path}")
     machines = registry.setdefault("machines", {})
-    existing_key = next((key for key in machines if key.casefold() == host.casefold()), None)
+    existing_key = next(
+        (key for key in machines if key.casefold() == host.casefold()), None
+    )
     if existing_key and not replace_existing:
         raise LayerError(f"{host} is already registered in {registry_path.name}")
     if existing_key:
@@ -400,7 +441,7 @@ def configure_machine(
         if not confirm("Remplacer ce profil ?", default=False):
             return None
 
-    context = Context(source, machine_profile, usage, host)
+    context = Context(source, machine_profile, usage, host, target_kind=target_kind)
     collisions = discover_machine_manifests(source).get(host, [])
     if collisions:
         print("Manifestes déjà présents : " + ", ".join(collisions))
@@ -420,6 +461,9 @@ def configure_machine(
     )
     print(f"\n{title} : {host}")
     print(f"  Système : {labels.get(machine_profile, machine_profile)}")
+    print(
+        f"  Cible :   {'conteneur' if target_kind == 'container' else 'machine hôte'}"
+    )
     print(f"  Usage :   {usage_labels[usage]}")
     for manager in context.managers:
         plan = context.selection(manager)
@@ -428,17 +472,29 @@ def configure_machine(
         print("    couches : " + ", ".join(plan["files"] or ["aucun manifeste actif"]))
         print(f"    manifeste machine : {plan['host']}")
     print("  Aucun paquet ne sera installé.")
-    if not confirm("Enregistrer cette machine dans package-machines.json ?", default=False):
+    if not confirm(
+        "Enregistrer cette machine dans package-machines.json ?", default=False
+    ):
         print("Aucun fichier modifié.")
         return None
 
-    machines[host] = {"machine_profile": machine_profile, "package_profile": usage}
+    machines[host] = {
+        "machine_profile": machine_profile,
+        "package_profile": usage,
+        "target_kind": target_kind,
+    }
     registry["version"] = 1
-    atomic_write(registry_path, json.dumps(registry, indent=2, ensure_ascii=False) + "\n")
+    atomic_write(
+        registry_path, json.dumps(registry, indent=2, ensure_ascii=False) + "\n"
+    )
     print(f"Créé : {registry_path.relative_to(source)}")
-    print("Le prochain `chezmoi apply` utilisera ce profil pour sélectionner les paquets.")
+    print(
+        "Le prochain `chezmoi apply` utilisera ce profil pour sélectionner les paquets."
+    )
     if not existing_key:
-        print("Une première initialisation chezmoi sur ce hostname enregistrera aussi ce choix localement.")
+        print(
+            "Une première initialisation chezmoi sur ce hostname enregistrera aussi ce choix localement."
+        )
     return context
 
 
@@ -470,7 +526,11 @@ def discover_machine_manifests(source: Path) -> dict[str, list[str]]:
             suffix = ".json" if manager == "scoop" else ""
             if suffix and not path.name.endswith(suffix):
                 continue
-            hostname = path.name[len(prefix) : -len(suffix)] if suffix else path.name[len(prefix) :]
+            hostname = (
+                path.name[len(prefix) : -len(suffix)]
+                if suffix
+                else path.name[len(prefix) :]
+            )
             if re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_-]*", hostname):
                 found.setdefault(hostname, []).append(path.name)
     return found
@@ -484,21 +544,36 @@ def select_machine_for_tui(current: Context) -> Context | None:
     machines = registry["machines"]
     registered_names = {hostname.casefold() for hostname in machines}
     candidates = discover_machine_manifests(current.source)
-    choices = [f"Cette machine — {current.hostname} ({current.machine_profile}, {current.package_profile})"]
+    current_target = "conteneur" if current.target_kind == "container" else "hôte"
+    choices = [
+        f"Cette machine — {current.hostname} ({current.machine_profile}, "
+        f"{current.package_profile}, {current_target})"
+    ]
     targets = [(choices[0], "current", current.hostname)]
-    for hostname, details in sorted(machines.items(), key=lambda item: item[0].casefold()):
+    for hostname, details in sorted(
+        machines.items(), key=lambda item: item[0].casefold()
+    ):
         if hostname.casefold() == current.hostname.casefold():
             continue
         if not isinstance(details, dict):
-            raise LayerError(f"Invalid machine entry for {hostname!r} in {registry_path}")
+            raise LayerError(
+                f"Invalid machine entry for {hostname!r} in {registry_path}"
+            )
         label = (
             f"{hostname} — {details.get('machine_profile', '?')}, "
-            f"{details.get('package_profile', '?')} (enregistrée)"
+            f"{details.get('package_profile', '?')}, "
+            f"{'conteneur' if details.get('target_kind') == 'container' else 'hôte'} "
+            "(enregistrée)"
         )
         choices.append(label)
         targets.append((label, "registered", hostname))
-    for hostname, files in sorted(candidates.items(), key=lambda item: item[0].casefold()):
-        if hostname.casefold() in registered_names or hostname.casefold() == current.hostname.casefold():
+    for hostname, files in sorted(
+        candidates.items(), key=lambda item: item[0].casefold()
+    ):
+        if (
+            hostname.casefold() in registered_names
+            or hostname.casefold() == current.hostname.casefold()
+        ):
             continue
         label = f"{hostname} — machine à configurer ({', '.join(files)})"
         choices.append(label)
@@ -527,11 +602,16 @@ def select_machine_for_tui(current: Context) -> Context | None:
             details.get("package_profile", "legacy"),
             hostname,
             current.install_mas,
+            details.get("target_kind"),
         )
     if kind == "manual":
         hostname = input("Nom court de la machine : ").strip().split(".", 1)[0]
         registered = next(
-            (value for key, value in machines.items() if key.casefold() == hostname.casefold()),
+            (
+                value
+                for key, value in machines.items()
+                if key.casefold() == hostname.casefold()
+            ),
             None,
         )
         if registered:
@@ -541,6 +621,7 @@ def select_machine_for_tui(current: Context) -> Context | None:
                 registered.get("package_profile", "legacy"),
                 hostname,
                 current.install_mas,
+                registered.get("target_kind"),
             )
     if kind == "candidate":
         return configure_machine(current.source, hostname)
@@ -571,6 +652,8 @@ def edit_packages(context: Context) -> int:
         "rpm": "rpm-ostree",
         "flatpak": "Flatpak",
         "snap": "Snap",
+        "apk": "APK",
+        "pkg": "FreeBSD pkg",
         "scoop": "Scoop",
     }
     managers = list(context.managers)
@@ -578,7 +661,9 @@ def edit_packages(context: Context) -> int:
         "Gestionnaire de paquets",
         [manager_labels.get(item, item) for item in managers],
     )
-    manager = managers[[manager_labels.get(item, item) for item in managers].index(manager_label)]
+    manager = managers[
+        [manager_labels.get(item, item) for item in managers].index(manager_label)
+    ]
     selection = context.selection(manager)
     scopes = [("machine", f"Cette machine — {selection['host']}", None)]
     if context.package_profile != "legacy":
@@ -590,18 +675,26 @@ def edit_packages(context: Context) -> int:
             ("usage", f"Usage partagé — {filename}", filename)
             for filename in selection["usage"]
         )
-    scope_label = choose("Quelle couche veux-tu modifier ?", [item[1] for item in scopes])
+    scope_label = choose(
+        "Quelle couche veux-tu modifier ?", [item[1] for item in scopes]
+    )
     scope, _, filename = next(item for item in scopes if item[1] == scope_label)
     if scope in ("base", "usage"):
         consumers = manifest_consumers(context, manager, filename)
-        print(f"Ce manifeste est partagé par : {', '.join(consumers) or 'aucun autre profil'}")
+        print(
+            f"Ce manifeste est partagé par : {', '.join(consumers) or 'aucun autre profil'}"
+        )
 
     while True:
         if scope == "machine":
             entries = context.entries(manager)
             source_files = selection["files"]
         else:
-            entries = parse_entries(context.directory / filename, manager) if (context.directory / filename).exists() else {}
+            entries = (
+                parse_entries(context.directory / filename, manager)
+                if (context.directory / filename).exists()
+                else {}
+            )
             source_files = [filename]
         origins = {}
         for source_file in source_files:
@@ -614,7 +707,12 @@ def edit_packages(context: Context) -> int:
         print(f"\n{manager_label} · {scope_label} · {len(entries)} paquets déclarés")
         action = choose(
             "Que veux-tu faire ?",
-            ["Afficher les paquets et leur provenance", "Ajouter un paquet", "Retirer un paquet", "Terminer"],
+            [
+                "Afficher les paquets et leur provenance",
+                "Ajouter un paquet",
+                "Retirer un paquet",
+                "Terminer",
+            ],
         )
         if action == "Terminer":
             return 0
@@ -635,14 +733,18 @@ def edit_packages(context: Context) -> int:
                 else plan_layer_record(context, manager, filename, "add", name)
             )
         else:
-            query = input("Filtrer les paquets à retirer (Entrée = tous) : ").strip().lower()
+            query = (
+                input("Filtrer les paquets à retirer (Entrée = tous) : ")
+                .strip()
+                .lower()
+            )
             identities = [
-                identity
-                for identity in sorted(entries)
-                if query in identity.lower()
+                identity for identity in sorted(entries) if query in identity.lower()
             ]
             if not query and len(identities) > 30:
-                print("Il y a beaucoup de paquets ; saisis quelques lettres pour filtrer.")
+                print(
+                    "Il y a beaucoup de paquets ; saisis quelques lettres pour filtrer."
+                )
                 continue
             if not identities:
                 print("Aucun paquet correspondant.")
@@ -766,7 +868,9 @@ def serialize_preserving_comments(entries: dict, manager: str, original: str) ->
     if remaining:
         if output and output[-1].strip():
             output.append("")
-        output.extend(str(entries[identity]) for identity in entries if identity in remaining)
+        output.extend(
+            str(entries[identity]) for identity in entries if identity in remaining
+        )
     return "\n".join(output) + ("\n" if output else "")
 
 
@@ -809,7 +913,11 @@ def plan_record(
                     kind, value = identity.split(":", 1)
                     local[identity] = f'{kind} "{value}"'
                 elif manager == "scoop":
-                    value = identity.split(":", 1)[1] if identity.startswith("bucket:") else name
+                    value = (
+                        identity.split(":", 1)[1]
+                        if identity.startswith("bucket:")
+                        else name
+                    )
                     local[identity] = {"name": value}
                 else:
                     local[identity] = name
@@ -854,7 +962,9 @@ def plan_layer_record(
             kind, value = identity.split(":", 1)
             entries[identity] = f'{kind} "{value}"'
         elif manager == "scoop":
-            value = identity.split(":", 1)[1] if identity.startswith("bucket:") else name
+            value = (
+                identity.split(":", 1)[1] if identity.startswith("bucket:") else name
+            )
             entries[identity] = {"name": value}
         else:
             entries[identity] = name
@@ -1012,6 +1122,18 @@ def installed_entries(context: Context, manager: str) -> dict:
             for line in query("snap", "list").splitlines()[1:]
             if line.strip()
         ]
+    elif manager == "apk":
+        world = Path("/etc/apk/world")
+        if not world.exists():
+            raise LayerError("Cannot read /etc/apk/world; APK inventory left unchanged")
+        names = []
+        for line in world.read_text(encoding="utf-8").splitlines():
+            entry = line.strip()
+            if not entry or entry.startswith("#"):
+                continue
+            names.append(re.split(r"[=<>~]", entry, maxsplit=1)[0])
+    elif manager == "pkg":
+        names = query("pkg", "query", "-e", "%a = 0", "%n").splitlines()
     else:
         raise LayerError(f"No inventory command for {manager}")
     entries = {}
@@ -1064,6 +1186,12 @@ def wrapper(context: Context, manager: str, arguments: list[str]) -> int:
         "rpm": ["sudo", "rpm-ostree"],
         "flatpak": ["flatpak"],
         "snap": ["sudo", "snap"],
+        "apk": ["apk"]
+        if hasattr(os, "geteuid") and os.geteuid() == 0
+        else ["sudo", "apk"],
+        "pkg": ["pkg"]
+        if hasattr(os, "geteuid") and os.geteuid() == 0
+        else ["sudo", "pkg"],
     }
     command = binaries[manager]
     if not arguments:
@@ -1075,8 +1203,20 @@ def wrapper(context: Context, manager: str, arguments: list[str]) -> int:
             action = "add"
         elif operation in ("-R", "-Rs", "-Rns", "--remove"):
             action = "remove"
-    elif operation in ("install", "remove", "uninstall", "purge"):
+    elif operation in (
+        "install",
+        "add",
+        "remove",
+        "uninstall",
+        "purge",
+        "delete",
+        "del",
+    ):
         action = "add" if operation == "install" else "remove"
+        if operation in ("add",):
+            action = "add"
+        elif operation in ("delete", "del"):
+            action = "remove"
     names, skip_value = [], False
     value_flags = {
         "--enablerepo",
@@ -1199,6 +1339,7 @@ def migrate(context: Context, target_profile: str, *, write=False, config=None) 
         target_profile,
         context.hostname,
         context.install_mas,
+        context.target_kind,
     )
     report = {
         "hostname": context.hostname,

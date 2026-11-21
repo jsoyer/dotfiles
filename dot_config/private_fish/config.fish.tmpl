@@ -436,6 +436,16 @@ alias bcpn='brew cleanup --prune=all -s --dry-run'
 # Package manager wrappers
 # ============================================================================
 set -l _mp (string trim -- "$MACHINE_PROFILE")
+if test "$_mp" = alpine
+    function apk --wraps apkw --description 'apk wrapper with manifest sync'
+        command apkw $argv
+    end
+end
+{{- if eq .chezmoi.os "freebsd" }}
+function pkg --wraps pkgw --description 'pkg wrapper with manifest sync'
+    command pkgw $argv
+end
+{{- end }}
 if string match -q "rpi" "$_mp"; or string match -q "ubuntu*" "$_mp"; or string match -q "debian" "$_mp"
     function apt --wraps aptw --description 'apt wrapper with manifest sync'
         command aptw $argv

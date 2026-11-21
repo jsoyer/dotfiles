@@ -1,0 +1,19 @@
+{{- if and (eq .chezmoi.os "linux") (eq (includeTemplate "can-sudo" .) "true") -}}
+{{- $selection := includeTemplate "package-files" (dict "data" . "manager" "apk") | fromJson -}}
+#!/bin/sh
+set -u
+set --
+while IFS= read -r _package; do
+    [ -n "$_package" ] && set -- "$@" "$_package"
+done <<'CHEZMOI_SELECTED_PACKAGES'
+{{ includeTemplate "package-manifest" (dict "data" . "manager" "apk") }}
+CHEZMOI_SELECTED_PACKAGES
+if [ "$#" -gt 0 ]; then
+    echo "Installing apk packages ({{ $selection.package_profile }}, {{ $selection.hostname }})"
+    if [ "$(id -u)" = 0 ]; then
+        apk add --no-cache "$@"
+    else
+        sudo apk add --no-cache "$@"
+    fi
+fi
+{{- end -}}

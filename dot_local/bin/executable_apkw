@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# Native apk syntax; track successful package changes in this machine's layer.
+set -euo pipefail
+_LAYER_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
+command -v python3 >/dev/null 2>&1 || { printf 'python3 is required; use apk directly.\n' >&2; exit 1; }
+exec python3 "$_LAYER_DIR/package_layers.py" wrapper --manager apk -- "$@"

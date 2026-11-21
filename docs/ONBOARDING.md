@@ -127,7 +127,7 @@ chezmoi verify
 chezmoi data
 
 # Common variables:
-# .chezmoi.os          -> "darwin", "linux", "windows"
+# .chezmoi.os          -> "darwin", "linux", "windows", "freebsd"
 # .chezmoi.arch        -> "amd64", "arm64"
 # .chezmoi.hostname    -> machine hostname
 # .chezmoi.homeDir     -> home directory path

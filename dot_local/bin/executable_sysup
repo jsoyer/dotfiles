@@ -44,6 +44,9 @@ export NONINTERACTIVE=1
 # SYSUP_OS_RELEASE / SYSUP_OSTREE_FLAG exist for tests only.
 _sysup_detect_profile() {
   [[ -n "${MACHINE_PROFILE:-}" ]] && return 0
+  case "$OSTYPE" in
+    freebsd*) MACHINE_PROFILE=freebsd; export MACHINE_PROFILE; return 0 ;;
+  esac
   [[ "$OSTYPE" == linux* ]] || return 0
   local id="" like="" rel="${SYSUP_OS_RELEASE:-/etc/os-release}"
   if [[ -e "${SYSUP_OSTREE_FLAG:-/run/ostree-booted}" ]]; then
@@ -58,6 +61,7 @@ _sysup_detect_profile() {
     like="$(. "$rel"; printf '%s' "${ID_LIKE:-}")"
   fi
   case " $id $like " in
+    *" alpine "*)             MACHINE_PROFILE=alpine ;;
     *" fedora "*|*" rhel "*)   MACHINE_PROFILE=fedora-server ;;
     *" arch "*)                MACHINE_PROFILE=arch-server ;;
     *" debian "*|*" ubuntu "*) MACHINE_PROFILE=debian ;;
@@ -69,6 +73,10 @@ _sysup_detect_profile() {
 # agent, systemd --user, cron): -n makes a missing sudoers rule fail at once
 # with a clear message instead of hanging until the job is killed.
 _sysup_sudo() {
+  if [[ "$(id -u)" == 0 ]]; then
+    "$@"
+    return $?
+  fi
   if [[ -t 0 ]]; then
     sudo "$@"
     return $?
@@ -243,6 +251,7 @@ sysup() {
   case "$OSTYPE" in
     darwin*) os="darwin" ;;
     linux*)  os="linux" ;;
+    freebsd*) os="freebsd" ;;
     cygwin*|msys*|mingw*) os="windows" ;;
     *) return ;;
   esac
@@ -286,6 +295,14 @@ sysup() {
           if command -v yay &>/dev/null; then
             echo "📦 Updating AUR packages..."
             yay -Sua --noconfirm
+          fi
+          ;;
+        alpine)
+          echo "📦 Updating Alpine packages..."
+          if (( EUID == 0 )); then
+            apk update && apk upgrade || _sysup_rc=1
+          else
+            _sysup_sudo apk update && _sysup_sudo apk upgrade || _sysup_rc=1
           fi
           ;;
         fedora-desktop|fedora-server|toolbox)
@@ -365,6 +382,19 @@ sysup() {
       else
         _sysup_reboot_hint
       fi
+      ;;
+    freebsd)
+      echo "📦 Updating FreeBSD packages..."
+      if (( EUID == 0 )); then
+        pkg update && pkg upgrade -y || _sysup_rc=1
+      else
+        _sysup_sudo pkg update && _sysup_sudo pkg upgrade -y || _sysup_rc=1
+      fi
+      echo "🐚 Updating oh-my-zsh..."
+      update-omz
+      update-ai
+      _update_mise_if_present || _sysup_rc=1
+      _update_herdr_if_present
       ;;
     windows)
       echo "🪣 Updating Scoop packages..."

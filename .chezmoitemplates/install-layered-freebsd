@@ -1,0 +1,19 @@
+{{- if and (eq .chezmoi.os "freebsd") (eq (includeTemplate "can-sudo" .) "true") -}}
+{{- $selection := includeTemplate "package-files" (dict "data" . "manager" "pkg") | fromJson -}}
+#!/bin/sh
+set -u
+set --
+while IFS= read -r _package; do
+    [ -n "$_package" ] && set -- "$@" "$_package"
+done <<'CHEZMOI_SELECTED_PACKAGES'
+{{ includeTemplate "package-manifest" (dict "data" . "manager" "pkg") }}
+CHEZMOI_SELECTED_PACKAGES
+if [ "$#" -gt 0 ]; then
+    echo "Installing pkg packages ({{ $selection.package_profile }}, {{ $selection.hostname }})"
+    if [ "$(id -u)" = 0 ]; then
+        pkg install -y "$@"
+    else
+        sudo pkg install -y "$@"
+    fi
+fi
+{{- end -}}

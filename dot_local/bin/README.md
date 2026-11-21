@@ -12,6 +12,8 @@ These scripts intercept package manager commands, auto-update manifests in the c
 | `aptw` | `apt install/remove foo` | `Aptfile_*` | Debian, Ubuntu, Raspberry Pi |
 | `dnfw` | `dnf install/remove foo` | `Dnffile_*` | Fedora |
 | `pacmanw` | `pacman -S/-R foo` | `Pacfile_*` | Arch Linux |
+| `apkw` | `apk add/del foo` | `Apkfile_*` | Alpine Linux |
+| `pkgw` | `pkg install/delete foo` | `Pkgfile_*` | FreeBSD |
 | `yayw` | `yay -S/-R foo` | `Pacfile_aur_*` | Arch Linux (AUR) |
 | `ostreew` | `ostreew install/remove foo` | `Rpmfile_fedora_atomic` | Fedora Atomic |
 | `scoopw` | `scoop install/uninstall foo` | `Scoopfile.json` | Windows |

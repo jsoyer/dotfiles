@@ -204,13 +204,21 @@ if [[ "${IS_LINUX:-false}" == "true" ]] && [[ "${MACHINE_PROFILE:-}" != fedora* 
   apt() { command aptw "$@"; }
 fi
 
+if [[ "${MACHINE_PROFILE:-}" == alpine ]]; then
+  apk() { command apkw "$@"; }
+fi
+
+if [[ "${MACHINE_PROFILE:-}" == freebsd ]]; then
+  pkg() { command pkgw "$@"; }
+fi
+
 if [[ "${IS_FEDORA:-false}" == "true" ]] && [[ "${MACHINE_PROFILE:-}" != "fedora-atomic" ]]; then
   dnf() { command dnfw "$@"; }
   yum() { command dnfw "$@"; }
 fi
 
 # Arch Linux package manager wrappers
-if [[ "${MACHINE_PROFILE:-}" == arch-desktop || "${MACHINE_PROFILE:-}" == arch-server || "${MACHINE_PROFILE:-}" == "omarchy" ]]; then
+if [[ "${MACHINE_PROFILE:-}" == arch-desktop || "${MACHINE_PROFILE:-}" == arch-server || "${MACHINE_PROFILE:-}" == "arch-container" || "${MACHINE_PROFILE:-}" == "omarchy" ]]; then
     pacman() { pacmanw "$@"; }
 fi
 

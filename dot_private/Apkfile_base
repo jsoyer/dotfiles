@@ -1,0 +1,11 @@
+bash
+ca-certificates
+curl
+fzf
+git
+jq
+neovim
+python3
+ripgrep
+tmux
+zsh
