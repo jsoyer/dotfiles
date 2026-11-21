@@ -69,12 +69,14 @@ paquets ou configurations d'un poste/NAS.
 
 L'interface de base est un CLI guidé, avec trois actions visibles : créer une
 cible, modifier ses paquets, prévisualiser les changements. Le cœur et les
-commandes restent en Python en réutilisant `package_layers.py`; un TUI Textual
-peut être ajouté comme dépendance optionnelle si le menu guidé ne suffit pas.
+commandes restent en Python en réutilisant `package_layers.py`; le premier
+éditeur terminal utilise des menus numérotés et la bibliothèque standard, sans
+ajouter de dépendance.
 Le catalogue existant reste la référence pour les profils et gestionnaires.
-Un registre léger des machines/cibles pourra associer hostname, famille,
-variante technique et usage afin que l'outil crée les manifestes locaux et que
-chezmoi retrouve ces choix lors de l'initialisation.
+Le registre `dot_private/package-machines.json` associe hostname, profil
+technique et usage pour les nouvelles machines. Le modèle chezmoi reprend ces
+choix à la première initialisation ; les configurations existantes conservent
+leurs valeurs enregistrées.
 
 Toute édition montre les paquets avec leur provenance et un diff avant écriture.
 Retirer un paquet hérité crée une exclusion locale ; le partager nécessite une
@@ -82,6 +84,14 @@ promotion explicite. Les changements portent uniquement sur les manifestes :
 l'éditeur ne lance pas d'installation ou de suppression. Les fichiers restent
 éditables à la main, et les profils `legacy` gardent leur protection/migration
 explicite.
+
+Le premier relevé reproductible des manifestes est dans
+[`PACKAGE_MANIFEST_INVENTORY.md`](PACKAGE_MANIFEST_INVENTORY.md). Le résolveur,
+les commandes `package-plan preview` et `package-plan migrate` existaient déjà ;
+`package-plan create` et `package-plan tui` complètent maintenant la création
+guidée et l'édition locale avec aperçu des différences. L'inventaire des
+paquets installés sur chaque hôte reste à collecter avant les migrations : les
+déclarations du dépôt ne prouvent pas l'état réel d'une machine.
 
 Pour une installation neuve, proposer la base par défaut et enregistrer le choix
 avant toute installation. Une configuration existante conserve son comportement

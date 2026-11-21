@@ -1,5 +1,18 @@
 {{- /* Preserve the technical profile on re-init; package scope is independent. */ -}}
-{{- $mp := index . "machine_profile" | default "" -}}
+{{- $catalog := include "dot_private/package-layers.json" | fromJson -}}
+{{- $registry := include "dot_private/package-machines.json" | fromJson -}}
+{{- $host := first (splitList "." .chezmoi.hostname) -}}
+{{- $registered := dict -}}
+{{- if and (not (index . "machine_profile")) (not (stat .chezmoi.configFile)) -}}
+{{- $registered = index $registry.machines $host | default dict -}}
+{{- end -}}
+{{- $registeredMp := "" -}}
+{{- $registeredPp := "" -}}
+{{- if $registered -}}
+{{- $registeredMp = index $registered "machine_profile" | default "" -}}
+{{- $registeredPp = index $registered "package_profile" | default "" -}}
+{{- end -}}
+{{- $mp := index . "machine_profile" | default $registeredMp -}}
 {{- $existingMachine := and $mp (stat .chezmoi.configFile) -}}
 {{- if not $mp -}}
 {{- if eq .chezmoi.os "windows" -}}{{- $mp = "windows" -}}
@@ -29,7 +42,7 @@
 {{- end -}}
 {{- end -}}
 {{- $mp = includeTemplate "machine-profile" (dict "machine_profile" $mp) -}}
-{{- $pp := index . "package_profile" | default "" -}}
+{{- $pp := index . "package_profile" | default $registeredPp -}}
 {{- if env "DOTFILES_PACKAGE_PROFILE" -}}{{- $pp = env "DOTFILES_PACKAGE_PROFILE" -}}{{- end -}}
 {{- if not $pp -}}
 {{- if and (index . "machine_profile") (stat .chezmoi.configFile) -}}
@@ -40,8 +53,6 @@
 {{- if not (has $pp (list "base" "personal" "professional" "server" "legacy")) -}}{{- fail "Invalid package_profile: choose base, personal, professional or server" -}}{{- end -}}
 {{- /* A new machine must not silently reuse another Mac's generic hostname. */ -}}
 {{- if not $existingMachine -}}
-{{- $catalog := include "dot_private/package-layers.json" | fromJson -}}
-{{- $host := first (splitList "." .chezmoi.hostname) -}}
 {{- $collision := false -}}
 {{- if hasKey $catalog.profiles $mp -}}
 {{- range $manager, $_ := (index $catalog.profiles $mp).managers -}}

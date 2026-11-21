@@ -8,6 +8,7 @@ without package_profile select legacy; new init persists base explicitly.
 from __future__ import annotations
 
 import argparse
+import difflib
 import json
 import os
 import platform
@@ -22,6 +23,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 PROFILES = ("base", "personal", "professional", "server", "legacy")
+PACKAGE_USAGES = ("base", "personal", "professional", "server")
 BREW_ENTRY = re.compile(
     r"^(brew|cask|tap|mas|go|npm|cargo|uv|krew|vscode|flatpak|winget)\s+"
     r"[\"']([^\"']+)[\"'](.*)$"
@@ -244,6 +246,223 @@ def context_from_environment(args=None) -> Context:
     )
 
 
+def machine_registry(source: Path) -> Path:
+    return Path(source) / "dot_private/package-machines.json"
+
+
+def choose(prompt: str, options: list[str], *, default: int = 0) -> str:
+    """Small numbered prompt that works in standard terminals without dependencies."""
+    if not options:
+        raise LayerError(f"No choices available for {prompt.lower()}")
+    while True:
+        print(f"\n{prompt}")
+        for number, option in enumerate(options, 1):
+            marker = " (par défaut)" if number - 1 == default else ""
+            print(f"  {number}. {option}{marker}")
+        answer = input(f"Choix [1-{len(options)}, défaut {default + 1}]: ").strip()
+        if not answer:
+            return options[default]
+        if answer.isdigit() and 1 <= int(answer) <= len(options):
+            return options[int(answer) - 1]
+        print("Choisis l'un des numéros affichés.")
+
+
+def confirm(prompt: str, *, default: bool = False) -> bool:
+    suffix = "O/n" if default else "o/N"
+    while True:
+        answer = input(f"{prompt} [{suffix}] ").strip().lower()
+        if not answer:
+            return default
+        if answer in ("y", "yes", "o", "oui"):
+            return True
+        if answer in ("n", "no", "non"):
+            return False
+        print("Réponds par oui ou non.")
+
+
+def show_file_changes(source: Path, updates: dict[Path, str]) -> None:
+    for path, content in updates.items():
+        before = path.read_text(encoding="utf-8-sig") if path.exists() else ""
+        print(f"\nFichier : {path.relative_to(source)}")
+        diff = difflib.unified_diff(
+            before.splitlines(keepends=True),
+            content.splitlines(keepends=True),
+            fromfile="avant",
+            tofile="après",
+        )
+        rendered = "".join(diff)
+        if rendered:
+            print(rendered, end="")
+        else:
+            print("(aucune différence)")
+
+
+def create_machine(source: Path) -> int:
+    """Register a machine's package layers without installing any software."""
+    source = Path(source)
+    catalog = read_json(source / "dot_private/package-layers.json")
+    profiles = catalog["profiles"]
+    host = input("Nom court de la machine : ").strip().split(".", 1)[0]
+    if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_-]*", host):
+        raise LayerError(f"Nom de machine invalide : {host!r}")
+
+    labels = {
+        "mac-personal": "macOS — personnel",
+        "mac-pro": "macOS — professionnel",
+        "ubuntu-desktop": "Linux — Ubuntu avec bureau",
+        "ubuntu-server": "Linux — Ubuntu serveur",
+        "debian": "Linux — Debian",
+        "rpi": "Linux — Raspberry Pi / Debian",
+        "fedora-desktop": "Linux — Fedora avec bureau",
+        "fedora-server": "Linux — Fedora serveur",
+        "toolbox": "Linux — Fedora Toolbox",
+        "fedora-atomic": "Linux — Fedora Atomic",
+        "arch-desktop": "Linux — Arch avec bureau",
+        "arch-server": "Linux — Arch serveur",
+        "omarchy": "Linux — Omarchy",
+        "windows": "Windows",
+    }
+    groups = {}
+    for key, config in profiles.items():
+        groups.setdefault(config["os"], []).append(key)
+    os_names = {"darwin": "macOS", "linux": "Linux", "windows": "Windows"}
+    os_keys = sorted(groups, key=lambda key: {"darwin": 0, "linux": 1, "windows": 2}.get(key, 3))
+    selected_os = choose("Système d'exploitation", [os_names.get(key, key) for key in os_keys])
+    os_key = next(key for key in os_keys if os_names.get(key, key) == selected_os)
+    available = groups[os_key]
+    profile_labels = [labels.get(key, key) for key in available]
+    selected_label = choose("Distribution ou profil système", profile_labels)
+    machine_profile = available[profile_labels.index(selected_label)]
+    usage_labels = {
+        "base": "Base uniquement",
+        "personal": "Personnel",
+        "professional": "Professionnel",
+        "server": "Serveur",
+    }
+    selected_usage = choose("Usage des paquets", list(usage_labels.values()))
+    usage = next(key for key, label in usage_labels.items() if label == selected_usage)
+
+    registry_path = machine_registry(source)
+    registry = (
+        read_json(registry_path)
+        if registry_path.exists()
+        else {"version": 1, "machines": {}}
+    )
+    if not isinstance(registry, dict) or not isinstance(registry.get("machines", {}), dict):
+        raise LayerError(f"Invalid machine registry: {registry_path}")
+    machines = registry.setdefault("machines", {})
+    if host in machines:
+        raise LayerError(f"{host} is already registered in {registry_path.name}")
+
+    context = Context(source, machine_profile, usage, host)
+    collisions = [
+        context.selection(manager)["host"]
+        for manager in context.managers
+        if (context.directory / context.selection(manager)["host"]).exists()
+    ]
+    if collisions:
+        raise LayerError(
+            f"Host manifests already exist for {host}: {', '.join(collisions)}. "
+            "Review them before registering this machine."
+        )
+
+    print(f"\nNouvelle machine : {host}")
+    print(f"  Système : {labels.get(machine_profile, machine_profile)}")
+    print(f"  Usage :   {usage_labels[usage]}")
+    for manager in context.managers:
+        plan = context.selection(manager)
+        print(f"  {manager} : " + ", ".join(plan["shared"] or ["aucun paquet partagé"]))
+        print(f"    manifeste machine : {plan['host']}")
+    print("  Aucun paquet ne sera installé.")
+    if not confirm("Enregistrer cette machine dans package-machines.json ?", default=False):
+        print("Aucun fichier modifié.")
+        return 0
+
+    machines[host] = {"machine_profile": machine_profile, "package_profile": usage}
+    registry["version"] = 1
+    atomic_write(registry_path, json.dumps(registry, indent=2, ensure_ascii=False) + "\n")
+    print(f"Créé : {registry_path.relative_to(source)}")
+    print(
+        "Sur la nouvelle machine, initialise chezmoi normalement : son hostname "
+        "chargera ce système et cet usage."
+    )
+    return 0
+
+
+def edit_packages(context: Context) -> int:
+    """Guided editor for a host overlay; edits stay local for review."""
+    manager_labels = {
+        "brew": "Homebrew / Linuxbrew",
+        "apt": "APT",
+        "dnf": "DNF",
+        "pacman": "Pacman",
+        "aur": "AUR",
+        "rpm": "rpm-ostree",
+        "flatpak": "Flatpak",
+        "snap": "Snap",
+        "scoop": "Scoop",
+    }
+    managers = list(context.managers)
+    manager_label = choose(
+        "Gestionnaire de paquets",
+        [manager_labels.get(item, item) for item in managers],
+    )
+    manager = managers[[manager_labels.get(item, item) for item in managers].index(manager_label)]
+    while True:
+        entries = context.entries(manager)
+        origins = {}
+        for filename in context.selection(manager)["files"]:
+            for identity in parse_entries(context.directory / filename, manager):
+                if identity in entries:
+                    origins.setdefault(identity, []).append(filename)
+        print(f"\n{manager_label} : {len(entries)} paquets déclarés")
+        action = choose(
+            "Que veux-tu faire ?",
+            ["Afficher les paquets et leur provenance", "Ajouter un paquet", "Retirer un paquet", "Terminer"],
+        )
+        if action == "Terminer":
+            return 0
+        if action == "Afficher les paquets et leur provenance":
+            for identity, files in sorted(origins.items()):
+                print(f"  {identity}  [{', '.join(files)}]")
+            if not origins:
+                print("  Aucun paquet déclaré dans cette sélection.")
+            continue
+        elif action == "Ajouter un paquet":
+            name = input("Nom du paquet (Homebrew : formule ou cask:nom) : ").strip()
+            if not name:
+                print("Aucun nom saisi.")
+                continue
+            updates = plan_record(context, manager, "add", [name])
+        else:
+            query = input("Filtrer les paquets à retirer (Entrée = tous) : ").strip().lower()
+            identities = [
+                identity
+                for identity in sorted(entries)
+                if query in identity.lower()
+            ]
+            if not query and len(identities) > 30:
+                print("Il y a beaucoup de paquets ; saisis quelques lettres pour filtrer.")
+                continue
+            if not identities:
+                print("Aucun paquet correspondant.")
+                continue
+            identity = choose("Paquet à retirer", identities)
+            updates = plan_record(context, manager, "remove", [identity])
+        if updates:
+            show_file_changes(context.source, updates)
+            if not confirm("Confirmer l'écriture ?", default=False):
+                print("Aucun fichier modifié.")
+                continue
+            for path, content in updates.items():
+                atomic_write(path, content)
+            print("Modifié localement (aucune installation/suppression lancée) :")
+            for path in updates:
+                print(f"  {path}")
+        else:
+            print("Aucune modification nécessaire.")
+
+
 def parse_entries(path: Path, manager: str) -> dict:
     if manager == "scoop":
         data = read_json(path)
@@ -326,7 +545,9 @@ def entry_identity(manager: str, name: str, entries: dict | None = None) -> str:
     return matches[0] if matches else f"brew:{name}"
 
 
-def record(context: Context, manager: str, action: str, names: list[str]) -> list[Path]:
+def plan_record(
+    context: Context, manager: str, action: str, names: list[str]
+) -> dict[Path, str]:
     selection = context.selection(manager)
     if not selection["supported"]:
         raise LayerError(f"{manager} is not supported by {context.machine_profile}")
@@ -350,21 +571,27 @@ def record(context: Context, manager: str, action: str, names: list[str]) -> lis
                     kind, value = identity.split(":", 1)
                     local[identity] = f'{kind} "{value}"'
                 elif manager == "scoop":
-                    local[identity] = {"name": name}
+                    value = identity.split(":", 1)[1] if identity.startswith("bucket:") else name
+                    local[identity] = {"name": value}
                 else:
                     local[identity] = name
-    changed = []
+    updates = {}
     content = serialize_entries(local, manager)
     if (host.exists() and host.read_text(encoding="utf-8-sig") != content) or (
         not host.exists() and local
     ):
-        atomic_write(host, content)
-        changed.append(host)
+        updates[host] = content
     if sorted(excluded) != sorted(exclude_data.get(manager, [])):
         exclude_data[manager] = sorted(excluded)
-        atomic_write(context.exclude_file, json.dumps(exclude_data, indent=2) + "\n")
-        changed.append(context.exclude_file)
-    return changed
+        updates[context.exclude_file] = json.dumps(exclude_data, indent=2) + "\n"
+    return updates
+
+
+def record(context: Context, manager: str, action: str, names: list[str]) -> list[Path]:
+    updates = plan_record(context, manager, action, names)
+    for path, content in updates.items():
+        atomic_write(path, content)
+    return list(updates)
 
 
 def dump_overlay(context: Context, manager: str, installed: dict) -> list[Path]:
@@ -814,6 +1041,9 @@ def main(argv=None) -> int:
         "record",
         "promote",
         "wrapper",
+        "edit",
+        "create",
+        "tui",
     ):
         child = commands.add_parser(command)
         child.add_argument("--manager")
@@ -835,9 +1065,28 @@ def main(argv=None) -> int:
     migration.add_argument("--config", type=Path)
     args = parser.parse_args(argv)
     try:
-        context = context_from_environment(args)
         command = args.command or "preview"
+        if command == "create":
+            context_path = Path(
+                os.environ.get(
+                    "PACKAGE_CONTEXT_FILE",
+                    Path.home() / ".config/dotfiles/package-context.json",
+                )
+            )
+            saved_context = read_json(context_path) if context_path.exists() else {}
+            if not isinstance(saved_context, dict):
+                raise LayerError(f"Expected an object in {context_path}")
+            source = (
+                args.source
+                or os.environ.get("CHEZMOI_SOURCE_PATH")
+                or saved_context.get("source_dir")
+                or Path.home() / ".local/share/chezmoi"
+            )
+            return create_machine(Path(source))
+        context = context_from_environment(args)
         manager = getattr(args, "manager", None)
+        if command in ("edit", "tui"):
+            return edit_packages(context)
         if command not in ("preview", "migrate") and not manager:
             raise LayerError("--manager is required")
         if command == "preview":

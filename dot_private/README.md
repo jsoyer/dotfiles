@@ -3,6 +3,8 @@
 All three operating systems use **platform base + optional usage + machine**.
 The catalog is [package-layers.json](package-layers.json). See
 [Package layers](../docs/PACKAGE_LAYERS.md) for setup, migration and rollback.
+The optional per-host defaults created by `package-plan create` live in
+`package-machines.json`.
 
 ## Selection
 
@@ -48,6 +50,10 @@ chezmoi apply
 Migration preserves this host's declarations in its own file, with local backups;
 it does not modify another host, uninstall software or automatically publish files.
 Keep compatibility until actual machine inventories and hostname mappings are verified.
+
+For guided editing, run `package-plan tui`; for a new machine, run
+`package-plan create`. Both commands preview their scope and only update source
+files after confirmation. They never install or uninstall packages.
 
 ## Wrappers and shared changes
 

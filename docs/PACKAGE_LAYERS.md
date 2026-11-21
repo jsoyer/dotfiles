@@ -61,6 +61,31 @@ configuration. Previews report declarations and their source files; they do not
 inspect installed state or install software. `install_mas=false` filters App Store
 declarations from installation; compatibility keeps explicit legacy host MAS entries.
 
+## Create a machine or edit its packages
+
+On a machine with the chezmoi source checkout available, use the guided terminal
+menus:
+
+```sh
+package-plan create
+package-plan tui
+```
+
+`create` asks for the short hostname, OS/distribution profile and package usage.
+It shows the selected shared files and future host manifest names, then asks
+before recording the choice in `dot_private/package-machines.json`. A first
+chezmoi initialization on that hostname reads the registered values. Existing
+chezmoi configurations keep their saved values, including `legacy` when no
+package scope was previously selected. The wizard does not install software.
+
+`tui` is a dependency-free, numbered terminal interface. It lists the active
+declarations and their source manifests, then adds or
+removes packages in the current machine's manifest or exclusion file. Changes
+are local for review; the command does not run the package manager, commit or
+push. Shared inherited packages are removed through a host exclusion. Use
+`package-plan promote` when a package should move from the host list into a
+shared base or usage layer.
+
 The catalog `dot_private/package-layers.json` is read by both chezmoi and the
 wrappers. The generated `~/.config/dotfiles/package-context.json` supplies saved
 selection data to wrappers, including ones run outside an interactive shell.
