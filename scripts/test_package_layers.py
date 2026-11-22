@@ -24,6 +24,10 @@ CATALOG = json.loads(
 )
 
 
+# Throwaway age PUBLIC key answering chezmoi init's age_recipient prompt
+# (1Password is not available here). Private half discarded.
+CI_AGE_RECIPIENT = "age1xzmhl7dngfl8erf5xudsc9e03y49a7r4wwhgxyy5864v3x7sqdzq96qet9"
+
 class Fixture(unittest.TestCase):
     def setUp(self):
         self.temporary = tempfile.TemporaryDirectory()
@@ -164,10 +168,12 @@ class Edits(Fixture):
     def test_aur_additions_never_modify_shared_aur_list(self):
         context = layers.Context(self.source, "arch-desktop", "personal", "ArchA")
         original = (self.private / "Pacfile_aur_desktop").read_bytes()
-        layers.record(context, "aur", "add", ["rtk-bin"])
+        # A package no shared layer declares: a real one (rtk-bin) moved into
+        # Pacfile_aur_usage_arch_desktop, so adding it became a no-op.
+        layers.record(context, "aur", "add", ["layer-test-aur-only"])
         self.assertEqual(
             (self.private / "Pacfile_aur_ArchA").read_text(encoding="utf-8"),
-            "rtk-bin\n",
+            "layer-test-aur-only\n",
         )
         self.assertEqual((self.private / "Pacfile_aur_desktop").read_bytes(), original)
 
@@ -642,6 +648,8 @@ class Templates(Fixture):
             "init",
             "--no-tty",
             "--promptDefaults",
+            "--promptString",
+            f"age public key (age1...)={CI_AGE_RECIPIENT}",
         ]
         result = subprocess.run(
             command, env=environment, text=True, capture_output=True, encoding="utf-8"
@@ -710,6 +718,8 @@ class Templates(Fixture):
             "init",
             "--no-tty",
             "--promptDefaults",
+            "--promptString",
+            f"age public key (age1...)={CI_AGE_RECIPIENT}",
         ]
         result = subprocess.run(
             command, env=environment, text=True, capture_output=True, encoding="utf-8"
