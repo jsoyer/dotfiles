@@ -12,12 +12,53 @@ set -euo pipefail
 # =============================================================================
 
 # ocx — OpenCode extension manager
-if ! command -v ocx &>/dev/null; then
-    echo "Installing ocx..."
+# Note: `ocx self update` does not detect baseline (no-AVX2) or musl platforms
+# and unconditionally downloads the standard AVX2 glibc binary, which crashes
+# with SIGILL on CPUs without AVX2. Use the official installer script (which
+# detects baseline/musl) to install, repair, or update ocx on those hosts.
+ocx_needs_installer_for_update() {
+    local arch os
+    arch="$(uname -m)"
+    os="$(uname -s)"
+    if [[ "$arch" == "x86_64" || "$arch" == "amd64" ]]; then
+        if [[ "$os" == "Linux" ]] && ! grep -q avx2 /proc/cpuinfo 2>/dev/null; then
+            return 0
+        fi
+        if [[ "$os" == "Darwin" ]] && [[ "$(sysctl -n hw.optional.avx2_0 2>/dev/null || true)" != "1" ]]; then
+            return 0
+        fi
+    fi
+    if [[ "$os" == "Linux" ]]; then
+        if [[ -f /etc/alpine-release ]] || ldd --version 2>&1 | grep -qi musl; then
+            return 0
+        fi
+    fi
+    return 1
+}
+
+ocx_runnable() {
+    command -v ocx &>/dev/null && (ocx --version) &>/dev/null
+}
+
+if ! ocx_runnable; then
+    if command -v ocx &>/dev/null; then
+        echo "ocx binary is not runnable on this CPU/platform (e.g. missing AVX2), reinstalling..."
+    else
+        echo "Installing ocx..."
+    fi
     if curl -fsSL https://ocx.kdco.dev/install.sh | sh; then
         export PATH="${HOME}/.local/bin:${PATH}"
+        hash -r 2>/dev/null || true
     else
         echo "Warning: ocx installation failed (non-fatal, upstream may be down)"
+    fi
+elif ocx_needs_installer_for_update; then
+    echo "ocx already installed (baseline/musl platform), updating via official installer..."
+    if curl -fsSL https://ocx.kdco.dev/install.sh | sh; then
+        export PATH="${HOME}/.local/bin:${PATH}"
+        hash -r 2>/dev/null || true
+    else
+        echo "Warning: ocx update failed (non-fatal, upstream may be down)"
     fi
 else
     echo "ocx already installed, checking for updates..."
@@ -60,7 +101,7 @@ else
 fi
 
 # ocx global init — creates profiles and global config (skip if ocx not available)
-if command -v ocx &>/dev/null; then
+if ocx_runnable; then
     if [[ ! -f "${HOME}/.config/opencode/ocx.jsonc" ]] && [[ ! -f "${HOME}/.config/opencode/.opencode/ocx.jsonc" ]]; then
         echo "Initializing ocx globally..."
         ocx init --global
@@ -68,7 +109,7 @@ if command -v ocx &>/dev/null; then
         echo "ocx global config already initialized"
     fi
 else
-    echo "Skipping ocx init (ocx not installed)"
+    echo "Skipping ocx init (ocx not installed or not runnable)"
 fi
 
 # Fix: remove root-level ocx.jsonc if .opencode/ocx.jsonc also exists (ocx requires single location)
@@ -78,7 +119,7 @@ if [[ -f "${HOME}/.config/opencode/ocx.jsonc" ]] && [[ -f "${HOME}/.config/openc
 fi
 
 # ocx plugins — non-fatal (registry hash mismatches are transient)
-if command -v ocx &>/dev/null; then
+if ocx_runnable; then
     OCX_DIR="${HOME}/.config/opencode"
 
     # Clear stale receipt to avoid integrity mismatches on registry updates
