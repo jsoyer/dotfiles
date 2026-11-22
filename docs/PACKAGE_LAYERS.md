@@ -1,5 +1,8 @@
 # Package layers
 
+For current implementation status and continuation notes, see
+[PACKAGE_LAYERS_HANDOFF.md](PACKAGE_LAYERS_HANDOFF.md).
+
 macOS, Linux, Windows and FreeBSD select the union of three layers:
 
 1. A small base adapted to the OS/distribution.
