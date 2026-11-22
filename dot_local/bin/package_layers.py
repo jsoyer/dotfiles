@@ -1406,6 +1406,35 @@ def migrate(context: Context, target_profile: str, *, write=False, config=None) 
     else:
         lines.insert(insertion, value)
     updates[config] = "".join(lines)
+
+    # Registered machines take precedence over the local chezmoi config during
+    # package selection. Keep both sources in sync when this host is registered.
+    registry_path = machine_registry(context.source)
+    if registry_path.is_file():
+        registry = read_json(registry_path)
+        if not isinstance(registry, dict) or not isinstance(
+            registry.get("machines"), dict
+        ):
+            raise LayerError(f"Invalid machine registry: {registry_path}")
+        registry_host = next(
+            (
+                host
+                for host in registry["machines"]
+                if host.casefold() == context.hostname.casefold()
+            ),
+            None,
+        )
+        if registry_host is not None:
+            machine = registry["machines"][registry_host]
+            if not isinstance(machine, dict):
+                raise LayerError(
+                    f"Invalid machine entry for {registry_host!r} in {registry_path}"
+                )
+            if machine.get("package_profile") != target_profile:
+                machine["package_profile"] = target_profile
+                updates[registry_path] = (
+                    json.dumps(registry, indent=2, ensure_ascii=False) + "\n"
+                )
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
     backup_dir = config.parent / "package-layer-backups" / stamp
     backup_dir.mkdir(parents=True, mode=0o700)
@@ -1439,6 +1468,8 @@ def migrate(context: Context, target_profile: str, *, write=False, config=None) 
                 atomic_write(path, previous)
         raise
     report["backup"] = str(backup_dir)
+    if registry_path in updates:
+        report["registry"] = str(registry_path)
     print(
         "Migration saved. Run chezmoi apply, then open a new shell. Review and commit the host manifests.",
         file=sys.stderr,

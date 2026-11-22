@@ -188,10 +188,13 @@ Use the wrappers' explicit `dump` commands and inspect installed state first whe
 that differs from the declarations. Brew exports preserve host npm/Go/Cargo entries
 which its enabled dumpers cannot represent.
 
-`--write` backs up the local chezmoi TOML and affected host manifests under
-`<chezmoi-config-directory>/package-layer-backups/<timestamp>/`. It changes only
-`package_profile` in `[data]`, preserving other local configuration. Review and
-commit the host manifests afterwards; migration itself does not push them.
+`--write` backs up the local chezmoi TOML, affected host manifests and any
+registered machine entry it changes under
+`<chezmoi-config-directory>/package-layer-backups/<timestamp>/`. It updates only
+`package_profile` in `[data]` and, when the machine is registered,
+`package-machines.json`; other local configuration and registry fields are kept.
+Review and commit the changed manifests afterwards; migration itself does not
+push them.
 
 No software is uninstalled by migration. Existing package updates still cover
 installed packages outside the selected manifests and report incomplete updates.
