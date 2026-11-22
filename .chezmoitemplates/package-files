@@ -20,7 +20,7 @@
 {{- end -}}
 {{- if not (hasKey $catalog.profiles $mp) -}}{{- fail (printf "Unknown machine_profile %q" $mp) -}}{{- end -}}
 {{- $p := index $catalog.profiles $mp -}}
-{{- $targetKind = $p.target_kind | default "host" -}}
+{{- $targetKind = index $p "target_kind" | default "host" -}}
 {{- if $registered -}}{{- $targetKind = index $registered "target_kind" | default $targetKind -}}{{- end -}}
 {{- if ne $p.os $d.chezmoi.os -}}{{- fail (printf "machine_profile %s is for %s, not %s" $mp $p.os $d.chezmoi.os) -}}{{- end -}}
 {{- if not (hasKey $catalog.host_prefixes $manager) -}}{{- fail (printf "Unknown package manager %q" $manager) -}}{{- end -}}
