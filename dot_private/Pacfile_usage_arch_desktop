@@ -1,0 +1,25 @@
+# arch-desktop personal declarations carried forward from the legacy manifest.
+base-devel
+zellij
+vivid
+fish
+nushell
+openssh
+reflector
+television
+nodejs
+npm
+go
+rust
+ruby
+jdk-openjdk
+jdk25-openjdk
+zed
+signal-desktop
+vlc
+discord
+obsidian
+telegram-desktop
+filezilla
+obs-studio
+remmina

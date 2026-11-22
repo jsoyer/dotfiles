@@ -1,0 +1,9 @@
+# toolbox professional declarations carried forward from the legacy manifest.
+starship
+vivid
+fish
+kitty
+nushell
+util-linux-user
+cargo
+rust

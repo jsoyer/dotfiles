@@ -1,0 +1,6 @@
+# arch-server server declarations carried forward from the legacy manifest.
+base-devel
+atuin
+direnv
+htop
+github-cli

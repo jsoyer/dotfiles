@@ -1,0 +1,5 @@
+# ubuntu-server server declarations carried forward from the legacy manifest.
+zoxide
+direnv
+htop
+tree

@@ -1,6 +1,6 @@
 # Package manifests
 
-All three operating systems use **platform base + optional usage + machine**.
+All supported systems use **platform base + optional usage + machine**.
 The catalog is [package-layers.json](package-layers.json). See
 [Package layers](../docs/PACKAGE_LAYERS.md) for setup, migration and rollback.
 Per-host profile choices created or edited by `package-plan create` / `tui` live in
@@ -34,8 +34,11 @@ A new install through a wrapper clears the corresponding exclusion.
 
 The large `Brewfile_personal` / `Brewfile_pro`, Linux desktop/server lists and
 `Scoopfile.json` remain compatibility inputs. New personal/professional choices
-use the small new usage lists. `Dnffile_toolbox_legacy` captures the previously
-inline Toolbox list. Do not add new packages to compatibility manifests.
+use the new usage lists. Role-specific Linux usage files carry forward the
+declarations for Ubuntu, Fedora, Arch, Omarchy and Toolbox profiles.
+Debian and Raspberry Pi stay in compatibility mode until their usage is chosen.
+`Dnffile_toolbox_legacy` captures the previously inline Toolbox list. Do not add
+new packages to compatibility manifests.
 `packages.yaml` is a historical reference, not a second source of generated lists.
 
 Before migrating a machine, compare its installed inventory and declared scope:

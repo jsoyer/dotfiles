@@ -1,0 +1,11 @@
+# fedora-server server declarations carried forward from the legacy manifest.
+starship
+vivid
+atuin
+direnv
+htop
+util-linux-user
+cargo
+rust
+gh
+eza

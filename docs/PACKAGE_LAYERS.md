@@ -161,8 +161,12 @@ Compatibility manifests cannot be promoted into: migrate the machine first.
 
 Existing machines keep their existing package lists until migrated individually.
 The large `Brewfile_personal`, `Brewfile_pro`, Linux profile manifests and
-`Scoopfile.json` remain read-only compatibility inputs. Fresh usage profiles read
-the new small usage files, so a new personal Mac avoids the compatibility lists.
+`Scoopfile.json` remain read-only compatibility inputs. Role-labelled Linux
+profiles now have matching usage-layer manifests, so migration can retain their
+shared declarations instead of copying everything into each host overlay.
+Debian, Raspberry Pi and Windows inventories remain in compatibility mode until
+their intended usage is selected on the machine; their contents are not assigned
+to personal or server use by guessing.
 
 ```sh
 chezmoi git -- status --short --branch

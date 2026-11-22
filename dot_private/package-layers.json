@@ -61,7 +61,8 @@
             "Aptfile_ubuntu_desktop"
           ],
           "personal": [
-            "Aptfile_usage_personal"
+            "Aptfile_usage_personal",
+            "Aptfile_usage_ubuntu_desktop"
           ],
           "professional": [
             "Aptfile_usage_professional"
@@ -89,7 +90,8 @@
             "Flatpakfile_ubuntu_desktop"
           ],
           "personal": [
-            "Flatpakfile_usage_personal"
+            "Flatpakfile_usage_personal",
+            "Flatpakfile_usage_ubuntu_desktop"
           ],
           "professional": [
             "Flatpakfile_usage_professional"
@@ -106,7 +108,8 @@
             "Snapfile_ubuntu_desktop"
           ],
           "personal": [
-            "Snapfile_usage_personal"
+            "Snapfile_usage_personal",
+            "Snapfile_usage_ubuntu_desktop"
           ],
           "professional": [
             "Snapfile_usage_professional"
@@ -134,7 +137,8 @@
             "Aptfile_usage_professional"
           ],
           "server": [
-            "Aptfile_usage_server"
+            "Aptfile_usage_server",
+            "Aptfile_usage_ubuntu_server"
           ]
         },
         "brew": {
@@ -244,7 +248,8 @@
             "Dnffile_fedora_desktop"
           ],
           "personal": [
-            "Dnffile_usage_personal"
+            "Dnffile_usage_personal",
+            "Dnffile_usage_fedora_desktop"
           ],
           "professional": [
             "Dnffile_usage_professional"
@@ -272,7 +277,8 @@
             "Flatpakfile_fedora_desktop"
           ],
           "personal": [
-            "Flatpakfile_usage_personal"
+            "Flatpakfile_usage_personal",
+            "Flatpakfile_usage_fedora_desktop"
           ],
           "professional": [
             "Flatpakfile_usage_professional"
@@ -300,7 +306,8 @@
             "Dnffile_usage_professional"
           ],
           "server": [
-            "Dnffile_usage_server"
+            "Dnffile_usage_server",
+            "Dnffile_usage_fedora_server"
           ]
         },
         "brew": {
@@ -330,7 +337,8 @@
             "Dnffile_usage_personal"
           ],
           "professional": [
-            "Dnffile_usage_professional"
+            "Dnffile_usage_professional",
+            "Dnffile_usage_toolbox"
           ],
           "server": [
             "Dnffile_usage_server"
@@ -359,7 +367,9 @@
           "legacy": [
             "Rpmfile_fedora_atomic"
           ],
-          "personal": [],
+          "personal": [
+            "Rpmfile_usage_fedora_atomic"
+          ],
           "professional": [],
           "server": [
             "Rpmfile_usage_server"
@@ -373,7 +383,8 @@
             "Flatpakfile_fedora_atomic"
           ],
           "personal": [
-            "Flatpakfile_usage_personal"
+            "Flatpakfile_usage_personal",
+            "Flatpakfile_usage_fedora_atomic"
           ],
           "professional": [
             "Flatpakfile_usage_professional"
@@ -407,7 +418,8 @@
             "Pacfile_arch_gui"
           ],
           "personal": [
-            "Pacfile_usage_personal"
+            "Pacfile_usage_personal",
+            "Pacfile_usage_arch_desktop"
           ],
           "professional": [
             "Pacfile_usage_professional"
@@ -425,7 +437,8 @@
             "Pacfile_aur_gui"
           ],
           "personal": [
-            "Pacfile_aur_usage_personal"
+            "Pacfile_aur_usage_personal",
+            "Pacfile_aur_usage_arch_desktop"
           ],
           "professional": [
             "Pacfile_aur_usage_professional"
@@ -477,7 +490,8 @@
             "Pacfile_usage_professional"
           ],
           "server": [
-            "Pacfile_usage_server"
+            "Pacfile_usage_server",
+            "Pacfile_usage_arch_server"
           ]
         },
         "aur": {
@@ -533,7 +547,8 @@
             "Pacfile_arch_gui"
           ],
           "personal": [
-            "Pacfile_usage_personal"
+            "Pacfile_usage_personal",
+            "Pacfile_usage_arch_desktop"
           ],
           "professional": [
             "Pacfile_usage_professional"
@@ -551,7 +566,8 @@
             "Pacfile_aur_gui"
           ],
           "personal": [
-            "Pacfile_aur_usage_personal"
+            "Pacfile_aur_usage_personal",
+            "Pacfile_aur_usage_arch_desktop"
           ],
           "professional": [
             "Pacfile_aur_usage_professional"

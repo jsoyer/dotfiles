@@ -1,0 +1,7 @@
+# fedora-desktop personal declarations carried forward from the legacy manifest.
+com.discordapp.Discord
+io.github.shiftey.Desktop
+md.obsidian.Obsidian
+org.localsend.localsend_app
+org.signal.Signal
+tech.feliciano.pocket-casts
