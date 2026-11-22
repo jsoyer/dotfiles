@@ -1106,6 +1106,7 @@ alias nm = nmap -sC -sV -oN nmap
 # ============================================================================
 # Homebrew (via breww wrapper) + Mac App Store (via masw)
 # ============================================================================
+def --wrapped brew [...args: string] { ^breww ...$args }
 alias b = breww
 def mas [...args: string] { ^masw ...$args }
 alias bi = breww install
