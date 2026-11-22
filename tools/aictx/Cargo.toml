@@ -28,7 +28,6 @@ serde_yaml = "0.9"
 
 # File system
 walkdir = "2"
-glob = "0.3"
 tempfile = "3"
 
 # User interaction (non-TUI confirmations)
@@ -36,11 +35,9 @@ dialoguer = "0.11"
 
 # Error handling
 anyhow = "1"
-thiserror = "2"
 
 # Misc
 dirs = "6"
-colored = "3"
 
 # File watching
 notify = "7"

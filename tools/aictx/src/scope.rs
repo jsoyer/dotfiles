@@ -96,13 +96,6 @@ fn resolve_with_home(cwd: &Path, explicit: Option<Scope>, home: &Path) -> Result
     }
 }
 
-/// Walk up from `start` to find the nearest project root.
-/// Stops at home directory.
-pub fn find_project_root(start: &Path) -> Option<PathBuf> {
-    let home = dirs::home_dir().unwrap_or_default();
-    find_project_root_until(start, &home)
-}
-
 fn find_project_root_until(start: &Path, home: &Path) -> Option<PathBuf> {
     let mut dir = start.to_path_buf();
 
