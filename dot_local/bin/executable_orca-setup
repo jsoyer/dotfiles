@@ -29,7 +29,13 @@
 #   orca-setup                              full install (prompts for sudo)
 #   orca-setup --pairing-address 100.x.y.z  force the pairing address
 #   orca-setup --port 6768                  force the runtime port
+#   orca-setup --update-at 04:30            fixed update time (default: daily, random 1h)
+#   orca-setup --tailnet-only               firewall the port to lo + tailscale0
 #   orca-setup --status                     state (no root needed)
+#
+# Pairing: the service runs with --no-pairing, so no pairing link (a credential)
+# is ever written to the journal. Pair clients with `orca-pair` (wraps
+# `orca-ide pair`), which asks the running server for an offer — no restart.
 #   orca-setup --uninstall
 #   orca-setup --dry-run
 #
@@ -52,8 +58,13 @@ ALERT_SERVICE="orca-alert@.service"
 ALERT_CONF="/etc/orca-alert.conf"
 HEALTH_STATE_DIR="/var/lib/orca-health"
 DEFAULT_PORT=6768
+FIREWALL_SERVICE="orca-firewall.service"
+FIREWALL_RULES="/etc/orca/orca-guard.nft"
+FIREWALL_TABLE="orca_guard"
 
 PAIRING_ADDR=""
+UPDATE_AT=""
+TAILNET_ONLY=0
 PORT="$DEFAULT_PORT"
 SVC_USER=""
 DO_SERVICE=1
@@ -87,11 +98,17 @@ write_file() {
 usage() { sed -n '2,/^set -euo/p' "$0" | sed 's/^# \{0,1\}//; $d'; }
 
 # --- Option parsing -----------------------------------------------------------
+# Kept for the sudo re-exec below: the parsing loop shifts "$@" empty, so
+# re-executing with "$@" silently dropped every option (--pairing-address,
+# --update-at, …) whenever orca-setup was started without root.
+ORIG_ARGS=("$@")
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --pairing-address) PAIRING_ADDR="${2:?address missing}"; shift ;;
     --port)            PORT="${2:?port missing}"; shift ;;
     --user)            SVC_USER="${2:?user missing}"; shift ;;
+    --update-at)       UPDATE_AT="${2:?time missing (HH:MM)}"; shift ;;
+    --tailnet-only)    TAILNET_ONLY=1 ;;
     --no-service)      DO_SERVICE=0 ;;
     --status)          ACTION="status" ;;
     --uninstall)       ACTION="uninstall" ;;
@@ -104,6 +121,8 @@ while [[ $# -gt 0 ]]; do
 done
 
 [[ "$(uname -s)" == "Linux" ]] || die "Headless Orca is Linux-only (platform: $(uname -s))."
+[[ -z "$UPDATE_AT" || "$UPDATE_AT" =~ ^([01][0-9]|2[0-3]):[0-5][0-9]$ ]] \
+  || die "--update-at expects HH:MM (got: ${UPDATE_AT})"
 
 # --- Asset selection by architecture ------------------------------------------
 # WARNING: the release publishes two AppImages. Without this check an arm64 RPi
@@ -149,6 +168,7 @@ do_status() {
   else
     printf '  Port %s : %snot listening%s\n' "$PORT" "$c_y" "$c_0"
   fi
+  printf '  Firewall : %s\n' "$(sstate systemctl is-active "$FIREWALL_SERVICE")"
 }
 
 if [[ "$ACTION" == "status" ]]; then do_status; exit 0; fi
@@ -162,7 +182,7 @@ if [[ "$(id -u)" -ne 0 ]]; then
   self="$(readlink -f -- "$0" 2>/dev/null || true)"
   [[ -n "$self" && -r "$self" ]] || die "Cannot resolve the script path ($0) for elevation."
   log "Root required (writing /opt + systemd) — elevating through sudo…"
-  exec sudo -- "$self" "$@"
+  exec sudo -- "$self" "${ORIG_ARGS[@]}"
 fi
 
 # User owning the Orca session (the userData profile is theirs).
@@ -185,7 +205,10 @@ do_uninstall() {
   # Stop the monitoring too: a timer left behind would keep alerting every ten
   # minutes about a service that no longer exists.
   run systemctl disable --now "$HEALTH_TIMER" 2>/dev/null || true
-  run rm -rf "$DROPIN_DIR" "$UPDATE_DROPIN_DIR" "$HEALTH_STATE_DIR"
+  run systemctl disable --now "$FIREWALL_SERVICE" 2>/dev/null || true
+  run rm -f "/etc/systemd/system/${FIREWALL_SERVICE}" "$FIREWALL_RULES"
+  run rm -rf "$DROPIN_DIR" "$UPDATE_DROPIN_DIR" "$HEALTH_STATE_DIR" \
+             /etc/systemd/system/orca-update.timer.d
   run rm -f /etc/systemd/system/orca-update.service /etc/systemd/system/orca-update.timer
   run rm -f "/etc/systemd/system/${HEALTH_SERVICE}" \
             "/etc/systemd/system/${HEALTH_TIMER}" \
@@ -403,7 +426,10 @@ PrivateTmp=yes
 Environment=APPIMAGE_EXTRACT_AND_RUN=1
 # Electron/Orca still requires an X server. Without xvfb: Missing X server
 # or DISPLAY then SIGSEGV. --auto-servernum picks a free display.
-ExecStart=/usr/bin/xvfb-run --auto-servernum ${DEST} serve --port ${PORT} --pairing-address ${PAIRING_ADDR}
+# --no-pairing: a pairing link grants access to this runtime, and without the
+# flag every start printed a fresh one into the journal (readable by root and
+# the adm group, and kept in journal backups). Pair with orca-pair instead.
+ExecStart=/usr/bin/xvfb-run --auto-servernum ${DEST} serve --port ${PORT} --pairing-address ${PAIRING_ADDR} --no-pairing
 Restart=on-failure
 RestartSec=5
 
@@ -578,6 +604,96 @@ StartLimitIntervalSec=1800
 StartLimitBurst=5
 EOF
 
+# --- Agent PATH ---------------------------------------------------------------
+# A system unit never reads the user's shell rc, so the agent CLIs Orca launches
+# (mise shims, ~/.local/bin, Grok's ~/.grok/bin) were invisible to it. The zz-u
+# name is load-bearing: it sorts AFTER zz-tmp-fix.conf, whose empty
+# `Environment=` resets the whole list — a PATH set before it would be wiped.
+SVC_HOME="$(getent passwd "$SVC_USER" | cut -d: -f6)"
+write_file "${DROPIN_DIR}/zz-user-path.conf" <<EOF
+# Managed by orca-setup. Must sort after zz-tmp-fix.conf (it resets Environment).
+[Service]
+Environment="PATH=${SVC_HOME}/.local/share/mise/shims:${SVC_HOME}/.local/bin:${SVC_HOME}/.grok/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+Environment="HOME=${SVC_HOME}"
+EOF
+ok "Drop-in written: ${DROPIN_DIR}/zz-user-path.conf (mise shims + ~/.local/bin on PATH)"
+
+# --- Tailscale ordering -------------------------------------------------------
+# The advertised pairing address is usually the Tailscale IP: start after
+# tailscaled so the first clients to reconnect after a boot find it up.
+if systemctl cat tailscaled.service >/dev/null 2>&1; then
+  write_file "${DROPIN_DIR}/zz-tailscale.conf" <<'EOF'
+# Managed by orca-setup. Start after tailscaled (pairing address = Tailscale IP).
+[Unit]
+Wants=tailscaled.service
+After=tailscaled.service
+EOF
+  ok "Drop-in written: ${DROPIN_DIR}/zz-tailscale.conf"
+else
+  run rm -f "${DROPIN_DIR}/zz-tailscale.conf"
+fi
+
+# --- Fixed update time --------------------------------------------------------
+# An update restarts orca-serve and therefore cuts the running sessions: a host
+# in daily use wants it at a known quiet hour, not at a random one.
+TIMER_DROPIN_DIR="/etc/systemd/system/orca-update.timer.d"
+if [[ -n "$UPDATE_AT" ]]; then
+  run mkdir -p "$TIMER_DROPIN_DIR"
+  write_file "${TIMER_DROPIN_DIR}/zz-schedule.conf" <<EOF
+# Managed by orca-setup (--update-at). An empty OnCalendar= clears the default.
+[Timer]
+OnCalendar=
+OnCalendar=*-*-* ${UPDATE_AT}:00
+RandomizedDelaySec=0
+EOF
+  ok "Update time fixed at ${UPDATE_AT}."
+else
+  run rm -rf "$TIMER_DROPIN_DIR"
+fi
+
+# --- Tailnet-only firewall (opt-in) -------------------------------------------
+# orca-serve binds 0.0.0.0 and accepts LAN addresses, so anything on the LAN can
+# attempt pairing. --tailnet-only drops the port on every interface except lo
+# and tailscale0, in a table of its own (other rulesets are left alone).
+if [[ "$TAILNET_ONLY" -eq 1 ]]; then
+  command -v nft >/dev/null 2>&1 || run apt-get install -y nftables \
+    || die "--tailnet-only needs nft (nftables)."
+  run mkdir -p "$(dirname "$FIREWALL_RULES")"
+  write_file "$FIREWALL_RULES" <<EOF
+# Managed by orca-setup (--tailnet-only).
+table inet ${FIREWALL_TABLE}
+delete table inet ${FIREWALL_TABLE}
+table inet ${FIREWALL_TABLE} {
+  chain input {
+    type filter hook input priority -10; policy accept;
+    tcp dport ${PORT} iifname != { "lo", "tailscale0" } drop
+  }
+}
+EOF
+  write_file "/etc/systemd/system/${FIREWALL_SERVICE}" <<EOF
+[Unit]
+Description=Restrict the Orca port to loopback + Tailscale
+Before=${SERVICE}
+After=network-pre.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=$(command -v nft || echo /usr/sbin/nft) -f ${FIREWALL_RULES}
+ExecStop=-$(command -v nft || echo /usr/sbin/nft) delete table inet ${FIREWALL_TABLE}
+
+[Install]
+WantedBy=multi-user.target
+EOF
+  write_file "${DROPIN_DIR}/zz-firewall.conf" <<EOF
+# Managed by orca-setup (--tailnet-only). Never serve before the port is guarded.
+[Unit]
+Wants=${FIREWALL_SERVICE}
+After=${FIREWALL_SERVICE}
+EOF
+  ok "Firewall written: ${FIREWALL_SERVICE} (port ${PORT} → lo + tailscale0 only)"
+fi
+
 if [[ -n "$SRC_HEALTH" ]]; then
   # OnFailure fires an immediate check — and therefore an alert — instead of
   # waiting up to 10 minutes for the next timer tick.
@@ -662,6 +778,10 @@ EOF
 # unguessable topic name: anyone who knows it can read your alerts.
 #
 #ORCA_ALERT_URL="https://ntfy.sh/orca-<hostname>-<random-string>"
+#
+# Self-hosted ntfy with access control (auth-default-access: deny-all): an
+# access token with write permission on the topic (`ntfy token add <user>`).
+#ORCA_ALERT_TOKEN="tk_..."
 EOF
     )
     ok "Alert config created: ${ALERT_CONF} (journal only — edit to add a push URL)"
@@ -681,8 +801,10 @@ enforce_port_file() {
   home="$(getent passwd "$SVC_USER" | cut -d: -f6)"
   dir="${home}/.config/orca"
   file="${dir}/mobile-ws-fallback-port.json"
-  run mkdir -p "$dir"
-  run chown "$SVC_USER":"$SVC_USER" "$dir" 2>/dev/null || true
+  # Create the profile AS the user: a root `mkdir -p` also created a missing
+  # ~/.config owned by root, which then broke every other tool writing there
+  # (mise, gh, …) with "Permission denied".
+  run runuser -u "$SVC_USER" -- mkdir -p "$dir"
   if [[ "$DRY_RUN" -eq 0 ]]; then
     printf '{"port":%s}\n' "$PORT" > "$file"
     chown "$SVC_USER":"$SVC_USER" "$file"
@@ -760,6 +882,9 @@ if [[ -n "$SRC_UPDATE" ]]; then
 fi
 if [[ -n "$SRC_HEALTH" ]]; then
   run systemctl enable --now "$HEALTH_TIMER"
+fi
+if [[ "$TAILNET_ONLY" -eq 1 ]]; then
+  run systemctl enable "$FIREWALL_SERVICE"
 fi
 
 if [[ "$DRY_RUN" -eq 1 ]]; then exit 0; fi
