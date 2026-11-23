@@ -198,8 +198,8 @@
       "scope": "compatibility-shared"
     },
     "Flatpakfile_rpi": {
-      "sha256": "35e0376958540cada4983f48dd8c4ec2f627ea1973e77113b96c401df4c4e460",
-      "lines": 5,
+      "sha256": "7b06f8c295aa098fec0da350b4a28f2e9c978f73894fbd5e066874b9f34ae80b",
+      "lines": 1,
       "scope": "compatibility-shared"
     },
     "Flatpakfile_ubuntu_desktop": {

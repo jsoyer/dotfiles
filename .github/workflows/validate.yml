@@ -13,6 +13,10 @@ concurrency:
 permissions:
   contents: read
 
+env:
+  # Throwaway age PUBLIC key for `chezmoi init` (private half discarded).
+  CI_AGE_RECIPIENT: age1xzmhl7dngfl8erf5xudsc9e03y49a7r4wwhgxyy5864v3x7sqdzq96qet9
+
 jobs:
   validate:
     runs-on: ubuntu-24.04
@@ -54,7 +58,11 @@ jobs:
       - name: Validate templates
         run: |
           # Verify all templates parse without errors
-          if ! chezmoi init --source="$(pwd)" --destination=/tmp/chezmoi-test --no-tty 2>&1; then
+          # CI has no 1Password: answer the age_recipient prompt (matched by its TEXT) with a throwaway
+          # public key (CI_AGE_RECIPIENT, private half discarded). Nothing is
+          # encrypted here; real machines still read the recipient from 1Password.
+          if ! chezmoi init --source="$(pwd)" --destination=/tmp/chezmoi-test --no-tty \
+              --promptString "age public key (age1...)=$CI_AGE_RECIPIENT" 2>&1; then
             echo "ERROR: Template parsing failed"
             exit 1
           fi

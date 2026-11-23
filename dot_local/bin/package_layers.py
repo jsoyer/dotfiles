@@ -158,6 +158,7 @@ class Context:
         return {
             "machine_profile": self.machine_profile,
             "package_profile": self.package_profile,
+            "target_kind": self.target_kind,
             "hostname": self.hostname,
             "manager": manager,
             "supported": config is not None,
