@@ -29,6 +29,12 @@ FORMULA_ALIASES = {
     "CMake": "cmake",  # aqua:Kitware/CMake
 }
 
+# Backend packages whose last path component is ambiguous: aqua:rancher/cli
+# would read as "cli", i.e. aqua:cli/cli (gh).
+KEY_NAMES = {
+    "rancher/cli": "rancher-cli",
+}
+
 # mise tools whose Homebrew counterpart is deliberately NOT purged.
 EXEMPT = {
     # Homebrew openjdk/openjdk@17 are dependencies of other formulae (gradle,
@@ -53,7 +59,8 @@ def mise_tools(text: str) -> set:
         m = re.match(r'^"?([A-Za-z0-9_.@:/-]+)"?\s*=', line)
         if m:
             key = m.group(1)
-            tools.add(re.split(r"[:/]", key)[-1])
+            name = key.split(":", 1)[-1]
+            tools.add(KEY_NAMES.get(name, re.split(r"[:/]", key)[-1]))
     return tools
 
 
@@ -86,6 +93,10 @@ class TestHelpers(unittest.TestCase):
             "[settings]\nall_compile = false\n"
         )
         self.assertEqual(mise_tools(text), {"node", "ruby", "cli", "git-delta"})
+
+    def test_ambiguous_package_names(self):
+        text = '[tools]\n"aqua:cli/cli" = "latest"\n"aqua:rancher/cli" = "latest"\n'
+        self.assertEqual(mise_tools(text), {"cli", "rancher-cli"})
 
     def test_detects_missing_and_stale(self):
         tools = {"node", "cli", "ripgrep", "java"}
