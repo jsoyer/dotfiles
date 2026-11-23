@@ -609,14 +609,24 @@ EOF
 # (mise shims, ~/.local/bin, Grok's ~/.grok/bin) were invisible to it. The zz-u
 # name is load-bearing: it sorts AFTER zz-tmp-fix.conf, whose empty
 # `Environment=` resets the whole list — a PATH set before it would be wiped.
+# MISE_*_DIR: Orca runs agent logins (and managed accounts) with private
+# XDG_CONFIG/DATA/STATE/CACHE_HOME dirs. mise derives its own dirs from them,
+# so a shim then finds no install and rejects ~/.config/mise/config.toml as an
+# untrusted project config: `orca-ide account add --agent opencode` reported
+# "Could not find an OpenCode 2 login" with a working opencode2 on PATH.
 SVC_HOME="$(getent passwd "$SVC_USER" | cut -d: -f6)"
 write_file "${DROPIN_DIR}/zz-user-path.conf" <<EOF
 # Managed by orca-setup. Must sort after zz-tmp-fix.conf (it resets Environment).
 [Service]
 Environment="PATH=${SVC_HOME}/.local/share/mise/shims:${SVC_HOME}/.local/bin:${SVC_HOME}/.grok/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 Environment="HOME=${SVC_HOME}"
+Environment="MISE_DATA_DIR=${SVC_HOME}/.local/share/mise" "MISE_CONFIG_DIR=${SVC_HOME}/.config/mise" "MISE_STATE_DIR=${SVC_HOME}/.local/state/mise" "MISE_CACHE_DIR=${SVC_HOME}/.cache/mise"
 EOF
-ok "Drop-in written: ${DROPIN_DIR}/zz-user-path.conf (mise shims + ~/.local/bin on PATH)"
+ok "Drop-in written: ${DROPIN_DIR}/zz-user-path.conf (mise shims + ~/.local/bin on PATH, mise dirs pinned)"
+warn "Shells that run orca-ide need the same pin (Orca isolates XDG_* for logins), e.g. in ~/.bashrc:
+  export MISE_DATA_DIR=\"\$HOME/.local/share/mise\" MISE_CONFIG_DIR=\"\$HOME/.config/mise\" MISE_STATE_DIR=\"\$HOME/.local/state/mise\" MISE_CACHE_DIR=\"\$HOME/.cache/mise\"
+and, because orca-serve has PrivateTmp (account add hands its /tmp login dir to the server: ENOENT .../opencode.db):
+  orca-ide() { local t=\"\$HOME/.cache/orca/cli-tmp\"; mkdir -p -m 0700 \"\$t\" && TMPDIR=\"\$t\" command orca-ide \"\$@\"; }"
 
 # --- Tailscale ordering -------------------------------------------------------
 # The advertised pairing address is usually the Tailscale IP: start after

@@ -140,3 +140,10 @@
 - **LOGIC:** `set -e` is disabled inside a function called from `f || ...`; `x="$(die ...)"` there does not stop the function. Return explicitly (`|| return 1`). Caught by `scripts/test_pct_tools.py`.
 - **SECURITY:** Orca pairing links (`orca://pair?code=...`, `#pairing=...`) are credentials. `serve --no-pairing` keeps them out of the journal; offers are minted on demand with `orca-pair`.
 - **Verify:** `python3 scripts/test_orca_headless.py`, `python3 scripts/test_pct_tools.py`
+
+## 2026-11-23 — Orca: OpenCode 2 and Devin accounts, mise under isolated XDG
+
+- **LOGIC:** `orca-ide account add --agent opencode` probes `opencode2 auth login --help` with private `XDG_CONFIG/DATA/STATE/CACHE_HOME`. A mise shim then looks for its installs and trust state in those empty dirs and fails ("config not trusted"), so Orca says "Could not find an OpenCode 2 login" although `opencode2` works in a shell. Fix: pin `MISE_DATA_DIR`, `MISE_CONFIG_DIR`, `MISE_STATE_DIR`, `MISE_CACHE_DIR` (service drop-in + shell).
+- **LOGIC:** OpenCode 1 (`npm:opencode-ai`) and 2 (`npm:@opencode/cli`, bins `opencode` and `opencode2`) coexist under mise: the tool listed first keeps the `opencode` shim.
+- **LOGIC:** `devin update` exits 130 without a terminal. Run it as `script -qec 'devin update' /dev/null`.
+- **LOGIC:** `orca-ide account add` (opencode/devin) logs in under `$TMPDIR` and the server imports that dir. `orca-serve` has `PrivateTmp=yes`, so with `/tmp` it fails with `ENOENT .../opencode.db`. Run `orca-ide` with `TMPDIR=~/.cache/orca/cli-tmp`.
