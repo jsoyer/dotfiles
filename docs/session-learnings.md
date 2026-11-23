@@ -127,3 +127,16 @@
 - Update 2026-10-31: ntfy.url set to self-hosted https://ntfy.bbhome.wf (69dfb8f6). PR #44 marked ready (was draft) and squash-merged → main 474c42d7 (pre-deploy main 1b3d382c); main CI "Validate Dotfiles" success. Rollout happens via chezmoi-autoupdate.
 - [PROCESS] `gh pr merge` fails with "Pull Request is still a draft": `gh pr ready N` first.
 - Follow-up docs PR: README fleet section + CLAUDE.md fleet entry + FLEET.md status line (no longer "Sprint 5 pending").
+
+## 2026-11-23 — Orca server on CT 205 (Proxmox LXC), lessons
+
+- **ENV:** Proxmox copies the HOST `resolv.conf` into a container with no `nameserver` in `pct config`. With Tailscale MagicDNS on the host (`100.100.100.100`) the container has no DNS. Debian templates get DNS from DHCP and are fine; Ubuntu ones were not.
+- **FIX:** `pct-bootstrap` (`/etc/.pve-ignore.resolv.conf` + resolved stub), or `pct set <id> --nameserver <ip>`.
+- **ENV:** Ubuntu 24.04 / Debian 13 use socket-activated ssh: `systemctl reload ssh` fails when no daemon runs. Harmless, every new connection reads the config. sshd keeps the FIRST value it reads, so a `sshd_config.d/00-*.conf` drop-in wins over the main file.
+- **LOGIC:** mise runs npm with `--ignore-scripts=true`. `claude` and `opencode` then print "native binary not installed" / "postinstall not run". Per-tool `npm_args = "--ignore-scripts=false"` plus `npm.package_manager = "npm"` (see `agents-update` in dot_local/bin/README.md).
+- **LOGIC:** mise shims are symlinks to the `mise` binary found on PATH at reshim time. A fake `mise` on PATH in a test rewrote every shim to the fake. Repair: `rm ~/.local/share/mise/shims/*; mise reshim`. Never put a fake `mise` first on PATH outside a throwaway HOME.
+- **LOGIC:** `chezmoi init --promptString` matches the prompt TEXT, not the variable name: `--promptString "age public key (age1...)=age1..."`. `age_recipient=...` is silently ignored and `--no-tty` then fails.
+- **LOGIC:** systemd drop-ins apply in lexical order and an empty `Environment=` resets the list: a PATH drop-in must sort after any drop-in that resets it (`zz-user-path.conf` after `zz-tmp-fix.conf`).
+- **LOGIC:** `set -e` is disabled inside a function called from `f || ...`; `x="$(die ...)"` there does not stop the function. Return explicitly (`|| return 1`). Caught by `scripts/test_pct_tools.py`.
+- **SECURITY:** Orca pairing links (`orca://pair?code=...`, `#pairing=...`) are credentials. `serve --no-pairing` keeps them out of the journal; offers are minted on demand with `orca-pair`.
+- **Verify:** `python3 scripts/test_orca_headless.py`, `python3 scripts/test_pct_tools.py`

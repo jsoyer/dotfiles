@@ -1,0 +1,178 @@
+#!/usr/bin/env bash
+#
+# pct-bootstrap — First-day setup of a Proxmox LXC container, from the host.
+# Idempotent: safe to run again on a container that is already set up.
+#
+#   1. admin user with passwordless sudo (/etc/sudoers.d/90-<user>, visudo-checked)
+#   2. optional SSH public key(s) for that user (--ssh-key FILE, repeatable)
+#   3. root SSH login disabled (sshd_config.d/00-no-root.conf, `sshd -t` checked)
+#   4. DNS repaired when names do not resolve (see below)
+#   5. postfix disabled when --no-postfix is given (templates enable it, and it
+#      then sits on port 25 for nothing)
+#
+# DNS: with no nameserver in `pct config`, Proxmox copies the HOST resolv.conf
+# into the container at each start. When the host uses Tailscale MagicDNS
+# (100.100.100.100) that resolver is unreachable from a container without
+# Tailscale, so nothing resolves. When resolution fails and the container runs
+# systemd-resolved, /etc/.pve-ignore.resolv.conf stops Proxmox from rewriting
+# the file and /etc/resolv.conf becomes the resolved stub (DHCP/upstream DNS).
+# Containers without systemd-resolved (Debian templates take DNS from DHCP)
+# only get a warning: set one with `pct set <id> --nameserver <ip>`.
+#
+# Usage (Proxmox host, root, container running):
+#   pct-bootstrap <ctid> --user <name> [--ssh-key FILE]... [--no-postfix]
+#                        [--keep-root-ssh] [--dry-run]
+#
+set -euo pipefail
+
+log() { printf '[pct-bootstrap] %s\n' "$*"; }
+die() { printf '[pct-bootstrap] ERROR: %s\n' "$*" >&2; exit 1; }
+usage() { sed -n '3,25p' "$0" | sed 's/^# \{0,1\}//'; }
+
+CT=""; USER_NAME=""; KEYS=""; NO_POSTFIX=0; KEEP_ROOT_SSH=0; DRY_RUN=0
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --user)          USER_NAME="${2:?--user needs a name}"; shift ;;
+    --ssh-key)       f="${2:?--ssh-key needs a file}"; shift
+                     [[ -r "$f" ]] || die "Cannot read $f"
+                     grep -qE '^(ssh-|ecdsa-|sk-)' "$f" || die "$f does not look like an SSH public key"
+                     KEYS+="$(grep -E '^(ssh-|ecdsa-|sk-)' "$f")"$'\n' ;;
+    --no-postfix)    NO_POSTFIX=1 ;;
+    --keep-root-ssh) KEEP_ROOT_SSH=1 ;;
+    --dry-run)       DRY_RUN=1 ;;
+    -h|--help)       usage; exit 0 ;;
+    -*)              die "Unknown option: $1 (see --help)" ;;
+    *)               [[ -z "$CT" ]] || die "One container id only"; CT="$1" ;;
+  esac
+  shift
+done
+[[ "$CT" =~ ^[0-9]{1,9}$ ]] || { usage; exit 2; }
+[[ "$USER_NAME" =~ ^[a-z_][a-z0-9_-]{0,31}$ ]] || die "--user: a valid lowercase login is required"
+command -v pct >/dev/null 2>&1 || die "pct not found: run this on a Proxmox VE host"
+[[ "$(id -u)" -eq 0 ]] || die "Run as root on the Proxmox host"
+pct status "$CT" | grep -q 'status: running' || die "Container $CT is not running"
+pct exec "$CT" -- sh -c 'command -v bash' >/dev/null 2>&1 \
+  || die "No bash in container $CT (Alpine: pct exec $CT -- apk add bash)"
+
+# Everything below runs INSIDE the container. Parameters go through the
+# environment, never through string interpolation into the script text.
+read -r -d '' INNER <<'INNER_EOF' || true
+set -euo pipefail
+say() { printf '  [%s] %s\n' "$(hostname)" "$*"; }
+run() { if [[ "$DRY_RUN" == 1 ]]; then say "would run: $*"; else "$@"; fi; }
+write() { # write <path> <mode> <content>
+  if [[ "$DRY_RUN" == 1 ]]; then say "would write $1"; return; fi
+  local tmp; tmp="$(mktemp "$1.XXXXXX")"; printf '%s' "$3" > "$tmp"; chmod "$2" "$tmp"; mv -f "$tmp" "$1"
+}
+
+pkg_install() {
+  if command -v apt-get >/dev/null; then
+    run apt-get update -qq
+    run env DEBIAN_FRONTEND=noninteractive apt-get install -y -qq "$@"
+  elif command -v dnf >/dev/null; then run dnf install -y -q "$@"
+  elif command -v apk >/dev/null; then run apk add -q "$@"
+  elif command -v pacman >/dev/null; then run pacman -S --noconfirm --needed "$@"
+  else say "no known package manager: install $* by hand"; return 1
+  fi
+}
+
+# 1. user + sudo
+command -v sudo >/dev/null || { say "installing sudo"; pkg_install sudo; }
+if id -u "$U" >/dev/null 2>&1; then say "user $U exists"
+else say "creating user $U"; run useradd -m -s "$(command -v bash || echo /bin/sh)" "$U"
+fi
+for g in sudo wheel; do
+  if getent group "$g" >/dev/null && ! id -nG "$U" 2>/dev/null | tr ' ' '\n' | grep -qx "$g"; then
+    run usermod -aG "$g" "$U"; say "$U added to group $g"
+  fi
+done
+rule="$U ALL=(ALL) NOPASSWD:ALL"
+dest="/etc/sudoers.d/90-$U"
+if [[ "$(cat "$dest" 2>/dev/null)" == "$rule" ]]; then say "sudoers rule present"
+elif [[ "$DRY_RUN" == 1 ]]; then say "would write $dest"
+else
+  tmp="$(mktemp /etc/sudoers.d/.90-XXXXXX)"; printf '%s\n' "$rule" > "$tmp"; chmod 0440 "$tmp"
+  if visudo -cf "$tmp" >/dev/null; then mv -f "$tmp" "$dest"; say "passwordless sudo for $U"
+  else rm -f "$tmp"; say "ERROR: visudo rejected the rule"; exit 1
+  fi
+fi
+
+# 2. SSH keys
+if [[ -n "$KEYS" ]]; then
+  home="$(getent passwd "$U" | cut -d: -f6)"; ak="$home/.ssh/authorized_keys"
+  if [[ "$DRY_RUN" == 1 ]]; then say "would add $(printf '%s' "$KEYS" | grep -c .) key(s) to $ak"
+  else
+    install -d -m 0700 -o "$U" -g "$(id -gn "$U")" "$home/.ssh"
+    touch "$ak"
+    while IFS= read -r k; do
+      [[ -n "$k" ]] || continue
+      grep -qxF -- "$k" "$ak" || { printf '%s\n' "$k" >> "$ak"; say "key added: ${k%% *} ...${k: -20}"; }
+    done <<< "$KEYS"
+    chown "$U:$(id -gn "$U")" "$ak"; chmod 0600 "$ak"
+  fi
+fi
+
+# 3. no root SSH
+if [[ "$KEEP_ROOT_SSH" == 1 ]]; then say "root SSH left as is (--keep-root-ssh)"
+elif ! SSHD="$(command -v sshd || ls /usr/sbin/sshd 2>/dev/null)" || [[ -z "$SSHD" ]]; then say "no sshd installed"
+else
+  conf=/etc/ssh/sshd_config.d/00-no-root.conf
+  # sshd keeps the FIRST value it reads: the drop-in must come before the main
+  # file's own settings, which is what the Include at the top of Debian/Ubuntu/
+  # Fedora sshd_config does.
+  if ! grep -qE '^[[:space:]]*Include[[:space:]]+/etc/ssh/sshd_config\.d/' /etc/ssh/sshd_config 2>/dev/null; then
+    say "WARNING: sshd_config has no Include of sshd_config.d: set PermitRootLogin no by hand"
+  elif grep -qx 'PermitRootLogin no' "$conf" 2>/dev/null; then
+    say "root SSH login already disabled ($conf)"
+  else
+    run mkdir -p /etc/ssh/sshd_config.d
+    write "$conf" 0644 $'# Managed by pct-bootstrap: log in as the admin user, then sudo.\nPermitRootLogin no\n'
+    if [[ "$DRY_RUN" != 1 ]]; then
+      "$SSHD" -t || { say "ERROR: sshd -t failed, removing $conf"; rm -f "$conf"; exit 1; }
+      # Socket-activated ssh (Ubuntu 24.04, Debian 13) has no running daemon to
+      # reload: each new connection reads the config, so a failed reload is fine.
+      systemctl try-reload-or-restart ssh.service sshd.service >/dev/null 2>&1 || true
+      say "root SSH login disabled ($("$SSHD" -T 2>/dev/null | grep -i '^permitrootlogin' || echo '?'))"
+    fi
+  fi
+fi
+
+# 4. DNS
+probe() { getent hosts deb.debian.org >/dev/null 2>&1 || getent hosts github.com >/dev/null 2>&1; }
+if probe; then say "DNS ok"
+elif systemctl is-active --quiet systemd-resolved 2>/dev/null && [[ -e /run/systemd/resolve/stub-resolv.conf ]]; then
+  say "DNS broken: switching to the systemd-resolved stub (was: $(grep -m1 '^nameserver' /etc/resolv.conf 2>/dev/null || echo none))"
+  run touch /etc/.pve-ignore.resolv.conf
+  run ln -sfn /run/systemd/resolve/stub-resolv.conf /etc/resolv.conf
+  if [[ "$DRY_RUN" != 1 ]]; then
+    systemctl restart systemd-resolved || true
+    probe && say "DNS ok now" || say "WARNING: still no DNS: check the container network/DHCP"
+  fi
+else
+  say "WARNING: DNS broken and no systemd-resolved: run on the host: pct set <id> --nameserver <ip>"
+fi
+
+# 5. postfix
+if [[ "$NO_POSTFIX" == 1 ]] && systemctl cat postfix.service >/dev/null 2>&1; then
+  if systemctl is-enabled --quiet postfix.service 2>/dev/null || systemctl is-active --quiet postfix.service; then
+    run systemctl disable --now postfix.service
+    [[ "$DRY_RUN" == 1 ]] || say "postfix disabled"
+  else
+    say "postfix already disabled"
+  fi
+fi
+
+# Access hint
+if [[ "$DRY_RUN" != 1 ]]; then
+  home="$(getent passwd "$U" | cut -d: -f6)"
+  pw="$(passwd -S "$U" 2>/dev/null | awk '{print $2}')"
+  if [[ "$pw" != P && ! -s "$home/.ssh/authorized_keys" ]]; then
+    say "NOTE: $U has no password and no SSH key yet"
+  fi
+fi
+INNER_EOF
+
+log "Container $CT, user $USER_NAME$([[ $DRY_RUN == 1 ]] && echo ' (dry run)')"
+pct exec "$CT" -- env U="$USER_NAME" KEYS="$KEYS" NO_POSTFIX="$NO_POSTFIX" \
+  KEEP_ROOT_SSH="$KEEP_ROOT_SSH" DRY_RUN="$DRY_RUN" bash -c "$INNER"
+log "Done. Password if needed: pct exec $CT -- passwd $USER_NAME"
