@@ -396,8 +396,9 @@ the key marker is the comment `fleet-master-<master>` on each `authorized_keys` 
 
 ## Manual procedure (fleet unavailable)
 
-On each host, as the normal user: `sysup` (Linux/macOS; `sysup --reboot` on Fedora
-desktop/server stages the dnf upgrade offline). OMV: `sudo omv-upgrade`. PiKVM:
+On each host, as the normal user: `sysup` (Linux/macOS; `sysup --reboot` applies
+updates and restarts the host, with Fedora desktop/server staging dnf offline).
+OMV: `sudo omv-upgrade`. PiKVM:
 `rw; pikvm-update; ro` and, if installed, update cloudflared and restart it, checking
 the tunnel. OPNsense: System > Firmware in the web UI (minor updates; check the
 release notes before a major). Home Assistant: Settings > System > Updates (take a

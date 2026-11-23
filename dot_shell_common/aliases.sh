@@ -442,8 +442,8 @@ mkd() {
 
 # `sysup [--reboot]`: the implementation lives in ~/.local/bin/sysup
 # (dot_local/bin/executable_sysup) so bash, zsh, fish, nushell and the fleet
-# agent all run the same code. `--reboot` (Fedora desktop/server) stages the dnf
-# upgrade offline and reboots into it.
+# agent all run the same code. `--reboot` restarts the host after successful
+# updates; Fedora desktop/server stage the dnf transaction offline first.
 sysup() {
   command sysup "$@"
 }
@@ -454,20 +454,20 @@ alias fup='fleet up'
 
 # Newer kernel installed than the one running: remind once per interactive
 # shell. Cheap check (no package-manager calls). Skipped in containers: toolbox
-# shares the host kernel. Only Fedora desktop/server support `sysup --reboot`.
+# shares the host kernel. Container targets never suggest rebooting their host.
 _kernel_reboot_reminder() {
-  [[ "$OSTYPE" == linux* && ! -e /run/.containerenv && -d /usr/lib/modules ]] || return 0
-  local newest reboot_hint
+  [[ "$OSTYPE" == linux* && -d /usr/lib/modules ]] || return 0
+  [[ ! -e /run/.containerenv && ! -e /.dockerenv && ! -e /.toolboxenv ]] || return 0
+  [[ "${MACHINE_PROFILE:-}" != toolbox && "${MACHINE_PROFILE:-}" != arch-container ]] || return 0
+  local newest context_file
+  context_file="${PACKAGE_CONTEXT_FILE:-$HOME/.config/dotfiles/package-context.json}"
+  if [[ -r "$context_file" ]] && grep -Eq '"target_kind"[[:space:]]*:[[:space:]]*"container"' "$context_file"; then
+    return 0
+  fi
   # `command`: ls is aliased (eza) earlier in this file.
   newest="$(command ls /usr/lib/modules 2>/dev/null | sort -V | tail -1)"
   if [[ -n "$newest" && "$newest" != "$(uname -r)" ]]; then
-    reboot_hint="reboot when convenient to load it"
-    if [[ "${IS_FEDORA:-false}" == "true" ]]; then
-      case "${MACHINE_PROFILE:-}" in
-        fedora-desktop|fedora-server) reboot_hint="run: sysup --reboot" ;;
-      esac
-    fi
-    echo "⚠️  Kernel $newest installed, still running $(uname -r) — $reboot_hint"
+    echo "⚠️  Kernel $newest installed, still running $(uname -r) — run: sysup --reboot"
   fi
 }
 [[ $- == *i* ]] && _kernel_reboot_reminder

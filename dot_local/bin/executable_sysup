@@ -8,9 +8,10 @@
 # skips it).
 #
 # Usage: sysup [--reboot]
-#   --reboot  (Fedora desktop/server) stage the dnf upgrade offline and reboot
-#             into it. Manual use only: fleet-agent never passes it (reboots go
-#             through the agent's own `reboot` verb).
+#   --reboot  reboot after successful updates on this host. Fedora
+#             desktop/server stage a dnf offline transaction first. Containers
+#             never reboot their host. Manual use only: fleet-agent never passes
+#             this flag (reboots go through the agent's own `reboot` verb).
 #
 # Non-interactive by construction: nothing here may wait for a keypress, so it
 # is safe to run detached (systemd-run --user, nohup) with no tty.
@@ -93,10 +94,69 @@ _sysup_sudo() {
 # effect after a reboot. --disablerepo: only the rpm database is needed, so it
 # runs as the user, offline, in under a second. Exit code 1 = reboot needed.
 _sysup_reboot_hint() {
+  _sysup_is_container && return 0
   command -v dnf &>/dev/null || return 0
   if ! dnf needs-restarting --disablerepo='*' &>/dev/null; then
     echo "⚠️  Reboot needed to load the updates (running kernel $(uname -r)) — run: sysup --reboot"
   fi
+}
+
+_sysup_is_container() {
+  [[ -e /run/.containerenv || -e /.dockerenv || -e /.toolboxenv ]] && return 0
+  case "${MACHINE_PROFILE:-}" in
+    toolbox|arch-container) return 0 ;;
+  esac
+  local context_file="${PACKAGE_CONTEXT_FILE:-$HOME/.config/dotfiles/package-context.json}"
+  [[ -r "$context_file" ]] && grep -Eq '"target_kind"[[:space:]]*:[[:space:]]*"container"' "$context_file"
+}
+
+_sysup_reboot_host() {
+  local os="$1"
+  if [[ "${_sysup_rc:-0}" != 0 ]]; then
+    echo "⚠️  Updates failed; skipping reboot. Fix the errors, then rerun sysup --reboot."
+    return 0
+  fi
+  if [[ "$os" == linux ]] && _sysup_is_container; then
+    echo "ℹ️  Packages updated in the container; its host was not rebooted."
+    return 0
+  fi
+
+  case "$os" in
+    linux)
+      if [[ "${MACHINE_PROFILE:-}" == fedora-desktop || "${MACHINE_PROFILE:-}" == fedora-server ]]; then
+        echo "🔄 Rebooting into the Fedora offline upgrade..."
+        _sysup_sudo dnf offline reboot -y && return 0
+        echo "⚠️  Fedora offline reboot unavailable; requesting a normal reboot."
+      else
+        echo "🔄 Rebooting to load the system updates..."
+      fi
+      if command -v systemctl &>/dev/null; then
+        _sysup_sudo systemctl reboot || _sysup_rc=1
+      elif command -v reboot &>/dev/null; then
+        _sysup_sudo reboot || _sysup_rc=1
+      else
+        echo "sysup: no reboot command found" >&2
+        _sysup_rc=1
+      fi
+      ;;
+    darwin)
+      echo "🔄 Restarting macOS to apply the requested reboot..."
+      _sysup_sudo shutdown -r now || _sysup_rc=1
+      ;;
+    freebsd)
+      echo "🔄 Rebooting FreeBSD to load the system updates..."
+      _sysup_sudo shutdown -r now || _sysup_rc=1
+      ;;
+    windows)
+      echo "🔄 Restarting Windows..."
+      if command -v shutdown.exe &>/dev/null; then
+        shutdown.exe /r /t 0 || _sysup_rc=1
+      else
+        echo "sysup: shutdown.exe not found" >&2
+        _sysup_rc=1
+      fi
+      ;;
+  esac
 }
 
 # A CLI whose binary resolves under the brew prefix is brew-managed (macOS
@@ -237,8 +297,8 @@ _update_herdr_if_present() {
   fi
 }
 
-# `sysup --reboot` (Fedora desktop/server): stage the dnf upgrade offline and
-# reboot into it, so nothing is replaced under the running session.
+# `sysup --reboot`: reboot after successful updates. Fedora desktop/server stage
+# the dnf upgrade offline; other host platforms use their native reboot command.
 # Exit status: non-zero when an OS, Homebrew, App Store or mise update failed
 # (the fleet agent turns that into `failed`). AI CLI extras remain best-effort.
 _sysup_rc=0
@@ -283,6 +343,9 @@ sysup() {
       # Linux branch, so Macs never updated any of them through sysup.
       update-ai
       _update_herdr_if_present
+      if [[ "$reboot" == 1 ]]; then
+        _sysup_reboot_host "$os"
+      fi
       ;;
     linux)
       case "${MACHINE_PROFILE:-}" in
@@ -294,7 +357,7 @@ sysup() {
             && _sysup_sudo apt-get dist-upgrade -y -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold \
             && _sysup_sudo apt-get autoremove -y || _sysup_rc=1
           ;;
-        arch-desktop|arch-server|omarchy)
+        arch-desktop|arch-server|arch-container|omarchy)
           echo "📦 Updating pacman packages..."
           _sysup_sudo pacman -Syu --noconfirm || _sysup_rc=1
           if command -v yay &>/dev/null; then
@@ -311,7 +374,7 @@ sysup() {
           fi
           ;;
         fedora-desktop|fedora-server|toolbox)
-          if [[ "$reboot" == 1 && "${MACHINE_PROFILE}" != toolbox ]]; then
+          if [[ "$reboot" == 1 ]] && ! _sysup_is_container; then
             echo "📦 Staging dnf offline upgrade..."
             # A stale stored transaction (e.g. left by GNOME Software) makes
             # `--offline` refuse to queue a new one.
@@ -380,10 +443,8 @@ sysup() {
       _update_mise_if_present || _sysup_rc=1
       _update_herdr_if_present
 
-      if [[ "$reboot" == 1 && ( "${MACHINE_PROFILE:-}" == fedora-desktop || "${MACHINE_PROFILE:-}" == fedora-server ) ]]; then
-        echo "🔄 Rebooting to apply the offline upgrade..."
-        # Fails when nothing was staged (already up to date): fall back to the hint.
-        _sysup_sudo dnf offline reboot -y || _sysup_reboot_hint
+      if [[ "$reboot" == 1 ]]; then
+        _sysup_reboot_host "$os"
       else
         _sysup_reboot_hint
       fi
@@ -400,10 +461,16 @@ sysup() {
       update-ai
       _update_mise_if_present || _sysup_rc=1
       _update_herdr_if_present
+      if [[ "$reboot" == 1 ]]; then
+        _sysup_reboot_host "$os"
+      fi
       ;;
     windows)
       echo "🪣 Updating Scoop packages..."
-      scoop update --all
+      scoop update --all || _sysup_rc=1
+      if [[ "$reboot" == 1 ]]; then
+        _sysup_reboot_host "$os"
+      fi
       ;;
   esac
 

@@ -261,7 +261,7 @@ Updates all package managers for the detected platform. Conditional by machine p
 
 ```bash
 sysup
-sysup --reboot   # Fedora desktop/server: stage the dnf upgrade offline, then reboot into it
+sysup --reboot   # update, then reboot the host (containers never reboot their host)
 ```
 
 **macOS behavior:**
@@ -274,9 +274,11 @@ sysup --reboot   # Fedora desktop/server: stage the dnf upgrade offline, then re
 - **RPi / Ubuntu / Debian:** `sudo apt-get update && dist-upgrade -y && autoremove -y`
 - **Arch / OmArchy:** `sudo pacman -Syu --noconfirm` + AUR via `yay -Sua --noconfirm`
 - **Fedora Desktop/Server/Toolbox:** `sudo dnf upgrade --refresh -y`
-  - With `--reboot` (desktop/server): `dnf offline clean`, `dnf upgrade --refresh --offline -y`, then `dnf offline reboot -y` once the user-level updates are done
+  - With `--reboot` on desktop/server: `dnf offline clean`, `dnf upgrade --refresh --offline -y`, then `dnf offline reboot -y` after the other updates
   - Ends with a reboot warning when `dnf needs-restarting` reports one (kernel, glibc, systemd...)
 - **Fedora Atomic:** `rpm-ostree upgrade`
+- On other Linux hosts, `--reboot` restarts after successful updates. Container targets are updated without rebooting the host.
+- On macOS, FreeBSD and Windows, `--reboot` uses the platform's restart command after successful updates.
 - **All Linux:** Flatpak updates only for scopes with installed applications; listing/update failures are reported
 - **All Linux:** Linuxbrew updates if installed
 - **All Linux:** Calls `update-ai` after package updates
