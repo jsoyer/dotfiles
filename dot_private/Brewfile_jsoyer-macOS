@@ -1,7 +1,6 @@
 tap "siderolabs/tap", trusted: true
 brew "age"
 brew "awscli"
-brew "azure-cli"
 brew "cloudflared"
 brew "dust"
 brew "herdr"
