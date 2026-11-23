@@ -990,6 +990,51 @@ agentsvc status herdr
 One uniform scheme, tab-completable on the stack name. The earlier two-letter
 aliases (`mhs`, `cwl`, `hu`…) were dropped in favour of this.
 
+## Proxmox host helpers
+
+Run as root on the Proxmox VE host (`multibox`). Both refuse to run where `pct`
+is missing, and are only deployed on Linux.
+
+### pct-bootstrap
+
+First-day setup of an LXC container, idempotent (`--dry-run` shows what would
+change, a second run reports everything as already done):
+
+```bash
+pct-bootstrap 210 --user jeromesoyer --no-postfix [--ssh-key ~/.ssh/id_ed25519.pub]
+pct exec 210 -- passwd jeromesoyer        # if you also want a password
+```
+
+| Step | What it does |
+|------|--------------|
+| user | creates it (bash shell), adds it to `sudo`/`wheel`, `/etc/sudoers.d/90-<user>` NOPASSWD, `visudo -cf` before the rename |
+| keys | appends each `--ssh-key` to `authorized_keys` (no duplicates) |
+| root SSH | `sshd_config.d/00-no-root.conf` = `PermitRootLogin no`, `sshd -t` checked (removed again on failure); `--keep-root-ssh` skips it |
+| DNS | only when names do not resolve: with systemd-resolved, `/etc/.pve-ignore.resolv.conf` + `/etc/resolv.conf` -> resolved stub; otherwise a hint for `pct set <id> --nameserver` |
+| postfix | `--no-postfix` disables it (templates enable it on port 25 for nothing) |
+
+Why the DNS step: with no nameserver in `pct config`, Proxmox copies the host
+`resolv.conf` into the container at each start. A host on Tailscale MagicDNS
+(`100.100.100.100`) hands containers a resolver they cannot reach.
+
+### pct-snapshot
+
+Rotating snapshots taken just before a guest's unattended updates (CT 205: 04:20,
+then `orca-update` 04:30 and `agents-update` 05:00). Containers and VMs (`qm`)
+alike. Only `<prefix>-YYYYMMDD-HHMM` snapshots rotate; `pre-orca` or manual ones
+are never deleted.
+
+```bash
+pct-snapshot 205                          # snapshot now, keep the last 3
+pct-snapshot --list 205
+pct-snapshot --install-timer 205 --at 04:20 --keep 3
+pct-snapshot --uninstall-timer 205        # snapshots are kept
+```
+
+The timer is `pct-snapshot-<id>.{service,timer}` (`Persistent=true`: a missed run
+happens at boot) and runs a root-owned copy in `/usr/local/sbin`, not the
+chezmoi-managed one in root's home.
+
 ## Related Documentation
 
 - [RUNBOOK.md](../docs/RUNBOOK.md#script-reference) — Script reference

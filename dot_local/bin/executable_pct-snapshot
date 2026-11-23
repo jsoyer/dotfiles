@@ -1,0 +1,138 @@
+#!/usr/bin/env bash
+#
+# pct-snapshot — Rotating snapshots of a Proxmox container or VM, meant to run
+# just before its unattended updates (e.g. 04:20 for an Orca host whose
+# orca-update runs at 04:30 and agents-update at 05:00).
+#
+# Snapshots are named "<prefix>-YYYYMMDD-HHMM" (prefix "auto" by default). Only
+# the <keep> most recent ones with that exact pattern are kept; every other
+# snapshot (pre-install, manual ones...) is never touched.
+#
+# Containers use pct, VMs use qm: the guest type is detected from the id.
+#
+# Usage (Proxmox host, root):
+#   pct-snapshot <id>... [--keep 3] [--prefix auto]
+#                                 take a snapshot now, then rotate
+#   pct-snapshot --list <id>      snapshots managed by this script
+#   pct-snapshot --install-timer <id> [--at 04:20] [--keep 3] [--prefix auto]
+#                                 daily pct-snapshot-<id>.{service,timer}
+#   pct-snapshot --uninstall-timer <id>
+#                                 remove the timer (snapshots are kept)
+#
+set -euo pipefail
+
+KEEP=3
+PREFIX="auto"
+UNIT_DIR="/etc/systemd/system"
+INSTALL_PATH="/usr/local/sbin/pct-snapshot"
+
+log() { printf '[pct-snapshot] %s\n' "$*"; }
+die() { printf '[pct-snapshot] ERROR: %s\n' "$*" >&2; exit 1; }
+usage() { sed -n '3,21p' "$0" | sed 's/^# \{0,1\}//'; }
+
+check_id() { [[ "$1" =~ ^[0-9]{1,9}$ ]] || die "Invalid guest id: $1"; }
+check_keep() { [[ "$KEEP" =~ ^[1-9][0-9]*$ ]] || die "--keep expects a positive integer"; }
+check_prefix() { [[ "$PREFIX" =~ ^[A-Za-z][A-Za-z0-9_]{0,19}$ ]] || die "--prefix: letters, digits, _ (max 20)"; }
+
+# Echo "pct" or "qm" for a guest id.
+guest_tool() {
+  if pct config "$1" >/dev/null 2>&1; then echo pct
+  elif command -v qm >/dev/null 2>&1 && qm config "$1" >/dev/null 2>&1; then echo qm
+  else die "No container or VM with id $1 on this node"
+  fi
+}
+
+# Managed snapshot names, oldest first.
+managed() {
+  local tool="$1" id="$2"
+  "$tool" listsnapshot "$id" | grep -oE "(^|[^A-Za-z0-9_-])${PREFIX}-[0-9]{8}-[0-9]{4}([^0-9]|$)" \
+    | grep -oE "${PREFIX}-[0-9]{8}-[0-9]{4}" | sort -u || true
+}
+
+snapshot_one() {
+  local id="$1" tool name autos excess i
+  # Explicit: set -e is off here (called from `snapshot_one ... || ...`).
+  tool="$(guest_tool "$id")" || return 1
+  name="${PREFIX}-$(date +%Y%m%d-%H%M)"
+  "$tool" snapshot "$id" "$name" --description "pct-snapshot (rotation, keep ${KEEP})" || return 1
+  log "$id: snapshot $name created"
+  mapfile -t autos < <(managed "$tool" "$id")
+  excess=$(( ${#autos[@]} - KEEP ))
+  for (( i = 0; i < excess; i++ )); do
+    "$tool" delsnapshot "$id" "${autos[$i]}" || return 1
+    log "$id: snapshot ${autos[$i]} deleted (keep ${KEEP})"
+  done
+}
+
+install_timer() {
+  local id="$1" at="$2"
+  [[ "$(id -u)" -eq 0 ]] || die "--install-timer must run as root"
+  [[ "$at" =~ ^([01][0-9]|2[0-3]):[0-5][0-9]$ ]] || die "--at expects HH:MM"
+  guest_tool "$id" >/dev/null
+  # System location: the unit must not depend on root's chezmoi-managed home.
+  install -m 0755 "$(readlink -f -- "$0")" "$INSTALL_PATH"
+  cat > "${UNIT_DIR}/pct-snapshot-${id}.service" <<EOF
+[Unit]
+Description=Rotating snapshot of guest ${id} before its unattended updates
+
+[Service]
+Type=oneshot
+ExecStart=${INSTALL_PATH} ${id} --keep ${KEEP} --prefix ${PREFIX}
+EOF
+  cat > "${UNIT_DIR}/pct-snapshot-${id}.timer" <<EOF
+[Unit]
+Description=Daily snapshot of guest ${id}
+
+[Timer]
+OnCalendar=*-*-* ${at}:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+EOF
+  systemctl daemon-reload
+  systemctl enable --now "pct-snapshot-${id}.timer"
+  log "Timer installed: guest ${id} every day at ${at}, keeps ${KEEP} '${PREFIX}-*' snapshots."
+  log "Test now: systemctl start pct-snapshot-${id}.service && pct-snapshot --list ${id}"
+}
+
+uninstall_timer() {
+  local id="$1"
+  [[ "$(id -u)" -eq 0 ]] || die "--uninstall-timer must run as root"
+  systemctl disable --now "pct-snapshot-${id}.timer" 2>/dev/null || true
+  rm -f "${UNIT_DIR}/pct-snapshot-${id}".{service,timer}
+  systemctl daemon-reload
+  # Keep the installed copy while another guest still has a timer.
+  if ! compgen -G "${UNIT_DIR}/pct-snapshot-*.timer" >/dev/null; then rm -f "$INSTALL_PATH"; fi
+  log "Timer removed for guest ${id} (existing snapshots are kept)."
+}
+
+MODE="snapshot"; AT="04:20"; IDS=()
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --list)            MODE="list" ;;
+    --install-timer)   MODE="install" ;;
+    --uninstall-timer) MODE="uninstall" ;;
+    --keep)            KEEP="${2:?--keep needs a value}"; shift ;;
+    --prefix)          PREFIX="${2:?--prefix needs a value}"; shift ;;
+    --at)              AT="${2:?--at needs a value}"; shift ;;
+    -h|--help)         usage; exit 0 ;;
+    -*)                die "Unknown option: $1 (see --help)" ;;
+    *)                 check_id "$1"; IDS+=("$1") ;;
+  esac
+  shift
+done
+check_keep; check_prefix
+[[ ${#IDS[@]} -gt 0 ]] || { usage; exit 2; }
+command -v pct >/dev/null 2>&1 || die "pct not found: run this on a Proxmox VE host"
+[[ "$MODE" == snapshot || ${#IDS[@]} -eq 1 ]] || die "--list/--install-timer/--uninstall-timer take one id"
+
+case "$MODE" in
+  snapshot)
+    rc=0
+    for id in "${IDS[@]}"; do snapshot_one "$id" || { log "$id: FAILED"; rc=1; }; done
+    exit "$rc" ;;
+  list)      tool="$(guest_tool "${IDS[0]}")"; managed "$tool" "${IDS[0]}" ;;
+  install)   install_timer "${IDS[0]}" "$AT" ;;
+  uninstall) uninstall_timer "${IDS[0]}" ;;
+esac
