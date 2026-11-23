@@ -453,14 +453,21 @@ sysup() {
 alias fup='fleet up'
 
 # Newer kernel installed than the one running: remind once per interactive
-# shell. Cheap check (no dnf). Skipped in containers: toolbox shares the host kernel.
+# shell. Cheap check (no package-manager calls). Skipped in containers: toolbox
+# shares the host kernel. Only Fedora desktop/server support `sysup --reboot`.
 _kernel_reboot_reminder() {
   [[ "$OSTYPE" == linux* && ! -e /run/.containerenv && -d /usr/lib/modules ]] || return 0
-  local newest
+  local newest reboot_hint
   # `command`: ls is aliased (eza) earlier in this file.
   newest="$(command ls /usr/lib/modules 2>/dev/null | sort -V | tail -1)"
   if [[ -n "$newest" && "$newest" != "$(uname -r)" ]]; then
-    echo "⚠️  Kernel $newest installed, still running $(uname -r) — reboot to load it (Fedora: sysup --reboot)"
+    reboot_hint="reboot when convenient to load it"
+    if [[ "${IS_FEDORA:-false}" == "true" ]]; then
+      case "${MACHINE_PROFILE:-}" in
+        fedora-desktop|fedora-server) reboot_hint="run: sysup --reboot" ;;
+      esac
+    fi
+    echo "⚠️  Kernel $newest installed, still running $(uname -r) — $reboot_hint"
   fi
 }
 [[ $- == *i* ]] && _kernel_reboot_reminder
