@@ -382,6 +382,167 @@ def _visual_menu(prompt: str, options: list[str], default: int = 0) -> str:
     return curses.wrapper(draw)
 
 
+def _visual_checklist(
+    title: str,
+    labels: dict[str, str],
+    selected: set[str],
+    *,
+    filter_text: str = "",
+) -> tuple[set[str], str]:
+    """Return selected entries and an action: save, add, or cancel."""
+    import curses
+
+    keys = list(labels)
+
+    def draw(screen):
+        curses.curs_set(0)
+        cursor = 0
+        first = 0
+        query = filter_text
+        while True:
+            visible_keys = [
+                key
+                for key in keys
+                if query.casefold() in labels[key].casefold()
+                or query.casefold() in key.casefold()
+            ]
+            cursor = max(0, min(cursor, len(visible_keys) - 1)) if visible_keys else 0
+            screen.erase()
+            height, width = screen.getmaxyx()
+            screen.addnstr(
+                1, 2, "DOTFILES  /  GESTION DES PAQUETS", width - 4, curses.A_BOLD
+            )
+            screen.addnstr(3, 2, title, width - 4, curses.A_BOLD)
+            if query:
+                screen.addnstr(4, 2, f"Filtre : {query}", width - 4)
+            visible = max(1, height - 9)
+            if cursor < first:
+                first = cursor
+            elif cursor >= first + visible:
+                first = cursor - visible + 1
+            for row, index in enumerate(
+                range(first, min(len(visible_keys), first + visible)), 6
+            ):
+                key = visible_keys[index]
+                marker = "[x]" if key in selected else "[ ]"
+                text = f"{marker} {labels[key]}"
+                attr = (
+                    curses.A_REVERSE | curses.A_BOLD
+                    if index == cursor
+                    else curses.A_NORMAL
+                )
+                screen.addnstr(row, 2, text, width - 4, attr)
+            screen.addnstr(
+                height - 2,
+                2,
+                "↑↓ déplacer Space cocher / filtre a+ *=tout -=rien Entrée valider Esc annuler",
+                width - 4,
+            )
+            screen.refresh()
+            keypress = screen.getch()
+            if keypress in (curses.KEY_UP, ord("k")) and visible_keys:
+                cursor = (cursor - 1) % len(visible_keys)
+            elif keypress in (curses.KEY_DOWN, ord("j")) and visible_keys:
+                cursor = (cursor + 1) % len(visible_keys)
+            elif keypress == curses.KEY_HOME:
+                cursor = 0
+            elif keypress == curses.KEY_END and visible_keys:
+                cursor = len(visible_keys) - 1
+            elif keypress == curses.KEY_NPAGE and visible_keys:
+                cursor = min(len(visible_keys) - 1, cursor + visible)
+            elif keypress == curses.KEY_PPAGE and visible_keys:
+                cursor = max(0, cursor - visible)
+            elif keypress == ord(" ") and visible_keys:
+                identity = visible_keys[cursor]
+                if identity in selected:
+                    selected.remove(identity)
+                else:
+                    selected.add(identity)
+            elif keypress == ord("*"):
+                selected.update(visible_keys)
+            elif keypress == ord("-"):
+                selected.difference_update(visible_keys)
+            elif keypress == ord("/"):
+                curses.echo()
+                curses.curs_set(1)
+                screen.addnstr(height - 3, 2, "Filtrer : ", width - 4)
+                screen.refresh()
+                raw = screen.getstr(height - 3, 12, max(1, width - 14))
+                query = raw.decode("utf-8", errors="replace").strip()
+                curses.noecho()
+                curses.curs_set(0)
+                cursor = first = 0
+            elif keypress == ord("a"):
+                return set(selected), "add"
+            elif keypress in (curses.KEY_ENTER, 10, 13):
+                return set(selected), "save"
+            elif keypress in (27, ord("q")):
+                return set(selected), "cancel"
+
+    return curses.wrapper(draw)
+
+
+def select_packages(
+    title: str,
+    manager: str,
+    entries: dict,
+    origins: dict[str, list[str]] | None = None,
+) -> tuple[set[str] | None, dict[str, str]]:
+    """Checkbox editor for a package selection; additions are entered by name."""
+    selected = set(entries)
+    added: dict[str, str] = {}
+    labels = {
+        identity: f"{identity}"
+        + (f"  ·  {', '.join((origins or {}).get(identity, []))}" if origins else "")
+        for identity in sorted(entries)
+    }
+    while True:
+        if _VISUAL_TUI and sys.stdin.isatty() and sys.stdout.isatty():
+            try:
+                selected, action = _visual_checklist(title, labels, selected)
+            except Exception:
+                action = "fallback"
+        else:
+            action = "fallback"
+        if action == "fallback":
+            print(f"\n{title} — coche les numéros à basculer, Entrée termine")
+            visible = sorted(labels)
+            for index, identity in enumerate(visible, 1):
+                marker = "x" if identity in selected else " "
+                print(f"  {index:>3}. [{marker}] {labels[identity]}")
+            answer = input(
+                "Numéros séparés par des virgules (a=ajouter, q=annuler): "
+            ).strip()
+            if not answer:
+                action = "save"
+            elif answer.lower() == "q":
+                return None, {}
+            elif answer.lower() == "a":
+                action = "add"
+            else:
+                try:
+                    for item in answer.split(","):
+                        index = int(item.strip()) - 1
+                        identity = visible[index]
+                        selected.symmetric_difference_update({identity})
+                except (ValueError, IndexError):
+                    print("Sélection invalide.")
+                    continue
+                continue
+        if action == "cancel":
+            return None, {}
+        if action == "save":
+            return selected, added
+        if action == "add":
+            name = prompt_text("Nom du paquet (Homebrew : formule ou cask:nom) : ")
+            if not name:
+                continue
+            identity = entry_identity(manager, name, entries)
+            selected.add(identity)
+            labels.setdefault(identity, identity)
+            added[identity] = name
+
+
 def choose(prompt: str, options: list[str], *, default: int = 0) -> str:
     """Choose in a visual terminal menu when TUI mode is active."""
     if not options:
@@ -677,9 +838,10 @@ def configure_machine(
     return context
 
 
-def create_machine(source: Path, changed_paths: list[Path] | None = None) -> int:
-    configure_machine(source, changed_paths=changed_paths)
-    return 0
+def create_machine(
+    source: Path, changed_paths: list[Path] | None = None
+) -> Context | None:
+    return configure_machine(source, changed_paths=changed_paths)
 
 
 def discover_machine_manifests(source: Path) -> dict[str, list[str]]:
@@ -761,12 +923,6 @@ def select_machine_for_tui(
         targets.append((label, "candidate", hostname))
     choices.append("Configurer un autre hostname…")
     targets.append((choices[-1], "manual", ""))
-    choices.append("Configurer le profil de cette machine…")
-    targets.append((choices[-1], "reconfigure_current", current.hostname))
-    if machines:
-        choices.append("Modifier le profil d'une machine enregistrée…")
-        targets.append((choices[-1], "reconfigure", ""))
-
     selected = choose("Quelle machine veux-tu gérer ?", choices)
     _, kind, hostname = next(item for item in targets if item[0] == selected)
     if kind == "current":
@@ -806,29 +962,49 @@ def select_machine_for_tui(
             )
     if kind == "candidate":
         return configure_machine(current.source, hostname, changed_paths=changed_paths)
-    if kind == "reconfigure_current":
-        registered_current = any(
-            key.casefold() == current.hostname.casefold() for key in machines
-        )
-        return configure_machine(
-            current.source,
-            current.hostname,
-            replace_existing=registered_current,
-            allow_legacy=current.package_profile == "legacy",
-            changed_paths=changed_paths,
-        )
-    if kind == "reconfigure":
-        host = choose("Machine à reconfigurer", sorted(machines))
-        return configure_machine(
-            current.source,
-            host,
-            replace_existing=True,
-            changed_paths=changed_paths,
-        )
     return configure_machine(current.source, hostname, changed_paths=changed_paths)
 
 
-def publish_tui_changes(source: Path, changed_paths: list[Path]) -> None:
+def run_package_tui(context: Context, changed_paths: list[Path]) -> int:
+    """Top-level editor for system/base assignment and base/machine packages."""
+    while True:
+        action = choose(
+            f"{context.hostname} · que veux-tu modifier ?",
+            [
+                "Système et base — choisir OS, distribution et profil",
+                "Base — cocher les paquets partagés",
+                "Machine — cocher les paquets propres à cette machine",
+                "Terminer et finaliser",
+            ],
+            default=3,
+        )
+        if action == "Terminer et finaliser":
+            return 0
+        if action.startswith("Système et base"):
+            registry_path = machine_registry(context.source)
+            registry = read_json(registry_path) if registry_path.exists() else {}
+            machines = registry.get("machines", {})
+            is_registered = any(
+                hostname.casefold() == context.hostname.casefold()
+                for hostname in machines
+            )
+            updated = configure_machine(
+                context.source,
+                context.hostname,
+                replace_existing=is_registered,
+                allow_legacy=context.package_profile == "legacy",
+                changed_paths=changed_paths,
+            )
+            if updated is not None:
+                context = updated
+            continue
+        scope = "base" if action.startswith("Base") else "machine"
+        edit_packages(context, changed_paths, scope_filter=scope)
+
+
+def publish_tui_changes(
+    source: Path, changed_paths: list[Path], *, apply_local: bool = True
+) -> None:
     """Offer to commit or push only paths changed by this TUI session."""
     paths = list(dict.fromkeys(Path(path).resolve() for path in changed_paths))
     if not paths:
@@ -843,6 +1019,31 @@ def publish_tui_changes(source: Path, changed_paths: list[Path]) -> None:
                 f"TUI change is outside the chezmoi source: {path}"
             ) from error
 
+    if apply_local:
+        actions = [
+            "Garder les fichiers enregistrés, sans apply",
+            "Appliquer avec chezmoi, sans commit",
+            "Appliquer et committer",
+            "Appliquer, committer et pousser vers origin",
+        ]
+        default_action = 2
+    else:
+        actions = [
+            "Garder les fichiers enregistrés en local",
+            "Committer les changements",
+            "Committer et pousser vers origin",
+        ]
+        default_action = 1
+        print(
+            "La cible est une autre machine ; chezmoi apply devra être lancé sur celle-ci."
+        )
+    action = choose("Finaliser les changements", actions, default=default_action)
+    if action in (
+        "Garder les fichiers enregistrés, sans apply",
+        "Garder les fichiers enregistrés en local",
+    ):
+        print("Fichiers enregistrés localement ; aucune autre action lancée.")
+        return
     branch = subprocess.run(
         ["git", "branch", "--show-current"],
         cwd=root,
@@ -853,19 +1054,16 @@ def publish_tui_changes(source: Path, changed_paths: list[Path]) -> None:
     ).stdout.strip()
     if not branch:
         raise LayerError("Cannot publish TUI changes from a detached HEAD")
-
-    action = choose(
-        "Tes changements sont prêts",
-        [
-            "Les garder en local",
-            "Créer un commit",
-            "Créer un commit et pousser vers origin",
-        ],
-        default=0,
-    )
-    if action == "Les garder en local":
-        print("Changements conservés en local.")
-        return
+    if apply_local:
+        print("Application des dotfiles et des changements de paquets : chezmoi apply")
+        apply_result = subprocess.run(["chezmoi", "apply"], cwd=root)
+        if apply_result.returncode:
+            raise LayerError(
+                "chezmoi apply a échoué ; les fichiers sont enregistrés, aucun commit n'a été créé."
+            )
+        if action == "Appliquer avec chezmoi, sans commit":
+            print("Apply terminé ; les modifications restent non commitées.")
+            return
 
     status = subprocess.run(
         ["git", "status", "--porcelain=v1", "--", *relative],
@@ -921,7 +1119,10 @@ def publish_tui_changes(source: Path, changed_paths: list[Path]) -> None:
         if commit.stderr:
             print(commit.stderr, file=sys.stderr, end="")
         raise LayerError("Git commit failed; the TUI changes remain available locally")
-    if action == "Créer un commit et pousser vers origin":
+    if action in (
+        "Appliquer, committer et pousser vers origin",
+        "Committer et pousser vers origin",
+    ):
         push = subprocess.run(
             ["git", "push", "origin", branch],
             cwd=root,
@@ -939,8 +1140,13 @@ def publish_tui_changes(source: Path, changed_paths: list[Path]) -> None:
             )
 
 
-def edit_packages(context: Context, changed_paths: list[Path] | None = None) -> int:
-    """Guided editor for machine and shared layers; writes always show a diff."""
+def edit_packages(
+    context: Context,
+    changed_paths: list[Path] | None = None,
+    *,
+    scope_filter: str | None = None,
+) -> int:
+    """Edit package selections with checkboxes and explicit save confirmation."""
     manager_labels = {
         "brew": "Homebrew / Linuxbrew",
         "apt": "APT",
@@ -954,45 +1160,45 @@ def edit_packages(context: Context, changed_paths: list[Path] | None = None) -> 
         "pkg": "FreeBSD pkg",
         "scoop": "Scoop",
     }
-    managers = list(context.managers)
-    manager_label = choose(
-        "Gestionnaire de paquets",
-        [manager_labels.get(item, item) for item in managers],
-    )
-    manager = managers[
-        [manager_labels.get(item, item) for item in managers].index(manager_label)
-    ]
-    selection = context.selection(manager)
-    scopes = [("machine", f"Cette machine — {selection['host']}", None)]
-    if context.package_profile != "legacy":
-        scopes.extend(
-            ("base", f"Base partagée — {filename}", filename)
-            for filename in selection["base"]
-        )
-        scopes.extend(
-            ("usage", f"Usage partagé — {filename}", filename)
-            for filename in selection["usage"]
-        )
-    scope_label = choose(
-        "Quelle couche veux-tu modifier ?", [item[1] for item in scopes]
-    )
-    scope, _, filename = next(item for item in scopes if item[1] == scope_label)
-    if scope in ("base", "usage"):
-        consumers = manifest_consumers(context, manager, filename)
-        print(
-            f"Ce manifeste est partagé par : {', '.join(consumers) or 'aucun autre profil'}"
-        )
-
     while True:
+        managers = list(context.managers)
+        manager_label = choose(
+            "Système · choisir le gestionnaire de paquets",
+            [manager_labels.get(item, item) for item in managers],
+        )
+        manager = managers[
+            [manager_labels.get(item, item) for item in managers].index(manager_label)
+        ]
+        selection = context.selection(manager)
+        scopes = []
+        if scope_filter in (None, "machine"):
+            scopes.append(("machine", f"Cette machine — {selection['host']}", None))
+        if context.package_profile != "legacy" and scope_filter in (None, "base"):
+            scopes.extend(
+                ("base", f"Base partagée — {filename}", filename)
+                for filename in selection["base"]
+            )
+            scopes.extend(
+                ("usage", f"Variante partagée — {filename}", filename)
+                for filename in selection["usage"]
+            )
+        if not scopes:
+            print(
+                "Cette machine est encore en compatibilité legacy ; migre-la avant de modifier ses bases partagées."
+            )
+            return 0
+        scope_label = choose(
+            "Base ou manifeste machine à modifier",
+            [item[1] for item in scopes],
+        )
+        scope, _, filename = next(item for item in scopes if item[1] == scope_label)
+
         if scope == "machine":
             entries = context.entries(manager)
             source_files = selection["files"]
         else:
-            entries = (
-                parse_entries(context.directory / filename, manager)
-                if (context.directory / filename).exists()
-                else {}
-            )
+            manifest = context.directory / filename
+            entries = parse_entries(manifest, manager) if manifest.exists() else {}
             source_files = [filename]
         origins = {}
         for source_file in source_files:
@@ -1002,74 +1208,52 @@ def edit_packages(context: Context, changed_paths: list[Path] | None = None) -> 
             for identity in parse_entries(source_path, manager):
                 if identity in entries:
                     origins.setdefault(identity, []).append(source_file)
-        print(f"\n{manager_label} · {scope_label} · {len(entries)} paquets déclarés")
-        action = choose(
-            "Que veux-tu faire ?",
-            [
-                "Afficher les paquets et leur provenance",
-                "Ajouter un paquet",
-                "Retirer un paquet",
-                "Terminer",
-            ],
+        if scope in ("base", "usage"):
+            consumers = manifest_consumers(context, manager, filename)
+            print(
+                f"Ce manifeste est partagé par : {', '.join(consumers) or 'aucun autre profil'}"
+            )
+        selected, added = select_packages(
+            f"{manager_label} · {scope_label} · coche les paquets à conserver",
+            manager,
+            entries,
+            origins,
         )
-        if action == "Terminer":
+        if selected is None:
+            print("Sélection annulée ; aucun fichier modifié.")
+        else:
+            additions = {key: value for key, value in added.items() if key in selected}
+            updates = plan_selection_changes(
+                context,
+                manager,
+                scope,
+                filename,
+                entries,
+                selected,
+                additions,
+            )
+            if updates:
+                show_file_changes(context.source, updates)
+                if confirm("Sauvegarder cette sélection ?", default=False):
+                    for path, content in updates.items():
+                        atomic_write(path, content)
+                        if changed_paths is not None:
+                            changed_paths.append(path)
+                    print("Sélection sauvegardée :")
+                    for path in updates:
+                        print(f"  {path.relative_to(context.source)}")
+                else:
+                    print("Aucun fichier modifié.")
+            else:
+                print("La sélection n'a pas changé.")
+
+        next_action = choose(
+            "Gestion des paquets",
+            ["Modifier un autre manifeste", "Terminer et finaliser"],
+            default=1,
+        )
+        if next_action == "Terminer et finaliser":
             return 0
-        if action == "Afficher les paquets et leur provenance":
-            for identity, files in sorted(origins.items()):
-                print(f"  {identity}  [{', '.join(files)}]")
-            if not origins:
-                print("  Aucun paquet déclaré dans cette sélection.")
-            continue
-        elif action == "Ajouter un paquet":
-            name = prompt_text("Nom du paquet (Homebrew : formule ou cask:nom) : ")
-            if not name:
-                print("Aucun nom saisi.")
-                continue
-            updates = (
-                plan_record(context, manager, "add", [name])
-                if scope == "machine"
-                else plan_layer_record(context, manager, filename, "add", name)
-            )
-        else:
-            query = prompt_text(
-                "Filtrer les paquets à retirer (Entrée = tous) : "
-            ).lower()
-            identities = [
-                identity for identity in sorted(entries) if query in identity.lower()
-            ]
-            if not query and len(identities) > 30:
-                print(
-                    "Il y a beaucoup de paquets ; saisis quelques lettres pour filtrer."
-                )
-                continue
-            if not identities:
-                print("Aucun paquet correspondant.")
-                continue
-            identity = choose("Paquet à retirer", identities)
-            if scope in ("base", "usage"):
-                print(
-                    "Retrait du manifeste partagé. Profils concernés : "
-                    + ", ".join(consumers or [context.machine_profile])
-                )
-            updates = (
-                plan_record(context, manager, "remove", [identity])
-                if scope == "machine"
-                else plan_layer_record(context, manager, filename, "remove", identity)
-            )
-        if updates:
-            show_file_changes(context.source, updates)
-            if not confirm("Confirmer l'écriture ?", default=False):
-                print("Aucun fichier modifié.")
-                continue
-            for path, content in updates.items():
-                atomic_write(path, content)
-                if changed_paths is not None:
-                    changed_paths.append(path)
-            print("Modifié localement (aucune installation/suppression lancée) :")
-            for path in updates:
-                print(f"  {path}")
-        else:
-            print("Aucune modification nécessaire.")
 
 
 def parse_entries(path: Path, manager: str) -> dict:
@@ -1183,6 +1367,74 @@ def entry_identity(manager: str, name: str, entries: dict | None = None) -> str:
             f"Ambiguous package {name}; specify brew:{name} or cask:{name}"
         )
     return matches[0] if matches else f"brew:{name}"
+
+
+def package_value(manager: str, name: str, identity: str):
+    if manager == "brew":
+        kind, value = identity.split(":", 1)
+        return f'{kind} "{value}"'
+    if manager == "scoop":
+        value = identity.split(":", 1)[1] if identity.startswith("bucket:") else name
+        return {"name": value}
+    return name
+
+
+def plan_selection_changes(
+    context: Context,
+    manager: str,
+    scope: str,
+    filename: str | None,
+    initial_entries: dict,
+    selected: set[str],
+    added: dict[str, str],
+) -> dict[Path, str]:
+    """Build manifest changes from one confirmed checkbox selection."""
+    removed = set(initial_entries) - selected
+    if scope == "machine":
+        selection = context.selection(manager)
+        host = context.directory / selection["host"]
+        local = parse_entries(host, manager) if host.exists() else {}
+        shared = context.entries(manager, shared=True, exclusions=False)
+        exclude_data = (
+            read_json(context.exclude_file) if context.exclude_file.exists() else {}
+        )
+        excluded = context.exclusions(manager)
+        for identity in removed:
+            local.pop(identity, None)
+            if identity in shared and identity not in excluded:
+                excluded.append(identity)
+        for identity, name in added.items():
+            resolved = entry_identity(manager, name, shared | local)
+            excluded = [item for item in excluded if item != resolved]
+            if resolved not in shared:
+                local[resolved] = package_value(manager, name, resolved)
+        original = host.read_text(encoding="utf-8-sig") if host.exists() else ""
+        updates = {}
+        host_content = serialize_preserving_comments(local, manager, original)
+        if host_content != original:
+            updates[host] = host_content
+        if sorted(excluded) != sorted(exclude_data.get(manager, [])):
+            exclude_data[manager] = sorted(excluded)
+            updates[context.exclude_file] = json.dumps(exclude_data, indent=2) + "\n"
+        return updates
+
+    if not filename:
+        raise LayerError("A shared manifest was not selected")
+    path = context.directory / filename
+    entries = dict(initial_entries)
+    for identity in removed:
+        entries.pop(identity, None)
+    shared = context.entries(manager, shared=True, exclusions=False)
+    for identity, name in added.items():
+        resolved = entry_identity(manager, name, shared | entries)
+        if resolved in shared and resolved not in entries:
+            raise LayerError(
+                f"{resolved} is already declared in another active shared layer"
+            )
+        entries[resolved] = package_value(manager, name, resolved)
+    original = path.read_text(encoding="utf-8-sig") if path.exists() else ""
+    content = serialize_preserving_comments(entries, manager, original)
+    return {path: content} if content != original else {}
 
 
 def plan_record(
@@ -1836,9 +2088,18 @@ def main(argv=None) -> int:
                 or Path.home() / ".local/share/chezmoi"
             )
             changed_paths: list[Path] = []
-            result = create_machine(Path(source), changed_paths)
-            publish_tui_changes(Path(source), changed_paths)
-            return result
+            created = create_machine(Path(source), changed_paths)
+            if created is None:
+                return 0
+            publish_tui_changes(
+                Path(source),
+                changed_paths,
+                apply_local=(
+                    created.hostname.casefold()
+                    == short_hostname(platform.node()).casefold()
+                ),
+            )
+            return 0
         context = context_from_environment(args)
         manager = getattr(args, "manager", None)
         if command in ("edit", "tui"):
@@ -1846,8 +2107,14 @@ def main(argv=None) -> int:
             selected_context = select_machine_for_tui(context, changed_paths)
             if selected_context is None:
                 return 0
-            result = edit_packages(selected_context, changed_paths)
-            publish_tui_changes(context.source, changed_paths)
+            result = run_package_tui(selected_context, changed_paths)
+            publish_tui_changes(
+                context.source,
+                changed_paths,
+                apply_local=(
+                    selected_context.hostname.casefold() == context.hostname.casefold()
+                ),
+            )
             return result
         if command not in ("preview", "migrate") and not manager:
             raise LayerError("--manager is required")

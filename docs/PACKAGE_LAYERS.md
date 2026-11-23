@@ -88,22 +88,29 @@ recording the choice in `dot_private/package-machines.json`. Existing host
 manifests are detected and require explicit association. Registered values
 drive package selection on the next `chezmoi apply`; a first initialization
 also saves them in chezmoi's local configuration. Unregistered machines keep
-their current saved values, including `legacy`. The wizard does not install
-software. Changing a selection does not uninstall packages already present on
-the machine.
+their current saved values, including `legacy`. No packages are installed while
+choosing the profile. The final `chezmoi apply` action can install packages from
+the selected manifests. Changing a selection does not uninstall packages
+already present on the machine.
 
-`tui` opens full-screen, keyboard-navigable menus in terminals with `curses`
-(arrows to select, Enter to confirm, Escape to return). It lets you select a
-registered machine or configure one from an existing host manifest. For the
-selected manager, edit the machine overlay, shared base or usage layer. Shared
-edits show which profiles consume that file; removing an inherited package from
-one machine writes a host exclusion. Every write shows a scrollable diff and
-requires confirmation. At the end, choose to keep the changes local, commit, or
-commit and push. Publishing is limited to files changed in that TUI session and
-never includes unrelated staged files. On terminals without `curses`, the
-numbered menu remains as a fallback. The TUI does not run package managers.
-`package-plan promote` remains available for explicit promotion from a machine
-overlay.
+`tui` opens full-screen menus in terminals with `curses`. Choose one of three
+areas: **Système et base** to assign an OS/distribution profile to a machine,
+**Base** to edit shared package manifests, or **Machine** to edit one host's
+packages. In the checklist, use arrows to move, Space to tick or untick, `/` to
+filter, `a` to add a package, `*` to select visible entries, `-` to clear them,
+and Enter to confirm. The editor shows which profiles consume a shared
+manifest. Removing an inherited package from one machine writes a host
+exclusion.
+
+After reviewing and confirming the diff, choose how to finish. For the current
+machine, the default action runs `chezmoi apply` and creates a commit; pushing is
+an additional explicit choice. `chezmoi apply` runs the existing install hooks,
+so it can install packages from the selected manifests. For another machine, the
+TUI does not apply changes locally; that machine applies them on its next
+`chezmoi update` or `chezmoi apply`. Commits include only files changed in the
+TUI session, excluding unrelated staged work. Terminals without `curses` use a
+numbered selection fallback. `package-plan promote` remains available for
+explicit promotion from a machine overlay.
 
 The `apk` and `pkg` wrappers mirror the existing native-manager wrappers. `sysup`
 updates Alpine with `apk update/upgrade` and FreeBSD with `pkg update/upgrade`;

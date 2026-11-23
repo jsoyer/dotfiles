@@ -30,9 +30,10 @@ new machines default to the base-only variant.
 - `dot_local/bin/package_layers.py`: selection, preview, TUI, migration,
   exclusions, wrappers and inventory export.
 - `package-plan tui` and `create` use full-screen curses menus where available,
-  with arrow-key navigation and a numbered fallback. The end-of-session publish
-  screen can keep edits local, commit, or commit and push only files edited in
-  that session; unrelated staged work is excluded.
+  with arrow-key navigation and package checkboxes. The finalization screen can
+  save locally, run `chezmoi apply`, commit, and optionally push. It only commits
+  files edited in that session; unrelated staged work is excluded. Selecting a
+  different machine never runs its package installation on the current host.
 - `dot_local/bin/executable_breww`: Homebrew command and bundle inventory wrapper.
 - `dot_shell_common/aliases.sh`, Fish config and Nushell config: route package
   commands through the wrappers. Nushell's direct `brew` command now uses
@@ -50,8 +51,10 @@ package-plan migrate --to personal       # preview only
 package-plan migrate --to personal --write
 ```
 
-The TUI edits manifests locally after showing a diff and requesting confirmation.
-It does not install packages, commit or push.
+The TUI edits manifests through checkboxes, shows a diff before saving, then can
+run `chezmoi apply`, commit, and optionally push. Applying on the current machine
+may install packages through existing chezmoi hooks; selecting another machine
+does not apply its packages to the current host.
 
 ## Implemented
 
@@ -77,8 +80,8 @@ It does not install packages, commit or push.
 
 Package wrappers update the current host overlay and exclusions. Successful
 `breww`, native wrapper, and promotion operations automatically commit and push
-their owned manifests. This is existing product behavior. `package-plan tui` and
-`package-plan migrate` are local-only; review and commit their changes manually.
+their owned manifests. This is existing product behavior. `package-plan migrate`
+remains local-only; review and commit its changes manually.
 Do not confuse the no-push instruction for this agent session with wrapper
 behavior on a user's machine.
 
