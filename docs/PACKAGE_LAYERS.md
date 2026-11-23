@@ -92,14 +92,18 @@ their current saved values, including `legacy`. The wizard does not install
 software. Changing a selection does not uninstall packages already present on
 the machine.
 
-`tui` is a dependency-free, numbered terminal interface. It lets you select a
+`tui` opens full-screen, keyboard-navigable menus in terminals with `curses`
+(arrows to select, Enter to confirm, Escape to return). It lets you select a
 registered machine or configure one from an existing host manifest. For the
 selected manager, edit the machine overlay, shared base or usage layer. Shared
 edits show which profiles consume that file; removing an inherited package from
-one machine writes a host exclusion. Every write shows a diff and requires
-confirmation. Changes stay local for review; the command does not run a package
-manager, commit or push. `package-plan promote` remains available for explicit
-promotion from a machine overlay.
+one machine writes a host exclusion. Every write shows a scrollable diff and
+requires confirmation. At the end, choose to keep the changes local, commit, or
+commit and push. Publishing is limited to files changed in that TUI session and
+never includes unrelated staged files. On terminals without `curses`, the
+numbered menu remains as a fallback. The TUI does not run package managers.
+`package-plan promote` remains available for explicit promotion from a machine
+overlay.
 
 The `apk` and `pkg` wrappers mirror the existing native-manager wrappers. `sysup`
 updates Alpine with `apk update/upgrade` and FreeBSD with `pkg update/upgrade`;

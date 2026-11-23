@@ -29,6 +29,7 @@ BREW_ENTRY = re.compile(
     r"[\"']([^\"']+)[\"'](.*)$"
 )
 SAFE_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._+@/:-]*$")
+_VISUAL_TUI = False
 
 
 def base_profile_name(machine_profile: str, package_profile: str) -> str:
@@ -305,10 +306,91 @@ def machine_registry(source: Path) -> Path:
     return Path(source) / "dot_private/package-machines.json"
 
 
+def _visual_menu(prompt: str, options: list[str], default: int = 0) -> str:
+    """Render a keyboard-navigable full-screen selection menu with curses."""
+    import curses
+
+    def draw(screen):
+        curses.curs_set(0)
+        if curses.has_colors():
+            curses.start_color()
+            curses.use_default_colors()
+            curses.init_pair(1, curses.COLOR_CYAN, -1)
+            curses.init_pair(2, curses.COLOR_BLACK, curses.COLOR_CYAN)
+        selected = max(0, min(default, len(options) - 1))
+        first = 0
+        while True:
+            screen.erase()
+            height, width = screen.getmaxyx()
+            screen.addnstr(
+                1,
+                2,
+                "DOTFILES  /  GESTION DES PAQUETS",
+                width - 4,
+                curses.color_pair(1) | curses.A_BOLD
+                if curses.has_colors()
+                else curses.A_BOLD,
+            )
+            screen.addnstr(3, 2, prompt, width - 4, curses.A_BOLD)
+            visible = max(1, height - 7)
+            if selected < first:
+                first = selected
+            elif selected >= first + visible:
+                first = selected - visible + 1
+            for row, index in enumerate(
+                range(first, min(len(options), first + visible)), 5
+            ):
+                attr = (
+                    curses.A_REVERSE | curses.A_BOLD
+                    if index == selected
+                    else curses.A_NORMAL
+                )
+                if index == selected and curses.has_colors():
+                    attr |= curses.color_pair(2)
+                screen.addnstr(
+                    row,
+                    2,
+                    ("› " if index == selected else "  ") + options[index],
+                    width - 4,
+                    attr,
+                )
+            screen.addnstr(
+                height - 2,
+                2,
+                "↑/↓ choisir   Entrée valider   Échap = choix par défaut",
+                width - 4,
+            )
+            screen.refresh()
+            key = screen.getch()
+            if key in (curses.KEY_UP, ord("k")):
+                selected = (selected - 1) % len(options)
+            elif key in (curses.KEY_DOWN, ord("j")):
+                selected = (selected + 1) % len(options)
+            elif key == curses.KEY_HOME:
+                selected = 0
+            elif key == curses.KEY_END:
+                selected = len(options) - 1
+            elif key == curses.KEY_NPAGE:
+                selected = min(len(options) - 1, selected + visible)
+            elif key == curses.KEY_PPAGE:
+                selected = max(0, selected - visible)
+            elif key in (curses.KEY_ENTER, 10, 13):
+                return options[selected]
+            elif key == 27:
+                return options[default]
+
+    return curses.wrapper(draw)
+
+
 def choose(prompt: str, options: list[str], *, default: int = 0) -> str:
-    """Small numbered prompt that works in standard terminals without dependencies."""
+    """Choose in a visual terminal menu when TUI mode is active."""
     if not options:
         raise LayerError(f"No choices available for {prompt.lower()}")
+    if _VISUAL_TUI and sys.stdin.isatty() and sys.stdout.isatty():
+        try:
+            return _visual_menu(prompt, options, default)
+        except Exception:
+            pass
     while True:
         print(f"\n{prompt}")
         for number, option in enumerate(options, 1):
@@ -323,6 +405,8 @@ def choose(prompt: str, options: list[str], *, default: int = 0) -> str:
 
 
 def confirm(prompt: str, *, default: bool = False) -> bool:
+    if _VISUAL_TUI and sys.stdin.isatty() and sys.stdout.isatty():
+        return choose(prompt, ["Oui", "Non"], default=0 if default else 1) == "Oui"
     suffix = "O/n" if default else "o/N"
     while True:
         answer = input(f"{prompt} [{suffix}] ").strip().lower()
@@ -335,21 +419,87 @@ def confirm(prompt: str, *, default: bool = False) -> bool:
         print("Réponds par oui ou non.")
 
 
+def prompt_text(prompt: str, *, default: str = "") -> str:
+    if _VISUAL_TUI and sys.stdin.isatty() and sys.stdout.isatty():
+        try:
+            import curses
+
+            def draw(screen):
+                curses.curs_set(1)
+                screen.erase()
+                height, width = screen.getmaxyx()
+                screen.addnstr(
+                    2, 2, "DOTFILES  /  GESTION DES PAQUETS", width - 4, curses.A_BOLD
+                )
+                label = f"{prompt} [{default}]" if default else prompt
+                screen.addnstr(4, 2, label, width - 4)
+                screen.addnstr(6, 2, "> ", width - 4, curses.A_BOLD)
+                screen.refresh()
+                value = screen.getstr(6, 4, max(1, width - 6))
+                answer = value.decode("utf-8", errors="replace").strip()
+                return answer or default
+
+            return curses.wrapper(draw)
+        except Exception:
+            pass
+    answer = input(f"{prompt} [{default}]: " if default else prompt).strip()
+    return answer or default
+
+
+def _visual_view(title: str, content: str) -> None:
+    import curses
+
+    lines = content.splitlines() or [""]
+
+    def draw(screen):
+        curses.curs_set(0)
+        offset = 0
+        while True:
+            screen.erase()
+            height, width = screen.getmaxyx()
+            screen.addnstr(1, 2, title, width - 4, curses.A_BOLD)
+            visible = max(1, height - 5)
+            for row, line in enumerate(lines[offset : offset + visible], 3):
+                screen.addnstr(row, 2, line, width - 4)
+            screen.addnstr(
+                height - 2, 2, "↑/↓ défiler   Entrée/Échap continuer", width - 4
+            )
+            screen.refresh()
+            key = screen.getch()
+            if key in (curses.KEY_UP, ord("k")):
+                offset = max(0, offset - 1)
+            elif key in (curses.KEY_DOWN, ord("j")):
+                offset = min(max(0, len(lines) - visible), offset + 1)
+            elif key == curses.KEY_PPAGE:
+                offset = max(0, offset - visible)
+            elif key == curses.KEY_NPAGE:
+                offset = min(max(0, len(lines) - visible), offset + visible)
+            elif key in (curses.KEY_ENTER, 10, 13, 27):
+                return
+
+    curses.wrapper(draw)
+
+
 def show_file_changes(source: Path, updates: dict[Path, str]) -> None:
+    sections = []
     for path, content in updates.items():
         before = path.read_text(encoding="utf-8-sig") if path.exists() else ""
-        print(f"\nFichier : {path.relative_to(source)}")
         diff = difflib.unified_diff(
             before.splitlines(keepends=True),
             content.splitlines(keepends=True),
-            fromfile="avant",
-            tofile="après",
+            fromfile=f"{path.relative_to(source)} (avant)",
+            tofile=f"{path.relative_to(source)} (après)",
         )
         rendered = "".join(diff)
-        if rendered:
-            print(rendered, end="")
-        else:
-            print("(aucune différence)")
+        sections.append(rendered or f"{path.relative_to(source)}: aucune différence")
+    content = "\n".join(sections)
+    if _VISUAL_TUI and sys.stdin.isatty() and sys.stdout.isatty():
+        try:
+            _visual_view("Aperçu des changements", content)
+            return
+        except Exception:
+            pass
+    print(content)
 
 
 def configure_machine(
@@ -358,12 +508,13 @@ def configure_machine(
     *,
     replace_existing: bool = False,
     allow_legacy: bool = False,
+    changed_paths: list[Path] | None = None,
 ) -> Context | None:
     """Register a machine's package layers without installing any software."""
     source = Path(source)
     catalog = read_json(source / "dot_private/package-layers.json")
     profiles = catalog["profiles"]
-    host = (host or input("Nom court de la machine : ").strip()).split(".", 1)[0]
+    host = (host or prompt_text("Nom court de la machine : ")).split(".", 1)[0]
     if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_-]*", host):
         raise LayerError(f"Nom de machine invalide : {host!r}")
     discovered = discover_machine_manifests(source)
@@ -513,6 +664,8 @@ def configure_machine(
     atomic_write(
         registry_path, json.dumps(registry, indent=2, ensure_ascii=False) + "\n"
     )
+    if changed_paths is not None:
+        changed_paths.append(registry_path)
     print(f"Créé : {registry_path.relative_to(source)}")
     print(
         "Le prochain `chezmoi apply` utilisera ce profil pour sélectionner les paquets."
@@ -524,8 +677,8 @@ def configure_machine(
     return context
 
 
-def create_machine(source: Path) -> int:
-    configure_machine(source)
+def create_machine(source: Path, changed_paths: list[Path] | None = None) -> int:
+    configure_machine(source, changed_paths=changed_paths)
     return 0
 
 
@@ -562,7 +715,9 @@ def discover_machine_manifests(source: Path) -> dict[str, list[str]]:
     return found
 
 
-def select_machine_for_tui(current: Context) -> Context | None:
+def select_machine_for_tui(
+    current: Context, changed_paths: list[Path] | None = None
+) -> Context | None:
     registry_path = machine_registry(current.source)
     registry = read_json(registry_path) if registry_path.exists() else {"machines": {}}
     if not isinstance(registry, dict) or not isinstance(registry.get("machines"), dict):
@@ -631,7 +786,7 @@ def select_machine_for_tui(current: Context) -> Context | None:
             details.get("target_kind"),
         )
     if kind == "manual":
-        hostname = input("Nom court de la machine : ").strip().split(".", 1)[0]
+        hostname = prompt_text("Nom court de la machine : ").split(".", 1)[0]
         registered = next(
             (
                 value
@@ -650,7 +805,7 @@ def select_machine_for_tui(current: Context) -> Context | None:
                 registered.get("target_kind"),
             )
     if kind == "candidate":
-        return configure_machine(current.source, hostname)
+        return configure_machine(current.source, hostname, changed_paths=changed_paths)
     if kind == "reconfigure_current":
         registered_current = any(
             key.casefold() == current.hostname.casefold() for key in machines
@@ -660,14 +815,131 @@ def select_machine_for_tui(current: Context) -> Context | None:
             current.hostname,
             replace_existing=registered_current,
             allow_legacy=current.package_profile == "legacy",
+            changed_paths=changed_paths,
         )
     if kind == "reconfigure":
         host = choose("Machine à reconfigurer", sorted(machines))
-        return configure_machine(current.source, host, replace_existing=True)
-    return configure_machine(current.source, hostname)
+        return configure_machine(
+            current.source,
+            host,
+            replace_existing=True,
+            changed_paths=changed_paths,
+        )
+    return configure_machine(current.source, hostname, changed_paths=changed_paths)
 
 
-def edit_packages(context: Context) -> int:
+def publish_tui_changes(source: Path, changed_paths: list[Path]) -> None:
+    """Offer to commit or push only paths changed by this TUI session."""
+    paths = list(dict.fromkeys(Path(path).resolve() for path in changed_paths))
+    if not paths:
+        return
+    root = Path(source).resolve()
+    relative = []
+    for path in paths:
+        try:
+            relative.append(str(path.relative_to(root)))
+        except ValueError as error:
+            raise LayerError(
+                f"TUI change is outside the chezmoi source: {path}"
+            ) from error
+
+    branch = subprocess.run(
+        ["git", "branch", "--show-current"],
+        cwd=root,
+        capture_output=True,
+        text=True,
+        check=True,
+        encoding="utf-8",
+    ).stdout.strip()
+    if not branch:
+        raise LayerError("Cannot publish TUI changes from a detached HEAD")
+
+    action = choose(
+        "Tes changements sont prêts",
+        [
+            "Les garder en local",
+            "Créer un commit",
+            "Créer un commit et pousser vers origin",
+        ],
+        default=0,
+    )
+    if action == "Les garder en local":
+        print("Changements conservés en local.")
+        return
+
+    status = subprocess.run(
+        ["git", "status", "--porcelain=v1", "--", *relative],
+        cwd=root,
+        capture_output=True,
+        text=True,
+        check=True,
+        encoding="utf-8",
+    ).stdout.splitlines()
+    staged_before = {
+        line[3:] for line in status if len(line) > 3 and line[0] not in (" ", "?")
+    }
+    subprocess.run(["git", "add", "--", *relative], cwd=root, check=True)
+    staged_diff = subprocess.run(
+        ["git", "diff", "--cached", "--", *relative],
+        cwd=root,
+        capture_output=True,
+        text=True,
+        check=True,
+        encoding="utf-8",
+    ).stdout
+    if _VISUAL_TUI and sys.stdin.isatty() and sys.stdout.isatty():
+        try:
+            _visual_view("Diff qui sera commité", staged_diff or "Aucun changement.")
+        except Exception:
+            print(staged_diff or "Aucun changement.")
+    else:
+        print(staged_diff or "Aucun changement.")
+    if not confirm("Confirmer ce commit ?", default=False):
+        unstage = [path for path in relative if path not in staged_before]
+        if unstage:
+            subprocess.run(
+                ["git", "restore", "--staged", "--", *unstage],
+                cwd=root,
+                check=True,
+            )
+        print("Commit annulé ; les fichiers restent modifiés localement.")
+        return
+
+    message = prompt_text(
+        "Message du commit", default="chore(packages): update package manifests"
+    )
+    commit = subprocess.run(
+        ["git", "commit", "--only", "-m", message, "--", *relative],
+        cwd=root,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+    )
+    if commit.stdout:
+        print(commit.stdout, end="")
+    if commit.returncode:
+        if commit.stderr:
+            print(commit.stderr, file=sys.stderr, end="")
+        raise LayerError("Git commit failed; the TUI changes remain available locally")
+    if action == "Créer un commit et pousser vers origin":
+        push = subprocess.run(
+            ["git", "push", "origin", branch],
+            cwd=root,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+        )
+        if push.stdout:
+            print(push.stdout, end="")
+        if push.stderr:
+            print(push.stderr, file=sys.stderr, end="")
+        if push.returncode:
+            raise LayerError(
+                "Commit créé localement, mais le push a échoué. Synchronise la branche puis repousse."
+            )
+
+
+def edit_packages(context: Context, changed_paths: list[Path] | None = None) -> int:
     """Guided editor for machine and shared layers; writes always show a diff."""
     manager_labels = {
         "brew": "Homebrew / Linuxbrew",
@@ -749,7 +1021,7 @@ def edit_packages(context: Context) -> int:
                 print("  Aucun paquet déclaré dans cette sélection.")
             continue
         elif action == "Ajouter un paquet":
-            name = input("Nom du paquet (Homebrew : formule ou cask:nom) : ").strip()
+            name = prompt_text("Nom du paquet (Homebrew : formule ou cask:nom) : ")
             if not name:
                 print("Aucun nom saisi.")
                 continue
@@ -759,11 +1031,9 @@ def edit_packages(context: Context) -> int:
                 else plan_layer_record(context, manager, filename, "add", name)
             )
         else:
-            query = (
-                input("Filtrer les paquets à retirer (Entrée = tous) : ")
-                .strip()
-                .lower()
-            )
+            query = prompt_text(
+                "Filtrer les paquets à retirer (Entrée = tous) : "
+            ).lower()
             identities = [
                 identity for identity in sorted(entries) if query in identity.lower()
             ]
@@ -793,6 +1063,8 @@ def edit_packages(context: Context) -> int:
                 continue
             for path, content in updates.items():
                 atomic_write(path, content)
+                if changed_paths is not None:
+                    changed_paths.append(path)
             print("Modifié localement (aucune installation/suppression lancée) :")
             for path in updates:
                 print(f"  {path}")
@@ -1545,6 +1817,8 @@ def main(argv=None) -> int:
     args = parser.parse_args(argv)
     try:
         command = args.command or "preview"
+        global _VISUAL_TUI
+        _VISUAL_TUI = command in ("create", "edit", "tui")
         if command == "create":
             context_path = Path(
                 os.environ.get(
@@ -1561,14 +1835,20 @@ def main(argv=None) -> int:
                 or saved_context.get("source_dir")
                 or Path.home() / ".local/share/chezmoi"
             )
-            return create_machine(Path(source))
+            changed_paths: list[Path] = []
+            result = create_machine(Path(source), changed_paths)
+            publish_tui_changes(Path(source), changed_paths)
+            return result
         context = context_from_environment(args)
         manager = getattr(args, "manager", None)
         if command in ("edit", "tui"):
-            selected_context = select_machine_for_tui(context)
+            changed_paths = []
+            selected_context = select_machine_for_tui(context, changed_paths)
             if selected_context is None:
                 return 0
-            return edit_packages(selected_context)
+            result = edit_packages(selected_context, changed_paths)
+            publish_tui_changes(context.source, changed_paths)
+            return result
         if command not in ("preview", "migrate") and not manager:
             raise LayerError("--manager is required")
         if command == "preview":

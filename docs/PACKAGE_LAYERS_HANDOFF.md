@@ -29,6 +29,10 @@ new machines default to the base-only variant.
   for chezmoi installers.
 - `dot_local/bin/package_layers.py`: selection, preview, TUI, migration,
   exclusions, wrappers and inventory export.
+- `package-plan tui` and `create` use full-screen curses menus where available,
+  with arrow-key navigation and a numbered fallback. The end-of-session publish
+  screen can keep edits local, commit, or commit and push only files edited in
+  that session; unrelated staged work is excluded.
 - `dot_local/bin/executable_breww`: Homebrew command and bundle inventory wrapper.
 - `dot_shell_common/aliases.sh`, Fish config and Nushell config: route package
   commands through the wrappers. Nushell's direct `brew` command now uses
