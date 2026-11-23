@@ -6,13 +6,15 @@
 # Two channels, because the CLIs do not all ship the same way:
 #
 #   mise        npm:/pipx: packages and their runtimes (claude, codex, copilot,
-#               opencode, pi, omp, cline, vibe, node, bun, uv). Updated with
+#               opencode, opencode2, pi, omp, cline, vibe, node, bun, uv). Updated with
 #               `mise upgrade --bump --pin --no-prune`: the global config holds
 #               EXACT versions and the previous ones stay installed, so a
 #               rollback is just restoring the config backup — instant, offline.
 #   self        vendor binaries with their own updater and no package feed
-#               (grok, agy, cursor-agent). Updated in place; no rollback is
-#               possible, so a broken one is reported, not hidden.
+#               (grok, agy, cursor-agent, devin). Updated in place; no rollback
+#               is possible, so a broken one is reported, not hidden.
+#               `devin update` needs a terminal (exit 130 without one): it runs
+#               under `script`, stdin still /dev/null.
 #
 # After the update every CLI must answer `--version`. If a mise-managed one does
 # not, the WHOLE mise config is rolled back (the versions form one tested set)
@@ -52,6 +54,7 @@ MISE_CLIS=(
   "codex:codex --version"
   "copilot:copilot --version"
   "opencode:opencode --version"
+  "opencode2:opencode2 --version"
   "pi:pi --version"
   "omp:omp --version"
   "cline:cline --version"
@@ -62,6 +65,7 @@ SELF_CLIS=(
   "grok:grok update:grok --version"
   "agy:agy update:agy --version"
   "cursor-agent:cursor-agent update:cursor-agent --version"
+  "devin:script -qec 'devin update' /dev/null:devin --version"
 )
 
 ts()   { date '+%F %T'; }

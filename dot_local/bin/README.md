@@ -736,6 +736,15 @@ orca-pair --status             # server state + how to revoke a client
   CLIs Orca launches were not found. `zz-user-path.conf` puts the mise shims,
   `~/.local/bin` and `~/.grok/bin` on PATH; its name must sort after
   `zz-tmp-fix.conf`, whose empty `Environment=` resets the list.
+- **mise dirs pinned.** Orca runs agent logins and managed accounts with private
+  `XDG_*_HOME` dirs. mise derives its dirs from them, so its shims found no
+  install and rejected `~/.config/mise/config.toml` as untrusted.
+  `zz-user-path.conf` sets `MISE_DATA_DIR`, `MISE_CONFIG_DIR`, `MISE_STATE_DIR`
+  and `MISE_CACHE_DIR`; export the same four in the shell that runs `orca-ide`.
+- **OpenCode 2.** `orca-ide account add --agent opencode` needs OpenCode 2
+  (`@opencode/cli`, binary `opencode2`). With mise, both install side by side:
+  list `"npm:@opencode/cli"` (with `--ignore-scripts=false`) after
+  `"npm:opencode-ai"`, and `opencode` stays v1.
 - **Boot order.** `zz-tailscale.conf` starts the server after `tailscaled`
   (the advertised address is the Tailscale IP).
 - **`--update-at HH:MM`.** An update restarts the server and cuts running
@@ -755,8 +764,8 @@ rollback. Two channels:
 
 | Channel | CLIs | Update | Rollback |
 |---------|------|--------|----------|
-| mise (`npm:` / `pipx:`) | claude, codex, copilot, opencode, pi, omp, cline, vibe (+ node, bun, uv) | `mise upgrade --bump --pin --no-prune` | restore the config backup: the previous versions are still installed |
-| vendor updater | grok, agy, cursor-agent | `<cli> update` | none — reported as broken |
+| mise (`npm:` / `pipx:`) | claude, codex, copilot, opencode, opencode2, pi, omp, cline, vibe (+ node, bun, uv) | `mise upgrade --bump --pin --no-prune` | restore the config backup: the previous versions are still installed |
+| vendor updater | grok, agy, cursor-agent, devin | `<cli> update` (devin under `script`: it needs a terminal) | none — reported as broken |
 
 Every CLI must answer `--version` afterwards; a mise CLI that the upgrade broke
 rolls back the whole mise set (the versions form one tested set). Old versions
