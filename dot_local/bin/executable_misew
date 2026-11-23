@@ -1,0 +1,473 @@
+#!/usr/bin/env python3
+"""
+misew: move Homebrew formulae to mise on Intel Macs.
+
+Intel macOS is Homebrew Tier 3: no bottles, every upgrade is a source build.
+Most CLI tools ship prebuilt darwin-x64 release binaries (aqua / github
+backends) or are pure Python / Node packages (pypi / npm), so mise can install
+them without compiling. The tool list lives in the `{{ if $intel }}` block of
+dot_config/mise/config.toml.tmpl in the chezmoi source.
+
+  misew add <formula> [--backend B]   move one formula from brew to mise
+  misew suggest [--refresh] [-v]      list outdated formulae mise can take over
+
+`add` verifies a darwin-x64 asset (`mise lock --platform macos-x64`), adds the
+tool to the template, applies it, installs it, checks the formula's binaries
+now resolve through mise, then uninstalls the brew copy, drops it from the
+host Brewfile overlay and commits the two files (like breww).
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import platform
+import re
+import subprocess
+import sys
+import tempfile
+import time
+from pathlib import Path
+
+CHEZMOI_SOURCE_PATH = Path(
+    os.environ.get("CHEZMOI_SOURCE_PATH", Path.home() / ".local" / "share" / "chezmoi")
+)
+MISE_TEMPLATE = CHEZMOI_SOURCE_PATH / "dot_config" / "mise" / "config.toml.tmpl"
+MISE_TARGET = Path.home() / ".config" / "mise" / "config.toml"
+BREWFILE_DIR = CHEZMOI_SOURCE_PATH / "dot_private"
+CACHE_FILE = Path(
+    os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache")
+) / "misew" / "suggest.json"
+CACHE_TTL = 7 * 24 * 3600
+LOCK_PLATFORM = "macos-x64"
+
+# Backends that install without compiling, best first. asdf/vfox plugins,
+# cargo:, go: and core source builds are left out on purpose.
+PREBUILT_BACKENDS = ("aqua", "github", "pipx", "pypi", "npm", "conda")
+# Backends whose release assets `mise lock` can check for macos-x64.
+ASSET_BACKENDS = ("aqua", "github")
+
+# Never suggested, and `add` wants an explicit --backend for them: libraries
+# rather than CLIs (numpy, virtualenvwrapper), colima's lima guest agents
+# (resolved to aqua:lima-vm/lima, a different package), and the docker CLI and
+# its plugins, which must stay where the brew docker CLI looks for them.
+SKIP = frozenset({
+    "numpy", "virtualenvwrapper", "lima-additional-guestagents",
+    "docker", "docker-buildx", "docker-compose", "docker-credential-helper",
+})
+
+INTEL_OPEN = re.compile(r"^\{\{-?\s*if \$intel\s*-?\}\}\s*$")
+TEMPLATE_END = re.compile(r"^\{\{-?\s*end\s*-?\}\}\s*$")
+
+BLUE = "\033[0;34m"
+GREEN = "\033[0;32m"
+YELLOW = "\033[1;33m"
+RED = "\033[0;31m"
+NC = "\033[0m"
+
+
+def is_intel_mac() -> bool:
+    return platform.system() == "Darwin" and platform.machine() == "x86_64"
+
+
+def get_hostname() -> str:
+    """Return the short hostname (no domain), as breww does."""
+    return os.uname().nodename.split(".")[0]
+
+
+def run(cmd: list[str], **kw) -> subprocess.CompletedProcess:
+    return subprocess.run(cmd, capture_output=True, text=True, **kw)
+
+
+# --- backend resolution -------------------------------------------------------
+
+
+def backend_kind(backend: str) -> str:
+    return backend.split(":", 1)[0]
+
+
+def pick_backend(candidates: list[str]) -> str | None:
+    """Best prebuilt backend among `mise registry` candidates, or None."""
+    for kind in PREBUILT_BACKENDS:
+        for cand in candidates:
+            if backend_kind(cand) == kind:
+                return cand
+    return None
+
+
+def parse_registry(output: str) -> list[str]:
+    """`mise registry <name>` prints the backends space-separated."""
+    return output.split()
+
+
+def github_repo(url: str | None) -> str | None:
+    """owner/repo from a GitHub homepage or source URL."""
+    if not url:
+        return None
+    m = re.match(r"https?://github\.com/([^/\s]+)/([^/\s#?]+)", url)
+    if not m:
+        return None
+    return f"{m.group(1)}/{m.group(2).removesuffix('.git')}"
+
+
+def formula_info(formula: str) -> dict:
+    out = run(["brew", "info", "--json=v2", "--formula", formula])
+    if out.returncode != 0:
+        raise RuntimeError(out.stderr.strip() or f"brew info {formula} failed")
+    return json.loads(out.stdout)["formulae"][0]
+
+
+def package_backend(url: str | None) -> str | None:
+    """pypi:/npm: backend when the formula's source tarball comes from PyPI or npm."""
+    if not url:
+        return None
+    m = re.match(r"https?://files\.pythonhosted\.org/packages/.+/([^/]+?)-\d[^/]*\.(?:tar\.gz|zip|whl)$", url)
+    if m:
+        return f"pypi:{m.group(1).replace('_', '-').lower()}"
+    m = re.match(r"https?://registry\.npmjs\.org/((?:@[^/]+/)?[^/]+)/-/", url)
+    if m:
+        return f"npm:{m.group(1)}"
+    return None
+
+
+def formulae_info(formulae: list[str]) -> dict[str, dict]:
+    """brew info for many formulae in one call (name -> record)."""
+    if not formulae:
+        return {}
+    out = run(["brew", "info", "--json=v2", "--formula", *formulae])
+    if out.returncode != 0:
+        return {}
+    return {f["name"]: f for f in json.loads(out.stdout)["formulae"]}
+
+
+def resolve_candidates(formula: str, info: dict | None) -> list[str]:
+    """Backends to try for <formula>: mise registry, PyPI/npm source, GitHub repo."""
+    cands: list[str] = []
+    reg = run(["mise", "registry", formula])
+    if reg.returncode == 0:
+        best = pick_backend(parse_registry(reg.stdout))
+        if best:
+            cands.append(best)
+    if info:
+        stable = ((info.get("urls") or {}).get("stable") or {}).get("url")
+        pkg = package_backend(stable)
+        if pkg and pkg not in cands:
+            cands.append(pkg)
+        for url in (info.get("homepage"), stable):
+            repo = github_repo(url)
+            if repo:
+                for kind in ASSET_BACKENDS:
+                    cand = f"{kind}:{repo}"
+                    if cand not in cands:
+                        cands.append(cand)
+                break
+    return cands
+
+
+# --- asset verification -------------------------------------------------------
+
+
+LOCK_SECTION = re.compile(r'^\[tools\."([^"]+)"\."platforms\.([^"]+)"\]\s*$')
+LOCK_URL = re.compile(r'^url\s*=\s*"([^"]+)"')
+
+
+def lock_urls(lock_text: str) -> dict[str, str]:
+    """backend -> macos-x64 asset URL from a mise.lock (tools without one omitted).
+
+    A line scan rather than tomllib: sysup may run under the system python3
+    (3.9), which has no TOML parser.
+    """
+    urls: dict[str, str] = {}
+    section = None
+    for line in lock_text.splitlines():
+        if line.startswith("["):
+            m = LOCK_SECTION.match(line)
+            section = m.group(1) if m and m.group(2) == LOCK_PLATFORM else None
+            continue
+        m = LOCK_URL.match(line)
+        if section and m:
+            urls[section] = m.group(1)
+    return urls
+
+
+def failed_backend(stderr: str, backends: list[str]) -> str | None:
+    """Which backend made `mise lock` abort, from its ERROR lines."""
+    for line in stderr.splitlines():
+        if "ERROR" not in line:
+            continue
+        for b in backends:
+            if b in line:
+                return b
+    return None
+
+
+MAC_ASSET = re.compile(r"darwin|macos|mac-?os|osx|apple|universal", re.IGNORECASE)
+SOURCE_ASSET = re.compile(r"\.(?:dmg|pkg|deb|rpm|AppImage)$|/v?[\d.]+\.(?:tar\.gz|zip)$")
+
+
+def usable_asset(backend: str, url: str) -> bool:
+    """
+    Whether the locked asset is a macOS binary mise can unpack.
+
+    aqua registry entries are curated (gradle ships one platform-independent
+    zip), so they are trusted. The github: backend takes whatever asset it
+    finds, source tarballs and .dmg installers included, so its asset name
+    must name macOS.
+    """
+    if backend_kind(backend) != "github":
+        return True
+    name = url.rsplit("/", 1)[-1]
+    return bool(MAC_ASSET.search(name)) and not SOURCE_ASSET.search("/" + name)
+
+
+def verify_assets(backends: list[str]) -> dict[str, str]:
+    """
+    Lock <backends> for macos-x64 in a scratch dir; return backend -> asset URL.
+
+    One unresolvable tool aborts the whole `mise lock`, so drop it and retry.
+    """
+    pending = list(backends)
+    with tempfile.TemporaryDirectory(prefix="misew-") as tmp:
+        cfg = Path(tmp) / "mise.toml"
+        while pending:
+            cfg.write_text(
+                "[tools]\n" + "".join(f'"{b}" = "latest"\n' for b in pending)
+            )
+            run(["mise", "trust", "-q", tmp])
+            out = run(["mise", "lock", "--platform", LOCK_PLATFORM], cwd=tmp)
+            if out.returncode == 0:
+                urls = lock_urls((Path(tmp) / "mise.lock").read_text())
+                return {b: u for b, u in urls.items() if usable_asset(b, u)}
+            bad = failed_backend(out.stderr, pending)
+            if bad is None:
+                raise RuntimeError(f"mise lock failed:\n{out.stderr.strip()}")
+            pending.remove(bad)
+    return {}
+
+
+# --- manifest edits -----------------------------------------------------------
+
+
+def template_has(text: str, backend: str) -> bool:
+    return any(line.startswith(f'"{backend}" =') for line in text.splitlines())
+
+
+def add_to_intel_block(text: str, backend: str) -> str:
+    """Return <text> with `"<backend>" = "latest"` appended to the $intel block."""
+    if template_has(text, backend):
+        return text
+    lines = text.splitlines(keepends=True)
+    start = next((i for i, l in enumerate(lines) if INTEL_OPEN.match(l)), None)
+    if start is None:
+        raise ValueError("no {{ if $intel }} block in the mise template")
+    end = next(
+        (i for i in range(start + 1, len(lines)) if TEMPLATE_END.match(lines[i])), None
+    )
+    if end is None:
+        raise ValueError("unterminated {{ if $intel }} block in the mise template")
+    return "".join(lines[:end] + [f'"{backend}" = "latest"\n'] + lines[end:])
+
+
+def remove_from_template(text: str, backend: str) -> str:
+    return "".join(
+        l for l in text.splitlines(keepends=True) if not l.startswith(f'"{backend}" =')
+    )
+
+
+def remove_from_brewfile(text: str, formula: str) -> str:
+    """Drop `brew "<formula>"` (or a tap-qualified one) lines."""
+    pat = re.compile(rf'^\s*brew\s+"(?:[^"/]+/[^"/]+/)?{re.escape(formula)}"')
+    return "".join(l for l in text.splitlines(keepends=True) if not pat.match(l))
+
+
+# --- add ----------------------------------------------------------------------
+
+
+def formula_bins(formula: str) -> list[str]:
+    out = run(["brew", "list", "--formula", formula])
+    return sorted(
+        {Path(p).name for p in out.stdout.split() if Path(p).parent.name == "bin"}
+    )
+
+
+def apply_template() -> None:
+    subprocess.run(["chezmoi", "apply", str(MISE_TARGET)], check=True)
+
+
+def sync_to_git(paths: list[Path], message: str) -> None:
+    """Commit and push only <paths>, the way breww does."""
+    existing = [str(p) for p in paths if p.exists()]
+    if not existing:
+        return
+    print(f"\n{BLUE}Syncing with Git...{NC}")
+    try:
+        subprocess.run(["git", "add", "--", *existing], cwd=CHEZMOI_SOURCE_PATH, check=True)
+        result = subprocess.run(
+            ["git", "commit", "--no-gpg-sign", "-m", message, "--", *existing],
+            cwd=CHEZMOI_SOURCE_PATH,
+        )
+        if result.returncode not in (0, 1):
+            raise subprocess.CalledProcessError(result.returncode, "git commit")
+        subprocess.run(["git", "pull", "--rebase"], cwd=CHEZMOI_SOURCE_PATH)
+        subprocess.run(["git", "push"], cwd=CHEZMOI_SOURCE_PATH, check=True)
+        print(f"{GREEN}Pushed to remote.{NC}")
+    except subprocess.CalledProcessError as e:
+        print(f"{YELLOW}Warning: Git sync failed: {e}{NC}")
+
+
+def choose_backend(formula: str, info: dict) -> str:
+    cands = resolve_candidates(formula, info)
+    if not cands:
+        raise RuntimeError(
+            f"no prebuilt mise backend found for {formula}; pass --backend"
+        )
+    asset_cands = [c for c in cands if backend_kind(c) in ASSET_BACKENDS]
+    urls = verify_assets(asset_cands) if asset_cands else {}
+    for cand in cands:
+        if backend_kind(cand) not in ASSET_BACKENDS or cand in urls:
+            return cand
+    raise RuntimeError(f"no {LOCK_PLATFORM} release asset for {formula} ({', '.join(cands)})")
+
+
+def cmd_add(formula: str, backend: str | None) -> int:
+    info = formula_info(formula)
+    if not info.get("installed"):
+        print(f"{RED}{formula} is not installed with Homebrew.{NC}")
+        return 1
+    users = run(["brew", "uses", "--installed", formula]).stdout.split()
+    if users:
+        print(f"{RED}{formula} is needed by {' '.join(users)}: not moving it.{NC}")
+        return 1
+
+    if backend is None and formula in SKIP:
+        print(f"{YELLOW}{formula} is on misew's skip list; pass --backend to move it anyway.{NC}")
+        return 1
+    if backend is None:
+        backend = choose_backend(formula, info)
+    elif backend_kind(backend) in ASSET_BACKENDS and backend not in verify_assets([backend]):
+        print(f"{RED}{backend} has no {LOCK_PLATFORM} release asset.{NC}")
+        return 1
+    print(f"{BLUE}{formula} -> {backend}{NC}")
+
+    bins = formula_bins(formula)
+    original = MISE_TEMPLATE.read_text()
+    MISE_TEMPLATE.write_text(add_to_intel_block(original, backend))
+    try:
+        apply_template()
+        subprocess.run(["mise", "install", backend], check=True)
+        served = [b for b in bins if run(["mise", "which", b]).returncode == 0]
+        if bins and not served:
+            raise RuntimeError(
+                f"mise serves none of {formula}'s binaries ({', '.join(bins)})"
+            )
+    except (subprocess.CalledProcessError, RuntimeError) as e:
+        print(f"{RED}{e}; restoring the mise template, brew copy kept.{NC}")
+        MISE_TEMPLATE.write_text(original)
+        apply_template()
+        return 1
+
+    missing = sorted(set(bins) - set(served))
+    if missing:
+        print(f"{YELLOW}Not provided by mise (gone with the brew copy): {' '.join(missing)}{NC}")
+    subprocess.run(["brew", "uninstall", "--formula", formula], check=True)
+
+    overlay = BREWFILE_DIR / f"Brewfile_{get_hostname()}"
+    changed = [MISE_TEMPLATE]
+    if overlay.exists():
+        text = overlay.read_text()
+        new = remove_from_brewfile(text, formula)
+        if new != text:
+            overlay.write_text(new)
+            changed.append(overlay)
+    print(f"{GREEN}{formula} now comes from mise ({backend}).{NC}")
+    sync_to_git(changed, f"style(mise): move {formula} to {backend} via misew")
+    return 0
+
+
+# --- suggest ------------------------------------------------------------------
+
+
+def load_cache() -> dict:
+    try:
+        return json.loads(CACHE_FILE.read_text())
+    except (OSError, ValueError):
+        return {}
+
+
+def save_cache(cache: dict) -> None:
+    CACHE_FILE.parent.mkdir(parents=True, exist_ok=True)
+    CACHE_FILE.write_text(json.dumps(cache, indent=1, sort_keys=True))
+
+
+def is_fresh(entry: dict | None, now: float) -> bool:
+    return bool(entry) and now - entry.get("checked", 0) < CACHE_TTL
+
+
+def outdated_leaves() -> list[str]:
+    """Outdated formulae installed on request that nothing else depends on."""
+    outdated = json.loads(run(["brew", "outdated", "--formula", "--json=v2"]).stdout)
+    names = {f["name"] for f in outdated["formulae"] if not f.get("pinned")}
+    leaves = set(run(["brew", "leaves", "--installed-on-request"]).stdout.split())
+    return sorted((names & {l.rsplit("/", 1)[-1] for l in leaves}) - SKIP)
+
+
+def cmd_suggest(refresh: bool, verbose: bool) -> int:
+    now = time.time()
+    cache = {} if refresh else load_cache()
+    formulae = outdated_leaves()
+    stale = [f for f in formulae if not is_fresh(cache.get(f), now)]
+
+    if stale:
+        print(f"{BLUE}misew: checking {len(stale)} formulae for prebuilt mise backends...{NC}")
+        infos = formulae_info(stale)
+        cands = {f: resolve_candidates(f, infos.get(f)) for f in stale}
+        asset = sorted({c for cs in cands.values() for c in cs if backend_kind(c) in ASSET_BACKENDS})
+        urls = verify_assets(asset) if asset else {}
+        for f, cs in cands.items():
+            ok = next(
+                (c for c in cs if backend_kind(c) not in ASSET_BACKENDS or c in urls), None
+            )
+            cache[f] = {"backend": ok, "checked": now}
+        save_cache(cache)
+
+    movable = {f: cache[f]["backend"] for f in formulae if cache.get(f, {}).get("backend")}
+    if not movable:
+        if verbose:
+            print("misew: no outdated formula has a prebuilt mise backend.")
+        return 0
+    print(
+        f"💡 {len(movable)} outdated formulae can come prebuilt from mise "
+        f"instead of a brew source build:"
+    )
+    width = max(len(f) for f in movable)
+    for f, b in movable.items():
+        print(f"   misew add {f:<{width}}  # {b}")
+    return 0
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(prog="misew", description=__doc__.split("\n\n")[0])
+    sub = parser.add_subparsers(dest="cmd", required=True)
+    p_add = sub.add_parser("add", help="move a formula from brew to mise")
+    p_add.add_argument("formula")
+    p_add.add_argument("--backend", help="mise backend, e.g. aqua:owner/repo or pipx:pkg")
+    p_sug = sub.add_parser("suggest", help="outdated formulae mise can take over")
+    p_sug.add_argument("--refresh", action="store_true", help="ignore the 7-day cache")
+    p_sug.add_argument("-v", "--verbose", action="store_true")
+    args = parser.parse_args()
+
+    if not is_intel_mac() and os.environ.get("MISEW_FORCE") != "1":
+        print("misew only manages Intel Macs (set MISEW_FORCE=1 to override).")
+        return 0 if args.cmd == "suggest" else 1
+    try:
+        if args.cmd == "add":
+            return cmd_add(args.formula, args.backend)
+        return cmd_suggest(args.refresh, args.verbose)
+    except RuntimeError as e:
+        print(f"{RED}misew: {e}{NC}")
+        return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())

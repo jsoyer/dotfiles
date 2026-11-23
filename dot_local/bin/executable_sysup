@@ -261,6 +261,11 @@ sysup() {
     darwin)
       _update_mise_if_present || _sysup_rc=1
       breww upgrade || _sysup_rc=1       # was alias bup
+      # Intel Macs: brew skips every unbottled upgrade; point at the ones mise
+      # can install prebuilt instead (cached for a week, see misew).
+      if [[ "$(uname -m)" == x86_64 ]] && command -v misew &>/dev/null; then
+        misew suggest || true
+      fi
       breww cu -a || _sysup_rc=1         # was alias bcu (brew-cask-upgrade)
       if command -v mas &>/dev/null; then
         echo "📱 Updating App Store apps..."
