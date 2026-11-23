@@ -741,6 +741,11 @@ orca-pair --status             # server state + how to revoke a client
   install and rejected `~/.config/mise/config.toml` as untrusted.
   `zz-user-path.conf` sets `MISE_DATA_DIR`, `MISE_CONFIG_DIR`, `MISE_STATE_DIR`
   and `MISE_CACHE_DIR`; export the same four in the shell that runs `orca-ide`.
+- **`orca-ide` temp dir.** `orca-serve` runs with `PrivateTmp`, and
+  `orca-ide account add --agent opencode|devin` logs in under `$TMPDIR`, then
+  asks the server to import that dir: from `/tmp` the server sees nothing
+  (`ENOENT .../data/opencode/opencode.db`). Point the CLI at a shared dir:
+  `orca-ide() { local t="$HOME/.cache/orca/cli-tmp"; mkdir -p -m 0700 "$t" && TMPDIR="$t" command orca-ide "$@"; }`
 - **OpenCode 2.** `orca-ide account add --agent opencode` needs OpenCode 2
   (`@opencode/cli`, binary `opencode2`). With mise, both install side by side:
   list `"npm:@opencode/cli"` (with `--ignore-scripts=false`) after

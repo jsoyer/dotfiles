@@ -624,7 +624,9 @@ Environment="MISE_DATA_DIR=${SVC_HOME}/.local/share/mise" "MISE_CONFIG_DIR=${SVC
 EOF
 ok "Drop-in written: ${DROPIN_DIR}/zz-user-path.conf (mise shims + ~/.local/bin on PATH, mise dirs pinned)"
 warn "Shells that run orca-ide need the same pin (Orca isolates XDG_* for logins), e.g. in ~/.bashrc:
-  export MISE_DATA_DIR=\"\$HOME/.local/share/mise\" MISE_CONFIG_DIR=\"\$HOME/.config/mise\" MISE_STATE_DIR=\"\$HOME/.local/state/mise\" MISE_CACHE_DIR=\"\$HOME/.cache/mise\""
+  export MISE_DATA_DIR=\"\$HOME/.local/share/mise\" MISE_CONFIG_DIR=\"\$HOME/.config/mise\" MISE_STATE_DIR=\"\$HOME/.local/state/mise\" MISE_CACHE_DIR=\"\$HOME/.cache/mise\"
+and, because orca-serve has PrivateTmp (account add hands its /tmp login dir to the server: ENOENT .../opencode.db):
+  orca-ide() { local t=\"\$HOME/.cache/orca/cli-tmp\"; mkdir -p -m 0700 \"\$t\" && TMPDIR=\"\$t\" command orca-ide \"\$@\"; }"
 
 # --- Tailscale ordering -------------------------------------------------------
 # The advertised pairing address is usually the Tailscale IP: start after
