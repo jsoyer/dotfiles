@@ -1,4 +1,10 @@
 {
   "version": 1,
-  "machines": {}
+  "machines": {
+    "JeromeSacMiniM6": {
+      "machine_profile": "mac-personal",
+      "package_profile": "base",
+      "target_kind": "host"
+    }
+  }
 }
