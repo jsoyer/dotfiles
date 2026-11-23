@@ -3,16 +3,20 @@
 For current implementation status and continuation notes, see
 [PACKAGE_LAYERS_HANDOFF.md](PACKAGE_LAYERS_HANDOFF.md).
 
-macOS, Linux, Windows and FreeBSD select the union of three layers:
+Package selection follows the three-part hierarchy you described:
 
-1. A small base adapted to the OS/distribution.
-2. An optional usage: `personal`, `professional` or `server`.
-3. The current machine's additions, using its short hostname.
+1. **System**: macOS, Linux, Windows or BSD.
+2. **Base profile**: for example `mac-personal`, `mac-professional`,
+   `debian-personal`, `fedora-server` or `arch-container`.
+3. **Machine**: additions for the short hostname.
 
-`machine_profile` keeps its existing technical meaning, including the restricted
-work Mac, Atomic/Toolbox and OmArchy. `package_profile` selects the package scope.
-New initialization defaults to `base`; existing configurations without the field
-keep the compatibility selection `legacy`. Reinitialization preserves that choice.
+The catalog's existing `machine_profile` plus package variant are presented as
+one **base profile**; their old config keys remain in place for compatibility.
+For example, the personal Mac is shown as `mac-personal`. New initialization
+defaults to the base-only variant. Existing configurations without a saved
+variant keep using their historical manifests until migrated. `package-plan
+preview` prints system, base profile and machine separately; legacy selections
+are explicitly marked as compatibility mode.
 Saved `machine_profile = "rpi/debian"` values are accepted as `rpi` by installers
 and wrappers. Reinitialization writes the canonical `rpi` value without changing
 the package scope; editing existing machines' configuration is unnecessary.
@@ -78,7 +82,7 @@ package-plan create
 package-plan tui
 ```
 
-`create` asks for the short hostname, OS/distribution profile and package usage.
+`create` asks for the short hostname, system, base profile and its variant.
 It shows the selected shared files and host manifest names, then asks before
 recording the choice in `dot_private/package-machines.json`. Existing host
 manifests are detected and require explicit association. Registered values

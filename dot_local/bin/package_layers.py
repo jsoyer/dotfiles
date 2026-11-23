@@ -31,6 +31,27 @@ BREW_ENTRY = re.compile(
 SAFE_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._+@/:-]*$")
 
 
+def base_profile_name(machine_profile: str, package_profile: str) -> str:
+    """Show the selected system and usage combination as one base profile."""
+    if machine_profile == "mac-personal" and package_profile in (
+        "base",
+        "personal",
+        "legacy",
+    ):
+        return "mac-personal"
+    if machine_profile == "mac-pro" and package_profile in (
+        "base",
+        "professional",
+        "legacy",
+    ):
+        return "mac-professional"
+    if package_profile in ("base", "legacy") or machine_profile.endswith(
+        f"-{package_profile}"
+    ):
+        return machine_profile
+    return f"{machine_profile}-{package_profile}"
+
+
 class LayerError(ValueError):
     pass
 
@@ -392,7 +413,7 @@ def configure_machine(
     os_key = next(key for key in os_keys if os_names.get(key, key) == selected_os)
     available = groups[os_key]
     profile_labels = [labels.get(key, key) for key in available]
-    selected_label = choose("Distribution ou profil système", profile_labels)
+    selected_label = choose("Profil de base", profile_labels)
     machine_profile = available[profile_labels.index(selected_label)]
     target_kind = profiles[machine_profile].get("target_kind", "host")
     if os_key == "linux":
@@ -413,7 +434,7 @@ def configure_machine(
     if existing_manifests or replace_existing or allow_legacy:
         usage_labels["legacy"] = "Conserver les listes historiques (legacy)"
         usage_options.append(usage_labels["legacy"])
-    selected_usage = choose("Usage des paquets", usage_options)
+    selected_usage = choose("Variante de la base", usage_options)
     usage = next(key for key, label in usage_labels.items() if label == selected_usage)
 
     registry_path = machine_registry(source)
@@ -436,9 +457,11 @@ def configure_machine(
         host = existing_key
         previous = machines[existing_key]
         print(
-            f"Profil enregistré : {previous.get('machine_profile', '?')} / "
-            f"{previous.get('package_profile', '?')}"
+            "Configuration enregistrée : base "
+            f"{base_profile_name(previous.get('machine_profile', '?'), previous.get('package_profile', '?'))}"
         )
+        if previous.get("package_profile") == "legacy":
+            print("  Mode compatibilité avec les manifestes historiques")
         if not confirm("Remplacer ce profil ?", default=False):
             return None
 
@@ -461,11 +484,13 @@ def configure_machine(
         else "Nouvelle machine"
     )
     print(f"\n{title} : {host}")
-    print(f"  Système : {labels.get(machine_profile, machine_profile)}")
+    print(f"  Système : {os_names.get(os_key, os_key)}")
+    print(f"  Base :    {base_profile_name(machine_profile, usage)}")
     print(
         f"  Cible :   {'conteneur' if target_kind == 'container' else 'machine hôte'}"
     )
-    print(f"  Usage :   {usage_labels[usage]}")
+    if usage == "legacy":
+        print("  Mode :    compatibilité avec les manifestes historiques")
     for manager in context.managers:
         plan = context.selection(manager)
         count = len(context.entries(manager))
@@ -1566,17 +1591,29 @@ def main(argv=None) -> int:
             if getattr(args, "json", False):
                 print(json.dumps(plans, indent=2, ensure_ascii=False))
             else:
+                system = context.catalog["profiles"][context.machine_profile]["os"]
+                system_name = {
+                    "darwin": "macOS",
+                    "linux": "Linux",
+                    "freebsd": "BSD",
+                    "windows": "Windows",
+                }.get(system, system)
+                print(f"Machine : {context.hostname}")
+                print(f"Système : {system_name}")
                 print(
-                    f"{context.hostname}: {context.machine_profile}, packages={context.package_profile}"
+                    f"Base :    {base_profile_name(context.machine_profile, context.package_profile)}"
                 )
+                if context.package_profile == "legacy":
+                    print("Mode :    compatibilité avec les manifestes historiques")
                 for plan in plans:
                     print(f"\n{plan['manager']}: {plan['count']} declarations")
                     for name in plan["files"]:
                         layer = (
-                            "base"
-                            if name in plan["base"]
-                            else "usage"
-                            if name in plan["usage"]
+                            "legacy"
+                            if context.package_profile == "legacy"
+                            and name in plan["base"]
+                            else "base"
+                            if name in plan["base"] or name in plan["usage"]
                             else "machine"
                         )
                         print(f"  {layer}: {name}")

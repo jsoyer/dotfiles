@@ -6,15 +6,18 @@ implementation state and the work still needed.
 
 ## Goal and model
 
-Manage package declarations from one catalog with three layers:
+Present package selection as the requested three-part hierarchy:
 
-1. OS/distribution base.
-2. Usage: `base`, `personal`, `professional` or `server`.
+1. System: macOS, Linux, Windows or BSD.
+2. Base profile: for example `mac-personal`, `mac-professional`,
+   `debian-personal`, `fedora-server` or `arch-container`.
 3. Current machine's short-hostname overlay and optional host exclusions.
 
-`machine_profile` still selects the technical OS/distribution profile.
-`package_profile` selects the usage. Existing machines without a saved
-`package_profile` stay on `legacy`; new machines default to `base`.
+For example, a personal Mac is `macOS → mac-personal → Brewfile_<hostname>`.
+The current catalog/config still stores the base profile and its package
+variant separately; the CLI now presents them as one base profile. Existing
+machines without a saved `package_profile` stay in legacy compatibility mode;
+new machines default to the base-only variant.
 
 ## Source of truth and entry points
 
