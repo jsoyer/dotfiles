@@ -267,12 +267,14 @@ bin/media_automation
 # wrappers are wiped (mac-pro only).
 {{ if ne .chezmoi.os "linux" }}
 .config/systemd
+.local/bin/agents-update
 .local/bin/agentsvc
 .local/bin/cursor-setup
 .local/bin/moshi-hook-launch
 .local/bin/moshi-setup
 .local/bin/moshi-uninstall
 .local/bin/orca-gui
+.local/bin/orca-pair
 .local/bin/orca-setup
 .local/bin/orca-uninstall
 .local/bin/orca-version

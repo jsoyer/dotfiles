@@ -715,6 +715,75 @@ orca-setup --status            # AppImage, service, timers, health timer, port
 journalctl -u orca-health -p err   # real outages only
 ```
 
+#### Long-lived server (orcadev): pairing, PATH, schedule, firewall
+
+For a host that stays up as *the* Orca server for desktops and phones:
+
+```bash
+orca-setup --pairing-address 100.x.y.z --update-at 04:30 --tailnet-only
+orca-pair                      # QR + link for Orca Mobile (iOS / Android)
+orca-pair --desktop            # access link for Orca desktop (+ browser URL)
+orca-pair --rotate             # retire an unused, possibly leaked, offer
+orca-pair --status             # server state + how to revoke a client
+```
+
+- **No pairing link in the journal.** `orca-serve` runs with `--no-pairing`:
+  without it every start printed a fresh link — a credential — to the journal.
+  `orca-pair` wraps `orca-ide pair`, which asks the *running* server for an
+  offer: nothing restarts and paired clients stay connected. Revoking is done
+  from a paired app (Settings → Remote Orca Servers → Shared Server Access).
+- **Agents on PATH.** A system unit never reads shell rc files, so the agent
+  CLIs Orca launches were not found. `zz-user-path.conf` puts the mise shims,
+  `~/.local/bin` and `~/.grok/bin` on PATH; its name must sort after
+  `zz-tmp-fix.conf`, whose empty `Environment=` resets the list.
+- **Boot order.** `zz-tailscale.conf` starts the server after `tailscaled`
+  (the advertised address is the Tailscale IP).
+- **`--update-at HH:MM`.** An update restarts the server and cuts running
+  sessions; this pins `orca-update.timer` to a quiet hour (drop-in
+  `orca-update.timer.d/zz-schedule.conf`). Without it: daily, random 1 h.
+- **`--tailnet-only`.** orcad binds `0.0.0.0` and accepts LAN addresses, so
+  anything on the LAN can attempt pairing. This drops the port on every
+  interface but `lo` and `tailscale0`, in its own nftables table
+  (`orca-firewall.service`, ordered before `orca-serve`).
+- **Protected ntfy.** `/etc/orca-alert.conf` also takes `ORCA_ALERT_TOKEN`
+  (sent as `Authorization: Bearer`) for an ntfy server with `deny-all`.
+
+### agents-update
+
+Unattended update of the agent CLIs on such a host, with a smoke test and a
+rollback. Two channels:
+
+| Channel | CLIs | Update | Rollback |
+|---------|------|--------|----------|
+| mise (`npm:` / `pipx:`) | claude, codex, copilot, opencode, pi, omp, cline, vibe (+ node, bun, uv) | `mise upgrade --bump --pin --no-prune` | restore the config backup: the previous versions are still installed |
+| vendor updater | grok, agy, cursor-agent | `<cli> update` | none — reported as broken |
+
+Every CLI must answer `--version` afterwards; a mise CLI that the upgrade broke
+rolls back the whole mise set (the versions form one tested set). Old versions
+are pruned on Sundays only, so there is always something to roll back to.
+Running sessions are unaffected: mise flips the shim, a running process keeps
+its binary.
+
+mise runs npm with `--ignore-scripts=true`. `claude` and `opencode` need their
+`postinstall` (it places the native binary) and fail with "native binary not
+installed" / "postinstall script was not run" without it. Opt in **per
+package**, never globally:
+
+```toml
+"npm:@anthropic-ai/claude-code" = { version = "2.1.330", npm_args = "--ignore-scripts=false" }
+
+[settings]
+npm.package_manager = "npm"   # npm_args verified with npm (not tested with "auto")
+``` Alerts use `ORCA_ALERT_URL` / `ORCA_ALERT_TOKEN` from
+`/etc/orca-alert.conf`.
+
+```bash
+agents-update --install-timer --at 05:00 --user <name>   # system timer, User=<name>
+agents-update --check                                     # smoke test only
+agents-update --dry-run                                   # what mise would upgrade
+journalctl -u agents-update -e
+```
+
 #### Monitoring: orca-health
 
 `orca-health` probes **the real symptom — does the port actually answer** —

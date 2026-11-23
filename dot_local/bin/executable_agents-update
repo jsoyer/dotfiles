@@ -1,0 +1,287 @@
+#!/usr/bin/env bash
+#
+# agents-update — Unattended update of the agent CLIs on a headless agent host
+# (Orca server), with a smoke test and an automatic rollback.
+#
+# Two channels, because the CLIs do not all ship the same way:
+#
+#   mise        npm:/pipx: packages and their runtimes (claude, codex, copilot,
+#               opencode, pi, omp, cline, vibe, node, bun, uv). Updated with
+#               `mise upgrade --bump --pin --no-prune`: the global config holds
+#               EXACT versions and the previous ones stay installed, so a
+#               rollback is just restoring the config backup — instant, offline.
+#   self        vendor binaries with their own updater and no package feed
+#               (grok, agy, cursor-agent). Updated in place; no rollback is
+#               possible, so a broken one is reported, not hidden.
+#
+# After the update every CLI must answer `--version`. If a mise-managed one does
+# not, the WHOLE mise config is rolled back (the versions form one tested set)
+# and the run exits non-zero. Old versions are pruned once a week (Sunday), so
+# there is always something to roll back to.
+#
+# Running sessions are not affected: mise installs a new version beside the old
+# one and only flips the shim, a process already started keeps its binary.
+#
+# Alerts reuse orca-health's channel: ORCA_ALERT_URL / ORCA_ALERT_TOKEN from
+# /etc/orca-alert.conf (journal only when unset).
+#
+# Usage:
+#   agents-update                 update + smoke test + rollback on failure
+#   agents-update --check         smoke test only (no update)
+#   agents-update --dry-run       show what mise would upgrade
+#   agents-update --install-timer [--at 05:00] [--user <name>]
+#                                 install agents-update.{service,timer} (system
+#                                 scope, User=<name>, boots without a session)
+#   agents-update --uninstall-timer
+#
+# GRAB-BAG WARNING: never probe a bare `agent` on PATH — Grok and Cursor have
+# both shipped a binary by that name (see sysup). Each CLI is probed by its own
+# name or its own install path.
+#
+set -uo pipefail
+
+MISE_CONFIG="${MISE_GLOBAL_CONFIG_FILE:-${XDG_CONFIG_HOME:-$HOME/.config}/mise/config.toml}"
+STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/agents-update"
+ALERT_CONF="/etc/orca-alert.conf"
+LOCK="${STATE_DIR}/lock"
+SERVICE_NAME="agents-update"
+
+# name : command used for the smoke test (first word must be on PATH or absolute)
+MISE_CLIS=(
+  "claude:claude --version"
+  "codex:codex --version"
+  "copilot:copilot --version"
+  "opencode:opencode --version"
+  "pi:pi --version"
+  "omp:omp --version"
+  "cline:cline --version"
+  "vibe:vibe --version"
+)
+# name : update command : smoke test
+SELF_CLIS=(
+  "grok:grok update:grok --version"
+  "agy:agy update:agy --version"
+  "cursor-agent:cursor-agent update:cursor-agent --version"
+)
+
+ts()   { date '+%F %T'; }
+log()  { printf '%s [agents-update] %s\n' "$(ts)" "$*"; }
+warn() { printf '<4>%s [agents-update] %s\n' "$(ts)" "$*"; }
+err()  { printf '<3>%s [agents-update] %s\n' "$(ts)" "$*"; }
+die()  { err "$*"; exit 1; }
+usage() { sed -n '2,/^set -uo/p' "$0" | sed 's/^# \{0,1\}//; $d'; }
+
+notify() {  # notify <urgent|default|low> <title> <body>
+  local prio="$1" title="$2" body="$3" auth=()
+  # shellcheck source=/dev/null
+  [[ -r "$ALERT_CONF" ]] && . "$ALERT_CONF"
+  [[ -n "${ORCA_ALERT_URL:-}" ]] || return 0
+  [[ -n "${ORCA_ALERT_TOKEN:-}" ]] && auth=(-H "Authorization: Bearer ${ORCA_ALERT_TOKEN}")
+  curl -fsS --max-time 10 "${auth[@]}" -H "Title: ${title}" -H "Priority: ${prio}" \
+    -H "Tags: robot" -d "${body}" "${ORCA_ALERT_URL}" >/dev/null 2>&1 \
+    || warn "ntfy: failed to send to ORCA_ALERT_URL"
+}
+
+# --- Timer installation (needs root) ------------------------------------------
+install_timer() {
+  local at="05:00" user="${SUDO_USER:-$(id -un)}" self home
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --at)   at="${2:?time missing}"; shift ;;
+      --user) user="${2:?user missing}"; shift ;;
+      *) die "Unknown option: $1" ;;
+    esac
+    shift
+  done
+  [[ "$at" =~ ^([01][0-9]|2[0-3]):[0-5][0-9]$ ]] || die "--at expects HH:MM"
+  if [[ "$(id -u)" -ne 0 ]]; then
+    self="$(readlink -f -- "$0")"
+    exec sudo -- "$self" --install-timer --at "$at" --user "$user"
+  fi
+  [[ "$user" != root ]] || die "Pass --user <name>: the agents belong to a regular user."
+  home="$(getent passwd "$user" | cut -d: -f6)"
+  [[ -n "$home" ]] || die "Unknown user: $user"
+  # System location: systemd refuses to execute a home_t script under SELinux.
+  install -m 0755 "$(readlink -f -- "$0")" /usr/local/bin/agents-update
+  cat > "/etc/systemd/system/${SERVICE_NAME}.service" <<EOF
+[Unit]
+Description=Update the agent CLIs (mise + vendor updaters), smoke test, rollback
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=${user}
+Environment="HOME=${home}"
+Environment="PATH=${home}/.local/share/mise/shims:${home}/.local/bin:${home}/.grok/bin:/usr/local/bin:/usr/bin:/bin"
+ExecStart=/usr/local/bin/agents-update
+TimeoutStartSec=45min
+Nice=10
+PrivateTmp=yes
+EOF
+  cat > "/etc/systemd/system/${SERVICE_NAME}.timer" <<EOF
+[Unit]
+Description=Daily agent CLI update (${at})
+
+[Timer]
+OnCalendar=*-*-* ${at}:00
+Persistent=true
+Unit=${SERVICE_NAME}.service
+
+[Install]
+WantedBy=timers.target
+EOF
+  # No OnFailure= hook: the script sends its own alerts (orca-alert@ would run
+  # orca-health, which checks the Orca server, not the agents).
+  systemctl daemon-reload
+  systemctl enable --now "${SERVICE_NAME}.timer"
+  log "Timer installed: daily at ${at}, as ${user}. Run now: sudo systemctl start ${SERVICE_NAME}.service"
+  exit 0
+}
+
+uninstall_timer() {
+  if [[ "$(id -u)" -ne 0 ]]; then exec sudo -- "$(readlink -f -- "$0")" --uninstall-timer; fi
+  systemctl disable --now "${SERVICE_NAME}.timer" 2>/dev/null || true
+  rm -f "/etc/systemd/system/${SERVICE_NAME}".{service,timer} /usr/local/bin/agents-update
+  systemctl daemon-reload
+  log "Timer removed (the CLIs themselves are left installed)."
+  exit 0
+}
+
+# --- Smoke test ---------------------------------------------------------------
+# Echo "name version" for each CLI; return the number of failures. A CLI that is
+# not installed is skipped, not failed.
+smoke() {
+  local list=("$@") entry name cmd bin out fails=0
+  for entry in "${list[@]}"; do
+    name="${entry%%:*}"; cmd="${entry##*:}"; bin="${cmd%% *}"
+    command -v "$bin" >/dev/null 2>&1 || continue
+    if out="$(timeout 60 bash -c "$cmd" </dev/null 2>&1 | grep -m1 -oE '[0-9]+(\.[0-9]+)+([-+][0-9A-Za-z.]*[0-9A-Za-z])?')" && [[ -n "$out" ]]; then
+      printf '%s %s\n' "$name" "$out"
+    else
+      printf '%s BROKEN\n' "$name"
+      fails=$((fails + 1))
+    fi
+  done
+  return "$fails"
+}
+
+MODE="update"
+case "${1:-}" in
+  --install-timer)   shift; install_timer "$@" ;;
+  --uninstall-timer) uninstall_timer ;;
+  --check)           MODE="check" ;;
+  --dry-run)         MODE="dry-run" ;;
+  -h|--help)         usage; exit 0 ;;
+  "")                ;;
+  *)                 die "Unknown option: $1 (see --help)" ;;
+esac
+
+[[ "$(id -u)" -ne 0 ]] || die "Run as the agents' user, not root (mise installs are per user)."
+command -v mise >/dev/null 2>&1 || die "mise not found on PATH."
+mkdir -p "$STATE_DIR"
+
+if [[ "$MODE" == "check" ]]; then
+  rc=0
+  smoke "${MISE_CLIS[@]}" || rc=1
+  self_tests=(); for e in "${SELF_CLIS[@]}"; do self_tests+=("${e%%:*}:${e##*:}"); done
+  smoke "${self_tests[@]}" || rc=1
+  exit "$rc"
+fi
+if [[ "$MODE" == "dry-run" ]]; then
+  mise upgrade --bump --pin --dry-run
+  exit $?
+fi
+
+# One run at a time (a manual run racing the timer would fight over the config).
+exec 9>"$LOCK"
+flock -n 9 || die "Another agents-update is running."
+
+[[ -f "$MISE_CONFIG" ]] || die "mise config not found: $MISE_CONFIG"
+before="$(smoke "${MISE_CLIS[@]}")"
+if grep -q BROKEN <<<"$before"; then
+  warn "Already broken BEFORE the update (left alone, a rollback would not help):"
+  printf '%s\n' "$before" | grep BROKEN | sed 's/^/  /'
+fi
+
+# --- 1. mise channel ----------------------------------------------------------
+backup="${STATE_DIR}/config.toml.bak"
+cp -f "$MISE_CONFIG" "$backup"
+log "mise: upgrading (config backed up to ${backup})…"
+mise_out="$(mise upgrade --bump --pin --no-prune --yes 2>&1)"; mise_rc=$?
+printf '%s\n' "$mise_out" | grep -E '✓|✗|ERROR|WARN' | sed 's/^/  /' || true
+
+after="$(smoke "${MISE_CLIS[@]}")"
+
+# Names broken in $1 (a smoke listing).
+broken_in() { printf '%s\n' "$1" | awk '$2 == "BROKEN" {print $1}' | sort; }
+# "name old → new" for every CLI whose version moved between two listings.
+version_moves() {
+  join <(printf '%s\n' "$1" | sort) <(printf '%s\n' "$2" | sort) \
+    | awk '$2 != $3 {print $1, $2, "→", $3}'
+}
+changes="$(version_moves "$before" "$after")"
+# Only what the upgrade broke: a CLI already broken before is not our doing.
+broken="$(comm -13 <(broken_in "$before") <(broken_in "$after") | tr '\n' ' ')"
+
+rolled_back=0
+if [[ -n "${broken// /}" ]]; then
+  err "mise: smoke test FAILED after the upgrade (${broken}) — rolling back the whole set."
+  cp -f "$backup" "$MISE_CONFIG"
+  mise install --yes >/dev/null 2>&1 || true   # no-op: previous versions were kept
+  restored="$(smoke "${MISE_CLIS[@]}")"
+  if [[ -z "$(comm -13 <(broken_in "$before") <(broken_in "$restored"))" ]]; then
+    rolled_back=1
+    notify urgent "Agents: mise update rolled back on $(hostname)" \
+      "Broken after upgrade: ${broken}
+Rolled back to the previous versions (still installed). The next run retries.
+Diagnose: mise upgrade --bump --pin --dry-run ; journalctl -u ${SERVICE_NAME}"
+  else
+    notify urgent "Agents: rollback FAILED on $(hostname)" \
+      "Broken after upgrade: ${broken}
+The rollback did not restore them. Manual fix: cp ${backup} ${MISE_CONFIG} && mise install"
+    die "Rollback did not restore the previous state."
+  fi
+elif (( mise_rc != 0 )); then
+  warn "mise upgrade reported errors but every CLI still answers — kept."
+fi
+
+# --- 2. self-updating vendor CLIs ---------------------------------------------
+self_broken=()
+for entry in "${SELF_CLIS[@]}"; do
+  IFS=: read -r name upd test <<<"$entry"
+  bin="${test%% *}"
+  command -v "$bin" >/dev/null 2>&1 || continue
+  v0="$(smoke "${name}:${test}" | cut -d' ' -f2)"
+  timeout 600 bash -c "$upd" </dev/null >/dev/null 2>&1 || warn "${name}: '${upd}' returned an error."
+  v1="$(smoke "${name}:${test}" | cut -d' ' -f2)"
+  if [[ "$v1" == BROKEN ]]; then
+    self_broken+=("$name")
+  elif [[ "$v0" != "$v1" ]]; then
+    changes+=$'\n'"${name} ${v0} → ${v1}"
+  fi
+  [[ "$v0" == BROKEN && "$v1" == BROKEN ]] && warn "${name}: already broken before its update."
+done
+if (( ${#self_broken[@]} > 0 )); then
+  notify urgent "Agents: vendor CLI broken on $(hostname)" \
+    "No rollback possible for: ${self_broken[*]}
+Reinstall with the vendor installer, then: agents-update --check"
+fi
+
+# --- 3. weekly prune ----------------------------------------------------------
+if [[ "$(date +%u)" -eq 7 && "$rolled_back" -eq 0 ]]; then
+  log "mise: weekly prune of versions no config uses any more."
+  mise prune --yes >/dev/null 2>&1 || warn "mise prune failed (non-fatal)."
+fi
+
+# --- Report -------------------------------------------------------------------
+changes="$(printf '%s\n' "$changes" | sed '/^$/d')"
+if [[ -n "$changes" && "$rolled_back" -eq 0 ]]; then
+  log "Updated:"; printf '%s\n' "$changes" | sed 's/^/  /'
+  notify low "Agents updated on $(hostname)" "$changes"
+else
+  log "Nothing changed."
+fi
+
+(( rolled_back == 0 && ${#self_broken[@]} == 0 )) || exit 1
+exit 0

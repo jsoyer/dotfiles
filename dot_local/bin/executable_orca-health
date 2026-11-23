@@ -81,7 +81,10 @@ notify() {
   fi
   # Push optionnel : definir ORCA_ALERT_URL dans /etc/orca-alert.conf
   if [[ -n "${ORCA_ALERT_URL:-}" ]]; then
-    curl -fsS --max-time 10 \
+    # Serveur ntfy protege (deny-all) : jeton d'acces optionnel, jamais affiche.
+    local auth=()
+    [[ -n "${ORCA_ALERT_TOKEN:-}" ]] && auth=(-H "Authorization: Bearer ${ORCA_ALERT_TOKEN}")
+    curl -fsS --max-time 10 "${auth[@]}" \
       -H "Title: ${title}" \
       -H "Priority: $([[ "$level" == CRITICAL ]] && echo urgent || echo default)" \
       -H "Tags: $([[ "$level" == CRITICAL ]] && echo rotating_light || echo warning)" \
