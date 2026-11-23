@@ -128,6 +128,9 @@ class OrcaServerHardening(unittest.TestCase):
         # Orca isolates XDG_* for agent logins: mise must not depend on them.
         for var in ("MISE_DATA_DIR", "MISE_CONFIG_DIR", "MISE_STATE_DIR", "MISE_CACHE_DIR"):
             self.assertIn(f'"{var}=${{SVC_HOME}}/', SETUP)
+        # PrivateTmp: the CLI must hand the server a login dir outside /tmp.
+        self.assertIn("PrivateTmp=yes", SETUP)
+        self.assertIn('TMPDIR=\\"\\$t\\" command orca-ide', SETUP)
         self.assertIn(".local/share/mise/shims", SETUP)
 
     def test_sudo_reexec_keeps_the_options(self):
