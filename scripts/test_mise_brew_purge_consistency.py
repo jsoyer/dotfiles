@@ -24,6 +24,9 @@ FORMULA_ALIASES = {
     "cli": "gh",  # aqua:cli/cli
     "carapace-bin": "carapace",  # aqua:carapace-sh/carapace-bin
     "python": "python@3.13",
+    "hugo-extended": "hugo",  # aqua:gohugoio/hugo/hugo-extended
+    "StyLua": "stylua",  # aqua:JohnnyMorganz/StyLua
+    "CMake": "cmake",  # aqua:Kitware/CMake
 }
 
 # mise tools whose Homebrew counterpart is deliberately NOT purged.
