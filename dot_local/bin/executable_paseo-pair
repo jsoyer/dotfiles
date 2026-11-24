@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+#
+# paseo-pair — Pair a client (phone, desktop app) with the Paseo daemon running on
+# this machine. Pass-through to the upstream `paseo daemon pair`.
+#
+# INTERACTIVE ONLY. A pairing link / QR is a credential: it is printed to your
+# terminal and never written to a unit, a log or the journal (this command is
+# never called by systemd).
+#
+# Usage:
+#   paseo-pair             `paseo daemon pair`  (direct, over the daemon address)
+#   paseo-pair --relay     `paseo daemon pair --relay` (via the Paseo relay; the
+#                          setup disables the relay by default, see paseo-setup)
+#   paseo-pair --json      machine-readable offer (still a credential!)
+#   paseo-pair --status    `paseo daemon status`
+#   paseo-pair <args...>   forwarded verbatim to `paseo daemon pair`
+#
+# Treat a link like a password and pair over the tailnet rather than the LAN.
+#
+set -euo pipefail
+
+case "${1:-}" in
+  -h|--help) sed -n '2,/^set -euo/p' "$0" | sed 's/^# \{0,1\}//; $d'; exit 0 ;;
+esac
+
+command -v paseo >/dev/null 2>&1 || { echo "paseo-pair: paseo not found — run paseo-setup" >&2; exit 1; }
+[[ "${1:-}" == "--status" ]] && exec paseo daemon status
+exec paseo daemon pair "$@"

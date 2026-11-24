@@ -1,0 +1,135 @@
+#!/usr/bin/env bash
+#
+# paseo-health — Watch the Paseo daemon (user scope) and push an alert on failure.
+#
+# Checks the REAL symptoms, not just what systemd displays: a crash-looping unit
+# is intermittently "active" and never reaches StartLimitBurst when the loop is
+# slow (the orca-serve incident of 2026-09-14, 826 restarts over 16 h).
+#
+#   - paseo.service is active
+#   - `paseo daemon status` answers
+#   - the daemon port (daemon.listen of $PASEO_HOME/config.json, default 6767)
+#     is listening
+#   - NRestarts did not climb by RESTART_DELTA_MAX since the previous pass
+#
+# Notification: always the journal (priority err/warning); plus ntfy when
+# ORCA_ALERT_URL is set (and ORCA_ALERT_TOKEN for a deny-all server) in
+# /etc/orca-alert.conf, or in ~/.config/agent-alert.conf when the former is
+# not readable by this user (orca-setup writes it root-only, 0600).
+#
+# Usage:
+#   paseo-health                run one check (exit 1 when a problem is found)
+#   paseo-health --alert UNIT   immediate alert for a failed unit (OnFailure=)
+#   paseo-health --help
+#
+set -uo pipefail
+
+SERVICE="paseo.service"
+PASEO_HOME="${PASEO_HOME:-$HOME/.paseo}"
+STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/paseo-health"
+STATE="${STATE_DIR}/state"
+RESTART_DELTA_MAX=3
+RENOTIFY_SECONDS=21600   # re-alert every 6 h while the problem lasts
+
+usage() { sed -n '2,/^set -uo/p' "$0" | sed 's/^# \{0,1\}//; $d'; }
+
+ALERT_UNIT=""
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --alert)   ALERT_UNIT="${2:?unit missing}"; shift ;;
+    -h|--help) usage; exit 0 ;;
+    *)         echo "paseo-health: unknown option: $1 (see --help)" >&2; exit 2 ;;
+  esac
+  shift
+done
+
+for conf in /etc/orca-alert.conf "${XDG_CONFIG_HOME:-$HOME/.config}/agent-alert.conf"; do
+  # shellcheck source=/dev/null
+  [[ -r "$conf" ]] && . "$conf" && break
+done
+
+notify() {
+  local level="$1" title="$2" body="$3"
+  if [[ "$level" == "CRITICAL" ]]; then printf '<3>%s\n%s\n' "$title" "$body"
+  else printf '<4>%s\n%s\n' "$title" "$body"; fi
+  [[ -n "${ORCA_ALERT_URL:-}" ]] || return 0
+  local auth=()
+  [[ -n "${ORCA_ALERT_TOKEN:-}" ]] && auth=(-H "Authorization: Bearer ${ORCA_ALERT_TOKEN}")
+  curl -fsS --max-time 10 ${auth[@]+"${auth[@]}"} \
+    -H "Title: ${title}" \
+    -H "Priority: $([[ "$level" == CRITICAL ]] && echo urgent || echo default)" \
+    -H "Tags: $([[ "$level" == CRITICAL ]] && echo rotating_light || echo warning)" \
+    -d "${body}" "${ORCA_ALERT_URL}" >/dev/null 2>&1 \
+    || printf '<4>paseo-health: could not reach ORCA_ALERT_URL\n'
+}
+
+if [[ -n "$ALERT_UNIT" ]]; then
+  notify CRITICAL "Paseo unit failed on $(hostname)" \
+    "${ALERT_UNIT} failed. Diagnose: journalctl --user -u ${ALERT_UNIT%.service} -e"
+  exit 0
+fi
+
+mkdir -p "$STATE_DIR"
+now=$(date +%s)
+problems=(); warnings=()
+
+# Port from config.json ("listen": "host:port"); 6767 is Paseo's default.
+port=""
+if [[ -r "${PASEO_HOME}/config.json" ]]; then
+  port="$(grep -o '"listen"[[:space:]]*:[[:space:]]*"[^"]*"' "${PASEO_HOME}/config.json" \
+          | head -1 | sed 's/.*:\([0-9]*\)"$/\1/')"
+fi
+port="${port:-6767}"
+
+active="$(systemctl --user is-active "$SERVICE" 2>/dev/null)" || true
+active="${active:-unknown}"
+nrestarts="$(systemctl --user show "$SERVICE" -p NRestarts --value 2>/dev/null)" || true
+nrestarts="${nrestarts:-0}"
+
+prev_restarts=0; prev_status="ok"; prev_notified=0
+# shellcheck source=/dev/null
+[[ -r "$STATE" ]] && . "$STATE"
+delta=$(( nrestarts - prev_restarts ))
+
+if [[ "$active" != "active" ]]; then
+  problems+=("${SERVICE} is not active (state: ${active})")
+elif ! command -v paseo >/dev/null 2>&1; then
+  problems+=("paseo binary not found in PATH")
+else
+  st="$(paseo daemon status 2>&1)" || problems+=("'paseo daemon status' failed: $(printf '%s' "$st" | head -c 200)")
+  if command -v ss >/dev/null 2>&1 && ! ss -ltn "sport = :${port}" 2>/dev/null | grep -q LISTEN; then
+    problems+=("service is 'active' but NOTHING listens on port ${port}")
+  fi
+fi
+if (( delta >= RESTART_DELTA_MAX )); then
+  problems+=("${delta} restarts since the last check (total: ${nrestarts}) - probable crash loop")
+fi
+
+host="$(hostname)"
+if (( ${#problems[@]} > 0 )); then
+  status="problem"
+  if [[ "$prev_status" != "problem" ]] || (( now - prev_notified >= RENOTIFY_SECONDS )); then
+    body="$(printf '%s\n' "${problems[@]}")"$'\n\n'"State: ${active} | restarts: ${nrestarts} (+${delta}) | port ${port}"
+    body+=$'\n'"Diagnose: journalctl --user -u ${SERVICE} -e"
+    notify CRITICAL "Paseo down on ${host}" "$body"
+    prev_notified=$now
+  fi
+elif (( ${#warnings[@]} > 0 )); then
+  status="warning"
+  if [[ "$prev_status" == "ok" ]] || (( now - prev_notified >= RENOTIFY_SECONDS )); then
+    notify WARNING "Paseo warning on ${host}" "$(printf '%s\n' "${warnings[@]}")"
+    prev_notified=$now
+  fi
+else
+  status="ok"
+  if [[ "$prev_status" != "ok" ]]; then
+    notify WARNING "Paseo is back to normal on ${host}" "Service active, ${nrestarts} restarts in total."
+    prev_notified=0
+  fi
+fi
+
+printf 'prev_restarts=%s\nprev_status=%s\nprev_notified=%s\n' \
+  "$nrestarts" "$status" "$prev_notified" > "$STATE"
+
+[[ "$status" == "problem" ]] && exit 1
+exit 0

@@ -1,0 +1,73 @@
+#!/usr/bin/env bash
+# paseo-uninstall — take Paseo off this machine (Linux, user scope).
+#
+# Stops the daemon, monitoring and updater, removes the units paseo-setup
+# generated and the @getpaseo/cli package. ~/.paseo (config, password hash,
+# daemon.log) is KEPT unless --purge. Linger and Node are left as is (other
+# things may depend on them). On macOS Paseo is just the cask.
+
+set -euo pipefail
+
+ASSUME_YES=0
+PURGE=0
+
+usage() {
+    cat <<'EOF'
+Usage: paseo-uninstall [-y] [--purge]
+
+  -y, --yes    do not ask for confirmation
+  --purge      also drop ~/.paseo ($PASEO_HOME): config.json, password, logs
+
+Linux: paseo daemon stop, paseo/paseo-health/paseo-update units,
+npm uninstall -g --prefix ~/.local @getpaseo/cli.
+macOS: uninstalls the paseo cask.
+EOF
+}
+
+for arg in "$@"; do
+    case "$arg" in
+        -y|--yes) ASSUME_YES=1 ;;
+        --purge) PURGE=1 ;;
+        -h|--help) usage; exit 0 ;;
+        *) echo "paseo-uninstall: unknown option: $arg" >&2; usage >&2; exit 2 ;;
+    esac
+done
+
+if [[ "$ASSUME_YES" -eq 0 ]]; then
+    printf 'Remove Paseo from this machine? [y/N] '
+    read -r reply
+    [[ "$reply" =~ ^[Yy]$ ]] || { echo "Aborted."; exit 0; }
+fi
+
+PASEO_DATA="${PASEO_HOME:-$HOME/.paseo}"
+
+if [[ "$(uname -s)" == "Darwin" ]]; then
+    if command -v brew &>/dev/null; then
+        eval "$(brew shellenv)"
+        brew list --cask paseo &>/dev/null && brew uninstall --cask --zap paseo || true
+    fi
+    [[ "$PURGE" -eq 1 ]] && rm -rf "$PASEO_DATA"
+    echo "Paseo removed (cask)."
+    exit 0
+fi
+
+UNIT_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user"
+
+echo "Stopping the daemon, monitoring and updater..."
+if command -v systemctl &>/dev/null; then
+    systemctl --user disable --now paseo-health.timer paseo-update.timer paseo.service 2>/dev/null || true
+fi
+# Covers a daemon started by hand (`paseo daemon start`) too.
+command -v paseo &>/dev/null && { paseo daemon stop --force 2>/dev/null || true; }
+
+rm -f "${UNIT_DIR}"/paseo{,-health,-update}.{service,timer} "${UNIT_DIR}/paseo-alert@.service"
+systemctl --user daemon-reload 2>/dev/null || true
+
+if command -v npm &>/dev/null; then
+    npm uninstall -g --prefix "${HOME}/.local" @getpaseo/cli || true
+fi
+
+rm -rf "${XDG_STATE_HOME:-$HOME/.local/state}/paseo-health"
+[[ "$PURGE" -eq 1 ]] && rm -rf "$PASEO_DATA"
+
+echo "Paseo removed."
