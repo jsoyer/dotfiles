@@ -14,3 +14,6 @@ AGENTS.md
 # Rust build artifacts
 target/
 **/target/
+
+# Local agent artifacts (screenshots, reports, archived patches)
+.artifacts/
