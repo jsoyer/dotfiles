@@ -345,7 +345,7 @@ THEN le message est renvoyé une fois dans le sujet général, préfixé
 | D12 | Egress : `scripts/telegram_egress_check.py` lit `fleet.yml`, lance par SSH **interactif de l'opérateur** (pas la clé fleet à commande imposée) `curl -s -o /dev/null -w '%{http_code}' https://api.telegram.org/` sans jeton | Bas | Nouveau verbe d'agent (change le contrat de commande imposée et l'invariant des verbes) | Aucun secret, aucune modification sudoers/commande imposée |
 | D14 | Clés canoniques des dotfiles : `ALERT_TELEGRAM_BOT_TOKEN`, `ALERT_TELEGRAM_CHAT_ID`, `ALERT_TELEGRAM_THREAD_<CATEGORY>` ; `agent-alert` est l'utilitaire « tg-notify » partagé ; alias `TG_CHAT_ID` / `TG_THREAD_<CATEGORY>` lus en repli seulement (**décision à confirmer par l'utilisateur, Q5**) | Bas | Schéma `TG_*` partout ; second utilitaire `tg-notify` | Garde le contrat existant d'`agent-alert` ; les alias permettent un fichier env commun avec les émetteurs hors dépôt |
 | D15 | Un seul bot **d'envoi seul** (nom provisoire `bbhome_notify_bot`) pour tous les émetteurs des dotfiles ; aucun code du dépôt n'appelle `getUpdates` / `setWebhook` | Bas | Un bot par émetteur | Un jeton = un flux `getUpdates` (409 si partagé) : les 4 bots Vigil interactifs sont séparés, le bot d'envoi ne lit jamais rien |
-| D16 | Deux portes distinctes : (a) sprint 4 (suppression du code ntfy des dotfiles) = grille Telegram complète ; (b) arrêt du serveur ntfy (manuel, §20) = sprint 4 fusionné **et** tous les topics ntfy silencieux ≥ 3 jours | Bas | Une seule porte « topics ntfy silencieux » | Pendant le double envoi les topics des dotfiles ne peuvent pas être silencieux ; le silence ne se constate qu'après le sprint 4 |
+| D16 | **Confirmée par Jérôme le 2026-11-24.** Deux portes distinctes : (a) sprint 4 (suppression du code ntfy des dotfiles) = grille Telegram complète ; (b) arrêt du serveur ntfy (manuel, §20) = sprint 4 fusionné **et** tous les topics ntfy silencieux ≥ 3 jours | Bas | Une seule porte « topics ntfy silencieux » | Pendant le double envoi les topics des dotfiles ne peuvent pas être silencieux ; le silence ne se constate qu'après le sprint 4 |
 | D13 | Le masquage `tk_…` de `schema.py` reste (renommé `_LEGACY_TK_TOKEN`, commentaire sans « ntfy ») | Bas | Le supprimer avec ntfy | L'historique et les anciens journaux peuvent encore contenir d'anciens jetons |
 
 ## 10. Security Boundaries
@@ -528,7 +528,7 @@ clés ; `chezmoi-autoupdate`, les stacks agents et le générateur le consomment
 
 ## 14. Open Questions
 
-- [ ] **Q1 (bloquante pour la tâche « génération » du sprint 2, secrets) :** Jérôme
+- [x] **Q1 — VALIDÉE par Jérôme le 2026-11-24 (option A : génération depuis 1Password) — (bloquante pour la tâche « génération » du sprint 2, secrets) :** Jérôme
   valide D7 (génération de `~/.config/agent-alert.conf` depuis `op://Private/Telegram`
   par `dotfiles-generated-config alert`). Sans validation : le sprint 2 livre le reste
   et la config se fait par `agent-alert --configure`. — Jérôme, à la revue de la PR.
@@ -540,7 +540,7 @@ clés ; `chezmoi-autoupdate`, les stacks agents et le générateur le consomment
 - [ ] **Q4 :** `Brewfile_blacklist` empêche-t-il aussi `brew bundle` d'installer `ntfy`
   depuis `Brewfile_personal`, ou seulement `breww dump` de le réécrire ? À vérifier
   dans `breww` au sprint 4 ; à défaut, documenter `brew uninstall ntfy` manuel.
-- [ ] **Q5 (décision à confirmer par l'utilisateur) :** schéma de clés D14 —
+- [x] **Q5 — CONFIRMÉE par Jérôme le 2026-11-24 (alias `TG_*` lus en repli) — (décision à confirmer par l'utilisateur) :** schéma de clés D14 —
   `ALERT_TELEGRAM_*` canonique, alias `TG_CHAT_ID` / `TG_THREAD_<CATEGORY>` lus en
   repli, pas d'utilitaire `tg-notify` séparé (un lien symbolique `tg-notify` →
   `agent-alert` seulement si Jérôme le demande). Sans réponse : canonique seul, sans
@@ -692,7 +692,7 @@ serveur ntfy (porte D16 b). Faits côté Pi : session `pi-2b`.
 | --- | --- | --- | --- |
 | Watchtower | Pi `~/docker/monitoring` | `WATCHTOWER_NOTIFICATION_URL` shoutrrr → `telegram://` (bot d'envoi seul) | prise en charge de `message_thread_id` par shoutrrr (Q10) |
 | Diun | Pi, même `.env` que Watchtower (le conteneur diun porte aussi `WATCHTOWER_NOTIFICATION_URL`) | notifieur Telegram natif | prise en charge des sujets (Q10) |
-| Vigil | dépôt propre, session dédiée `vigil-68` | restaurer le bot Telegram du commit `0ae7597`, un bot par routeur, boutons de confirmation de redémarrage TP-Link via `callback_query` en gardant les garanties de `src/confirm.py` (jeton à usage unique, `CONFIRM_TTL` 600 s, lié à l'action, `hmac.compare_digest`, anti-rejeu) | la décision d'août « les boutons de confirmation ne transitent jamais par Internet » doit être **re-validée explicitement par Jérôme** |
+| Vigil | dépôt propre, session dédiée `vigil-68` | restaurer le bot Telegram du commit `0ae7597`, un bot par routeur, boutons de confirmation de redémarrage TP-Link via `callback_query` en gardant les garanties de `src/confirm.py` (jeton à usage unique, `CONFIRM_TTL` 600 s, lié à l'action, `hmac.compare_digest`, anti-rejeu) | décision d'août « les boutons de confirmation ne transitent jamais par Internet » **révisée par Jérôme le 2026-11-24 : option 3b retenue** (bouton `callback_query` via Telegram, avec les garanties de `src/confirm.py` + contrôle user ID et chat ID du groupe) |
 | CI `unifi-network-server` | autre dépôt, `.github/workflows/notify.yml` (déjà Telegram via `BOT_TOKEN`) | passer au bot d'envoi seul et au bon sujet | — |
 | `infra-dijon`, `infra-nice`, `proxmox`, `pyload`, `fork-keeper` | autres machines, à localiser (Q7) | migrer vers le bot d'envoi seul | `infra-nice` = `media_automation` ? (alors couvert par le sprint 2) |
 | Serveur ntfy | Pi `~/docker/prod/ntfy` | arrêt **en dernier** : sprint 4 fusionné et tous les topics silencieux ≥ 3 jours (D16 b) ; puis volumes, DNS/proxy `ntfy.bbhome.wf` | silence constaté côté serveur |

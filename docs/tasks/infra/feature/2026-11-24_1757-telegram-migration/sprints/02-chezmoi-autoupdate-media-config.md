@@ -73,7 +73,7 @@ d'environnement.
 - [ ] bash 3.2 : pas de bash4-isme ajouté ; `bash -n` ; `shellcheck`.
 - [ ] `chezmoi-autoupdate.service` : réécrire le commentaire `EnvironmentFile` (le fichier reste facultatif, il ne sert plus aux notifications ; `agent-alert` lit `~/.config/agent-alert.conf`).
 
-**Config générée** (D7) — **ARRÊT ET DEMANDE si Q1 n'est pas validée dans la PR de planification**
+**Config générée** (D7) — **Q1 validée par Jérôme le 2026-11-24 (option A) : bloc à implémenter**
 
 - [ ] Vérifier dans la PR / `../spec.md` §14 que Q1 est cochée ; sinon sauter ce bloc, le marquer BLOCKED (Q1) et documenter `agent-alert --configure` comme seule voie.
 - [ ] `dotfiles-generated-config alert` : un seul `op item get Telegram --vault Private --format=json` (même parseur que `secret_values`, champs `bot-token`, `chat-id`, `thread-*`) ; valider jeton, chat, sujets (motifs ci-dessus) ; écrire `~/.config/agent-alert.conf` 0600 par `publish()` (atomique, ancien fichier conservé si échec), en-tête `# Generated from 1Password; refresh with: dotfiles-generated-config alert`.
