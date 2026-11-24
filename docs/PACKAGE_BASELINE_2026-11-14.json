@@ -98,8 +98,8 @@
       "scope": "machine-or-policy"
     },
     "Brewfile_brew_only": {
-      "sha256": "996ebc53c7e6cff3f978113bc398d717e0fc354d9c1857ad8d200363eb863a35",
-      "lines": 74,
+      "sha256": "5af8d12b80d5ab29aaf68534ab3da070322a423bc0c7afc6cf96456782b50c4a",
+      "lines": 73,
       "scope": "compatibility-shared"
     },
     "Brewfile_cu_skip_jsoyer-macOS": {
