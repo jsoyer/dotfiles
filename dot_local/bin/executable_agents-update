@@ -6,7 +6,8 @@
 # Two channels, because the CLIs do not all ship the same way:
 #
 #   mise        npm:/pipx: packages and their runtimes (claude, codex, copilot,
-#               opencode, opencode2, pi, omp, cline, vibe, node, bun, uv). Updated with
+#               opencode, opencode2, pi, omp, cline, vibe, gemini, paseo, node,
+#               bun, uv). Updated with
 #               `mise upgrade --bump --pin --no-prune`: the global config holds
 #               EXACT versions and the previous ones stay installed, so a
 #               rollback is just restoring the config backup — instant, offline.
@@ -24,6 +25,12 @@
 # Running sessions are not affected: mise installs a new version beside the old
 # one and only flips the shim, a process already started keeps its binary.
 #
+# Long-running daemons installed by mise (e.g. the Paseo server) keep the old
+# binary until restarted: `--restart-on <cli>=<unit>` (repeatable, given to
+# --install-timer) restarts <unit> with `sudo -n systemctl restart` when <cli>
+# changed version and the run kept the new set (no rollback). The agents' user
+# needs passwordless sudo for that (pct-bootstrap sets it up).
+#
 # Alerts reuse orca-health's channel: ORCA_ALERT_URL / ORCA_ALERT_TOKEN from
 # /etc/orca-alert.conf (journal only when unset).
 #
@@ -32,6 +39,7 @@
 #   agents-update --check         smoke test only (no update)
 #   agents-update --dry-run       show what mise would upgrade
 #   agents-update --install-timer [--at 05:00] [--user <name>]
+#                 [--restart-on <cli>=<unit>]...
 #                                 install agents-update.{service,timer} (system
 #                                 scope, User=<name>, boots without a session)
 #   agents-update --uninstall-timer
@@ -59,7 +67,11 @@ MISE_CLIS=(
   "omp:omp --version"
   "cline:cline --version"
   "vibe:vibe --version"
+  "gemini:gemini --version"
+  "paseo:paseo --version"
 )
+# "<cli>=<unit>" pairs, space separated (set by --install-timer --restart-on).
+RESTART_ON="${AGENTS_UPDATE_RESTART_ON:-}"
 # name : update command : smoke test
 SELF_CLIS=(
   "grok:grok update:grok --version"
@@ -88,11 +100,15 @@ notify() {  # notify <urgent|default|low> <title> <body>
 
 # --- Timer installation (needs root) ------------------------------------------
 install_timer() {
-  local at="05:00" user="${SUDO_USER:-$(id -un)}" self home
+  local at="05:00" user="${SUDO_USER:-$(id -un)}" self home restart_on=() r
   while [[ $# -gt 0 ]]; do
     case "$1" in
       --at)   at="${2:?time missing}"; shift ;;
       --user) user="${2:?user missing}"; shift ;;
+      --restart-on)
+        r="${2:?--restart-on needs <cli>=<unit>}"; shift
+        [[ "$r" =~ ^[a-z0-9_-]+=[A-Za-z0-9@_.-]+\.service$ ]] || die "--restart-on expects <cli>=<unit>.service"
+        restart_on+=("$r") ;;
       *) die "Unknown option: $1" ;;
     esac
     shift
@@ -100,7 +116,8 @@ install_timer() {
   [[ "$at" =~ ^([01][0-9]|2[0-3]):[0-5][0-9]$ ]] || die "--at expects HH:MM"
   if [[ "$(id -u)" -ne 0 ]]; then
     self="$(readlink -f -- "$0")"
-    exec sudo -- "$self" --install-timer --at "$at" --user "$user"
+    local fwd=(); for r in "${restart_on[@]}"; do fwd+=(--restart-on "$r"); done
+    exec sudo -- "$self" --install-timer --at "$at" --user "$user" "${fwd[@]}"
   fi
   [[ "$user" != root ]] || die "Pass --user <name>: the agents belong to a regular user."
   home="$(getent passwd "$user" | cut -d: -f6)"
@@ -118,6 +135,7 @@ Type=oneshot
 User=${user}
 Environment="HOME=${home}"
 Environment="PATH=${home}/.local/share/mise/shims:${home}/.local/bin:${home}/.grok/bin:/usr/local/bin:/usr/bin:/bin"
+Environment="AGENTS_UPDATE_RESTART_ON=${restart_on[*]}"
 ExecStart=/usr/local/bin/agents-update
 TimeoutStartSec=45min
 Nice=10
@@ -250,6 +268,20 @@ elif (( mise_rc != 0 )); then
   warn "mise upgrade reported errors but every CLI still answers — kept."
 fi
 
+# --- 1b. restart the daemons whose CLI moved -----------------------------------
+if (( rolled_back == 0 )) && [[ -n "$RESTART_ON" ]]; then
+  for pair in $RESTART_ON; do
+    cli="${pair%%=*}"; unit="${pair#*=}"
+    grep -q "^${cli} " <<<"$changes" || continue
+    if sudo -n systemctl restart "$unit" 2>/dev/null; then
+      log "${cli} updated: ${unit} restarted."
+    else
+      warn "${cli} updated but '${unit}' could not be restarted (sudo -n systemctl restart)."
+      notify default "Agents: ${unit} not restarted on $(hostname)" \
+        "${cli} was updated but the restart failed: it still runs the old version."
+    fi
+  done
+fi
 # --- 2. self-updating vendor CLIs ---------------------------------------------
 self_broken=()
 for entry in "${SELF_CLIS[@]}"; do

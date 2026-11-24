@@ -769,7 +769,7 @@ rollback. Two channels:
 
 | Channel | CLIs | Update | Rollback |
 |---------|------|--------|----------|
-| mise (`npm:` / `pipx:`) | claude, codex, copilot, opencode, opencode2, pi, omp, cline, vibe (+ node, bun, uv) | `mise upgrade --bump --pin --no-prune` | restore the config backup: the previous versions are still installed |
+| mise (`npm:` / `pipx:`) | claude, codex, copilot, opencode, opencode2, pi, omp, cline, vibe, gemini, paseo (+ node, bun, uv) | `mise upgrade --bump --pin --no-prune` | restore the config backup: the previous versions are still installed |
 | vendor updater | grok, agy, cursor-agent, devin | `<cli> update` (devin under `script`: it needs a terminal) | none — reported as broken |
 
 Every CLI must answer `--version` afterwards; a mise CLI that the upgrade broke
@@ -1003,6 +1003,41 @@ agentsvc status herdr
 
 One uniform scheme, tab-completable on the stack name. The earlier two-letter
 aliases (`mhs`, `cwl`, `hu`…) were dropped in favour of this.
+
+## Paseo server (headless)
+
+`paseo-setup` turns a Linux box into an always-on [Paseo](https://paseo.sh)
+server reachable over Tailscale only, on the same model as the Orca server.
+Install the CLI per user with mise first (`"npm:@getpaseo/cli"`), then, as root:
+
+```bash
+paseo-setup --user <name>            # config + firewall + units + health timer
+sudo -u <name> paseo daemon set-password
+systemctl start paseo.service paseo-health.timer
+paseo-setup --status
+agents-update --install-timer --at 05:00 --user <name> --restart-on paseo=paseo.service
+```
+
+| Piece | What it does |
+|-------|--------------|
+| `~/.paseo/config.json` | listen `0.0.0.0:6767`, relay **off**, web UI **on**, hostnames `<host>` + `<host>.<tailnet>.ts.net` |
+| `paseo-firewall.service` | nftables `paseo_guard`: port dropped on every interface but `lo` and `tailscale0` |
+| `paseo.service` | `paseo daemon run` as `<name>`, `Requires=` the firewall (fails closed), after `tailscaled` |
+| `paseo-health.timer` | every 10 min `/api/health`; two misses in a row restart the daemon and alert |
+
+- **Password first.** The unit is not started until `paseo daemon set-password`
+  has stored a bcrypt hash (or `--allow-no-password`). It protects the API and
+  the web UI. Revoking a single device is not documented by Paseo: rotate the
+  password to cut every client.
+- **Web UI kept on**, at `http://<host>.<tailnet>.ts.net:6767`: the firewall and
+  the password protect it.
+- **Updates.** A running daemon keeps its binary: `--restart-on paseo=paseo.service`
+  makes `agents-update` restart it (with `sudo -n`) when the Paseo CLI moved and
+  the new set was kept.
+- Same lessons as the Orca server: explicit PATH (mise shims, `~/.local/bin`,
+  `~/.grok/bin`), pinned `MISE_*_DIR`, `0.0.0.0` + firewall instead of binding
+  the Tailscale IP (absent at boot). mise's node needs `libatomic1` on a minimal
+  Ubuntu template.
 
 ## Proxmox host helpers
 

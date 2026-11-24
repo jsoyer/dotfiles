@@ -70,7 +70,10 @@ install_timer() {
   [[ "$at" =~ ^([01][0-9]|2[0-3]):[0-5][0-9]$ ]] || die "--at expects HH:MM"
   guest_tool "$id" >/dev/null
   # System location: the unit must not depend on root's chezmoi-managed home.
-  install -m 0755 "$(readlink -f -- "$0")" "$INSTALL_PATH"
+  # Run from the installed copy (a 2nd guest): nothing to copy, and install(1)
+  # refuses "are the same file".
+  [[ "$(readlink -f -- "$0")" == "$(readlink -f -- "$INSTALL_PATH" 2>/dev/null)" ]] \
+    || install -m 0755 "$(readlink -f -- "$0")" "$INSTALL_PATH"
   cat > "${UNIT_DIR}/pct-snapshot-${id}.service" <<EOF
 [Unit]
 Description=Rotating snapshot of guest ${id} before its unattended updates

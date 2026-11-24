@@ -59,6 +59,7 @@ jobs:
         run: |
           python3 scripts/test_orca_headless.py
           python3 scripts/test_pct_tools.py
+          python3 scripts/test_paseo_setup.py
           python3 scripts/test_sysup_os_check.py
           python3 dot_local/bin/test_misew.py
 
