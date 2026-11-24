@@ -1,0 +1,104 @@
+#!/usr/bin/env bash
+# cursor-uninstall — take cursor-agent and the private Cursor worker off this machine.
+#
+# `cursor-setup --uninstall` stops and disables the user units but leaves the
+# cursor-agent binary, ~/.local/share/cursor-agent (version store), the drop-in
+# override, the unit files, and config behind. This finishes the job.
+#
+# Safety:
+# - ~/.local/bin/agent is ONLY removed if it is a symlink pointing into
+#   cursor-agent (Grok CLI also uses ~/.local/bin/agent).
+# - Config/auth (~/.config/cursor, ~/.cursor) survive unless --purge.
+# - User linger and the Cursor desktop IDE are left untouched.
+
+set -euo pipefail
+
+ASSUME_YES=0
+PURGE=0
+
+usage() {
+    cat <<'EOF'
+Usage: cursor-uninstall [-y] [--purge]
+
+  -y, --yes    do not ask for confirmation
+  --purge      also drop ~/.config/cursor (worker.env, auth.json) and ~/.cursor
+
+Linux: disables cursor-worker.service and cursor-update.timer, removes the
+drop-in override and unit files, removes ~/.local/bin/cursor-agent (and
+~/.local/bin/agent only when it symlinks to cursor-agent) plus
+~/.local/share/cursor-agent. Linger is left as is.
+EOF
+}
+
+for arg in "$@"; do
+    case "$arg" in
+        -y|--yes) ASSUME_YES=1 ;;
+        --purge) PURGE=1 ;;
+        -h|--help) usage; exit 0 ;;
+        *) echo "cursor-uninstall: unknown option: $arg" >&2; usage >&2; exit 2 ;;
+    esac
+done
+
+if [[ "$ASSUME_YES" -eq 0 ]]; then
+    printf 'Remove cursor-agent and its worker from this machine%s? [y/N] ' \
+        "$([[ "$PURGE" -eq 1 ]] && printf ', including config and auth')"
+    read -r reply
+    [[ "$reply" =~ ^[Yy]$ ]] || { echo "Aborted."; exit 0; }
+fi
+
+OS="$(uname -s)"
+BIN_DIR="${HOME}/.local/bin"
+DATA_DIR="${XDG_DATA_HOME:-${HOME}/.local/share}/cursor-agent"
+CONFIG_DIR="${XDG_CONFIG_HOME:-${HOME}/.config}/cursor"
+DOT_CURSOR="${HOME}/.cursor"
+
+if [[ "$OS" == "Linux" ]]; then
+    if command -v cursor-setup &>/dev/null; then
+        echo "🛑 Stopping services (cursor-setup --uninstall)..."
+        cursor-setup --uninstall -y || true
+    elif command -v systemctl &>/dev/null; then
+        systemctl --user disable --now cursor-worker.service cursor-update.timer 2>/dev/null || true
+        systemctl --user reset-failed cursor-worker.service 2>/dev/null || true
+    fi
+
+    units_dir="${XDG_CONFIG_HOME:-${HOME}/.config}/systemd/user"
+    rm -rf "${units_dir}/cursor-worker.service.d"
+
+    removed_units=0
+    for unit in cursor-worker.service cursor-update.service cursor-update.timer; do
+        if [[ -e "${units_dir}/${unit}" || -L "${units_dir}/${unit}" ]]; then
+            rm -f "${units_dir}/${unit}"
+            removed_units=1
+        fi
+    done
+
+    if command -v systemctl &>/dev/null; then
+        systemctl --user daemon-reload 2>/dev/null || true
+    fi
+
+    if [[ "$removed_units" -eq 1 ]]; then
+        echo "⚠️  The unit files are chezmoi-managed: the next \`chezmoi apply\` puts"
+        echo "    them back (disabled). Run \`chezmoi forget\` on them to make this stick."
+    fi
+fi
+
+echo "🧹 Removing cursor-agent binaries and version store..."
+rm -f "${BIN_DIR}/cursor-agent"
+
+# Only remove ~/.local/bin/agent when it actually points to cursor-agent —
+# Grok CLI also uses that name under ~/.local/bin.
+agent_link="${BIN_DIR}/agent"
+if [[ -L "$agent_link" ]]; then
+    agent_target="$(readlink "$agent_link" 2>/dev/null || true)"
+    case "$agent_target" in
+        *cursor-agent*) rm -f "$agent_link" ;;
+    esac
+fi
+
+rm -rf "${DATA_DIR}"
+
+if [[ "$PURGE" -eq 1 ]]; then
+    rm -rf "${CONFIG_DIR}" "${DOT_CURSOR}"
+fi
+
+echo "✅ Cursor agent removed."

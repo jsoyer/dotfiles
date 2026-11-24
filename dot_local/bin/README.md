@@ -1020,6 +1020,7 @@ cursor-setup --api-key         # masked prompt, writes worker.env
 cursor-setup --api-key-file ~/secret.txt
 cursor-setup --worker-dir ~/Documents/Github/noxys-eu --name my-worker
 cursor-setup --status          # session vs worker auth, plus the restart counter
+cursor-uninstall [-y] [--purge]  # disable units + remove cursor-agent (--purge drops config/auth)
 ```
 
 **Editing the exposed scope.** `--worker-dir` is repeatable and **rewrites** the
