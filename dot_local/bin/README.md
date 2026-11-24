@@ -637,7 +637,7 @@ below). **herdr is the exception**:
 | **Cursor** (private worker) | `--user` | `cursor-setup` | `update-cursor-agent` | `cursor-worker.service`, `cursor-update.{service,timer}` |
 | **herdr** (multiplexer) | `--user` (binary on every Unix host) | `herdr-setup` | `update-herdr` | `herdr-update.{service,timer}` (Linux) |
 | **T3 Code** (headless server) | `--user` (+ linger), Linux only | `t3-setup` | `update-t3` | `t3code.service` (upstream `t3 service`), `t3-update.{service,timer}`, `t3-health.{service,timer}`, `t3-alert@.service` |
-| **Paseo** (agent daemon) | `--user` (+ linger), Linux only | `paseo-setup` | `update-paseo` | `paseo.service` (generated), `paseo-update.{service,timer}`, `paseo-health.{service,timer}`, `paseo-alert@.service` |
+| **Paseo** (agent server) | **system** (root), Linux only | `paseo-setup` (see *Paseo server*) | `agents-update` (`update-paseo` wraps it) | `paseo.service`, `paseo-firewall.service`, `paseo-health.{service,timer}` |
 
 `agentsvc` is the umbrella over all six: `agentsvc status|update|restart|logs|reload` (targets `moshi|orca|cursor|herdr|t3|paseo`).
 
@@ -775,8 +775,8 @@ is the single push channel of `orca-health`, `agents-update`, `t3-health` and
 | File (first readable, safe one wins) | Used by |
 |------|------|
 | `$AGENT_ALERT_CONF` | tests / overrides |
-| `~/.config/agent-alert.conf` | user units (t3, paseo), `agents-update` |
-| `/etc/agent-alert.conf` | root units (`orca-health`) |
+| `~/.config/agent-alert.conf` | user units (t3), `agents-update` |
+| `/etc/agent-alert.conf` | root units (`orca-health`, `paseo-health`) |
 | `/etc/orca-alert.conf` | legacy, still honored |
 
 | Key | Meaning |
@@ -827,30 +827,6 @@ t3-uninstall [-y] [--purge]    # t3 service uninstall + t3 uninstall; --purge dr
   `~/.config/agent-alert.conf` (the root-only `/etc/agent-alert.conf` is not
   readable by them): run `agent-alert --configure`, then `agent-alert --test`.
 - **`--update-at HH:MM`** pins `t3-update.timer` to a quiet hour (default: daily, random 1 h).
-
-### paseo-setup / update-paseo
-
-Paseo has no service or update command, so `paseo-setup` generates
-`~/.config/systemd/user/paseo.service` around the foreground `paseo daemon run`
-(`Restart=on-failure`, 5 starts / 30 min ceiling, `OnFailure=paseo-alert@`). The
-CLI is `npm install -g --prefix ~/.local @getpaseo/cli` (no sudo for the package);
-Node >= 22 is installed when missing (mise, else distro packages / NodeSource on
-Debian-family, `dnf`, `pacman`). Node 22 is an assumption: upstream states no minimum.
-
-```bash
-paseo-setup                    # listen on the tailscale IP:6767 (else 127.0.0.1:6767), relay off
-paseo-setup --listen 100.x.y.z:6767 --tailnet-only --password
-paseo-setup --update-at 04:30
-paseo-setup --status | --dry-run | --uninstall
-paseo-pair [--relay]           # wraps `paseo daemon pair` (interactive)
-paseo-version                  # installed vs npm latest
-update-paseo                   # npm update, restart, smoke via paseo-health, rollback on failure
-paseo-uninstall [-y] [--purge] # drops units + package; --purge also drops ~/.paseo
-```
-
-The daemon password is never put in the unit: set it with `--password`
-(`paseo daemon set-password`, interactive). Monitoring and alerts work exactly as
-for T3 Code (`paseo-health`).
 
 ### agents-update
 
@@ -1119,6 +1095,16 @@ agents-update --install-timer --at 05:00 --user <name> --restart-on paseo=paseo.
   password to cut every client.
 - **Web UI kept on**, at `http://<host>.<tailnet>.ts.net:6767`: the firewall and
   the password protect it.
+- **Alerts.** The health script routes through `agent-alert` (installed to
+  `/usr/local/bin` by `paseo-setup`, like `orca-setup` does): configure with
+  `sudo agent-alert --configure --system`; the legacy `/etc/orca-alert.conf` is
+  still read.
+- **Helpers.** `paseo-pair` (wraps `paseo daemon pair`, interactive, run as the
+  service user, never logs a link), `paseo-version` (installed / pinned /
+  latest), `update-paseo` (thin wrapper over `agents-update` with the restart hook
+  set, then an `/api/health` check; no rollback logic of its own),
+  `paseo-uninstall [-y] [--purge]` (runs `sudo paseo-setup --uninstall`;
+  `--purge` also drops `~/.paseo`; the mise package is yours to remove).
 - **Updates.** A running daemon keeps its binary: `--restart-on paseo=paseo.service`
   makes `agents-update` restart it (with `sudo -n`) when the Paseo CLI moved and
   the new set was kept.

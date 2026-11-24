@@ -17,7 +17,8 @@
 #   3. paseo.service          `paseo daemon run` as <user>; Requires= the
 #                             firewall (fails closed), After= tailscaled
 #   4. paseo-health.timer     every 10 min: /api/health must answer; two misses
-#                             in a row restart the daemon (journal + ntfy alert)
+#                             in a row restart the daemon (journal + agent-alert:
+#                             ntfy or Telegram, see `agent-alert --help`)
 #
 # Lessons from the Orca server (orca-setup) baked in:
 #   - a system unit never reads shell rc files: PATH lists the mise shims,
@@ -49,6 +50,7 @@ UNIT_DIR="/etc/systemd/system"
 GUARD_DIR="/etc/paseo"
 GUARD_FILE="${GUARD_DIR}/paseo-guard.nft"
 HEALTH_BIN="/usr/local/sbin/paseo-health"
+ALERT_BIN="/usr/local/bin/agent-alert"
 
 c_g=$'\e[32m'; c_y=$'\e[33m'; c_r=$'\e[31m'; c_0=$'\e[0m'
 [[ -t 1 ]] || { c_g=""; c_y=""; c_r=""; c_0=""; }
@@ -91,6 +93,7 @@ command -v systemctl >/dev/null || die "systemd is required."
 
 if [[ "$MODE" == "uninstall" ]]; then
   systemctl disable --now paseo-health.timer paseo.service paseo-firewall.service 2>/dev/null || true
+  # agent-alert is shared with orca-setup: left installed.
   rm -f "${UNIT_DIR}"/paseo.service "${UNIT_DIR}"/paseo-firewall.service \
         "${UNIT_DIR}"/paseo-health.{service,timer} "$HEALTH_BIN" "$GUARD_FILE"
   rmdir "$GUARD_DIR" 2>/dev/null || true
@@ -196,19 +199,29 @@ WantedBy=multi-user.target
 EOF
 
 # --- 4. Health check ------------------------------------------------------------
+# Alerts go through agent-alert (root: /etc/agent-alert.conf, legacy
+# /etc/orca-alert.conf still read). Same install rule as orca-setup: a system
+# location, because a unit cannot run a script under /home.
+SRC_ALERT=""
+for c in "$(dirname "$0")/agent-alert" "${SVC_HOME}/.local/bin/agent-alert"; do
+  [[ -r "$c" ]] && { SRC_ALERT="$c"; break; }
+done
+if [[ -n "$SRC_ALERT" ]]; then
+  [[ "$SRC_ALERT" -ef "$ALERT_BIN" ]] || install -m 0755 "$SRC_ALERT" "$ALERT_BIN"
+  ok "Alerts: ${ALERT_BIN} (configure: sudo agent-alert --configure --system)"
+else
+  warn "agent-alert not found (chezmoi apply, then re-run): alerts stay in the journal."
+fi
 cat > "$HEALTH_BIN" <<EOF
 #!/usr/bin/env bash
 # Managed by paseo-setup. Two failed /api/health probes in a row restart Paseo.
 set -uo pipefail
 STATE_DIR=/var/lib/paseo-health; mkdir -p "\$STATE_DIR"
 fails=0; [[ -r "\$STATE_DIR/fails" ]] && fails=\$(<"\$STATE_DIR/fails")
-CONF=/etc/orca-alert.conf; [[ -r "\$CONF" ]] && . "\$CONF"
 notify() {
   logger -t paseo-health -p user.err "\$1: \$2"
-  [[ -n "\${ORCA_ALERT_URL:-}" ]] || return 0
-  curl -fsS -m 10 -H "Title: \$1" -H "Priority: urgent" \
-    \${ORCA_ALERT_TOKEN:+-H "Authorization: Bearer \$ORCA_ALERT_TOKEN"} \
-    --data-binary "\$2" "\$ORCA_ALERT_URL" >/dev/null || true
+  [[ -x ${ALERT_BIN} ]] || return 0
+  ${ALERT_BIN} --title "\$1" --priority high --tags rotating_light "\$2" >/dev/null 2>&1 || true
 }
 if curl -fsS -m 10 http://127.0.0.1:${PORT}/api/health >/dev/null 2>&1; then
   (( fails > 0 )) && logger -t paseo-health "Paseo answers again"

@@ -29,7 +29,6 @@ T3_SCRIPTS = [
 PASEO_SCRIPTS = [
     "paseo-setup",
     "update-paseo",
-    "paseo-health",
     "paseo-pair",
     "paseo-version",
     "paseo-uninstall",
@@ -88,7 +87,6 @@ exit 0
     "agent-alert": LOGGER,
     # Smoke tests called by the updaters: exit code driven by $SMOKE_RC.
     "t3-health": LOGGER + 'exit "${SMOKE_RC:-0}"\n',
-    "paseo-health": LOGGER + 'exit "${SMOKE_RC:-0}"\n',
 }
 
 
@@ -339,157 +337,63 @@ class T3Wrappers(SandboxCase):
         self.assertFalse((sb.home / ".t3").exists())
 
 
-class PaseoSetup(SandboxCase):
-    def test_dry_run_uses_tailscale_ip_and_disables_relay(self):
-        sb = self.sandbox()
-        r = sb.run("paseo-setup", "--dry-run")
-        self.assertEqual(r.returncode, 0, r.stderr)
-        self.assertIn("paseo daemon config set daemon.listen 100.64.0.7:6767", r.stdout)
-        self.assertIn("daemon.relay.enabled false", r.stdout)
-        self.assertIn("sudo loginctl enable-linger", r.stdout)
-        self.assertNotIn("config set", sb.calls())  # printed, not executed
-        self.assertFalse((sb.home / ".config").exists())
+class PaseoHelpers(SandboxCase):
+    """Helpers around the #71 system-scope Paseo server (paseo-setup is #71's)."""
 
-    def test_dry_run_falls_back_to_loopback_without_tailscale(self):
-        sb = self.sandbox(omit=("tailscale",))
-        r = sb.run("paseo-setup", "--dry-run")
-        self.assertEqual(r.returncode, 0, r.stderr)
-        self.assertIn("daemon.listen 127.0.0.1:6767", r.stdout)
-
-    def test_tailnet_only_requires_tailscale(self):
-        sb = self.sandbox(omit=("tailscale",))
-        self.assertNotEqual(
-            sb.run("paseo-setup", "--dry-run", "--tailnet-only").returncode, 0
-        )
-
-    def test_explicit_listen_and_password(self):
-        sb = self.sandbox()
-        r = sb.run(
-            "paseo-setup", "--dry-run", "--listen", "10.1.2.3:7000", "--password"
-        )
-        self.assertEqual(r.returncode, 0, r.stderr)
-        self.assertIn("daemon.listen 10.1.2.3:7000", r.stdout)
-        self.assertIn("paseo daemon set-password", r.stdout)
-        self.assertNotEqual(
-            sb.run("paseo-setup", "--dry-run", "--listen", "nope").returncode, 0
-        )
-
-    def test_dry_run_installs_cli_with_user_prefix(self):
-        sb = self.sandbox(omit=("paseo",))
-        r = sb.run("paseo-setup", "--dry-run")
-        self.assertEqual(r.returncode, 0, r.stderr)
-        self.assertIn(
-            "npm install -g --prefix %s/.local @getpaseo/cli" % sb.home, r.stdout
-        )
-
-    def test_dry_run_installs_node_via_mise_when_missing(self):
-        sb = self.sandbox(omit=("node", "npm"))
-        r = sb.run("paseo-setup", "--dry-run")
-        self.assertEqual(r.returncode, 0, r.stderr)
-        self.assertIn("mise use -g node@22", r.stdout)
-
-    def test_real_run_generates_unit(self):
-        sb = self.sandbox(extra_env={"STUB_ACTIVE": "1"})
-        r = sb.run("paseo-setup", "--update-at", "04:30")
-        self.assertEqual(r.returncode, 0, r.stderr)
-        calls = sb.calls()
-        self.assertIn("paseo daemon config set daemon.listen 100.64.0.7:6767", calls)
-        self.assertIn("paseo daemon config set daemon.relay.enabled false", calls)
-        self.assertIn("sudo loginctl enable-linger", calls)
-        units = sb.home / ".config/systemd/user"
-        unit = (units / "paseo.service").read_text()
-        self.assertIn("ExecStart=%h/.local/bin/paseo daemon run", unit)
-        self.assertIn("Restart=on-failure", unit)
-        self.assertIn("StartLimitBurst=5", unit)
-        self.assertIn("OnFailure=paseo-alert@%n.service", unit)
-        self.assertIn(str(self.stubs_dir(sb)), unit)  # node dir baked into PATH
-        self.assertNotIn("PASEO_PASSWORD", unit)
-        self.assertIn(
-            "OnCalendar=*-*-* 04:30:00", (units / "paseo-update.timer").read_text()
-        )
-
-    @staticmethod
-    def stubs_dir(sb):
-        return sb.stubs
-
-    def test_uninstall_keeps_cli(self):
-        sb = self.sandbox()
-        r = sb.run("paseo-setup", "--uninstall", "-y")
-        self.assertEqual(r.returncode, 0, r.stderr)
-        self.assertNotIn("npm uninstall", sb.calls())
-
-
-class PaseoWrappers(SandboxCase):
     def test_pair_passes_arguments_through(self):
         sb = self.sandbox()
         self.assertEqual(sb.run("paseo-pair", "--relay").returncode, 0)
         self.assertIn("paseo daemon pair --relay", sb.calls())
 
-    def test_update_restarts_and_smokes(self):
+    def test_pair_status_delegates_to_paseo_setup(self):
         sb = self.sandbox()
-        r = sb.run("update-paseo")
+        (sb.stubs / "paseo-setup").write_text(LOGGER)
+        (sb.stubs / "paseo-setup").chmod(0o755)
+        self.assertEqual(sb.run("paseo-pair", "--status").returncode, 0)
+        self.assertIn("paseo-setup --status", sb.calls())
+
+    def test_update_is_a_thin_wrapper_over_agents_update(self):
+        sb = self.sandbox()
+        (sb.stubs / "agents-update").write_text(
+            LOGGER + 'echo "restart_on=$AGENTS_UPDATE_RESTART_ON" >> "$STUB_LOG"\n')
+        (sb.stubs / "agents-update").chmod(0o755)
+        r = sb.run("update-paseo", "--dry-run")
         self.assertEqual(r.returncode, 0, r.stderr)
         calls = sb.calls()
-        self.assertIn(
-            "npm install -g --prefix %s/.local @getpaseo/cli@latest" % sb.home, calls
-        )
-        self.assertIn("systemctl --user restart paseo.service", calls)
-        self.assertNotIn("@getpaseo/cli@0.17.4", calls)
+        self.assertIn("agents-update --dry-run", calls)
+        self.assertIn("restart_on=paseo=paseo.service", calls)
+        self.assertNotIn("npm install", calls)  # no duplicated update logic
 
-    def test_update_rolls_back_on_failed_smoke(self):
-        sb = self.sandbox(extra_env={"SMOKE_RC": "1"})
-        r = sb.run("update-paseo")
-        self.assertNotEqual(r.returncode, 0)
-        self.assertIn(
-            "npm install -g --prefix %s/.local @getpaseo/cli@0.17.4" % sb.home,
-            sb.calls(),
-        )
-        self.assertEqual((sb.stubs / "paseo.version").read_text().strip(), "0.17.4")
-
-    def test_update_no_change_does_not_restart(self):
+    def test_update_propagates_agents_update_failure(self):
         sb = self.sandbox()
-        (sb.stubs / "npm").write_text(LOGGER)  # npm no longer bumps the version
-        self.assertEqual(sb.run("update-paseo").returncode, 0)
-        self.assertNotIn("restart", sb.calls())
+        (sb.stubs / "agents-update").write_text(LOGGER + "exit 3\n")
+        (sb.stubs / "agents-update").chmod(0o755)
+        self.assertEqual(sb.run("update-paseo").returncode, 3)
 
-    def test_health_reports_inactive_and_alert_mode(self):
-        sb = self.sandbox()
-        r = sb.run("paseo-health")
-        self.assertEqual(r.returncode, 1)
-        self.assertIn("<3>Paseo down", r.stdout)
-        self.assertIn("agent-alert --title Paseo down on", sb.calls())
-        r = sb.run("paseo-health", "--alert", "paseo.service")
-        self.assertEqual(r.returncode, 0)
-        self.assertIn("paseo.service failed", r.stdout)
-
-    def test_health_ok_when_active(self):
-        sb = self.sandbox(extra_env={"STUB_ACTIVE": "1"})
-        cfg = sb.home / ".paseo"
-        cfg.mkdir()
-        (cfg / "config.json").write_text('{"daemon": {"listen": "100.64.0.7:6767"}}')
-        r = sb.run("paseo-health")
-        # No ss stub: the port check is skipped when `ss` is absent, else it may
-        # legitimately fail on a host where 6767 is closed — only assert the
-        # upstream probe ran.
-        self.assertIn("paseo daemon status", sb.calls(), r.stdout)
-
-    def test_version_compares_with_npm(self):
+    def test_version_reports_installed_and_latest(self):
         sb = self.sandbox()
         r = sb.run("paseo-version")
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertIn("0.17.4", r.stdout)
         self.assertIn("0.18.0", r.stdout)
 
-    def test_uninstall_removes_package_keeps_data_unless_purge(self):
+    def test_uninstall_runs_paseo_setup_and_keeps_data_unless_purge(self):
         sb = self.sandbox()
+        (sb.stubs / "paseo-setup").write_text(LOGGER)
+        (sb.stubs / "paseo-setup").chmod(0o755)
         (sb.home / ".paseo").mkdir()
         self.assertEqual(sb.run("paseo-uninstall", "-y").returncode, 0)
-        self.assertIn(
-            "npm uninstall -g --prefix %s/.local @getpaseo/cli" % sb.home, sb.calls()
-        )
+        self.assertIn("paseo-setup --uninstall", sb.calls())
         self.assertTrue((sb.home / ".paseo").exists())
         self.assertEqual(sb.run("paseo-uninstall", "-y", "--purge").returncode, 0)
         self.assertFalse((sb.home / ".paseo").exists())
+
+    def test_uninstall_without_paseo_setup_removes_units_by_hand(self):
+        sb = self.sandbox()
+        self.assertEqual(sb.run("paseo-uninstall", "-y").returncode, 0)
+        calls = sb.calls()
+        self.assertIn("systemctl disable --now paseo-health.timer paseo.service paseo-firewall.service", calls)
+        self.assertNotIn("npm uninstall", calls)
 
 
 class Integration(unittest.TestCase):

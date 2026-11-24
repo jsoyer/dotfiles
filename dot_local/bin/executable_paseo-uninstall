@@ -1,10 +1,12 @@
 #!/usr/bin/env bash
-# paseo-uninstall — take Paseo off this machine (Linux, user scope).
+# paseo-uninstall — take the Paseo server off this machine.
 #
-# Stops the daemon, monitoring and updater, removes the units paseo-setup
-# generated and the @getpaseo/cli package. ~/.paseo (config, password hash,
-# daemon.log) is KEPT unless --purge. Linger and Node are left as is (other
-# things may depend on them). On macOS Paseo is just the cask.
+# Linux: `sudo paseo-setup --uninstall` (paseo, paseo-firewall and paseo-health
+# units, the nftables guard, /usr/local/sbin/paseo-health), then optionally drops
+# ~/.paseo. The CLI itself is a mise package: remove `npm:@getpaseo/cli` from
+# your mise config (and `mise prune`) to uninstall it; agent-alert is shared with
+# the Orca server and is left installed.
+# macOS: Paseo is just the cask.
 
 set -euo pipefail
 
@@ -16,10 +18,10 @@ usage() {
 Usage: paseo-uninstall [-y] [--purge]
 
   -y, --yes    do not ask for confirmation
-  --purge      also drop ~/.paseo ($PASEO_HOME): config.json, password, logs
+  --purge      also drop ~/.paseo ($PASEO_HOME): config.json, password hash, logs
 
-Linux: paseo daemon stop, paseo/paseo-health/paseo-update units,
-npm uninstall -g --prefix ~/.local @getpaseo/cli.
+Linux: runs `sudo paseo-setup --uninstall` (units + firewall). The mise package
+and ~/.paseo are kept unless --purge (data only; the package stays in mise).
 macOS: uninstalls the paseo cask.
 EOF
 }
@@ -51,23 +53,20 @@ if [[ "$(uname -s)" == "Darwin" ]]; then
     exit 0
 fi
 
-UNIT_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user"
-
-echo "Stopping the daemon, monitoring and updater..."
-if command -v systemctl &>/dev/null; then
-    systemctl --user disable --now paseo-health.timer paseo-update.timer paseo.service 2>/dev/null || true
-fi
-# Covers a daemon started by hand (`paseo daemon start`) too.
-command -v paseo &>/dev/null && { paseo daemon stop --force 2>/dev/null || true; }
-
-rm -f "${UNIT_DIR}"/paseo{,-health,-update}.{service,timer} "${UNIT_DIR}/paseo-alert@.service"
-systemctl --user daemon-reload 2>/dev/null || true
-
-if command -v npm &>/dev/null; then
-    npm uninstall -g --prefix "${HOME}/.local" @getpaseo/cli || true
+# sudo's secure_path excludes ~/.local/bin: pass the resolved path.
+SETUP="$(command -v paseo-setup || true)"
+if [[ -n "$SETUP" ]]; then
+    echo "Removing units and firewall (paseo-setup --uninstall)..."
+    sudo "$SETUP" --uninstall
+else
+    echo "paseo-setup not found: removing units by hand..."
+    sudo systemctl disable --now paseo-health.timer paseo.service paseo-firewall.service 2>/dev/null || true
+    sudo rm -f /etc/systemd/system/paseo.service /etc/systemd/system/paseo-firewall.service \
+        /etc/systemd/system/paseo-health.service /etc/systemd/system/paseo-health.timer \
+        /usr/local/sbin/paseo-health /etc/paseo/paseo-guard.nft
+    sudo systemctl daemon-reload
 fi
 
-rm -rf "${XDG_STATE_HOME:-$HOME/.local/state}/paseo-health"
 [[ "$PURGE" -eq 1 ]] && rm -rf "$PASEO_DATA"
 
-echo "Paseo removed."
+echo "Paseo server removed."

@@ -201,11 +201,22 @@ class AgentAlert(SandboxCase):
 
 class Routing(unittest.TestCase):
     def test_callers_use_agent_alert_not_their_own_curl(self):
-        for name in ("orca-health", "t3-health", "paseo-health", "agents-update"):
+        for name in ("orca-health", "t3-health", "agents-update"):
             text = (BIN / ("executable_" + name)).read_text()
             self.assertIn('"$ALERT_BIN"', text, name)
             self.assertNotIn("curl", text.replace("curl.sh", ""), name)
             self.assertNotIn("ORCA_ALERT_URL", text, name)
+
+    def test_paseo_health_routes_through_agent_alert(self):
+        # The health script is generated inline by paseo-setup (#71 design).
+        text = (BIN / "executable_paseo-setup").read_text()
+        self.assertIn("ALERT_BIN=\"/usr/local/bin/agent-alert\"", text)
+        self.assertIn("--priority high --tags rotating_light", text)
+        self.assertIn("install -m 0755 \"$SRC_ALERT\" \"$ALERT_BIN\"", text)
+        self.assertNotIn("ORCA_ALERT_URL", text)
+        self.assertNotIn('-H "Title:', text)
+        # 2-misses-then-restart behaviour from #71 is preserved.
+        self.assertIn("if (( fails >= 2 ))", text)
 
     def test_agent_alert_is_linux_only(self):
         ignore = (ROOT / ".chezmoiignore.tmpl").read_text()
