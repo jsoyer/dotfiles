@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+#
+# paseo-pair — Pair a client (phone, desktop app) with the Paseo server installed
+# by paseo-setup. Pass-through to the upstream `paseo daemon pair`.
+#
+# Run it as the user that owns the service (its ~/.paseo is where the offer is
+# registered), NOT with sudo.
+#
+# INTERACTIVE ONLY. A pairing link / QR is a credential: it is printed to your
+# terminal and never written to a unit, a log or the journal (this command is
+# never called by systemd).
+#
+# Usage:
+#   paseo-pair             `paseo daemon pair`  (direct, over the daemon address)
+#   paseo-pair --relay     `paseo daemon pair --relay` (paseo-setup turns the
+#                          relay OFF: this only works if you enabled it yourself)
+#   paseo-pair --json      machine-readable offer (still a credential!)
+#   paseo-pair --status    `paseo-setup --status` (units, /api/health, firewall)
+#   paseo-pair <args...>   forwarded verbatim to `paseo daemon pair`
+#
+# Treat a link like a password and pair over the tailnet.
+#
+set -euo pipefail
+
+case "${1:-}" in
+  -h|--help) sed -n '2,/^set -euo/p' "$0" | sed 's/^# \{0,1\}//; $d'; exit 0 ;;
+  --status)  exec paseo-setup --status ;;
+esac
+
+# The mise shim is not always on PATH in a non-login shell.
+SHIM="${HOME}/.local/share/mise/shims/paseo"
+if command -v paseo >/dev/null 2>&1; then PASEO=paseo
+elif [[ -x "$SHIM" ]]; then PASEO="$SHIM"
+else echo "paseo-pair: paseo not found (mise: npm:@getpaseo/cli) — see paseo-setup" >&2; exit 1
+fi
+exec "$PASEO" daemon pair "$@"

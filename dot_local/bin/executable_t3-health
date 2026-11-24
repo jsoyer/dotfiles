@@ -1,0 +1,123 @@
+#!/usr/bin/env bash
+#
+# t3-health — Watch the T3 Code service (user scope) and push an alert on failure.
+#
+# Checks the REAL symptoms, not just what systemd displays: a crash-looping unit
+# is intermittently "active" and never reaches StartLimitBurst when the loop is
+# slow (the orca-serve incident of 2026-09-14, 826 restarts over 16 h).
+#
+#   - t3code.service is active
+#   - `t3 status` answers (and is not "restart-pending": still on the old build)
+#   - the configured T3CODE_PORT (from ~/.t3/service.env) is listening
+#   - NRestarts did not climb by RESTART_DELTA_MAX since the previous pass
+#
+# Notification: always the journal (priority err/warning); plus a push through
+# agent-alert (ntfy or Telegram) — configure with `agent-alert --configure`
+# (user units read ~/.config/agent-alert.conf).
+#
+# Usage:
+#   t3-health                run one check (exit 1 when a problem is found)
+#   t3-health --alert UNIT   immediate alert for a failed unit (OnFailure=)
+#   t3-health --help
+#
+set -uo pipefail
+
+SERVICE="t3code.service"
+ENV_FILE="${T3_SERVICE_ENV:-$HOME/.t3/service.env}"
+STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/t3-health"
+STATE="${STATE_DIR}/state"
+RESTART_DELTA_MAX=3
+RENOTIFY_SECONDS=21600   # re-alert every 6 h while the problem lasts
+
+usage() { sed -n '2,/^set -uo/p' "$0" | sed 's/^# \{0,1\}//; $d'; }
+
+ALERT_UNIT=""
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --alert)   ALERT_UNIT="${2:?unit missing}"; shift ;;
+    -h|--help) usage; exit 0 ;;
+    *)         echo "t3-health: unknown option: $1 (see --help)" >&2; exit 2 ;;
+  esac
+  shift
+done
+
+ALERT_BIN="$(dirname "$(readlink -f "$0")")/agent-alert"
+[[ -x "$ALERT_BIN" ]] || ALERT_BIN="agent-alert"
+
+notify() {
+  local level="$1" title="$2" body="$3"
+  if [[ "$level" == "CRITICAL" ]]; then printf '<3>%s\n%s\n' "$title" "$body"
+  else printf '<4>%s\n%s\n' "$title" "$body"; fi
+  "$ALERT_BIN" --title "$title" \
+    --priority "$([[ "$level" == CRITICAL ]] && echo high || echo default)" \
+    --tags "$([[ "$level" == CRITICAL ]] && echo rotating_light || echo warning)" \
+    "$body" >/dev/null 2>&1 || true
+}
+
+if [[ -n "$ALERT_UNIT" ]]; then
+  notify CRITICAL "T3 Code unit failed on $(hostname)" \
+    "${ALERT_UNIT} failed. Diagnose: journalctl --user -u ${ALERT_UNIT%.service} -e"
+  exit 0
+fi
+
+mkdir -p "$STATE_DIR"
+now=$(date +%s)
+problems=(); warnings=()
+
+# KEY=VALUE literal file (never sourced: T3 documents it as literal values).
+env_get() { [[ -r "$ENV_FILE" ]] && grep -m1 "^$1=" "$ENV_FILE" | cut -d= -f2- | tr -d '"' || true; }
+port="$(env_get T3CODE_PORT)"
+
+active="$(systemctl --user is-active "$SERVICE" 2>/dev/null)" || true
+active="${active:-unknown}"
+nrestarts="$(systemctl --user show "$SERVICE" -p NRestarts --value 2>/dev/null)" || true
+nrestarts="${nrestarts:-0}"
+
+prev_restarts=0; prev_status="ok"; prev_notified=0
+# shellcheck source=/dev/null
+[[ -r "$STATE" ]] && . "$STATE"
+delta=$(( nrestarts - prev_restarts ))
+
+if [[ "$active" != "active" ]]; then
+  problems+=("${SERVICE} is not active (state: ${active})")
+elif ! command -v t3 >/dev/null 2>&1; then
+  problems+=("t3 binary not found in PATH")
+else
+  st="$(t3 status --json 2>&1)" || problems+=("'t3 status' failed: $(printf '%s' "$st" | head -c 200)")
+  [[ "$st" == *restart-pending* ]] && warnings+=("restart-pending: the service still runs the old version (t3 service restart)")
+  if [[ -n "$port" ]] && command -v ss >/dev/null 2>&1 && ! ss -ltn "sport = :${port}" 2>/dev/null | grep -q LISTEN; then
+    problems+=("service is 'active' but NOTHING listens on port ${port}")
+  fi
+fi
+if (( delta >= RESTART_DELTA_MAX )); then
+  problems+=("${delta} restarts since the last check (total: ${nrestarts}) - probable crash loop")
+fi
+
+host="$(hostname)"
+if (( ${#problems[@]} > 0 )); then
+  status="problem"
+  if [[ "$prev_status" != "problem" ]] || (( now - prev_notified >= RENOTIFY_SECONDS )); then
+    body="$(printf '%s\n' "${problems[@]}")"$'\n\n'"State: ${active} | restarts: ${nrestarts} (+${delta})"
+    body+=$'\n'"Diagnose: journalctl --user -u ${SERVICE} -e"
+    notify CRITICAL "T3 Code down on ${host}" "$body"
+    prev_notified=$now
+  fi
+elif (( ${#warnings[@]} > 0 )); then
+  status="warning"
+  if [[ "$prev_status" == "ok" ]] || (( now - prev_notified >= RENOTIFY_SECONDS )); then
+    notify WARNING "T3 Code warning on ${host}" "$(printf '%s\n' "${warnings[@]}")"
+    prev_notified=$now
+  fi
+else
+  status="ok"
+  if [[ "$prev_status" != "ok" ]]; then
+    notify WARNING "T3 Code is back to normal on ${host}" "Service active, ${nrestarts} restarts in total."
+    prev_notified=0
+  fi
+fi
+
+printf 'prev_restarts=%s\nprev_status=%s\nprev_notified=%s\n' \
+  "$nrestarts" "$status" "$prev_notified" > "$STATE"
+
+[[ "$status" == "problem" ]] && exit 1
+exit 0

@@ -23,7 +23,8 @@ SERVICE="orca-serve.service"
 PORT="${ORCA_PORT:-6768}"
 STATE_DIR="/var/lib/orca-health"
 STATE="${STATE_DIR}/state"
-CONF="/etc/orca-alert.conf"
+ALERT_BIN="$(dirname "$(readlink -f "$0")")/agent-alert"
+[[ -x "$ALERT_BIN" ]] || ALERT_BIN="agent-alert"
 
 # Seuils
 RESTART_DELTA_MAX=3     # redemarrages tolerables entre deux passes
@@ -31,8 +32,6 @@ TMP_PCT_MAX=70          # % d'occupation de /tmp au-dela duquel on previent
 RENOTIFY_SECONDS=21600  # re-alerte toutes les 6h tant que le probleme dure
 
 mkdir -p "$STATE_DIR"
-# shellcheck source=/dev/null
-[[ -r "$CONF" ]] && . "$CONF"
 
 now=$(date +%s)
 problems=()
@@ -79,18 +78,11 @@ notify() {
   else
     printf '<4>%s\n%s\n' "$title" "$body"    # priorite warning
   fi
-  # Push optionnel : definir ORCA_ALERT_URL dans /etc/orca-alert.conf
-  if [[ -n "${ORCA_ALERT_URL:-}" ]]; then
-    # Serveur ntfy protege (deny-all) : jeton d'acces optionnel, jamais affiche.
-    local auth=()
-    [[ -n "${ORCA_ALERT_TOKEN:-}" ]] && auth=(-H "Authorization: Bearer ${ORCA_ALERT_TOKEN}")
-    curl -fsS --max-time 10 "${auth[@]}" \
-      -H "Title: ${title}" \
-      -H "Priority: $([[ "$level" == CRITICAL ]] && echo urgent || echo default)" \
-      -H "Tags: $([[ "$level" == CRITICAL ]] && echo rotating_light || echo warning)" \
-      -d "${body}" "${ORCA_ALERT_URL}" >/dev/null 2>&1 \
-      || printf '<4>orca-health: echec de l envoi vers ORCA_ALERT_URL\n'
-  fi
+  # Push via agent-alert (ntfy or Telegram, see `agent-alert --help`). Never fails.
+  "$ALERT_BIN" --title "$title" \
+    --priority "$([[ "$level" == CRITICAL ]] && echo high || echo default)" \
+    --tags "$([[ "$level" == CRITICAL ]] && echo rotating_light || echo warning)" \
+    "$body" >/dev/null 2>&1 || true
 }
 
 if (( ${#problems[@]} > 0 )); then

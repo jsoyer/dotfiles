@@ -399,6 +399,7 @@ cask "openlogi"
 cask "orbstack"
 cask "stablyai/orca/orca", trusted: true
 cask "parallels"
+cask "paseo"
 cask "pocket-casts"
 cask "raindropio"
 cask "raspberry-pi-imager"

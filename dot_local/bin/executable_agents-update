@@ -31,8 +31,8 @@
 # changed version and the run kept the new set (no rollback). The agents' user
 # needs passwordless sudo for that (pct-bootstrap sets it up).
 #
-# Alerts reuse orca-health's channel: ORCA_ALERT_URL / ORCA_ALERT_TOKEN from
-# /etc/orca-alert.conf (journal only when unset).
+# Alerts go through agent-alert (ntfy or Telegram, config in
+# /etc/agent-alert.conf or ~/.config/agent-alert.conf; journal only when unset).
 #
 # Usage:
 #   agents-update                 update + smoke test + rollback on failure
@@ -52,7 +52,8 @@ set -uo pipefail
 
 MISE_CONFIG="${MISE_GLOBAL_CONFIG_FILE:-${XDG_CONFIG_HOME:-$HOME/.config}/mise/config.toml}"
 STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/agents-update"
-ALERT_CONF="/etc/orca-alert.conf"
+ALERT_BIN="$(dirname "$(readlink -f "$0")")/agent-alert"
+[[ -x "$ALERT_BIN" ]] || ALERT_BIN="agent-alert"
 LOCK="${STATE_DIR}/lock"
 SERVICE_NAME="agents-update"
 
@@ -88,14 +89,10 @@ die()  { err "$*"; exit 1; }
 usage() { sed -n '2,/^set -uo/p' "$0" | sed 's/^# \{0,1\}//; $d'; }
 
 notify() {  # notify <urgent|default|low> <title> <body>
-  local prio="$1" title="$2" body="$3" auth=()
-  # shellcheck source=/dev/null
-  [[ -r "$ALERT_CONF" ]] && . "$ALERT_CONF"
-  [[ -n "${ORCA_ALERT_URL:-}" ]] || return 0
-  [[ -n "${ORCA_ALERT_TOKEN:-}" ]] && auth=(-H "Authorization: Bearer ${ORCA_ALERT_TOKEN}")
-  curl -fsS --max-time 10 "${auth[@]}" -H "Title: ${title}" -H "Priority: ${prio}" \
-    -H "Tags: robot" -d "${body}" "${ORCA_ALERT_URL}" >/dev/null 2>&1 \
-    || warn "ntfy: failed to send to ORCA_ALERT_URL"
+  local prio="$1"
+  [[ "$prio" == urgent ]] && prio=high
+  "$ALERT_BIN" --title "$2" --priority "$prio" --tags robot "$3" >/dev/null 2>&1 \
+    || warn "agent-alert: failed to send"
 }
 
 # --- Timer installation (needs root) ------------------------------------------

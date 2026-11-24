@@ -1,7 +1,7 @@
 {{- if eq .chezmoi.os "darwin" -}}
 #!/usr/bin/env bash
 # =============================================================================
-# One-time: delete leftover moshi/orca/cursor-worker files on macOS.
+# One-time: delete leftover moshi/orca/cursor-worker/t3/paseo files on macOS.
 # .chezmoiignore stops chezmoi from re-applying them, but does NOT remove
 # targets already written. This script is the removal side.
 #
@@ -38,6 +38,7 @@ for label in com.jsoyer.moshi-hook com.jsoyer.moshi-update; do
     rm_if_present "${HOME}/Library/LaunchAgents/${label}.plist"
 done
 for f in \
+    "${HOME}/.local/bin/agent-alert" \
     "${HOME}/.local/bin/agentsvc" \
     "${HOME}/.local/bin/cursor-setup" \
     "${HOME}/.local/bin/moshi-hook-launch" \
@@ -49,7 +50,18 @@ for f in \
     "${HOME}/.local/bin/orca-version" \
     "${HOME}/.local/bin/update-cursor-agent" \
     "${HOME}/.local/bin/update-moshi" \
-    "${HOME}/.local/bin/update-orca"
+    "${HOME}/.local/bin/update-orca" \
+    "${HOME}/.local/bin/paseo-pair" \
+    "${HOME}/.local/bin/paseo-setup" \
+    "${HOME}/.local/bin/paseo-uninstall" \
+    "${HOME}/.local/bin/paseo-version" \
+    "${HOME}/.local/bin/t3-health" \
+    "${HOME}/.local/bin/t3-pair" \
+    "${HOME}/.local/bin/t3-setup" \
+    "${HOME}/.local/bin/t3-uninstall" \
+    "${HOME}/.local/bin/t3-version" \
+    "${HOME}/.local/bin/update-paseo" \
+    "${HOME}/.local/bin/update-t3"
 do
     rm_if_present "$f"
 done
@@ -70,8 +82,8 @@ do
 done
 
 if (( removed > 0 )); then
-    echo "ℹ️  Removed ${removed} leftover moshi/orca/cursor file(s) (Linux-only stacks)."
+    echo "ℹ️  Removed ${removed} leftover moshi/orca/cursor/t3/paseo file(s) (Linux-only stacks)."
 else
-    echo "ℹ️  No leftover moshi/orca/cursor files, skipping."
+    echo "ℹ️  No leftover moshi/orca/cursor/t3/paseo files, skipping."
 fi
 {{- end -}}

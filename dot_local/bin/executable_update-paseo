@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+#
+# update-paseo — Update the Paseo CLI and restart the server. Thin wrapper over
+# agents-update, which already owns all of it:
+#   - `mise upgrade --bump --pin --no-prune` (Paseo is in its mise channel, so a
+#     pin in ~/.config/mise/config.toml is bumped, the old version stays
+#     installed for rollback),
+#   - the smoke test (`paseo --version`) and the automatic rollback,
+#   - the daemon restart (`--restart-on paseo=paseo.service`, via sudo -n),
+#   - alerts through agent-alert.
+# Nothing is duplicated here: this only sets the restart hook for a manual run
+# (the timer installed with `agents-update --install-timer ... --restart-on
+# paseo=paseo.service` already has it).
+#
+# NOTE: it updates every CLI agents-update manages, not only Paseo. To only
+# check: agents-update --check / --dry-run.
+#
+# Usage:
+#   update-paseo [agents-update options]   e.g. update-paseo --dry-run
+#
+set -euo pipefail
+
+case "${1:-}" in
+  -h|--help) sed -n '2,/^set -euo/p' "$0" | sed 's/^# \{0,1\}//; $d'; exit 0 ;;
+esac
+
+command -v agents-update >/dev/null 2>&1 || { echo "update-paseo: agents-update not found" >&2; exit 1; }
+rc=0
+AGENTS_UPDATE_RESTART_ON="paseo=paseo.service" agents-update "$@" || rc=$?
+
+# Smoke test the server itself (agents-update only checks the CLI answers).
+if [[ "$#" -eq 0 && "$rc" -eq 0 ]]; then
+  port="$(grep -o '"listen"[[:space:]]*:[[:space:]]*"[^"]*"' "${PASEO_HOME:-$HOME/.paseo}/config.json" 2>/dev/null \
+          | head -1 | sed 's/.*:\([0-9]*\)"$/\1/' || true)"
+  sleep 3
+  if curl -fsS -m 5 "http://127.0.0.1:${port:-6767}/api/health" >/dev/null 2>&1; then
+    echo "update-paseo: /api/health answers."
+  else
+    echo "update-paseo: /api/health does NOT answer — see: journalctl -u paseo -e" >&2
+    exit 1
+  fi
+fi
+exit "$rc"

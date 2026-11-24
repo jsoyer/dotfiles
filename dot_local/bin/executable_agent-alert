@@ -1,0 +1,166 @@
+#!/usr/bin/env bash
+#
+# agent-alert — Backend-agnostic push alert for the agent stacks (orca-health,
+# t3-health, paseo-health, agents-update). Moving ntfy -> Telegram is a config
+# change, not a code change.
+#
+# Usage:
+#   agent-alert [--title T] [--priority low|default|high] [--tags a,b] [--strict] "message"
+#   echo "message" | agent-alert --title T      message from stdin when no argument
+#   agent-alert --configure [--system]          write the config (0600), prompts, secrets via read -s
+#   agent-alert --test                          send a test alert, report the backend (exit 1 on failure)
+#
+# Config, first readable wins:
+#   $AGENT_ALERT_CONF, ~/.config/agent-alert.conf, /etc/agent-alert.conf,
+#   /etc/orca-alert.conf (legacy). A file that holds a token and is group/world
+#   accessible is skipped with a warning (fix: chmod 600).
+# Keys:
+#   ALERT_BACKEND=ntfy|telegram|none   default: ntfy when a URL is set, else none
+#   ALERT_NTFY_URL / ALERT_NTFY_TOKEN  (legacy ORCA_ALERT_URL / ORCA_ALERT_TOKEN accepted)
+#   ALERT_TELEGRAM_BOT_TOKEN / ALERT_TELEGRAM_CHAT_ID
+# Backend none: message to stderr (journal) only, exit 0.
+# Secrets never reach argv (curl --config - on stdin) and are never printed.
+# A send failure warns and exits 0 so an alert never fails its caller; --strict -> 1.
+#
+set -uo pipefail
+
+TITLE="alert"; PRIO="default"; TAGS=""; STRICT=0; MSG=""; ACTION="send"; SYSTEM=0
+usage() { sed -n '2,/^set -uo/p' "$0" | sed 's/^# \{0,1\}//; $d'; }
+warn() { printf '[agent-alert] %s\n' "$*" >&2; }
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --title)     TITLE="${2:?title missing}"; shift ;;
+    --priority)  PRIO="${2:?priority missing}"; shift ;;
+    --tags)      TAGS="${2:?tags missing}"; shift ;;
+    --strict)    STRICT=1 ;;
+    --configure) ACTION="configure" ;;
+    --system)    SYSTEM=1 ;;
+    --test)      ACTION="test" ;;
+    -h|--help)   usage; exit 0 ;;
+    --)          shift; MSG="$*"; break ;;
+    -*)          warn "unknown option: $1"; exit 2 ;;
+    *)           MSG="${MSG:+$MSG }$1" ;;
+  esac
+  shift
+done
+case "$PRIO" in low|default|high) : ;; *) warn "invalid priority: $PRIO"; exit 2 ;; esac
+
+TOKEN_RE='^[[:space:]]*(ALERT_NTFY_TOKEN|ALERT_TELEGRAM_BOT_TOKEN|ORCA_ALERT_TOKEN)='
+CONF_USED=""
+
+# Sets CONF_USED to the first readable, safe config file and sources it.
+load_conf() {
+  local f mode
+  for f in "${AGENT_ALERT_CONF:-}" "${HOME:-/nonexistent}/.config/agent-alert.conf" \
+           /etc/agent-alert.conf /etc/orca-alert.conf; do
+    [[ -n "$f" && -r "$f" ]] || continue
+    mode="$(stat -c %a "$f" 2>/dev/null || echo 777)"
+    if (( (8#$mode & 8#077) != 0 )) && grep -Eq "$TOKEN_RE" "$f"; then
+      warn "skipping ${f}: holds a token but is mode ${mode} (chmod 600)"
+      continue
+    fi
+    # shellcheck source=/dev/null
+    . "$f"; CONF_USED="$f"; return 0
+  done
+  return 1
+}
+
+# Escape a value for a double-quoted curl --config string (no raw newlines).
+cesc() { printf '%s' "$1" | tr -d '\r\n' | sed 's/\\/\\\\/g; s/"/\\"/g'; }
+
+BODYFILE=""
+cleanup() { [[ -z "$BODYFILE" ]] || rm -f "$BODYFILE"; }
+trap cleanup EXIT
+
+send_ntfy() {
+  local url="${ALERT_NTFY_URL:-${ORCA_ALERT_URL:-}}" tok="${ALERT_NTFY_TOKEN:-${ORCA_ALERT_TOKEN:-}}" np="$PRIO"
+  [[ -n "$url" ]] || { warn "ntfy backend without ALERT_NTFY_URL"; return 1; }
+  [[ "$PRIO" == high ]] && np="urgent"
+  {
+    printf 'url = "%s"\n' "$(cesc "$url")"
+    [[ -z "$tok" ]] || printf 'header = "Authorization: Bearer %s"\n' "$(cesc "$tok")"
+    printf 'header = "Title: %s"\nheader = "Priority: %s"\n' "$(cesc "$TITLE")" "$np"
+    [[ -z "$TAGS" ]] || printf 'header = "Tags: %s"\n' "$(cesc "$TAGS")"
+    printf 'data-binary = "@%s"\n' "$BODYFILE"
+  } | curl -fsS --max-time 10 --config - >/dev/null
+}
+
+send_telegram() {
+  local tok="${ALERT_TELEGRAM_BOT_TOKEN:-}" chat="${ALERT_TELEGRAM_CHAT_ID:-}"
+  [[ -n "$tok" && -n "$chat" ]] || { warn "telegram backend needs ALERT_TELEGRAM_BOT_TOKEN and ALERT_TELEGRAM_CHAT_ID"; return 1; }
+  printf '[%s] %s\n%s' "$(hostname)" "$TITLE" "$MSG" | head -c 3900 > "$BODYFILE"
+  {
+    printf 'url = "https://api.telegram.org/bot%s/sendMessage"\n' "$(cesc "$tok")"
+    printf 'data-urlencode = "chat_id=%s"\n' "$(cesc "$chat")"
+    printf 'data-urlencode = "text@%s"\n' "$BODYFILE"
+  } | curl -fsS --max-time 10 --config - >/dev/null
+}
+
+# --- configure ----------------------------------------------------------------
+configure() {
+  local target="${HOME}/.config/agent-alert.conf" backend url tok chat
+  if [[ "$SYSTEM" -eq 1 ]]; then
+    target=/etc/agent-alert.conf
+    [[ "$EUID" -eq 0 ]] || exec sudo -E "$0" --configure --system
+  fi
+  load_conf 2>/dev/null || true
+  printf 'Backend [telegram/ntfy/none] (default telegram): '; read -r backend
+  backend="${backend:-telegram}"
+  mkdir -p "$(dirname "$target")"
+  [[ ! -f "$target" ]] || cp -p "$target" "${target}.bak"
+  umask 077
+  case "$backend" in
+    telegram)
+      printf 'Bot token (hidden): '; read -rs tok; echo
+      printf 'Chat id: '; read -r chat
+      [[ "$tok" =~ ^[0-9]+:[A-Za-z0-9_-]+$ ]] || { warn "invalid bot token format"; return 1; }
+      [[ "$chat" =~ ^(-?[0-9]+|@[A-Za-z0-9_]+)$ ]] || { warn "invalid chat id"; return 1; }
+      printf 'ALERT_BACKEND="telegram"\nALERT_TELEGRAM_BOT_TOKEN="%s"\nALERT_TELEGRAM_CHAT_ID="%s"\n' "$tok" "$chat" > "$target" ;;
+    ntfy)
+      printf 'ntfy topic URL: '; read -r url
+      printf 'Access token (hidden, empty for none): '; read -rs tok; echo
+      [[ "$url" =~ ^https?://[^[:space:]\"\'\\$\`]+$ ]] || { warn "invalid URL"; return 1; }
+      [[ -z "$tok" || "$tok" =~ ^[A-Za-z0-9_-]+$ ]] || { warn "invalid token format"; return 1; }
+      printf 'ALERT_BACKEND="ntfy"\nALERT_NTFY_URL="%s"\n' "$url" > "$target"
+      [[ -z "$tok" ]] || printf 'ALERT_NTFY_TOKEN="%s"\n' "$tok" >> "$target" ;;
+    none) printf 'ALERT_BACKEND="none"\n' > "$target" ;;
+    *) warn "unknown backend: $backend"; return 1 ;;
+  esac
+  chmod 600 "$target"
+  warn "wrote ${target} (0600); verify with: agent-alert --test"
+}
+
+[[ "$ACTION" == "configure" ]] && { configure; exit $?; }
+if [[ "$ACTION" == "test" ]]; then
+  STRICT=1; TITLE="agent-alert test"; MSG="Test alert from $(hostname)"
+elif [[ -z "$MSG" && ! -t 0 ]]; then
+  MSG="$(cat)"
+fi
+[[ -n "$MSG" ]] || { warn "no message (argument or stdin)"; exit 2; }
+
+load_conf || true
+BACKEND="${ALERT_BACKEND:-}"
+if [[ -z "$BACKEND" ]]; then
+  [[ -n "${ALERT_NTFY_URL:-${ORCA_ALERT_URL:-}}" ]] && BACKEND=ntfy || BACKEND=none
+fi
+[[ "$ACTION" == "test" ]] && warn "backend=${BACKEND} config=${CONF_USED:-none}"
+
+MSG="${MSG:0:3900}"
+case "$BACKEND" in
+  none) printf '[agent-alert] %s: %s\n' "$TITLE" "$MSG" >&2
+        [[ "$ACTION" == "test" ]] && warn "backend none: nothing was sent"
+        exit 0 ;;
+  ntfy|telegram) : ;;
+  *) warn "unknown ALERT_BACKEND: ${BACKEND}"; [[ "$STRICT" -eq 1 ]] && exit 1; exit 0 ;;
+esac
+
+command -v curl >/dev/null 2>&1 || { warn "curl not found"; [[ "$STRICT" -eq 1 ]] && exit 1; exit 0; }
+BODYFILE="$(mktemp)"; chmod 600 "$BODYFILE"
+printf '%s' "$MSG" > "$BODYFILE"
+if "send_${BACKEND}"; then
+  exit 0
+fi
+warn "failed to send via ${BACKEND}"
+[[ "$STRICT" -eq 1 ]] && exit 1
+exit 0

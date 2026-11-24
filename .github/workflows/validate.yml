@@ -58,6 +58,8 @@ jobs:
       - name: Host tool scripts (Orca server, Proxmox, sysup, misew)
         run: |
           python3 scripts/test_orca_headless.py
+          python3 scripts/test_t3_paseo.py
+          python3 scripts/test_agent_alert.py
           python3 scripts/test_pct_tools.py
           python3 scripts/test_paseo_setup.py
           python3 scripts/test_sysup_os_check.py
