@@ -173,3 +173,13 @@
 - **SAFETY:** T3's boot log (`~/.t3/userdata/logs/boot-service.log`) prints a pairing token on every start; never `tail` it into a shared transcript. `t3 auth pairing list` shows whether one is still active.
 - **LOGIC:** `sudo <script>` fails for scripts in `~/.local/bin` (sudo's `secure_path`): call them by full path.
 - **Verify:** `python3 scripts/test_t3_paseo.py`
+
+## 2026-11-24 — agent-host-setup: one base for every agent CT
+
+- **LOGIC:** The three agent CTs had drifted (210 without cline/vibe, 205 without gemini, 211 without opencode2, two on the deprecated pi scope). One template + `agent-host-setup` (merge missing tools, never touch pins) realigned them; `agent-host-setup --check` lists the gaps.
+- **LOGIC:** `python3 - <<'PY'` uses stdin for the program: data piped to such a function never reaches `sys.stdin`. Pass it through an env var.
+- **LOGIC:** Under `set -euo pipefail`, `x="$(... | grep -v ...)"` exits the script when grep selects nothing. Wrap it: `{ grep -v ... || true; }`.
+- **LOGIC:** `ldconfig` is in `/sbin`, off a regular user's PATH: call it by full path when probing libraries.
+- **LOGIC:** T3's OpenCode instance runs `opencode`, which mise keeps at v1; the OpenCode Go/Zen login lives in v2 (`opencode2`). `t3-setup` sets `providerInstances.opencode.config.binaryPath` once, with the server stopped (it rewrites settings.json).
+- **Verify:** `python3 scripts/test_agent_host_setup.py`, `agent-host-setup --check` on each CT.
+
