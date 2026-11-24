@@ -238,6 +238,13 @@ class T3Setup(SandboxCase):
         self.assertIn(
             "OnCalendar=*-*-* 04:30:00", (units / "t3-update.timer").read_text()
         )
+        dropin = (units / "t3code.service.d/zz-user-path.conf").read_text()
+        self.assertIn("%h/.local/share/mise/shims:%h/.local/bin:%h/.grok/bin", dropin)
+        for var in ("MISE_DATA_DIR", "MISE_CONFIG_DIR", "MISE_STATE_DIR", "MISE_CACHE_DIR"):
+            self.assertIn(f'"{var}=%h/', dropin)
+        # The restart comes after daemon-reload, so it picks up the drop-ins.
+        self.assertLess(calls.index("systemctl --user daemon-reload"),
+                        calls.rindex("t3 service restart"))
         self.assertIn(
             "ExecStart=%h/.local/bin/update-t3",
             (units / "t3-update.service").read_text(),
