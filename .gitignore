@@ -17,3 +17,7 @@ target/
 
 # Local agent artifacts (screenshots, reports, archived patches)
 .artifacts/
+
+# Python bytecode
+__pycache__/
+*.pyc
