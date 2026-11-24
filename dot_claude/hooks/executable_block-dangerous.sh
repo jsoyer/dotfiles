@@ -31,7 +31,8 @@ source ~/.claude/hooks/lib/approvals.sh 2>/dev/null || true
 # On retry, the hook finds the approval token and allows the command.
 APPROVAL_DIR="$HOME/.claude/hooks/.approvals"
 PENDING_DIR="$HOME/.claude/hooks/.pending"
-CMD_HASH=$(printf '%s' "$COMMAND" | cksum 2>/dev/null | cut -d' ' -f1) || CMD_HASH="fallback"
+HASH_SRC=$(normalize_cmd_for_hash "$COMMAND" 2>/dev/null) || HASH_SRC=""; [ -n "$HASH_SRC" ] || HASH_SRC="$COMMAND"
+CMD_HASH=$(printf '%s' "$HASH_SRC" | cksum 2>/dev/null | cut -d' ' -f1) || CMD_HASH="fallback"
 
 # Check for existing approval token (valid for 5 minutes)
 if [ -f "$APPROVAL_DIR/$CMD_HASH" ]; then

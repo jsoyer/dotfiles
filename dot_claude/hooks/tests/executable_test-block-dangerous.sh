@@ -576,6 +576,59 @@ assert_stdout_empty "approved command (git push) passes through"
 run_hook "git reset --hard HEAD~1"
 assert_stdout_contains '"permissionDecision"' "unapproved command (git reset) still blocked"
 
+section "Approval Flow — rtk Prefix Is Transparent"
+
+# The rtk PreToolUse hook rewrites "git push" into "rtk git push" AFTER the
+# approval was granted. The token must still match the rewritten command.
+cleanup
+run_hook "git push origin main"
+assert_stdout_contains '"permissionDecision"' "rtk: plain push is soft-blocked"
+bash "$APPROVE" >/dev/null 2>&1
+run_hook "rtk git push origin main"
+assert_stdout_empty "rtk: approval of plain command covers the rtk-rewritten retry"
+
+cleanup
+run_hook "rtk git push origin main"
+assert_stdout_contains '"permissionDecision"' "rtk: rtk-prefixed push is soft-blocked"
+bash "$APPROVE" >/dev/null 2>&1
+run_hook "git push origin main"
+assert_stdout_empty "rtk: approval of rtk command covers the plain retry"
+
+cleanup
+run_hook "cd /tmp/x && rtk git push -q origin main"
+bash "$APPROVE" >/dev/null 2>&1
+run_hook "cd /tmp/x && git push -q origin main"
+assert_stdout_empty "rtk: prefix stripped after && in a chain"
+
+cleanup
+run_hook "git push origin main"
+bash "$APPROVE" >/dev/null 2>&1
+run_hook "rtk git push origin master"
+assert_stdout_contains '"permissionDecision"' "rtk: a different command is still blocked"
+
+section "Approval Flow — Stale Pending Entries Are Not Approved"
+
+# A pending entry left by another session hours ago must not be approved by
+# today's approve.sh run (it would silently pre-authorise an old command).
+cleanup
+mkdir -p "$PENDING_DIR"
+printf 'Reason: old\nCommand: echo ancient\n' > "$PENDING_DIR/111111"
+if touch -d "2 hours ago" "$PENDING_DIR/111111" 2>/dev/null; then
+  run_hook "git push origin main"
+  fresh=$(cmd_hash "git push origin main")
+  approve_output=$(bash "$APPROVE" 2>&1)
+  assert_file_not_exists "$APPROVAL_DIR/111111" "stale: 2h-old pending entry is not approved"
+  assert_file_not_exists "$PENDING_DIR/111111" "stale: 2h-old pending entry is pruned"
+  assert_file_exists "$APPROVAL_DIR/$fresh" "stale: fresh pending entry is still approved"
+  if echo "$approve_output" | grep -qF "1 operation(s) approved"; then
+    pass "stale: approve.sh counts only the fresh entry"
+  else
+    fail "stale: approve.sh counts only the fresh entry" "output: $approve_output"
+  fi
+else
+  skip "stale pending test (touch -d not supported)"
+fi
+
 # ─── 5. SAFE COMMANDS (ALLOWED) ─────────────────────────────────────────────
 section "Safe Commands — Should Pass Through"
 

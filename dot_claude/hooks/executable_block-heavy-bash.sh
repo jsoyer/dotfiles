@@ -75,7 +75,8 @@ esac
 # === APPROVAL TOKEN MECHANISM (5-minute TTL) ===
 APPROVAL_DIR="$HOME/.claude/hooks/.approvals"
 PENDING_DIR="$HOME/.claude/hooks/.pending"
-CMD_HASH=$(printf '%s' "heavy-bash-$CMD_NORM" | cksum 2>/dev/null | cut -d' ' -f1) || CMD_HASH="heavy-fallback"
+HASH_SRC=$(normalize_cmd_for_hash "$COMMAND" 2>/dev/null) || HASH_SRC=""; [ -n "$HASH_SRC" ] || HASH_SRC="$COMMAND"
+CMD_HASH=$(printf '%s' "heavy-bash-$HASH_SRC" | cksum 2>/dev/null | cut -d' ' -f1) || CMD_HASH="heavy-fallback"
 
 if [ -f "$APPROVAL_DIR/$CMD_HASH" ]; then
   APPROVAL_TIME=$(stat -c %Y "$APPROVAL_DIR/$CMD_HASH" 2>/dev/null || stat -f %m "$APPROVAL_DIR/$CMD_HASH" 2>/dev/null || echo 0)

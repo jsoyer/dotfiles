@@ -60,3 +60,14 @@ emit_soft_block() {
   printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"SOFT_BLOCK_APPROVAL_NEEDED: %s"}}\n' "$reason"
   exit 0
 }
+
+# normalize_cmd_for_hash CMD — canonical form used to key pending/approval tokens.
+# The `rtk hook claude` PreToolUse hook rewrites "git push" into "rtk git push"
+# after a soft-block was approved, so the retry hashed differently and was
+# blocked again. Strip the rtk prefix at the start of each chained command and
+# collapse whitespace, so both spellings map to the same token.
+normalize_cmd_for_hash() {
+  printf '%s' "$1" | sed -E \
+    -e 's/(^|&&|\|\||;|\||\(|\$\(|`)[[:space:]]*rtk[[:space:]]+/\1 /g' \
+    -e 's/[[:space:]]+/ /g; s/^ //; s/ $//'
+}
