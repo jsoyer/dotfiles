@@ -268,9 +268,12 @@ bin/media_automation
 {{ if ne .chezmoi.os "linux" }}
 .config/systemd
 .local/bin/agent-alert
+.local/bin/agent-host-setup
+.local/share/agent-host
 .local/bin/agents-update
 .local/bin/agentsvc
 .local/bin/cursor-setup
+.local/bin/cursor-uninstall
 .local/bin/moshi-hook-launch
 .local/bin/moshi-setup
 .local/bin/moshi-uninstall

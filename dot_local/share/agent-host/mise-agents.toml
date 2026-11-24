@@ -1,0 +1,33 @@
+# ~/.config/mise/config.toml — agent host (Orca / T3 Code / Paseo server)
+# Written by agent-host-setup from ~/.local/share/agent-host/mise-agents.toml.
+# EXACT versions on purpose: agents-update.timer (05:00) bumps them, smoke-tests
+# every CLI and rolls the whole set back if one breaks. Edit versions here only
+# to pin by hand; new tools added to the template are merged in by
+# `agent-host-setup` (existing lines are never changed).
+[tools]
+node = "lts"
+bun = "1.4.5"
+uv = "0.13.9"
+# postinstall required (native binary): scripts allowed for THIS package only
+"npm:@anthropic-ai/claude-code" = { version = "2.1.330", npm_args = "--ignore-scripts=false" }
+"npm:@openai/codex" = "0.171.0"
+"npm:@github/copilot" = "1.0.114"
+# postinstall required (native binary): scripts allowed for THIS package only
+"npm:opencode-ai" = { version = "1.19.6", npm_args = "--ignore-scripts=false" }
+# OpenCode 2 (binary opencode2). Listed AFTER opencode-ai: `opencode` stays v1.
+"npm:@opencode/cli" = { version = "2.4.0", npm_args = "--ignore-scripts=false" }
+# pi: the @mariozechner scope is deprecated (May 2026, last 0.73.1).
+"npm:@earendil-works/pi-coding-agent" = "1.6.0"
+"npm:@oh-my-pi/pi-coding-agent" = "19.1.0"
+"npm:cline" = "3.0.75"
+"npm:@google/gemini-cli" = "0.71.1"
+"pipx:mistral-vibe" = "3.1.4"
+# rtk >= 1.2.0 dies with "Illegal instruction" on CPUs without AVX2:
+# agents-update holds it there (AGENTS_UPDATE_HOLD).
+"aqua:rtk-ai/rtk" = "1.1.0"
+
+[settings]
+# npm honors npm_args (postinstall allowed per package, see [tools])
+npm.package_manager = "npm"
+all_compile = false
+pipx.uvx = true

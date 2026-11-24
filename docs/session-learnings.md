@@ -156,3 +156,30 @@
 - **SAFETY:** `pkill -f "paseo daemon run"` inside `bash -c '... paseo daemon run ...'` kills the calling shell too (its own command line matches). Stop test daemons by PID.
 - **Verify:** `python3 scripts/test_paseo_setup.py`
 
+## 2026-11-24 — rtk on the agent hosts (CT 205/210/211)
+
+- **LOGIC:** rtk >= 1.2.0 x86_64 (musl tarball and .deb alike) dies with SIGILL (rc 132) on the i7-3770 host (no AVX2); 1.1.0 runs. `agents-update` holds `aqua:rtk-ai/rtk` by default when `/proc/cpuinfo` lacks avx2 — otherwise each night's bump to 1.2.x would fail the smoke test and the whole-set rollback would cancel every other agent update.
+- **LOGIC:** `sudo paseo-setup` failed with "command not found": sudo's `secure_path` does not search `~/.local/bin`. `paseo-setup` now copies itself to `/usr/local/bin`.
+- **LOGIC:** Paseo 0.17.4 has no built-in Cursor/Gemini/Grok entry; all three speak ACP over stdio (`cursor-agent acp`, `gemini --acp`, `grok agent stdio`) and plug in as `agents.providers.<id> = {"extends":"acp", ...}`. `omp` ships disabled.
+- **LOGIC:** `rtk init -g --codex` rejects both `--auto-patch` and `--no-patch`.
+- **Verify:** `python3 scripts/test_paseo_setup.py`, then `agents-update --dry-run` shows `held (not bumped): aqua:rtk-ai/rtk`.
+
+## 2026-11-24 — CT 210 (T3 Code) aligned on the other agent hosts
+
+- **LOGIC:** The community-scripts T3Code template runs T3 as root on `0.0.0.0:3773` with no firewall (LAN-reachable). Moved to the user service from `t3-setup`, bound to `127.0.0.1` behind Tailscale Serve.
+- **LOGIC:** The upstream `t3 service install` unit has no `Environment=PATH`: mise-installed agents are not found. `t3-setup` now writes `zz-user-path.conf` (shims, `~/.local/bin`, `~/.grok/bin`, `MISE_*_DIR`).
+- **LOGIC:** T3's data dir moves cleanly: `userdata/` (server-owner + statev2 sqlite, secrets) copied to `~/.t3/userdata` keeps paired devices and threads.
+- **LOGIC:** `@mariozechner/pi-coding-agent` is deprecated (May 2026, last 0.73.1); servers must use `npm:@earendil-works/pi-coding-agent` (1.6.0 today) in mise.
+- **SAFETY:** T3's boot log (`~/.t3/userdata/logs/boot-service.log`) prints a pairing token on every start; never `tail` it into a shared transcript. `t3 auth pairing list` shows whether one is still active.
+- **LOGIC:** `sudo <script>` fails for scripts in `~/.local/bin` (sudo's `secure_path`): call them by full path.
+- **Verify:** `python3 scripts/test_t3_paseo.py`
+
+## 2026-11-24 — agent-host-setup: one base for every agent CT
+
+- **LOGIC:** The three agent CTs had drifted (210 without cline/vibe, 205 without gemini, 211 without opencode2, two on the deprecated pi scope). One template + `agent-host-setup` (merge missing tools, never touch pins) realigned them; `agent-host-setup --check` lists the gaps.
+- **LOGIC:** `python3 - <<'PY'` uses stdin for the program: data piped to such a function never reaches `sys.stdin`. Pass it through an env var.
+- **LOGIC:** Under `set -euo pipefail`, `x="$(... | grep -v ...)"` exits the script when grep selects nothing. Wrap it: `{ grep -v ... || true; }`.
+- **LOGIC:** `ldconfig` is in `/sbin`, off a regular user's PATH: call it by full path when probing libraries.
+- **LOGIC:** T3's OpenCode instance runs `opencode`, which mise keeps at v1; the OpenCode Go/Zen login lives in v2 (`opencode2`). `t3-setup` sets `providerInstances.opencode.config.binaryPath` once, with the server stopped (it rewrites settings.json).
+- **Verify:** `python3 scripts/test_agent_host_setup.py`, `agent-host-setup --check` on each CT.
+

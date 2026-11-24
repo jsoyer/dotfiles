@@ -8,6 +8,12 @@
 #   - ~/.t3/service.env (KEY=VALUE, 0600) for --lan / --port / --host
 #   - linger, so the user manager survives logout (the only sudo needed)
 #   - monitoring: t3-health.timer (10 min) + OnFailure=t3-alert@ on t3code.service
+#   - zz-user-path.conf on t3code.service: PATH with the mise shims, ~/.local/bin
+#     and ~/.grok/bin, plus pinned MISE_*_DIR — the upstream unit sets no PATH,
+#     so the agents T3 launches were not found (same lesson as orca-setup)
+#   - the OpenCode instance pointed at `opencode2` when installed: with mise,
+#     `opencode` is v1 and the OpenCode Go/Zen login lives in v2 (only when the
+#     instance exists and has no binaryPath yet; the service is stopped first)
 #   - t3-update.timer (daily, random 1 h, or fixed with --update-at)
 #
 # USER scope on purpose: no system unit, no root, nothing under /etc.
@@ -216,9 +222,42 @@ if ! linger_on; then
   run sudo loginctl enable-linger "$(id -un)" || warn "Could not enable linger."
 fi
 
-if [[ "$ENV_CHANGED" -eq 1 ]]; then
-  log "Environment changed — restarting (t3 service restart)..."
-  run "$T3" service restart
+
+# OpenCode: mise keeps `opencode` = v1 (listed first) and installs v2 as
+# `opencode2`, which holds the OpenCode Go/Zen login. Point T3's existing
+# OpenCode instance at it, once (a binaryPath set by hand is kept).
+T3_SETTINGS="${T3CODE_HOME:-$HOME/.t3}/userdata/settings.json"
+OC2="$(command -v opencode2 2>/dev/null || true)"
+oc_needs_path() {
+  python3 - "$T3_SETTINGS" <<'PY'
+import json, sys
+try:
+    inst = json.load(open(sys.argv[1]))["providerInstances"]["opencode"]
+except (OSError, ValueError, KeyError, TypeError):
+    sys.exit(1)
+sys.exit(0 if not (inst.get("config") or {}).get("binaryPath") else 1)
+PY
+}
+if [[ -n "$OC2" && -f "$T3_SETTINGS" ]] && oc_needs_path; then
+  log "OpenCode instance -> ${OC2} (OpenCode 2 holds the Go/Zen login)..."
+  if [[ "$DRY_RUN" -eq 0 ]]; then
+    # The server rewrites settings.json: edit it while stopped.
+    systemctl --user stop "$SERVICE" 2>/dev/null || true
+    cp -p "$T3_SETTINGS" "${T3_SETTINGS}.bak-t3-setup"
+    python3 - "$T3_SETTINGS" "$OC2" <<'PY'
+import json, os, sys
+p, oc2 = sys.argv[1], sys.argv[2]
+s = json.load(open(p))
+s["providerInstances"]["opencode"].setdefault("config", {})["binaryPath"] = oc2
+tmp = p + ".tmp"
+with open(os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600), "w") as f:
+    json.dump(s, f, indent=2)
+os.replace(tmp, p)
+PY
+  else
+    printf '  %s+%s set providerInstances.opencode.config.binaryPath=%s\n' "$c_y" "$c_0" "$OC2"
+  fi
+  ENV_CHANGED=1
 fi
 
 # --- Step 4: monitoring + updater units (generated, user scope) ---------------
@@ -236,6 +275,24 @@ write_file "${UNIT_DIR}/${SERVICE}.d/zz-alert.conf" <<'EOF'
 [Unit]
 OnFailure=t3-alert@%n.service
 EOF
+
+# The upstream unit sets no PATH and a unit never reads shell rc files: the
+# agent CLIs (mise shims, vendor installers) must be listed explicitly.
+PATH_DROPIN="${UNIT_DIR}/${SERVICE}.d/zz-user-path.conf"
+path_dropin() {
+  cat <<'EOF'
+# Managed by t3-setup: a unit never reads shell rc files, so the agent CLIs
+# (mise shims, vendor installs) must be on PATH explicitly.
+[Service]
+Environment="PATH=%h/.local/share/mise/shims:%h/.local/bin:%h/.grok/bin:/usr/local/bin:/usr/bin:/bin"
+# Agent tools may isolate XDG_*: pin mise to its real dirs so the shims still work.
+Environment="MISE_DATA_DIR=%h/.local/share/mise" "MISE_CONFIG_DIR=%h/.config/mise" "MISE_STATE_DIR=%h/.local/state/mise" "MISE_CACHE_DIR=%h/.cache/mise"
+EOF
+}
+if ! cmp -s <(path_dropin) "$PATH_DROPIN" 2>/dev/null; then
+  path_dropin | write_file "$PATH_DROPIN"
+  ENV_CHANGED=1
+fi
 
 write_file "${UNIT_DIR}/t3-health.service" <<'EOF'
 [Unit]
@@ -294,6 +351,11 @@ EOF
 
 run systemctl --user daemon-reload
 run systemctl --user enable --now t3-health.timer t3-update.timer
+
+if [[ "$ENV_CHANGED" -eq 1 ]]; then
+  log "Environment changed — restarting (t3 service restart)..."
+  run "$T3" service restart
+fi
 
 [[ "$DRY_RUN" -eq 1 ]] && exit 0
 
