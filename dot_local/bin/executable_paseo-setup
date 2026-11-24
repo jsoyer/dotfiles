@@ -1,0 +1,282 @@
+#!/usr/bin/env bash
+#
+# paseo-setup — Turn a Linux box (LXC/VM) into an always-on Paseo server,
+# reachable over Tailscale only. Idempotent: safe to run again.
+#
+# Paseo (https://paseo.sh) is a daemon that drives coding agents (Claude Code,
+# Codex, OpenCode...) for desktop, mobile and web clients. Install it per user
+# with mise first, e.g. in ~/.config/mise/config.toml:
+#   "npm:@getpaseo/cli" = { version = "0.17.4", npm_args = "--ignore-scripts=false" }
+# (node-pty ships prebuilds; the flag keeps its install script when one is needed.)
+#
+# What it sets up (root, systemd):
+#   1. ~/.paseo/config.json   listen 0.0.0.0:<port>, relay OFF, web UI ON,
+#                             hostnames <host> + <host>.<tailnet>.ts.net
+#   2. paseo-firewall.service nftables table paseo_guard: the port is dropped on
+#                             every interface but lo and tailscale0
+#   3. paseo.service          `paseo daemon run` as <user>; Requires= the
+#                             firewall (fails closed), After= tailscaled
+#   4. paseo-health.timer     every 10 min: /api/health must answer; two misses
+#                             in a row restart the daemon (journal + ntfy alert)
+#
+# Lessons from the Orca server (orca-setup) baked in:
+#   - a system unit never reads shell rc files: PATH lists the mise shims,
+#     ~/.local/bin and ~/.grok/bin explicitly;
+#   - agent tools may isolate XDG_*: MISE_DATA/CONFIG/STATE/CACHE_DIR are pinned
+#     so the shims keep finding their installs;
+#   - listen on 0.0.0.0 + firewall rather than on the Tailscale IP, which may
+#     not exist yet at boot;
+#   - the web UI stays ON (it is useful); it is protected by the firewall and
+#     the Paseo password, never by turning it off.
+#
+# The password is NOT handled here: run `paseo daemon set-password` as <user>
+# (it stores a bcrypt hash). The service refuses to start until one is set,
+# unless --allow-no-password is given.
+#
+# Usage (root):
+#   paseo-setup --user <name> [--port 6767] [--no-start] [--allow-no-password]
+#   paseo-setup --status
+#   paseo-setup --uninstall           (units + firewall; ~/.paseo is kept)
+#
+set -euo pipefail
+
+PORT=6767
+SVC_USER=""
+NO_START=0
+ALLOW_NO_PASSWORD=0
+MODE="install"
+UNIT_DIR="/etc/systemd/system"
+GUARD_DIR="/etc/paseo"
+GUARD_FILE="${GUARD_DIR}/paseo-guard.nft"
+HEALTH_BIN="/usr/local/sbin/paseo-health"
+
+c_g=$'\e[32m'; c_y=$'\e[33m'; c_r=$'\e[31m'; c_0=$'\e[0m'
+[[ -t 1 ]] || { c_g=""; c_y=""; c_r=""; c_0=""; }
+ok()   { printf '%s[paseo-setup]%s %s\n' "$c_g" "$c_0" "$*"; }
+warn() { printf '%s[paseo-setup]%s %s\n' "$c_y" "$c_0" "$*" >&2; }
+die()  { printf '%s[paseo-setup] ERROR:%s %s\n' "$c_r" "$c_0" "$*" >&2; exit 1; }
+usage() { sed -n '3,/^set -euo/p' "$0" | sed '$d; s/^# \{0,1\}//'; }
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --user)              SVC_USER="${2:?--user needs a name}"; shift ;;
+    --port)              PORT="${2:?--port needs a value}"; shift ;;
+    --no-start)          NO_START=1 ;;
+    --allow-no-password) ALLOW_NO_PASSWORD=1 ;;
+    --status)            MODE="status" ;;
+    --uninstall)         MODE="uninstall" ;;
+    -h|--help)           usage; exit 0 ;;
+    *)                   die "Unknown option: $1 (see --help)" ;;
+  esac
+  shift
+done
+[[ "$PORT" =~ ^[0-9]{2,5}$ ]] && (( PORT >= 1024 && PORT <= 65535 )) || die "--port: 1024-65535"
+
+if [[ "$MODE" == "status" ]]; then
+  for u in paseo-firewall.service paseo.service paseo-health.timer; do
+    printf '  %-24s %s\n' "$u" "$(systemctl is-active "$u" 2>/dev/null || true)"
+  done
+  if curl -fsS -m 5 "http://127.0.0.1:${PORT}/api/health" >/dev/null 2>&1; then
+    echo "  /api/health              ok"
+  else
+    echo "  /api/health              NO ANSWER"
+  fi
+  nft list table inet paseo_guard >/dev/null 2>&1 && echo "  firewall table           present" \
+    || echo "  firewall table           MISSING"
+  exit 0
+fi
+
+[[ "$(id -u)" -eq 0 ]] || die "Run as root (sudo)."
+command -v systemctl >/dev/null || die "systemd is required."
+
+if [[ "$MODE" == "uninstall" ]]; then
+  systemctl disable --now paseo-health.timer paseo.service paseo-firewall.service 2>/dev/null || true
+  rm -f "${UNIT_DIR}"/paseo.service "${UNIT_DIR}"/paseo-firewall.service \
+        "${UNIT_DIR}"/paseo-health.{service,timer} "$HEALTH_BIN" "$GUARD_FILE"
+  rmdir "$GUARD_DIR" 2>/dev/null || true
+  systemctl daemon-reload
+  ok "Paseo units and firewall removed (~/.paseo kept)."
+  exit 0
+fi
+
+[[ "$SVC_USER" =~ ^[a-z_][a-z0-9_-]{0,31}$ ]] || die "--user <name> is required (the agents' user)."
+[[ "$SVC_USER" != root ]] || die "Run Paseo as a regular user, not root."
+SVC_HOME="$(getent passwd "$SVC_USER" | cut -d: -f6)"
+[[ -n "$SVC_HOME" && -d "$SVC_HOME" ]] || die "Unknown user or missing home: $SVC_USER"
+command -v nft >/dev/null || die "nftables is required (apt-get install nftables)."
+SHIM="${SVC_HOME}/.local/share/mise/shims/paseo"
+[[ -x "$SHIM" ]] || die "No mise shim at $SHIM: add npm:@getpaseo/cli to ${SVC_USER}'s mise config, then mise install."
+
+# Run a command as the service user with the same environment as the unit.
+as_user() {
+  runuser -u "$SVC_USER" -- env -i HOME="$SVC_HOME" USER="$SVC_USER" \
+    PATH="${SVC_HOME}/.local/share/mise/shims:${SVC_HOME}/.local/bin:/usr/local/bin:/usr/bin:/bin" \
+    MISE_DATA_DIR="${SVC_HOME}/.local/share/mise" MISE_CONFIG_DIR="${SVC_HOME}/.config/mise" \
+    MISE_STATE_DIR="${SVC_HOME}/.local/state/mise" MISE_CACHE_DIR="${SVC_HOME}/.cache/mise" \
+    PASEO_HOME="${SVC_HOME}/.paseo" bash -c 'cd "$HOME" && "$@"' _ "$@"
+}
+
+# --- 1. Paseo config -----------------------------------------------------------
+HOST_SHORT="$(hostname -s)"
+TS_NAME=""
+if command -v tailscale >/dev/null 2>&1; then
+  TS_NAME="$(tailscale status --self --json 2>/dev/null \
+    | sed -n 's/.*"DNSName": *"\([^"]*\)\.".*/\1/p' | head -1 || true)"
+fi
+hostnames="[\"${HOST_SHORT}\"${TS_NAME:+,\"${TS_NAME}\"}]"
+as_user paseo daemon config set daemon.listen "0.0.0.0:${PORT}" --string >/dev/null
+as_user paseo daemon config set daemon.relay.enabled false >/dev/null
+as_user paseo daemon config set features.webUi.enabled true >/dev/null
+as_user paseo daemon config set daemon.hostnames "$hostnames" >/dev/null
+ok "Config: listen 0.0.0.0:${PORT}, relay off, web UI on, hostnames ${hostnames}"
+[[ -n "$TS_NAME" ]] || warn "Tailscale name unknown (not logged in?): web UI by IP only. Re-run after 'tailscale up'."
+
+# --- 2. Firewall ----------------------------------------------------------------
+install -d -m 0755 "$GUARD_DIR"
+cat > "$GUARD_FILE" <<EOF
+# Managed by paseo-setup: the Paseo port is reachable from loopback + Tailscale only.
+table inet paseo_guard
+delete table inet paseo_guard
+table inet paseo_guard {
+  chain input {
+    type filter hook input priority -10; policy accept;
+    tcp dport ${PORT} iifname != { "lo", "tailscale0" } drop
+  }
+}
+EOF
+cat > "${UNIT_DIR}/paseo-firewall.service" <<'EOF'
+# Managed by paseo-setup.
+[Unit]
+Description=Restrict the Paseo port to loopback + Tailscale
+Before=paseo.service
+After=network-pre.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/sbin/nft -f /etc/paseo/paseo-guard.nft
+ExecStop=-/usr/sbin/nft delete table inet paseo_guard
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+# --- 3. Daemon unit -------------------------------------------------------------
+cat > "${UNIT_DIR}/paseo.service" <<EOF
+# Managed by paseo-setup.
+[Unit]
+Description=Paseo daemon (coding agents server)
+Documentation=https://paseo.sh/docs
+# The firewall must be up before the port opens (listen is 0.0.0.0): fail closed.
+Requires=paseo-firewall.service
+After=paseo-firewall.service network-online.target tailscaled.service
+Wants=network-online.target tailscaled.service
+# Catch slow crash-loops too (same policy as orca-serve).
+StartLimitIntervalSec=1800
+StartLimitBurst=5
+
+[Service]
+Type=simple
+User=${SVC_USER}
+WorkingDirectory=${SVC_HOME}
+# A system unit never reads shell rc files: agents must be on PATH explicitly.
+Environment="PATH=${SVC_HOME}/.local/share/mise/shims:${SVC_HOME}/.local/bin:${SVC_HOME}/.grok/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+Environment="HOME=${SVC_HOME}"
+Environment="PASEO_HOME=${SVC_HOME}/.paseo"
+# Agent tools may isolate XDG_*: pin mise to its real dirs so the shims still work.
+Environment="MISE_DATA_DIR=${SVC_HOME}/.local/share/mise" "MISE_CONFIG_DIR=${SVC_HOME}/.config/mise" "MISE_STATE_DIR=${SVC_HOME}/.local/state/mise" "MISE_CACHE_DIR=${SVC_HOME}/.cache/mise"
+ExecStart=${SHIM} daemon run --home ${SVC_HOME}/.paseo
+Restart=on-failure
+RestartSec=5
+KillMode=mixed
+TimeoutStopSec=30
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+# --- 4. Health check ------------------------------------------------------------
+cat > "$HEALTH_BIN" <<EOF
+#!/usr/bin/env bash
+# Managed by paseo-setup. Two failed /api/health probes in a row restart Paseo.
+set -uo pipefail
+STATE_DIR=/var/lib/paseo-health; mkdir -p "\$STATE_DIR"
+fails=0; [[ -r "\$STATE_DIR/fails" ]] && fails=\$(<"\$STATE_DIR/fails")
+CONF=/etc/orca-alert.conf; [[ -r "\$CONF" ]] && . "\$CONF"
+notify() {
+  logger -t paseo-health -p user.err "\$1: \$2"
+  [[ -n "\${ORCA_ALERT_URL:-}" ]] || return 0
+  curl -fsS -m 10 -H "Title: \$1" -H "Priority: urgent" \
+    \${ORCA_ALERT_TOKEN:+-H "Authorization: Bearer \$ORCA_ALERT_TOKEN"} \
+    --data-binary "\$2" "\$ORCA_ALERT_URL" >/dev/null || true
+}
+if curl -fsS -m 10 http://127.0.0.1:${PORT}/api/health >/dev/null 2>&1; then
+  (( fails > 0 )) && logger -t paseo-health "Paseo answers again"
+  echo 0 > "\$STATE_DIR/fails"; exit 0
+fi
+fails=\$((fails + 1)); echo "\$fails" > "\$STATE_DIR/fails"
+state=\$(systemctl is-active paseo.service 2>/dev/null || true)
+if (( fails >= 2 )); then
+  notify "Paseo down on \$(hostname)" "No /api/health answer twice in a row (unit: \$state). Restarting paseo.service."
+  systemctl reset-failed paseo.service 2>/dev/null || true
+  systemctl restart paseo.service || notify "Paseo restart FAILED on \$(hostname)" "journalctl -u paseo -e"
+  echo 0 > "\$STATE_DIR/fails"
+else
+  logger -t paseo-health "No /api/health answer (unit: \$state), retry at the next run"
+fi
+exit 0
+EOF
+chmod 0755 "$HEALTH_BIN"
+cat > "${UNIT_DIR}/paseo-health.service" <<EOF
+# Managed by paseo-setup.
+[Unit]
+Description=Paseo health check (restart after two failed probes)
+After=paseo.service
+
+[Service]
+Type=oneshot
+ExecStart=${HEALTH_BIN}
+EOF
+cat > "${UNIT_DIR}/paseo-health.timer" <<'EOF'
+# Managed by paseo-setup.
+[Unit]
+Description=Paseo health check every 10 minutes
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=10min
+
+[Install]
+WantedBy=timers.target
+EOF
+
+systemctl daemon-reload
+systemctl enable --now paseo-firewall.service >/dev/null 2>&1
+systemctl restart paseo-firewall.service
+systemctl enable paseo.service paseo-health.timer >/dev/null 2>&1
+ok "Units installed: paseo-firewall (active), paseo (enabled), paseo-health.timer"
+
+# --- Start ----------------------------------------------------------------------
+has_password=0
+grep -q '"password"' "${SVC_HOME}/.paseo/config.json" 2>/dev/null && has_password=1
+if (( NO_START )); then
+  ok "Not started (--no-start)."
+elif (( ! has_password && ! ALLOW_NO_PASSWORD )); then
+  warn "No Paseo password yet: not starting. As ${SVC_USER}: paseo daemon set-password"
+  warn "then: sudo systemctl start paseo.service paseo-health.timer"
+else
+  systemctl restart paseo.service
+  systemctl start paseo-health.timer
+  for _ in $(seq 1 30); do
+    curl -fsS -m 2 "http://127.0.0.1:${PORT}/api/health" >/dev/null 2>&1 && break
+    sleep 1
+  done
+  if curl -fsS -m 2 "http://127.0.0.1:${PORT}/api/health" >/dev/null 2>&1; then
+    ok "Paseo is up: http://${TS_NAME:-<tailscale-ip>}:${PORT} (web UI, password protected)"
+  else
+    die "Paseo did not answer on /api/health: journalctl -u paseo -e"
+  fi
+fi
+ok "Shells that run agents should export the same mise pins, e.g. in ~/.bashrc:
+  export MISE_DATA_DIR=\"\$HOME/.local/share/mise\" MISE_CONFIG_DIR=\"\$HOME/.config/mise\" MISE_STATE_DIR=\"\$HOME/.local/state/mise\" MISE_CACHE_DIR=\"\$HOME/.cache/mise\""
+ok "Updates: agents-update --install-timer --at 05:00 --user ${SVC_USER} --restart-on paseo=paseo.service"

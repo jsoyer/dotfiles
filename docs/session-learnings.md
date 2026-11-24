@@ -147,3 +147,12 @@
 - **LOGIC:** OpenCode 1 (`npm:opencode-ai`) and 2 (`npm:@opencode/cli`, bins `opencode` and `opencode2`) coexist under mise: the tool listed first keeps the `opencode` shim.
 - **LOGIC:** `devin update` exits 130 without a terminal. Run it as `script -qec 'devin update' /dev/null`.
 - **LOGIC:** `orca-ide account add` (opencode/devin) logs in under `$TMPDIR` and the server imports that dir. `orca-serve` has `PrivateTmp=yes`, so with `/tmp` it fails with `ENOENT .../opencode.db`. Run `orca-ide` with `TMPDIR=~/.cache/orca/cli-tmp`.
+
+## 2026-11-24 — Paseo server on CT 211 (Proxmox LXC)
+
+- **LOGIC:** Ubuntu 24.04 LXC template: mise's node fails with `libatomic.so.1: cannot open shared object file` until `libatomic1` is installed.
+- **LOGIC:** Installing Tailscale in a CT whose `/etc/resolv.conf` is the PVE copy of the host's: it points at `100.100.100.100` and Tailscale finds no upstream, so nothing resolves. `pct-bootstrap` (systemd-resolved stub + `.pve-ignore.resolv.conf`) fixes it.
+- **LOGIC:** A running Paseo daemon keeps its binary after `mise upgrade`: `agents-update --restart-on paseo=paseo.service`.
+- **SAFETY:** `pkill -f "paseo daemon run"` inside `bash -c '... paseo daemon run ...'` kills the calling shell too (its own command line matches). Stop test daemons by PID.
+- **Verify:** `python3 scripts/test_paseo_setup.py`
+

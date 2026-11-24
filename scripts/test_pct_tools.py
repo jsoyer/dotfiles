@@ -120,6 +120,8 @@ class PctSnapshot(unittest.TestCase):
         self.assertIn("Persistent=true", text)
         # The unit runs a root-owned system copy, not root's chezmoi home.
         self.assertIn('INSTALL_PATH="/usr/local/sbin/pct-snapshot"', text)
+        # A second guest's timer is installed from the installed copy itself.
+        self.assertIn('|| install -m 0755 "$(readlink -f -- "$0")" "$INSTALL_PATH"', text)
 
 
 class PctBootstrap(unittest.TestCase):
