@@ -156,3 +156,11 @@
 - **SAFETY:** `pkill -f "paseo daemon run"` inside `bash -c '... paseo daemon run ...'` kills the calling shell too (its own command line matches). Stop test daemons by PID.
 - **Verify:** `python3 scripts/test_paseo_setup.py`
 
+## 2026-11-24 — rtk on the agent hosts (CT 205/210/211)
+
+- **LOGIC:** rtk >= 1.2.0 x86_64 (musl tarball and .deb alike) dies with SIGILL (rc 132) on the i7-3770 host (no AVX2); 1.1.0 runs. `agents-update` holds `aqua:rtk-ai/rtk` by default when `/proc/cpuinfo` lacks avx2 — otherwise each night's bump to 1.2.x would fail the smoke test and the whole-set rollback would cancel every other agent update.
+- **LOGIC:** `sudo paseo-setup` failed with "command not found": sudo's `secure_path` does not search `~/.local/bin`. `paseo-setup` now copies itself to `/usr/local/bin`.
+- **LOGIC:** Paseo 0.17.4 has no built-in Cursor/Gemini/Grok entry; all three speak ACP over stdio (`cursor-agent acp`, `gemini --acp`, `grok agent stdio`) and plug in as `agents.providers.<id> = {"extends":"acp", ...}`. `omp` ships disabled.
+- **LOGIC:** `rtk init -g --codex` rejects both `--auto-patch` and `--no-patch`.
+- **Verify:** `python3 scripts/test_paseo_setup.py`, then `agents-update --dry-run` shows `held (not bumped): aqua:rtk-ai/rtk`.
+
