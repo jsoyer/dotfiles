@@ -266,7 +266,8 @@ class OrcaTrustedSource(TrustedSource, unittest.TestCase):
 
 class AgentsUpdate(unittest.TestCase):
     def test_mise_keeps_previous_versions_for_rollback(self):
-        self.assertIn("mise upgrade --bump --pin --no-prune", AGENTS)
+        self.assertIn("mise upgrade --bump --pin ", AGENTS)
+        self.assertIn("mise_upgrade --no-prune --yes", AGENTS)
         self.assertIn('cp -f "$backup" "$MISE_CONFIG"', AGENTS)
 
     def test_never_probes_a_bare_agent_binary(self):

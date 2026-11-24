@@ -1088,6 +1088,8 @@ agents-update --install-timer --at 05:00 --user <name> --restart-on paseo=paseo.
 | `paseo-firewall.service` | nftables `paseo_guard`: port dropped on every interface but `lo` and `tailscale0` |
 | `paseo.service` | `paseo daemon run` as `<name>`, `Requires=` the firewall (fails closed), after `tailscaled` |
 | `paseo-health.timer` | every 10 min `/api/health`; two misses in a row restart the daemon and alert |
+| `agents.providers` | ACP entries for agents Paseo has no built-in for, when installed: `cursor-agent acp`, `gemini --acp`, `grok agent stdio`; `omp` enabled (off by default), `muse` disabled when absent. Missing keys only: edits are kept |
+| `/usr/local/bin/paseo-setup` | copy of the script: sudo's `secure_path` skips `~/.local/bin` (`sudo paseo-setup: command not found`) |
 
 - **Password first.** The unit is not started until `paseo daemon set-password`
   has stored a bcrypt hash (or `--allow-no-password`). It protects the API and
@@ -1108,6 +1110,17 @@ agents-update --install-timer --at 05:00 --user <name> --restart-on paseo=paseo.
 - **Updates.** A running daemon keeps its binary: `--restart-on paseo=paseo.service`
   makes `agents-update` restart it (with `sudo -n`) when the Paseo CLI moved and
   the new set was kept.
+- **Held tools.** `agents-update` smoke-tests but never bumps the tools in
+  `AGENTS_UPDATE_HOLD` (mise names, space separated). Default on a CPU without
+  AVX2: `aqua:rtk-ai/rtk`, whose x86_64 builds from 1.2.0 die with
+  `Illegal instruction` on the Ivy Bridge host; pin it at `1.1.0`. Without the
+  hold, the whole-set rollback would cancel every other agent's update nightly.
+  `AGENTS_UPDATE_HOLD=""` holds nothing.
+- **rtk on the agent hosts.** One `rtk init -g` per installed agent (hooks are
+  per agent, Orca/T3/Paseo need nothing): plain (Claude) or `--opencode`,
+  `--codex`, `--gemini`, `--copilot`, `--agent cursor|antigravity|pi|omp|vibe`
+  (add `--auto-patch --no-trust-filters`, except `--codex` which takes neither).
+  Grok and Devin have no rtk integration. Restart the server afterwards.
 - Same lessons as the Orca server: explicit PATH (mise shims, `~/.local/bin`,
   `~/.grok/bin`), pinned `MISE_*_DIR`, `0.0.0.0` + firewall instead of binding
   the Tailscale IP (absent at boot). mise's node needs `libatomic1` on a minimal

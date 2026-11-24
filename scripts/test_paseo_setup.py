@@ -151,5 +151,77 @@ class AgentsUpdateRestartHook(unittest.TestCase):
         self.assertFalse(pattern.match("paseo=paseo.service; rm -rf /"))
 
 
+def extract_func(text, name):
+    start = text.index(f"{name}() {{")
+    return text[start:text.index("\n}\n", start) + 3]
+
+
+class AgentsUpdateHold(unittest.TestCase):
+    """rtk >= 1.2.0 dies with SIGILL on CPUs without AVX2 (Ivy Bridge host):
+    it must be held, or the whole-set rollback cancels every agent update."""
+
+    def test_rtk_smoke_tested(self):
+        self.assertIn('"rtk:rtk --version"', UPDATE)
+
+    def test_default_hold_only_without_avx2(self):
+        self.assertIn('grep -qw avx2 /proc/cpuinfo', UPDATE)
+        self.assertIn('HOLD="aqua:rtk-ai/rtk"', UPDATE)
+        self.assertIn('AGENTS_UPDATE_HOLD+x', UPDATE)  # "" explicitly holds nothing
+
+    def test_upgrade_targets_skip_held_tools(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            fake = Path(tmp, "mise")
+            fake.write_text('#!/bin/sh\necho \'{"aqua:rtk-ai/rtk":[],"node":[],"npm:@openai/codex":[]}\'\n')
+            fake.chmod(0o755)
+            script = ("die(){ echo \"$*\" >&2; exit 1; }\n" + extract_func(UPDATE, "upgrade_targets")
+                      + "\nHOLD='aqua:rtk-ai/rtk'; upgrade_targets\n")
+            r = subprocess.run(["bash", "-c", script], capture_output=True, text=True,
+                               env={"PATH": f"{tmp}:/usr/bin:/bin"}, check=True)
+            self.assertEqual(r.stdout.split(), ["node", "npm:@openai/codex"])
+            r = subprocess.run(["bash", "-c", script.replace("HOLD='aqua:rtk-ai/rtk'", "HOLD=''")],
+                               capture_output=True, text=True,
+                               env={"PATH": f"{tmp}:/usr/bin:/bin"}, check=True)
+            self.assertEqual(r.stdout, "")  # no hold: plain `mise upgrade`, everything
+
+    def test_both_upgrade_paths_use_the_holds(self):
+        self.assertIn("mise_upgrade --dry-run", UPDATE)
+        self.assertIn("mise_upgrade --no-prune --yes", UPDATE)
+        self.assertNotRegex(UPDATE, r"(?m)^[^#\n]*mise upgrade --bump --pin --no-prune")
+
+
+class PaseoProviders(unittest.TestCase):
+    def py_block(self):
+        start = SETUP.index("<<'PY'\n") + len("<<'PY'\n")
+        return SETUP[start:SETUP.index("\nPY\n", start)]
+
+    def run_block(self, home, *args):
+        return subprocess.run(["python3", "-c", self.py_block(), *args], capture_output=True,
+                              text=True, env=dict(os.environ, PASEO_HOME=home), check=True).stdout.strip()
+
+    def test_acp_commands(self):
+        for cmd in ('["cursor-agent","acp"]', '["gemini","--acp"]', '["grok","agent","stdio"]'):
+            self.assertIn(cmd, SETUP)
+        self.assertIn('"extends":"acp"', SETUP)
+
+    def test_only_missing_keys_written_and_mode_600(self):
+        import json, tempfile
+        with tempfile.TemporaryDirectory() as home:
+            cfg = Path(home, "config.json")
+            cfg.write_text(json.dumps({"daemon": {"password": "h"},
+                                       "agents": {"providers": {"grok": {"label": "Mine"}}}}))
+            out = self.run_block(home, 'grok={"label":"Grok"}', 'omp={"enabled":true}')
+            self.assertEqual(out, "omp")
+            c = json.loads(cfg.read_text())
+            self.assertEqual(c["agents"]["providers"]["grok"], {"label": "Mine"})
+            self.assertEqual(c["agents"]["providers"]["omp"], {"enabled": True})
+            self.assertEqual(c["daemon"]["password"], "h")
+            self.assertEqual(cfg.stat().st_mode & 0o777, 0o600)
+            self.assertEqual(self.run_block(home, 'omp={"enabled":false}'), "")  # idempotent
+
+    def test_self_installs_where_sudo_finds_it(self):
+        self.assertIn('SELF_BIN="/usr/local/bin/paseo-setup"', SETUP)
+
+
 if __name__ == "__main__":
     unittest.main()

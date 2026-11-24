@@ -19,6 +19,13 @@
 #   4. paseo-health.timer     every 10 min: /api/health must answer; two misses
 #                             in a row restart the daemon (journal + agent-alert:
 #                             ntfy or Telegram, see `agent-alert --help`)
+#   5. agent providers        agents Paseo has no built-in entry for are added
+#                             as ACP providers when installed (cursor-agent acp,
+#                             gemini --acp, grok agent stdio); omp is enabled
+#                             (off by default), muse disabled when absent.
+#                             Only keys not set yet are written: edits survive.
+#   6. /usr/local/bin/paseo-setup  a copy of this script, because sudo's
+#                             secure_path does not search ~/.local/bin.
 #
 # Lessons from the Orca server (orca-setup) baked in:
 #   - a system unit never reads shell rc files: PATH lists the mise shims,
@@ -107,6 +114,9 @@ fi
 SVC_HOME="$(getent passwd "$SVC_USER" | cut -d: -f6)"
 [[ -n "$SVC_HOME" && -d "$SVC_HOME" ]] || die "Unknown user or missing home: $SVC_USER"
 command -v nft >/dev/null || die "nftables is required (apt-get install nftables)."
+# sudo's secure_path skips ~/.local/bin: keep a copy where `sudo paseo-setup` finds it.
+SELF_BIN="/usr/local/bin/paseo-setup"
+[[ "$(readlink -f -- "$0")" -ef "$SELF_BIN" ]] || install -m 0755 "$(readlink -f -- "$0")" "$SELF_BIN"
 SHIM="${SVC_HOME}/.local/share/mise/shims/paseo"
 [[ -x "$SHIM" ]] || die "No mise shim at $SHIM: add npm:@getpaseo/cli to ${SVC_USER}'s mise config, then mise install."
 
@@ -133,6 +143,38 @@ as_user paseo daemon config set features.webUi.enabled true >/dev/null
 as_user paseo daemon config set daemon.hostnames "$hostnames" >/dev/null
 ok "Config: listen 0.0.0.0:${PORT}, relay off, web UI on, hostnames ${hostnames}"
 [[ -n "$TS_NAME" ]] || warn "Tailscale name unknown (not logged in?): web UI by IP only. Re-run after 'tailscale up'."
+
+# Agent providers (agents.providers in config.json). Built in: claude, codex,
+# copilot, opencode, pi, omp, antigravity, muse. The others speak ACP over stdio.
+# Written with python (not `daemon config set`) to add only the missing keys.
+have_cli() { as_user bash -c 'command -v "$1"' _ "$1" >/dev/null 2>&1; }
+prov_add=()
+have_cli cursor-agent && prov_add+=('cursor={"extends":"acp","label":"Cursor","command":["cursor-agent","acp"]}')
+have_cli gemini       && prov_add+=('gemini={"extends":"acp","label":"Gemini","command":["gemini","--acp"]}')
+have_cli grok         && prov_add+=('grok={"extends":"acp","label":"Grok","command":["grok","agent","stdio"]}')
+have_cli omp          && prov_add+=('omp={"enabled":true}')
+have_cli muse         || prov_add+=('muse={"enabled":false}')
+if (( ${#prov_add[@]} > 0 )); then
+  added="$(as_user python3 - "${prov_add[@]}" <<'PY'
+import json, os, sys
+p = os.path.join(os.environ["PASEO_HOME"], "config.json")
+c = json.load(open(p)) if os.path.exists(p) else {}
+prov = c.setdefault("agents", {}).setdefault("providers", {})
+added = []
+for arg in sys.argv[1:]:
+    k, v = arg.split("=", 1)
+    if k not in prov:
+        prov[k] = json.loads(v); added.append(k)
+if added:
+    tmp = p + ".tmp"
+    with open(os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600), "w") as f:
+        json.dump(c, f, indent=2)
+    os.replace(tmp, p)
+print(" ".join(added))
+PY
+)" || die "Could not update the agent providers in ${SVC_HOME}/.paseo/config.json"
+  ok "Providers: ${added:-already configured}"
+fi
 
 # --- 2. Firewall ----------------------------------------------------------------
 install -d -m 0755 "$GUARD_DIR"
