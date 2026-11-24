@@ -1,0 +1,56 @@
+{
+  "prd": "docs/tasks/infra/feature/2026-11-24_1757-telegram-migration/spec.md",
+  "created": "2026-11-24T17:57:00+01:00",
+  "sprint_0": {
+    "title": "Préparation manuelle (Jérôme) : bot, supergroupe forum, sujets, élément 1Password",
+    "status": "not_started",
+    "owner": "user"
+  },
+  "sprints": [
+    {
+      "id": 1,
+      "file": "sprints/01-emetteurs-communs.md",
+      "title": "Émetteurs communs : agent-alert, canal Telegram fleet, contrôle de sortie",
+      "status": "not_started",
+      "depends_on": [],
+      "batch": 1,
+      "model": "sonnet",
+      "branch": null,
+      "merged": false
+    },
+    {
+      "id": 2,
+      "file": "sprints/02-chezmoi-autoupdate-media-config.md",
+      "title": "chezmoi-autoupdate, media_automation et configuration générée",
+      "status": "not_started",
+      "depends_on": [1],
+      "batch": 2,
+      "model": "sonnet",
+      "branch": null,
+      "merged": false
+    },
+    {
+      "id": 3,
+      "file": "sprints/03-cablage-fleet.md",
+      "title": "Câblage fleet : orchestrateur, agents pull, notify-test",
+      "status": "not_started",
+      "depends_on": [1],
+      "batch": 2,
+      "model": "sonnet",
+      "branch": null,
+      "merged": false
+    },
+    {
+      "id": 4,
+      "file": "sprints/04-bascule-suppression-ntfy.md",
+      "title": "Bascule : suppression de ntfy",
+      "status": "not_started",
+      "depends_on": [2, 3],
+      "batch": 3,
+      "model": "sonnet",
+      "branch": null,
+      "merged": false,
+      "gate": "grille de bascule complète (spec.md §12, sprint 4 Gate)"
+    }
+  ]
+}
