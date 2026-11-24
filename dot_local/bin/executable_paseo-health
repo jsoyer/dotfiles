@@ -12,10 +12,9 @@
 #     is listening
 #   - NRestarts did not climb by RESTART_DELTA_MAX since the previous pass
 #
-# Notification: always the journal (priority err/warning); plus ntfy when
-# ORCA_ALERT_URL is set (and ORCA_ALERT_TOKEN for a deny-all server) in
-# /etc/orca-alert.conf, or in ~/.config/agent-alert.conf when the former is
-# not readable by this user (orca-setup writes it root-only, 0600).
+# Notification: always the journal (priority err/warning); plus a push through
+# agent-alert (ntfy or Telegram) — configure with `agent-alert --configure`
+# (user units read ~/.config/agent-alert.conf).
 #
 # Usage:
 #   paseo-health                run one check (exit 1 when a problem is found)
@@ -43,24 +42,17 @@ while [[ $# -gt 0 ]]; do
   shift
 done
 
-for conf in /etc/orca-alert.conf "${XDG_CONFIG_HOME:-$HOME/.config}/agent-alert.conf"; do
-  # shellcheck source=/dev/null
-  [[ -r "$conf" ]] && . "$conf" && break
-done
+ALERT_BIN="$(dirname "$(readlink -f "$0")")/agent-alert"
+[[ -x "$ALERT_BIN" ]] || ALERT_BIN="agent-alert"
 
 notify() {
   local level="$1" title="$2" body="$3"
   if [[ "$level" == "CRITICAL" ]]; then printf '<3>%s\n%s\n' "$title" "$body"
   else printf '<4>%s\n%s\n' "$title" "$body"; fi
-  [[ -n "${ORCA_ALERT_URL:-}" ]] || return 0
-  local auth=()
-  [[ -n "${ORCA_ALERT_TOKEN:-}" ]] && auth=(-H "Authorization: Bearer ${ORCA_ALERT_TOKEN}")
-  curl -fsS --max-time 10 ${auth[@]+"${auth[@]}"} \
-    -H "Title: ${title}" \
-    -H "Priority: $([[ "$level" == CRITICAL ]] && echo urgent || echo default)" \
-    -H "Tags: $([[ "$level" == CRITICAL ]] && echo rotating_light || echo warning)" \
-    -d "${body}" "${ORCA_ALERT_URL}" >/dev/null 2>&1 \
-    || printf '<4>paseo-health: could not reach ORCA_ALERT_URL\n'
+  "$ALERT_BIN" --title "$title" \
+    --priority "$([[ "$level" == CRITICAL ]] && echo high || echo default)" \
+    --tags "$([[ "$level" == CRITICAL ]] && echo rotating_light || echo warning)" \
+    "$body" >/dev/null 2>&1 || true
 }
 
 if [[ -n "$ALERT_UNIT" ]]; then

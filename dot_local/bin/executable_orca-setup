@@ -55,7 +55,9 @@ HEALTH_SCRIPT="/usr/local/bin/orca-health"
 HEALTH_SERVICE="orca-health.service"
 HEALTH_TIMER="orca-health.timer"
 ALERT_SERVICE="orca-alert@.service"
-ALERT_CONF="/etc/orca-alert.conf"
+ALERT_SCRIPT="/usr/local/bin/agent-alert"
+ALERT_CONF="/etc/agent-alert.conf"
+LEGACY_ALERT_CONF="/etc/orca-alert.conf"   # still read by agent-alert, never deleted here
 HEALTH_STATE_DIR="/var/lib/orca-health"
 DEFAULT_PORT=6768
 FIREWALL_SERVICE="orca-firewall.service"
@@ -213,9 +215,9 @@ do_uninstall() {
   run rm -f "/etc/systemd/system/${HEALTH_SERVICE}" \
             "/etc/systemd/system/${HEALTH_TIMER}" \
             "/etc/systemd/system/${ALERT_SERVICE}"
-  run rm -f "$UPDATE_SCRIPT" "$HEALTH_SCRIPT"
+  run rm -f "$UPDATE_SCRIPT" "$HEALTH_SCRIPT" "$ALERT_SCRIPT"
   run systemctl daemon-reload
-  # ${ALERT_CONF} is user configuration (it may hold an ntfy URL) and is kept,
+  # ${ALERT_CONF} is user configuration (it may hold a push token) and is kept,
   # like the AppImage.
   ok "Units removed. AppImage kept in ${DEST_DIR}, alert config kept in ${ALERT_CONF}."
 }
@@ -298,6 +300,14 @@ if [[ -n "$SRC_UPDATE" ]]; then
 else
   warn "update-orca not found — the update timer will not work."
   warn "Run 'chezmoi apply' to deploy ~/.local/bin/update-orca, then re-run orca-setup."
+fi
+
+SRC_ALERT="$(locate_helper agent-alert || true)"
+if [[ -n "$SRC_ALERT" ]]; then
+  install_helper "$SRC_ALERT" "$ALERT_SCRIPT"
+else
+  warn "agent-alert not found — alerts stay in the journal."
+  warn "Run 'chezmoi apply' to deploy ~/.local/bin/agent-alert, then re-run orca-setup."
 fi
 
 SRC_HEALTH="$(locate_helper orca-health || true)"
@@ -773,28 +783,47 @@ PrivateTmp=yes
 SuccessExitStatus=0 1
 EOF
 
-  # Never overwritten: it may already hold the user's ntfy URL. 0600 because that
-  # URL is the only thing protecting the alert feed from being read by anyone.
+  # Never overwritten: it may already hold the push credentials. 0600 because
+  # that is the only thing protecting them (agent-alert refuses a token file that
+  # is group/world readable).
   if [[ -f "$ALERT_CONF" ]]; then
     ok "Alert config already present: ${ALERT_CONF} (left untouched)"
   elif [[ "$DRY_RUN" -eq 1 ]]; then
     printf '  %s+%s write %s (mode 600)\n' "$c_y" "$c_0" "$ALERT_CONF"
+  elif [[ -r "$LEGACY_ALERT_CONF" ]]; then
+    # Migration: copy the legacy ntfy values to the new key names. The legacy file
+    # stays in place (agent-alert still reads it as a last resort), so a host
+    # mid-rollout keeps alerting either way.
+    ( umask 077
+      # shellcheck source=/dev/null
+      . "$LEGACY_ALERT_CONF"
+      {
+        echo "# Migrated from ${LEGACY_ALERT_CONF} by orca-setup. See: agent-alert --help"
+        if [[ -n "${ORCA_ALERT_URL:-}" ]]; then
+          echo 'ALERT_BACKEND="ntfy"'
+          printf 'ALERT_NTFY_URL="%s"\n' "$ORCA_ALERT_URL"
+          [[ -z "${ORCA_ALERT_TOKEN:-}" ]] || printf 'ALERT_NTFY_TOKEN="%s"\n' "$ORCA_ALERT_TOKEN"
+        else
+          echo 'ALERT_BACKEND="none"'
+        fi
+      } > "$ALERT_CONF" )
+    chmod 600 "$ALERT_CONF"
+    ok "Alert config migrated: ${LEGACY_ALERT_CONF} -> ${ALERT_CONF} (legacy file kept)"
   else
     ( umask 077; cat > "$ALERT_CONF" <<'EOF'
-# Notification channel for orca-health.
+# Notification channel for orca-health / agents-update (via agent-alert).
+# Default: journal only. Easiest: run `sudo agent-alert --configure --system`.
 #
-# Default: journal only (journalctl -u orca-health -p err).
-# For a push notification, uncomment and set an ntfy URL. Pick a long,
-# unguessable topic name: anyone who knows it can read your alerts.
+#ALERT_BACKEND="telegram"          # ntfy | telegram | none
+#ALERT_TELEGRAM_BOT_TOKEN="123456:ABC..."
+#ALERT_TELEGRAM_CHAT_ID="123456789"
 #
-#ORCA_ALERT_URL="https://ntfy.sh/orca-<hostname>-<random-string>"
-#
-# Self-hosted ntfy with access control (auth-default-access: deny-all): an
-# access token with write permission on the topic (`ntfy token add <user>`).
-#ORCA_ALERT_TOKEN="tk_..."
+# ntfy (legacy channel; pick an unguessable topic):
+#ALERT_NTFY_URL="https://ntfy.sh/orca-<hostname>-<random-string>"
+#ALERT_NTFY_TOKEN="tk_..."
 EOF
     )
-    ok "Alert config created: ${ALERT_CONF} (journal only — edit to add a push URL)"
+    ok "Alert config created: ${ALERT_CONF} (journal only — run: sudo agent-alert --configure --system)"
   fi
 
   ok "Monitoring units written (${HEALTH_TIMER} every 10 min, OnFailure alerts)."

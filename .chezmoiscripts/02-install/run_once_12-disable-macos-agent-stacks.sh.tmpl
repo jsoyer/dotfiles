@@ -38,6 +38,7 @@ for label in com.jsoyer.moshi-hook com.jsoyer.moshi-update; do
     rm_if_present "${HOME}/Library/LaunchAgents/${label}.plist"
 done
 for f in \
+    "${HOME}/.local/bin/agent-alert" \
     "${HOME}/.local/bin/agentsvc" \
     "${HOME}/.local/bin/cursor-setup" \
     "${HOME}/.local/bin/moshi-hook-launch" \

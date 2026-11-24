@@ -15,8 +15,8 @@
 # There is no t3-gui wrapper: the desktop app is a cask / AppImage, not a service.
 # Optional headless browser support is upstream's: `sudo t3 browser setup`.
 #
-# Alerts reuse /etc/orca-alert.conf (ORCA_ALERT_URL / ORCA_ALERT_TOKEN); journal
-# only when unset. See t3-health.
+# Alerts go through agent-alert (ntfy or Telegram): `agent-alert --configure`, then
+# `agent-alert --test`; journal only until configured. See t3-health.
 #
 # Usage:
 #   t3-setup                         install CLI + service + monitoring
@@ -296,5 +296,9 @@ run systemctl --user daemon-reload
 run systemctl --user enable --now t3-health.timer t3-update.timer
 
 [[ "$DRY_RUN" -eq 1 ]] && exit 0
+
+if [[ ! -f "${XDG_CONFIG_HOME:-$HOME/.config}/agent-alert.conf" ]]; then
+  log "Alerts go to the journal only. For a push: agent-alert --configure, then agent-alert --test"
+fi
 echo
 do_status

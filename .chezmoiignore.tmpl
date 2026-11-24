@@ -267,6 +267,7 @@ bin/media_automation
 # wrappers are wiped (mac-pro only).
 {{ if ne .chezmoi.os "linux" }}
 .config/systemd
+.local/bin/agent-alert
 .local/bin/agents-update
 .local/bin/agentsvc
 .local/bin/cursor-setup

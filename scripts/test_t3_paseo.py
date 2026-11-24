@@ -85,6 +85,7 @@ exit 0
     "sudo": LOGGER,
     "curl": LOGGER + 'echo "echo stub-installer"\n',
     "mise": LOGGER,
+    "agent-alert": LOGGER,
     # Smoke tests called by the updaters: exit code driven by $SMOKE_RC.
     "t3-health": LOGGER + 'exit "${SMOKE_RC:-0}"\n',
     "paseo-health": LOGGER + 'exit "${SMOKE_RC:-0}"\n',
@@ -301,6 +302,8 @@ class T3Wrappers(SandboxCase):
         r = sb.run("t3-health")
         self.assertEqual(r.returncode, 1)
         self.assertIn("<3>T3 Code down", r.stdout)
+        self.assertIn("agent-alert --title T3 Code down on", sb.calls())
+        self.assertIn("--priority high", sb.calls())
 
     def test_health_ok_when_active(self):
         sb = self.sandbox(extra_env={"STUB_ACTIVE": "1"})
@@ -454,6 +457,7 @@ class PaseoWrappers(SandboxCase):
         r = sb.run("paseo-health")
         self.assertEqual(r.returncode, 1)
         self.assertIn("<3>Paseo down", r.stdout)
+        self.assertIn("agent-alert --title Paseo down on", sb.calls())
         r = sb.run("paseo-health", "--alert", "paseo.service")
         self.assertEqual(r.returncode, 0)
         self.assertIn("paseo.service failed", r.stdout)

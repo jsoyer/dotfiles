@@ -161,8 +161,22 @@ class OrcaServerHardening(unittest.TestCase):
         self.assertNotIn("flush ruleset", SETUP)
 
     def test_alerts_support_a_protected_ntfy(self):
-        self.assertIn("Authorization: Bearer ${ORCA_ALERT_TOKEN}", HEALTH)
-        self.assertIn("Authorization: Bearer ${ORCA_ALERT_TOKEN}", AGENTS)
+        # The bearer header now lives in the shared agent-alert (token passed on
+        # stdin to curl, never argv); callers must route through it.
+        alert = (ROOT / "dot_local/bin/executable_agent-alert").read_text()
+        self.assertIn("Authorization: Bearer", alert)
+        self.assertIn("ORCA_ALERT_TOKEN", alert)  # legacy key still honored
+        self.assertIn("/etc/orca-alert.conf", alert)  # legacy file still read
+        self.assertIn('"$ALERT_BIN"', HEALTH)
+        self.assertIn('"$ALERT_BIN"', AGENTS)
+        self.assertNotIn("curl", HEALTH)
+
+    def test_setup_writes_agent_alert_conf_and_keeps_legacy(self):
+        self.assertIn('ALERT_CONF="/etc/agent-alert.conf"', SETUP)
+        self.assertIn('LEGACY_ALERT_CONF="/etc/orca-alert.conf"', SETUP)
+        self.assertIn("legacy file kept", SETUP)
+        self.assertIn("install_helper \"$SRC_ALERT\" \"$ALERT_SCRIPT\"", SETUP)
+        self.assertNotIn("rm -f \"$LEGACY_ALERT_CONF\"", SETUP)
 
 
 class AgentsUpdate(unittest.TestCase):

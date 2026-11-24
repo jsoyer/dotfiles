@@ -761,8 +761,44 @@ orca-pair --status             # server state + how to revoke a client
   anything on the LAN can attempt pairing. This drops the port on every
   interface but `lo` and `tailscale0`, in its own nftables table
   (`orca-firewall.service`, ordered before `orca-serve`).
-- **Protected ntfy.** `/etc/orca-alert.conf` also takes `ORCA_ALERT_TOKEN`
-  (sent as `Authorization: Bearer`) for an ntfy server with `deny-all`.
+- **Alerts.** `orca-health` and `agents-update` push through `agent-alert` (see
+  *Alerting* below). `orca-setup` writes `/etc/agent-alert.conf` (0600) and
+  migrates an existing `/etc/orca-alert.conf` to the new key names; the legacy
+  file is left in place and is still honored.
+
+### Alerting (agent-alert)
+
+`agent-alert [--title T] [--priority low|default|high] [--tags a,b] [--strict] "msg"`
+is the single push channel of `orca-health`, `agents-update`, `t3-health` and
+`paseo-health`; changing backend is a config change. Linux only.
+
+| File (first readable, safe one wins) | Used by |
+|------|------|
+| `$AGENT_ALERT_CONF` | tests / overrides |
+| `~/.config/agent-alert.conf` | user units (t3, paseo), `agents-update` |
+| `/etc/agent-alert.conf` | root units (`orca-health`) |
+| `/etc/orca-alert.conf` | legacy, still honored |
+
+| Key | Meaning |
+|-----|---------|
+| `ALERT_BACKEND` | `ntfy`, `telegram` or `none`; default `ntfy` if a URL is set, else `none` (stderr/journal only) |
+| `ALERT_NTFY_URL`, `ALERT_NTFY_TOKEN` | ntfy topic URL and optional bearer token (legacy `ORCA_ALERT_URL` / `ORCA_ALERT_TOKEN` accepted) |
+| `ALERT_TELEGRAM_BOT_TOKEN`, `ALERT_TELEGRAM_CHAT_ID` | Telegram Bot API `sendMessage` (text truncated to 3900 chars) |
+
+Secrets are sent to curl through `--config -` on stdin, so they never show in
+`ps`, and are never printed. A config file that holds a token and is group/world
+accessible is skipped with a warning (`chmod 600`). A failed send warns and exits
+0 so an alert never breaks its caller (`--strict` exits 1; `--test` is strict).
+
+```bash
+agent-alert --configure            # user file, prompts (token via read -s)
+sudo agent-alert --configure --system
+agent-alert --test                 # reports backend + config file, exits 1 on failure
+```
+
+**ntfy -> Telegram:** set `ALERT_BACKEND="telegram"` plus the two Telegram keys
+(or run `--configure`), check with `agent-alert --test`, then delete the ntfy keys
+(and `/etc/orca-alert.conf` once nothing needs it).
 
 ### t3-setup / update-t3
 
@@ -787,10 +823,9 @@ t3-uninstall [-y] [--purge]    # t3 service uninstall + t3 uninstall; --purge dr
 
 - **Monitoring.** `t3-health.timer` every 10 min (service active, `t3 status`,
   listening port, `NRestarts` delta) plus `OnFailure=t3-alert@%n.service`. Journal
-  always; ntfy push when `ORCA_ALERT_URL` / `ORCA_ALERT_TOKEN` are set in
-  `/etc/orca-alert.conf`. That file is root-only (0600) as written by `orca-setup`:
-  a user service cannot read it, so copy the two variables to
-  `~/.config/agent-alert.conf` (fallback read by `t3-health` / `paseo-health`).
+  always; a push through `agent-alert` when configured. User units read
+  `~/.config/agent-alert.conf` (the root-only `/etc/agent-alert.conf` is not
+  readable by them): run `agent-alert --configure`, then `agent-alert --test`.
 - **`--update-at HH:MM`** pins `t3-update.timer` to a quiet hour (default: daily, random 1 h).
 
 ### paseo-setup / update-paseo
@@ -843,8 +878,7 @@ package**, never globally:
 
 [settings]
 npm.package_manager = "npm"   # npm_args verified with npm (not tested with "auto")
-``` Alerts use `ORCA_ALERT_URL` / `ORCA_ALERT_TOKEN` from
-`/etc/orca-alert.conf`.
+``` Alerts go through `agent-alert` (user timer: `~/.config/agent-alert.conf`).
 
 ```bash
 agents-update --install-timer --at 05:00 --user <name>   # system timer, User=<name>
@@ -866,10 +900,9 @@ occupancy. Anti-spam: it notifies on state change, then every 6 h while the
 problem lasts, plus one back-to-normal message.
 
 Output goes to the journal by default (`<3>`/`<4>` prefixes give journald the
-priority, so `-p err` shows only genuine outages). For a push notification, set
-`ORCA_ALERT_URL` to an ntfy URL in `/etc/orca-alert.conf` (mode 600, never
-overwritten by `orca-setup`). Pick a long, unguessable topic: anyone who knows
-it can read your alerts. State lives in `/var/lib/orca-health/state`.
+priority, so `-p err` shows only genuine outages). For a push notification run
+`sudo agent-alert --configure --system` (`/etc/agent-alert.conf`, mode 600, never
+overwritten by `orca-setup`). State lives in `/var/lib/orca-health/state`.
 
 #### The 2026-09-14 outage
 
