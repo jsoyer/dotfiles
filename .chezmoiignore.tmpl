@@ -260,7 +260,7 @@ bin/serie_renommer.py
 bin/media_automation
 {{ end }}
 
-# ── Agent stacks (moshi / orca / cursor-worker) : Linux only ──
+# ── Agent stacks (moshi / orca / cursor-worker / t3 / paseo) : Linux only ──
 # herdr is the exception: scripts deploy on every Unix host (binary via
 # Homebrew on macOS, herdr.dev one-liner on Linux). Ignore = do not re-apply.
 # Actual deletion of leftovers is run_once_12, and only moshi/orca/cursor
@@ -278,12 +278,24 @@ bin/media_automation
 .local/bin/orca-setup
 .local/bin/orca-uninstall
 .local/bin/orca-version
+.local/bin/paseo-health
+.local/bin/paseo-pair
+.local/bin/paseo-setup
+.local/bin/paseo-uninstall
+.local/bin/paseo-version
+.local/bin/t3-health
+.local/bin/t3-pair
+.local/bin/t3-setup
+.local/bin/t3-uninstall
+.local/bin/t3-version
 .local/bin/pct-bootstrap
 .local/bin/pct-snapshot
 .local/bin/paseo-setup
 .local/bin/update-cursor-agent
 .local/bin/update-moshi
 .local/bin/update-orca
+.local/bin/update-paseo
+.local/bin/update-t3
 {{ end }}
 {{ if eq $mp "mac-pro" }}
 Library/LaunchAgents/com.jsoyer.moshi-hook.plist

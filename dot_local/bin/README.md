@@ -622,8 +622,8 @@ runs it on every change of the script.
 
 ## Self-hosted Agent Stacks
 
-Three independent stacks, each with an installer, an updater and systemd units.
-**Moshi / orca / cursor are not enabled automatically**: `chezmoi apply` only
+Six independent stacks, each with an installer, an updater and systemd units.
+**Moshi / orca / cursor / t3 / paseo are not enabled automatically**: `chezmoi apply` only
 drops the files on disk, and activation is an explicit command (the aliases
 below). **herdr is the exception**:
 - **macOS** — Homebrew formula on the hostname Brewfile overlays (`bup` upgrades it)
@@ -636,8 +636,10 @@ below). **herdr is the exception**:
 | **Orca** (headless runtime) | **system** (root) | `orca-setup` | `update-orca` | `orca-serve.service` + drop-ins, `orca-update.{service,timer}`, `orca-health.{service,timer}`, `orca-alert@.service` |
 | **Cursor** (private worker) | `--user` | `cursor-setup` | `update-cursor-agent` | `cursor-worker.service`, `cursor-update.{service,timer}` |
 | **herdr** (multiplexer) | `--user` (binary on every Unix host) | `herdr-setup` | `update-herdr` | `herdr-update.{service,timer}` (Linux) |
+| **T3 Code** (headless server) | `--user` (+ linger), Linux only | `t3-setup` | `update-t3` | `t3code.service` (upstream `t3 service`), `t3-update.{service,timer}`, `t3-health.{service,timer}`, `t3-alert@.service` |
+| **Paseo** (agent daemon) | `--user` (+ linger), Linux only | `paseo-setup` | `update-paseo` | `paseo.service` (generated), `paseo-update.{service,timer}`, `paseo-health.{service,timer}`, `paseo-alert@.service` |
 
-`agentsvc` is the read-only umbrella over all four: `agentsvc status|update|restart|logs|reload`.
+`agentsvc` is the umbrella over all six: `agentsvc status|update|restart|logs|reload` (targets `moshi|orca|cursor|herdr|t3|paseo`).
 
 ### moshi-setup
 
@@ -761,6 +763,59 @@ orca-pair --status             # server state + how to revoke a client
   (`orca-firewall.service`, ordered before `orca-serve`).
 - **Protected ntfy.** `/etc/orca-alert.conf` also takes `ORCA_ALERT_TOKEN`
   (sent as `Authorization: Bearer`) for an ntfy server with `deny-all`.
+
+### t3-setup / update-t3
+
+T3 Code is a thin wrapper over the upstream `t3` CLI: the service itself is
+`t3 service install` (systemd **user** unit `t3code.service`). The scripts add the
+CLI install (`https://t3.codes/install.sh`), `~/.t3/service.env` (0600), linger
+(`sudo loginctl enable-linger`, the only sudo), monitoring and the update timer.
+Linux only; macOS gets the `t3-code` cask. There is **no `t3-gui`**: the desktop
+app is the cask / an AppImage, not a service. Headless browser support is
+upstream's (`sudo t3 browser setup`).
+
+```bash
+t3-setup                       # CLI + service + linger + health + update timer
+t3-setup --lan --port 3773     # T3CODE_LAN=true / T3CODE_PORT in ~/.t3/service.env
+t3-setup --host 100.x.y.z --update-at 04:30
+t3-setup --status | --dry-run | --uninstall
+t3-pair [--tailscale]          # wraps `t3 pair` (interactive: links are credentials)
+t3-version                     # installed / restart-pending
+update-t3                      # `t3 update --yes`, restart if needed, smoke via t3-health
+t3-uninstall [-y] [--purge]    # t3 service uninstall + t3 uninstall; --purge drops ~/.t3
+```
+
+- **Monitoring.** `t3-health.timer` every 10 min (service active, `t3 status`,
+  listening port, `NRestarts` delta) plus `OnFailure=t3-alert@%n.service`. Journal
+  always; ntfy push when `ORCA_ALERT_URL` / `ORCA_ALERT_TOKEN` are set in
+  `/etc/orca-alert.conf`. That file is root-only (0600) as written by `orca-setup`:
+  a user service cannot read it, so copy the two variables to
+  `~/.config/agent-alert.conf` (fallback read by `t3-health` / `paseo-health`).
+- **`--update-at HH:MM`** pins `t3-update.timer` to a quiet hour (default: daily, random 1 h).
+
+### paseo-setup / update-paseo
+
+Paseo has no service or update command, so `paseo-setup` generates
+`~/.config/systemd/user/paseo.service` around the foreground `paseo daemon run`
+(`Restart=on-failure`, 5 starts / 30 min ceiling, `OnFailure=paseo-alert@`). The
+CLI is `npm install -g --prefix ~/.local @getpaseo/cli` (no sudo for the package);
+Node >= 22 is installed when missing (mise, else distro packages / NodeSource on
+Debian-family, `dnf`, `pacman`). Node 22 is an assumption: upstream states no minimum.
+
+```bash
+paseo-setup                    # listen on the tailscale IP:6767 (else 127.0.0.1:6767), relay off
+paseo-setup --listen 100.x.y.z:6767 --tailnet-only --password
+paseo-setup --update-at 04:30
+paseo-setup --status | --dry-run | --uninstall
+paseo-pair [--relay]           # wraps `paseo daemon pair` (interactive)
+paseo-version                  # installed vs npm latest
+update-paseo                   # npm update, restart, smoke via paseo-health, rollback on failure
+paseo-uninstall [-y] [--purge] # drops units + package; --purge also drops ~/.paseo
+```
+
+The daemon password is never put in the unit: set it with `--password`
+(`paseo daemon set-password`, interactive). Monitoring and alerts work exactly as
+for T3 Code (`paseo-health`).
 
 ### agents-update
 
