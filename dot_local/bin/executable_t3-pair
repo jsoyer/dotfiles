@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+#
+# t3-pair — Pair a client (phone, browser, another machine) with the T3 Code
+# server running on this machine. Pass-through to the upstream `t3 pair`.
+#
+# INTERACTIVE ONLY. A pairing link is a credential: it is printed to your
+# terminal and never written to a unit, a log or the journal (this command is
+# never called by systemd).
+#
+# Usage:
+#   t3-pair                  `t3 pair`            (upstream default)
+#   t3-pair --tailscale      `t3 pair --tailscale` (link over the tailnet address)
+#   t3-pair --status         `t3 status` (server state)
+#   t3-pair <args...>        forwarded verbatim to `t3 pair`
+#
+# Revoking a client: `t3 auth ...` (see `t3 auth --help`).
+# Treat a link like a password: send it over a private channel and pair over the
+# tailnet rather than the LAN.
+#
+set -euo pipefail
+
+case "${1:-}" in
+  -h|--help) sed -n '2,/^set -euo/p' "$0" | sed 's/^# \{0,1\}//; $d'; exit 0 ;;
+  --status)  command -v t3 >/dev/null 2>&1 || { echo "t3-pair: t3 not found — run t3-setup" >&2; exit 1; }
+             exec t3 status ;;
+esac
+
+command -v t3 >/dev/null 2>&1 || { echo "t3-pair: t3 not found — run t3-setup" >&2; exit 1; }
+exec t3 pair "$@"
