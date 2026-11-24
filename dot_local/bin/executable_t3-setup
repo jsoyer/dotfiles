@@ -8,6 +8,9 @@
 #   - ~/.t3/service.env (KEY=VALUE, 0600) for --lan / --port / --host
 #   - linger, so the user manager survives logout (the only sudo needed)
 #   - monitoring: t3-health.timer (10 min) + OnFailure=t3-alert@ on t3code.service
+#   - zz-user-path.conf on t3code.service: PATH with the mise shims, ~/.local/bin
+#     and ~/.grok/bin, plus pinned MISE_*_DIR — the upstream unit sets no PATH,
+#     so the agents T3 launches were not found (same lesson as orca-setup)
 #   - t3-update.timer (daily, random 1 h, or fixed with --update-at)
 #
 # USER scope on purpose: no system unit, no root, nothing under /etc.
@@ -216,10 +219,6 @@ if ! linger_on; then
   run sudo loginctl enable-linger "$(id -un)" || warn "Could not enable linger."
 fi
 
-if [[ "$ENV_CHANGED" -eq 1 ]]; then
-  log "Environment changed — restarting (t3 service restart)..."
-  run "$T3" service restart
-fi
 
 # --- Step 4: monitoring + updater units (generated, user scope) ---------------
 write_file "${UNIT_DIR}/t3-alert@.service" <<'EOF'
@@ -236,6 +235,24 @@ write_file "${UNIT_DIR}/${SERVICE}.d/zz-alert.conf" <<'EOF'
 [Unit]
 OnFailure=t3-alert@%n.service
 EOF
+
+# The upstream unit sets no PATH and a unit never reads shell rc files: the
+# agent CLIs (mise shims, vendor installers) must be listed explicitly.
+PATH_DROPIN="${UNIT_DIR}/${SERVICE}.d/zz-user-path.conf"
+path_dropin() {
+  cat <<'EOF'
+# Managed by t3-setup: a unit never reads shell rc files, so the agent CLIs
+# (mise shims, vendor installs) must be on PATH explicitly.
+[Service]
+Environment="PATH=%h/.local/share/mise/shims:%h/.local/bin:%h/.grok/bin:/usr/local/bin:/usr/bin:/bin"
+# Agent tools may isolate XDG_*: pin mise to its real dirs so the shims still work.
+Environment="MISE_DATA_DIR=%h/.local/share/mise" "MISE_CONFIG_DIR=%h/.config/mise" "MISE_STATE_DIR=%h/.local/state/mise" "MISE_CACHE_DIR=%h/.cache/mise"
+EOF
+}
+if ! cmp -s <(path_dropin) "$PATH_DROPIN" 2>/dev/null; then
+  path_dropin | write_file "$PATH_DROPIN"
+  ENV_CHANGED=1
+fi
 
 write_file "${UNIT_DIR}/t3-health.service" <<'EOF'
 [Unit]
@@ -294,6 +311,11 @@ EOF
 
 run systemctl --user daemon-reload
 run systemctl --user enable --now t3-health.timer t3-update.timer
+
+if [[ "$ENV_CHANGED" -eq 1 ]]; then
+  log "Environment changed — restarting (t3 service restart)..."
+  run "$T3" service restart
+fi
 
 [[ "$DRY_RUN" -eq 1 ]] && exit 0
 

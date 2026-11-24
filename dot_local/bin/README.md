@@ -827,6 +827,21 @@ t3-uninstall [-y] [--purge]    # t3 service uninstall + t3 uninstall; --purge dr
   `~/.config/agent-alert.conf` (the root-only `/etc/agent-alert.conf` is not
   readable by them): run `agent-alert --configure`, then `agent-alert --test`.
 - **`--update-at HH:MM`** pins `t3-update.timer` to a quiet hour (default: daily, random 1 h).
+- **Agents on PATH.** The upstream `t3code.service` sets no PATH, and a unit never
+  reads shell rc files: `t3-setup` adds `t3code.service.d/zz-user-path.conf` (mise
+  shims, `~/.local/bin`, `~/.grok/bin`, pinned `MISE_*_DIR`) and restarts the
+  service when it changes.
+- **Tailnet only, web UI kept.** On the headless host: `t3-setup --host 127.0.0.1`
+  plus Tailscale Serve (`https://<host>.<tailnet>.ts.net` -> `127.0.0.1:3773`).
+  Nothing listens on the LAN; the web UI stays reachable over the tailnet.
+- **From the community-scripts T3Code template.** It runs `t3 serve --host 0.0.0.0`
+  as **root** (system unit, npm-global agents, `/opt/t3code`, `/usr/bin/update`).
+  To align it with the other agent hosts: stop the root unit, copy
+  `/opt/t3code/userdata` to `~/.t3/userdata` (paired devices and threads survive)
+  and `/root/.t3/runtime/versions/<v>` to `~/.t3/runtime/versions/`, write the
+  `~/.local/bin/t3` launcher, copy the agents' logins, run `t3-setup`, then remove
+  the npm globals, the root unit and the template's `update` command (it would
+  reinstall the root service).
 
 ### agents-update
 

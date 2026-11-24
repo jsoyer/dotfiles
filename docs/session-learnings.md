@@ -164,3 +164,12 @@
 - **LOGIC:** `rtk init -g --codex` rejects both `--auto-patch` and `--no-patch`.
 - **Verify:** `python3 scripts/test_paseo_setup.py`, then `agents-update --dry-run` shows `held (not bumped): aqua:rtk-ai/rtk`.
 
+## 2026-11-24 — CT 210 (T3 Code) aligned on the other agent hosts
+
+- **LOGIC:** The community-scripts T3Code template runs T3 as root on `0.0.0.0:3773` with no firewall (LAN-reachable). Moved to the user service from `t3-setup`, bound to `127.0.0.1` behind Tailscale Serve.
+- **LOGIC:** The upstream `t3 service install` unit has no `Environment=PATH`: mise-installed agents are not found. `t3-setup` now writes `zz-user-path.conf` (shims, `~/.local/bin`, `~/.grok/bin`, `MISE_*_DIR`).
+- **LOGIC:** T3's data dir moves cleanly: `userdata/` (server-owner + statev2 sqlite, secrets) copied to `~/.t3/userdata` keeps paired devices and threads.
+- **LOGIC:** `@mariozechner/pi-coding-agent` is deprecated (May 2026, last 0.73.1); servers must use `npm:@earendil-works/pi-coding-agent` (1.6.0 today) in mise.
+- **SAFETY:** T3's boot log (`~/.t3/userdata/logs/boot-service.log`) prints a pairing token on every start; never `tail` it into a shared transcript. `t3 auth pairing list` shows whether one is still active.
+- **LOGIC:** `sudo <script>` fails for scripts in `~/.local/bin` (sudo's `secure_path`): call them by full path.
+- **Verify:** `python3 scripts/test_t3_paseo.py`
