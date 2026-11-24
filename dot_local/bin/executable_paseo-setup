@@ -202,10 +202,29 @@ EOF
 # Alerts go through agent-alert (root: /etc/agent-alert.conf, legacy
 # /etc/orca-alert.conf still read). Same install rule as orca-setup: a system
 # location, because a unit cannot run a script under /home.
+#
+# TRUST: agent-alert runs as ROOT from the health unit, so it is taken only
+# from this script's own directory (never ${SVC_HOME}, writable by the agents),
+# and the file and its directory must be owned by root or the invoking admin
+# and not group/world-writable.
+trusted_source() {
+  local p uid
+  [[ -f "$1" && ! -L "$1" ]] || return 1
+  for p in "$1" "$(dirname "$1")"; do
+    uid="$(stat -c %u "$p")"
+    [[ "$uid" == 0 || ( -n "${SUDO_UID:-}" && "$uid" == "$SUDO_UID" ) ]] || return 1
+    (( (8#$(stat -c %a "$p") & 8#022) == 0 )) || return 1
+  done
+}
 SRC_ALERT=""
-for c in "$(dirname "$0")/agent-alert" "${SVC_HOME}/.local/bin/agent-alert"; do
-  [[ -r "$c" ]] && { SRC_ALERT="$c"; break; }
-done
+c="$(dirname "$0")/agent-alert"
+if [[ -r "$c" ]]; then
+  if trusted_source "$c"; then
+    SRC_ALERT="$c"
+  else
+    warn "${c}: not owned by root/the invoking admin, or group/world-writable — not installed as root."
+  fi
+fi
 if [[ -n "$SRC_ALERT" ]]; then
   [[ "$SRC_ALERT" -ef "$ALERT_BIN" ]] || install -m 0755 "$SRC_ALERT" "$ALERT_BIN"
   ok "Alerts: ${ALERT_BIN} (configure: sudo agent-alert --configure --system)"

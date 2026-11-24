@@ -275,12 +275,31 @@ fi
 # meant to copy, destroying both. Chezmoi deploys real files, so this cannot
 # happen through a normal apply; the `-ef` guard below makes it impossible to
 # reintroduce by hand.
+#
+# TRUST: these helpers end up executed as ROOT by system units, so the source
+# must not be writable by the service user (whose agents run arbitrary code).
+# Only the directory this script runs from is searched — never
+# /home/${SVC_USER} — and the file and its directory must be owned by root or
+# by the admin who invoked sudo, and writable by nobody else.
+trusted_source() {
+  local p uid
+  [[ -f "$1" && ! -L "$1" ]] || return 1
+  for p in "$1" "$(dirname "$1")"; do
+    uid="$(stat -c %u "$p")"
+    [[ "$uid" == 0 || ( -n "${SUDO_UID:-}" && "$uid" == "$SUDO_UID" ) ]] || return 1
+    (( (8#$(stat -c %a "$p") & 8#022) == 0 )) || return 1
+  done
+}
+
 locate_helper() {
   local name="$1" c
-  for c in "$(dirname "$0")/${name}" "/home/${SVC_USER}/.local/bin/${name}"; do
-    [[ -r "$c" ]] && { printf '%s' "$c"; return 0; }
-  done
-  return 1
+  c="$(dirname "$0")/${name}"
+  [[ -r "$c" ]] || return 1
+  if ! trusted_source "$c"; then
+    warn "${c}: not owned by root/the invoking admin, or group/world-writable — refusing to install it as root."
+    return 1
+  fi
+  printf '%s' "$c"
 }
 
 install_helper() {

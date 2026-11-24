@@ -179,6 +179,91 @@ class OrcaServerHardening(unittest.TestCase):
         self.assertNotIn("rm -f \"$LEGACY_ALERT_CONF\"", SETUP)
 
 
+
+def run_trusted_source(script_text, setup_uid_env, make):
+    """Extract trusted_source() from a setup script and run it on a temp file.
+
+    `make(dir_path, file_path)` adjusts modes/links; returns True if accepted.
+    """
+    import os
+    import subprocess
+    import tempfile
+
+    start = script_text.index("trusted_source() {")
+    func = script_text[start:script_text.index("\n}\n", start) + 3]
+    with tempfile.TemporaryDirectory() as tmp:
+        d = os.path.join(tmp, "bin")
+        os.mkdir(d)
+        os.chmod(d, 0o755)
+        f = os.path.join(d, "helper")
+        with open(f, "w") as fh:
+            fh.write("#!/bin/sh\n")
+        os.chmod(f, 0o644)
+        target = make(d, f) or f
+        env = {"PATH": os.environ["PATH"]}
+        env.update(setup_uid_env)
+        r = subprocess.run(["bash", "-c", func + '\ntrusted_source "$1"', "_", target],
+                           env=env, capture_output=True, text=True)
+        return r.returncode == 0
+
+
+class TrustedSource:
+    """Root-run helpers must come only from admin/root-owned, non-writable paths."""
+
+    SCRIPT = None  # set by subclasses
+
+    def check(self, env, make=lambda d, f: None):
+        return run_trusted_source(self.SCRIPT, env, make)
+
+    def test_owner_is_invoking_admin_and_not_writable(self):
+        import os
+        self.assertTrue(self.check({"SUDO_UID": str(os.getuid())}))
+
+    def test_group_or_world_writable_file_refused(self):
+        import os
+        for mode in (0o666, 0o664, 0o646):
+            with self.subTest(mode=oct(mode)):
+                self.assertFalse(self.check({"SUDO_UID": str(os.getuid())},
+                                            lambda d, f, m=mode: os.chmod(f, m)))
+
+    def test_writable_directory_refused(self):
+        import os
+        for mode in (0o777, 0o775, 0o757):
+            with self.subTest(mode=oct(mode)):
+                self.assertFalse(self.check({"SUDO_UID": str(os.getuid())},
+                                            lambda d, f, m=mode: os.chmod(d, m)))
+
+    def test_symlink_refused(self):
+        import os
+
+        def link(d, f):
+            ln = os.path.join(d, "link")
+            os.symlink(f, ln)
+            return ln
+
+        self.assertFalse(self.check({"SUDO_UID": str(os.getuid())}, link))
+
+    def test_unknown_non_root_owner_refused(self):
+        import os
+        if os.geteuid() == 0:
+            self.skipTest("running as root: root-owned files are trusted")
+        # No SUDO_UID, owner is a regular user: not trusted.
+        self.assertFalse(self.check({}))
+        # SUDO_UID of somebody else: not trusted either.
+        self.assertFalse(self.check({"SUDO_UID": str(os.getuid() + 12345)}))
+
+
+class OrcaTrustedSource(TrustedSource, unittest.TestCase):
+    SCRIPT = SETUP
+
+    def test_locate_helper_does_not_search_service_user_home(self):
+        body = SETUP.split("locate_helper() {", 1)[1].split("\n}\n", 1)[0]
+        self.assertNotIn("/home/${SVC_USER}", body)
+        self.assertNotIn("SVC_HOME", body)
+        self.assertIn("trusted_source", body)
+        self.assertNotIn("/home/${SVC_USER}/.local/bin", SETUP)
+
+
 class AgentsUpdate(unittest.TestCase):
     def test_mise_keeps_previous_versions_for_rollback(self):
         self.assertIn("mise upgrade --bump --pin --no-prune", AGENTS)
