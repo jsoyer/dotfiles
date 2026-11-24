@@ -355,7 +355,8 @@ class PaseoHelpers(SandboxCase):
     def test_update_is_a_thin_wrapper_over_agents_update(self):
         sb = self.sandbox()
         (sb.stubs / "agents-update").write_text(
-            LOGGER + 'echo "restart_on=$AGENTS_UPDATE_RESTART_ON" >> "$STUB_LOG"\n')
+            LOGGER + 'echo "restart_on=$AGENTS_UPDATE_RESTART_ON" >> "$STUB_LOG"\n'
+        )
         (sb.stubs / "agents-update").chmod(0o755)
         r = sb.run("update-paseo", "--dry-run")
         self.assertEqual(r.returncode, 0, r.stderr)
@@ -392,7 +393,10 @@ class PaseoHelpers(SandboxCase):
         sb = self.sandbox()
         self.assertEqual(sb.run("paseo-uninstall", "-y").returncode, 0)
         calls = sb.calls()
-        self.assertIn("systemctl disable --now paseo-health.timer paseo.service paseo-firewall.service", calls)
+        self.assertIn(
+            "systemctl disable --now paseo-health.timer paseo.service paseo-firewall.service",
+            calls,
+        )
         self.assertNotIn("npm uninstall", calls)
 
 
@@ -418,11 +422,14 @@ class Integration(unittest.TestCase):
             self.assertIn(".local/bin/" + name, ignore, name)
             self.assertIn(".local/bin/" + name + '"', cleanup, name)
 
-    def test_casks_present_in_mac_brewfiles(self):
-        for brewfile in ("Brewfile_personal", "Brewfile_pro"):
-            text = (ROOT / "dot_private" / brewfile).read_text()
-            self.assertIn('cask "t3-code"', text, brewfile)
-            self.assertIn('cask "paseo"', text, brewfile)
+    def test_casks_present_in_mac_host_overlay(self):
+        # Brewfile_personal / Brewfile_pro are frozen legacy manifests
+        # (sha256-pinned in docs/PACKAGE_BASELINE_2026-11-14.json): new casks go
+        # to the host overlay, next to the Orca cask.
+        text = (ROOT / "dot_private" / "Brewfile_JeromeSacMiniM6").read_text()
+        self.assertIn('cask "stablyai/orca/orca"', text)
+        self.assertIn('cask "t3-code"', text)
+        self.assertIn('cask "paseo"', text)
 
 
 if __name__ == "__main__":

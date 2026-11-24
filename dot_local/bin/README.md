@@ -806,7 +806,7 @@ T3 Code is a thin wrapper over the upstream `t3` CLI: the service itself is
 `t3 service install` (systemd **user** unit `t3code.service`). The scripts add the
 CLI install (`https://t3.codes/install.sh`), `~/.t3/service.env` (0600), linger
 (`sudo loginctl enable-linger`, the only sudo), monitoring and the update timer.
-Linux only; macOS gets the `t3-code` cask. There is **no `t3-gui`**: the desktop
+Linux only; macOS gets the `t3-code` cask (host overlay `Brewfile_<host>`, next to Orca; `Brewfile_personal`/`_pro` are frozen). There is **no `t3-gui`**: the desktop
 app is the cask / an AppImage, not a service. Headless browser support is
 upstream's (`sudo t3 browser setup`).
 
