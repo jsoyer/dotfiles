@@ -854,7 +854,7 @@ rollback. Two channels:
 
 | Channel | CLIs | Update | Rollback |
 |---------|------|--------|----------|
-| mise (`npm:` / `pipx:`) | claude, codex, copilot, opencode, opencode2, pi, omp, cline, vibe, gemini, paseo (+ node, bun, uv) | `mise upgrade --bump --pin --no-prune` | restore the config backup: the previous versions are still installed |
+| mise (`npm:` / `pipx:` / `aqua:`) | claude, codex, copilot, opencode, opencode2, pi, omp, cline, vibe, gemini, paseo, rtk (+ node, bun, uv) | `mise upgrade --bump --pin --no-prune` on every tool not in `AGENTS_UPDATE_HOLD` (default on a non-AVX2 CPU: rtk) | restore the config backup: the previous versions are still installed |
 | vendor updater | grok, agy, cursor-agent, devin | `<cli> update` (devin under `script`: it needs a terminal) | none — reported as broken |
 
 Every CLI must answer `--version` afterwards; a mise CLI that the upgrade broke
@@ -1119,6 +1119,10 @@ sudo ~/.local/bin/paseo-setup --user "$USER"              # then paseo daemon se
 #   updates (full path: sudo's secure_path skips ~/.local/bin):
 sudo ~/.local/bin/agents-update --install-timer --at 05:00 --user "$USER" \
      [--restart-on paseo=paseo.service]
+#   alerts (ONE backend: telegram or ntfy) — two files, two readers:
+sudo agent-alert --configure --system   # /etc/agent-alert.conf: root units (paseo-health, orca-health)
+agent-alert --configure                 # ~/.config: user units (agents-update, t3-health)
+agent-alert --test
 agent-host-setup --check
 ```
 
@@ -1129,6 +1133,18 @@ agent-host-setup --check
 | `~/.bashrc` block | shims + `MISE_*_DIR` for login shells; units get the same values from their own drop-ins |
 | `--vendor` | grok / agy / cursor-agent have no package feed: their official installers (`curl … | bash`) |
 | rtk hooks | one `rtk init -g` per installed agent; grok and devin have none |
+| two alert configs | `/etc/agent-alert.conf` is root-only (0600); `agents-update` and the T3 units run as the user and read `~/.config/agent-alert.conf` |
+
+Current layout (Proxmox `multibox`, 2026-11): only the primary runs all the time.
+
+| CT | Server | Role | Boot |
+|----|--------|------|------|
+| 211 `paseo` | Paseo | primary, always on | `onboot=1`, `startup order=1` |
+| 210 `t3code` | T3 Code | second choice; may run next to Paseo | `onboot=0`, `pct start 210` when needed |
+| 205 `orcadev` | Orca | fallback | `onboot=0`, `pct start 205` when needed |
+
+A CT started after weeks off catches up by itself: the update timers are
+`Persistent=true`, and the 04:20 host snapshots run whether the CT is up or not.
 
 - **Moving a host** (e.g. stopping one CT for another): copy the agents' login
   dirs (`~/.claude`, `~/.claude.json`, `~/.codex`, `~/.pi`, `~/.omp`,
@@ -1171,7 +1187,8 @@ agents-update --install-timer --at 05:00 --user <name> --restart-on paseo=paseo.
 - **Alerts.** The health script routes through `agent-alert` (installed to
   `/usr/local/bin` by `paseo-setup`, like `orca-setup` does): configure with
   `sudo agent-alert --configure --system`; the legacy `/etc/orca-alert.conf` is
-  still read.
+  still read. `agents-update` runs as the user and cannot read that root-only
+  file: also run `agent-alert --configure` (user file), then `agent-alert --test`.
 - **Helpers.** `paseo-pair` (wraps `paseo daemon pair`, interactive, run as the
   service user, never logs a link), `paseo-version` (installed / pinned /
   latest), `update-paseo` (thin wrapper over `agents-update` with the restart hook
@@ -1187,11 +1204,12 @@ agents-update --install-timer --at 05:00 --user <name> --restart-on paseo=paseo.
   `Illegal instruction` on the Ivy Bridge host; pin it at `1.1.0`. Without the
   hold, the whole-set rollback would cancel every other agent's update nightly.
   `AGENTS_UPDATE_HOLD=""` holds nothing.
-- **rtk on the agent hosts.** One `rtk init -g` per installed agent (hooks are
-  per agent, Orca/T3/Paseo need nothing): plain (Claude) or `--opencode`,
-  `--codex`, `--gemini`, `--copilot`, `--agent cursor|antigravity|pi|omp|vibe`
-  (add `--auto-patch --no-trust-filters`, except `--codex` which takes neither).
-  Grok and Devin have no rtk integration. Restart the server afterwards.
+- **rtk on the agent hosts.** `agent-host-setup` runs one `rtk init -g` per
+  installed agent (hooks are per agent, Orca/T3/Paseo need nothing): plain
+  (Claude) or `--opencode`, `--codex`, `--gemini`, `--copilot`,
+  `--agent cursor|antigravity|pi|omp|vibe` (with `--auto-patch
+  --no-trust-filters`, except `--codex` which takes neither). Grok and Devin
+  have no rtk integration. Restart the server afterwards.
 - Same lessons as the Orca server: explicit PATH (mise shims, `~/.local/bin`,
   `~/.grok/bin`), pinned `MISE_*_DIR`, `0.0.0.0` + firewall instead of binding
   the Tailscale IP (absent at boot). mise's node needs `libatomic1` on a minimal
