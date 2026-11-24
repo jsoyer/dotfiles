@@ -827,6 +827,10 @@ t3-uninstall [-y] [--purge]    # t3 service uninstall + t3 uninstall; --purge dr
   `~/.config/agent-alert.conf` (the root-only `/etc/agent-alert.conf` is not
   readable by them): run `agent-alert --configure`, then `agent-alert --test`.
 - **`--update-at HH:MM`** pins `t3-update.timer` to a quiet hour (default: daily, random 1 h).
+- **OpenCode 2.** With mise, `opencode` is v1 and `opencode2` holds the OpenCode
+  Go/Zen login: `t3-setup` points T3's existing OpenCode instance at
+  `opencode2` (`providerInstances.opencode.config.binaryPath`, set once, server
+  stopped while editing; a path set by hand is kept).
 - **Agents on PATH.** The upstream `t3code.service` sets no PATH, and a unit never
   reads shell rc files: `t3-setup` adds `t3code.service.d/zz-user-path.conf` (mise
   shims, `~/.local/bin`, `~/.grok/bin`, pinned `MISE_*_DIR`) and restarts the
@@ -1082,6 +1086,58 @@ agentsvc status herdr
 
 One uniform scheme, tab-completable on the stack name. The earlier two-letter
 aliases (`mhs`, `cwl`, `hu`…) were dropped in favour of this.
+
+## Agent host (shared base for Orca / T3 Code / Paseo)
+
+One recipe for every headless agent host (Proxmox LXC). Only one or two of them
+are meant to run at a time: everything below is per CT and tolerates the others
+being stopped. The agent CLI set is the same everywhere
+(`dot_local/share/agent-host/mise-agents.toml`); only the server on top differs.
+
+```bash
+# Proxmox host (root)
+pct-bootstrap <ctid> --user <name> --no-postfix --ssh-key ~/.ssh/id_ed25519.pub
+pct exec <ctid> -- tailscale up                 # if the template ships tailscale
+pct-snapshot --install-timer <ctid> --at 04:20 --keep 3
+
+# In the CT, as <name> (no chezmoi there: deploy the scripts from a clone)
+gh auth login && gh repo clone jsoyer/dotfiles ~/src/dotfiles -- --depth 1
+cd ~/src/dotfiles
+for f in agent-host-setup agents-update agent-alert \
+         orca-setup orca-pair orca-version update-orca orca-health \
+         t3-setup t3-health t3-pair t3-version t3-uninstall update-t3 \
+         paseo-setup paseo-pair paseo-version paseo-uninstall update-paseo; do
+  install -Dm755 "dot_local/bin/executable_$f" "$HOME/.local/bin/$f"
+done
+install -Dm644 dot_local/share/agent-host/mise-agents.toml ~/.local/share/agent-host/mise-agents.toml
+
+agent-host-setup [--paseo] [--vendor]         # mise + agents + ~/.bashrc + rtk hooks
+#   then ONE server:
+orca-setup --pairing-address <tailscale-ip> --update-at 04:30 --tailnet-only
+t3-setup --host 127.0.0.1 --port 3773 --update-at 04:30   # + tailscale serve
+sudo ~/.local/bin/paseo-setup --user "$USER"              # then paseo daemon set-password
+#   updates (full path: sudo's secure_path skips ~/.local/bin):
+sudo ~/.local/bin/agents-update --install-timer --at 05:00 --user "$USER" \
+     [--restart-on paseo=paseo.service]
+agent-host-setup --check
+```
+
+| Step | Why |
+|------|-----|
+| one mise template | the same exact versions everywhere; `agents-update` bumps, smoke-tests and rolls back per host |
+| merge, never overwrite | re-running `agent-host-setup` adds tools new to the template, keeps every existing pin |
+| `~/.bashrc` block | shims + `MISE_*_DIR` for login shells; units get the same values from their own drop-ins |
+| `--vendor` | grok / agy / cursor-agent have no package feed: their official installers (`curl … | bash`) |
+| rtk hooks | one `rtk init -g` per installed agent; grok and devin have none |
+
+- **Moving a host** (e.g. stopping one CT for another): copy the agents' login
+  dirs (`~/.claude`, `~/.claude.json`, `~/.codex`, `~/.pi`, `~/.omp`,
+  `~/.config/opencode`, `~/.local/share/opencode`, `~/.gemini`, `~/.grok`,
+  `~/.cursor`, `~/.config/cursor`, `~/.config/antigravity`, `~/.vibe`) and,
+  for T3, `~/.t3/userdata` (paired devices + threads). Never into git.
+- **Snapshots are not backups.** `pct-snapshot` keeps them on the same thin
+  pool as the CT; a disk loss takes both. Back the CTs up to another device
+  (vzdump job to a NAS / PBS) for that.
 
 ## Paseo server (headless)
 

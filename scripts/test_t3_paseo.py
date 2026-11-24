@@ -250,6 +250,41 @@ class T3Setup(SandboxCase):
             (units / "t3-update.service").read_text(),
         )
 
+    def _opencode_sandbox(self, instance):
+        import json
+        sb = self.sandbox()
+        os.symlink(shutil.which("python3"), str(sb.tools / "python3"))
+        oc2 = sb.stubs / "opencode2"
+        oc2.write_text("#!/bin/sh\nexit 0\n")
+        oc2.chmod(0o755)
+        settings = sb.home / ".t3/userdata/settings.json"
+        settings.parent.mkdir(parents=True)
+        settings.write_text(json.dumps({"providerInstances": {"opencode": instance}}))
+        return sb, oc2, settings
+
+    def test_opencode_instance_pointed_at_opencode2(self):
+        import json
+        sb, oc2, settings = self._opencode_sandbox({"driver": "opencode", "enabled": True})
+        r = sb.run("t3-setup")
+        self.assertEqual(r.returncode, 0, r.stderr)
+        inst = json.loads(settings.read_text())["providerInstances"]["opencode"]
+        self.assertEqual(inst["config"]["binaryPath"], str(oc2))
+        self.assertEqual(stat.S_IMODE(settings.stat().st_mode), 0o600)
+        self.assertTrue((settings.parent / "settings.json.bak-t3-setup").exists())
+        calls = sb.calls()
+        self.assertIn("systemctl --user stop t3code.service", calls)  # edited while stopped
+        self.assertIn("t3 service restart", calls)
+
+    def test_opencode_binary_path_set_by_hand_is_kept(self):
+        import json
+        sb, oc2, settings = self._opencode_sandbox(
+            {"driver": "opencode", "config": {"binaryPath": "/opt/my-opencode"}})
+        r = sb.run("t3-setup")
+        self.assertEqual(r.returncode, 0, r.stderr)
+        inst = json.loads(settings.read_text())["providerInstances"]["opencode"]
+        self.assertEqual(inst["config"]["binaryPath"], "/opt/my-opencode")
+        self.assertNotIn("systemctl --user stop t3code.service", sb.calls())
+
     def test_env_update_replaces_key_and_keeps_others(self):
         sb = self.sandbox()
         sb.run("t3-setup", "--lan", "--port", "3773")
