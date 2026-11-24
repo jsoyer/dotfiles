@@ -16,10 +16,23 @@ if [ ! -d "$PENDING_DIR" ] || [ -z "$(ls -A "$PENDING_DIR" 2>/dev/null)" ]; then
   exit 0
 fi
 
+# Pending entries older than PENDING_TTL seconds are stale (left by another or an
+# earlier session). Approving them would silently pre-authorise old commands, so
+# they are pruned instead. Override with APPROVE_PENDING_TTL (default 30 min).
+PENDING_TTL="${APPROVE_PENDING_TTL:-1800}"
+NOW=$(date +%s)
+
 count=0
 skipped=0
+pruned=0
 for f in "$PENDING_DIR"/*; do
   [ -f "$f" ] || continue
+  mtime=$(stat -c %Y "$f" 2>/dev/null || stat -f %m "$f" 2>/dev/null || echo "$NOW")
+  if [ $((NOW - mtime)) -ge "$PENDING_TTL" ]; then
+    rm -f "$f"
+    pruned=$((pruned + 1))
+    continue
+  fi
   # A soft-block triggered by a SUB-AGENT tool call is marked "Subagent:" in the
   # pending file (by the hook, from the payload). Sub-agents must ESCALATE, not
   # self-approve: refuse to clear these. The main agent should perform the
@@ -43,6 +56,9 @@ done
 
 echo ""
 echo "✓ $count operation(s) approved. Retry the command now."
+if [ "$pruned" -gt 0 ]; then
+  echo "🧹 $pruned stale pending entr(y/ies) older than $((PENDING_TTL / 60)) min pruned (not approved)."
+fi
 if [ "$skipped" -gt 0 ]; then
   echo "⚠️  $skipped sub-agent soft-block(s) refused (must escalate, not self-approve)."
 fi
