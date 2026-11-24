@@ -553,8 +553,8 @@ clés ; `chezmoi-autoupdate`, les stacks agents et le générateur le consomment
 - [ ] **Q8 :** le topic ntfy `fleet` existe-t-il sur le serveur (les messages fleet
   arrivent-ils) ? À demander à `pi-2b` ; n'affecte pas le code (cible Telegram = sujet
   `fleet`).
-- [ ] **Q9 :** quel bot poste « Vigil – Ops » : un bot Vigil ou le bot d'envoi seul ?
-  Hors dépôt (§20), détermine les membres du sujet.
+- [x] **Q9 — TRANCHÉE par Jérôme le 2026-11-24 : pas de sujet « Vigil – Ops ».** Deux
+  sujets Vigil seulement (Dijon, Nice). Hors dépôt (§20).
 - [ ] **Q10 :** shoutrrr (Watchtower) et Diun gèrent-ils `message_thread_id` ? Sinon
   sujet General. Hors dépôt (§20).
 - [ ] **Q11 :** `parse_mode` : texte brut par défaut (§7) ; option par appel
@@ -692,7 +692,7 @@ serveur ntfy (porte D16 b). Faits côté Pi : session `pi-2b`.
 | --- | --- | --- | --- |
 | Watchtower | Pi `~/docker/monitoring` | `WATCHTOWER_NOTIFICATION_URL` shoutrrr → `telegram://` (bot d'envoi seul) | prise en charge de `message_thread_id` par shoutrrr (Q10) |
 | Diun | Pi, même `.env` que Watchtower (le conteneur diun porte aussi `WATCHTOWER_NOTIFICATION_URL`) | notifieur Telegram natif | prise en charge des sujets (Q10) |
-| Vigil | dépôt propre, session dédiée `vigil-68` | restaurer le bot Telegram du commit `0ae7597`, un bot par routeur, boutons de confirmation de redémarrage TP-Link via `callback_query` en gardant les garanties de `src/confirm.py` (jeton à usage unique, `CONFIRM_TTL` 600 s, lié à l'action, `hmac.compare_digest`, anti-rejeu) | décision d'août « les boutons de confirmation ne transitent jamais par Internet » **révisée par Jérôme le 2026-11-24 : option 3b retenue** (bouton `callback_query` via Telegram, avec les garanties de `src/confirm.py` + contrôle user ID et chat ID du groupe) |
+| Vigil | dépôt propre, session dédiée `vigil-68` | restaurer le bot Telegram du commit `0ae7597`, un bot par routeur, boutons de confirmation de redémarrage TP-Link via `callback_query` en gardant les garanties de `src/confirm.py` (jeton à usage unique, `CONFIRM_TTL` 600 s, lié à l'action, `hmac.compare_digest`, anti-rejeu) | décision d'août « les boutons de confirmation ne transitent jamais par Internet » **révisée par Jérôme le 2026-11-24 : option 3b retenue** (bouton `callback_query` via Telegram, avec les garanties de `src/confirm.py` + contrôle user ID et chat ID du groupe). **Topologie (Jérôme, 2026-11-24, KISS) :** pas de sujet « Vigil – Ops » ; deux sujets « Vigil – Dijon » et « Vigil – Nice » ; seul le bot du **master** d'un site poste, le slave ne poste que si le master ne répond plus (« dijon-master ne répond plus ») ; chaque site surveille l'autre et poste dans le sujet du site tombé si master et slave sont muets ; tout message hors site va dans le sujet général du groupe |
 | CI `unifi-network-server` | autre dépôt, `.github/workflows/notify.yml` (déjà Telegram via `BOT_TOKEN`) | passer au bot d'envoi seul et au bon sujet | — |
 | `infra-dijon`, `infra-nice`, `proxmox`, `pyload`, `fork-keeper` | autres machines, à localiser (Q7) | migrer vers le bot d'envoi seul | `infra-nice` = `media_automation` ? (alors couvert par le sprint 2) |
 | Serveur ntfy | Pi `~/docker/prod/ntfy` | arrêt **en dernier** : sprint 4 fusionné et tous les topics silencieux ≥ 3 jours (D16 b) ; puis volumes, DNS/proxy `ntfy.bbhome.wf` | silence constaté côté serveur |
