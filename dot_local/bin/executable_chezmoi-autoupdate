@@ -79,6 +79,20 @@ preflight_sensitive_targets() {
     return 1
 }
 
+# `chezmoi apply --exclude dirs` (kept so existing dirs such as ~/.ssh are never
+# re-chmod'd) also never creates directories: a managed file in a brand-new
+# directory then fails with "stat <dir>: no such file or directory". Create only
+# the managed directories that are missing, with their chezmoi modes.
+ensure_missing_parent_dirs() {
+    local dir
+    while IFS= read -r dir; do
+        [[ -n "${dir}" && ! -e "${dir}" ]] || continue
+        log "B2-dirs: creating missing managed dir ${dir}"
+        timeout "${CHEZMOI_PHASE_TIMEOUT}s" chezmoi apply --force --no-tty --recursive=false "${dir}" >>"${LOG_FILE}" 2>&1 </dev/null \
+            || log_err "could not create managed dir ${dir}"
+    done < <(timeout "${CHEZMOI_PHASE_TIMEOUT}s" chezmoi managed --include dirs --path-style absolute 2>/dev/null </dev/null | sort)
+}
+
 # ---------------------------------------------------------------------------
 # Prep
 # ---------------------------------------------------------------------------
@@ -296,6 +310,7 @@ elif command -v chezmoi >/dev/null 2>&1; then
     if [[ ${UPDATE_EXIT} -eq 0 ]]; then
         log "B2-preflight: checking sensitive targets"
         if preflight_sensitive_targets; then
+            ensure_missing_parent_dirs
             log "B2: applying chezmoi changes"
             timeout "${CHEZMOI_PHASE_TIMEOUT}s" chezmoi apply --force --exclude dirs --no-tty --keep-going >>"${LOG_FILE}" 2>&1 </dev/null || UPDATE_EXIT=$?
         else
