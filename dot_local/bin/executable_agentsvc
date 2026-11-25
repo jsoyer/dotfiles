@@ -156,7 +156,9 @@ cmd_update() {
   want herdr  && { printf '%s> herdr%s\n'  "$c_b" "$c_0"; update-herdr         || true; }
   want t3     && { printf '%s> t3%s\n'     "$c_b" "$c_0"; update-t3            || true; }
   want paseo  && { printf '%s> paseo%s\n'  "$c_b" "$c_0"; update-paseo         || true; }
-  want happy  && { printf '%s> happy%s\n'  "$c_b" "$c_0"; sudo /usr/local/bin/happy-setup --user "$USER" --upgrade || true; }
+  if want happy && [[ -x /usr/local/bin/happy-setup ]]; then
+    printf '%s> happy%s\n' "$c_b" "$c_0"; sudo /usr/local/bin/happy-setup --user "$USER" --upgrade || true
+  fi
 }
 
 cmd_restart() {
