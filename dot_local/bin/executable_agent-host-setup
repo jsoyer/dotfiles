@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 #
 # agent-host-setup — Install the shared agent CLI set on a headless agent host
-# (Orca, T3 Code or Paseo server), as the agents' user. Idempotent.
+# (Orca, T3 Code, Paseo or Happy Agent server), as the agents' user. Idempotent.
 #
 # One template for every host: ~/.local/share/agent-host/mise-agents.toml
 # (claude, codex, copilot, opencode v1 + opencode2, pi, omp, cline, gemini,
 # vibe, rtk + node/bun/uv, exact versions). Then the server-specific script
-# (orca-setup / t3-setup / paseo-setup) runs on top.
+# (orca-setup / t3-setup / paseo-setup / happy-setup) runs on top.
 #
 # Steps:
 #   1. prerequisites   libatomic1 (mise's node), jq (agents-update), curl, git
@@ -30,7 +30,7 @@
 #   --paseo    also add npm:@getpaseo/cli (the Paseo server host)
 #   --vendor   run the grok / agy / cursor-agent installers when missing
 #
-# Next: orca-setup | t3-setup | paseo-setup, then (full path: sudo's secure_path
+# Next: orca-setup | t3-setup | paseo-setup | happy-setup, then (full path: sudo's secure_path
 # skips ~/.local/bin)
 #   sudo ~/.local/bin/agents-update --install-timer --at 05:00 --user "$USER"
 #
@@ -286,7 +286,7 @@ fi
 echo
 ok "Agent CLIs ready. Next:"
 cat <<EOF
-  - the server: orca-setup | t3-setup --host 127.0.0.1 | paseo-setup --user ${USER:-$(id -un)}
+  - the server: orca-setup | t3-setup --host 127.0.0.1 | paseo-setup --user ${USER:-$(id -un)} | happy-setup --user ${USER:-$(id -un)}
   - updates:    sudo ~/.local/bin/agents-update --install-timer --at 05:00 --user ${USER:-$(id -un)}
   - snapshots:  on the Proxmox host, pct-snapshot --install-timer <ctid>
   - logins:     run each agent once (or copy the credential dirs from the old host)

@@ -135,11 +135,15 @@ class PctBootstrap(unittest.TestCase):
     def test_root_ssh_dropin_is_validated(self):
         self.assertIn("PermitRootLogin no", self.text)
         self.assertIn('"$SSHD" -t ||', self.text)
-        # Socket-activated ssh: a failed reload must not abort.
+        # Restart, never reload: the SIGHUP re-exec killed sshd on Debian 13.
         self.assertIn(
-            "systemctl try-reload-or-restart ssh.service sshd.service >/dev/null 2>&1 || true",
+            "systemctl try-restart ssh.service sshd.service >/dev/null 2>&1 || true",
             self.text,
         )
+        self.assertNotIn("try-reload-or-restart ssh", self.text)
+        # A daemon that died anyway is started again (not with ssh.socket active).
+        self.assertIn("systemctl start ssh.service", self.text)
+        self.assertIn("! systemctl is-active --quiet ssh.socket", self.text)
 
     def test_dns_fix_only_with_systemd_resolved(self):
         self.assertIn("/etc/.pve-ignore.resolv.conf", self.text)

@@ -9,9 +9,10 @@
 #                                   systemd only manages its update
 #   t3      t3code        (--user)  T3 Code server (upstream `t3 service`)
 #   paseo   paseo         (system)  Paseo server (paseo-setup, firewall + health timer)
+#   happy   happy-agent   (system)  Happy Agent server (happy-setup, health timer)
 #
 # Installing stays manual and explicit (moshi-setup / orca-setup /
-# cursor-setup / t3-setup / paseo-setup): agentsvc only observes and drives what is already in place.
+# cursor-setup / t3-setup / paseo-setup / happy-setup): agentsvc only observes and drives what is already in place.
 # No `enable` here.
 #
 # Usage:
@@ -21,7 +22,7 @@
 #   agentsvc logs    <target>   follow the journal (Ctrl-C to quit)
 #   agentsvc reload             systemctl --user daemon-reload + reminder
 #
-# target ∈ moshi | orca | cursor | herdr | t3 | paseo | all
+# target ∈ moshi | orca | cursor | herdr | t3 | paseo | happy | all
 #
 set -uo pipefail
 
@@ -34,8 +35,8 @@ die() { printf '%s[agentsvc]%s %s\n' "$c_r" "$c_0" "$*" >&2; exit 1; }
 usage() { sed -n '2,/^set -uo/p' "$0" | sed 's/^# \{0,1\}//; $d'; }
 
 case "$TARGET" in
-  moshi|orca|cursor|herdr|t3|paseo|all) : ;;
-  *) die "Unknown target: ${TARGET} (moshi|orca|cursor|herdr|t3|paseo|all)" ;;
+  moshi|orca|cursor|herdr|t3|paseo|happy|all) : ;;
+  *) die "Unknown target: ${TARGET} (moshi|orca|cursor|herdr|t3|paseo|happy|all)" ;;
 esac
 
 want() { [[ "$TARGET" == "all" || "$TARGET" == "$1" ]]; }
@@ -135,6 +136,17 @@ cmd_status() {
     row "binary" "$(command -v paseo 2>/dev/null || echo missing)"
     echo
   fi
+  if want happy; then
+    # System scope (happy-setup). The binary is upgraded by happy-setup --upgrade
+    # (drain, swap, rollback), not by mise.
+    printf '%sHappy%s — system service\n' "$c_b" "$c_0"
+    row "happy-agent.service"    "$(unit_state system happy-agent.service)"
+    row "happy-health.timer"     "$(unit_state system happy-health.timer)"
+    n="$(systemctl show -p NRestarts --value happy-agent.service 2>/dev/null || echo 0)"
+    row "restarts" "${n:-0}"
+    row "binary" "$( [[ -x /usr/local/bin/happy-agent ]] && /usr/local/bin/happy-agent --version 2>/dev/null | head -1 || echo missing)"
+    echo
+  fi
 }
 
 cmd_update() {
@@ -144,6 +156,7 @@ cmd_update() {
   want herdr  && { printf '%s> herdr%s\n'  "$c_b" "$c_0"; update-herdr         || true; }
   want t3     && { printf '%s> t3%s\n'     "$c_b" "$c_0"; update-t3            || true; }
   want paseo  && { printf '%s> paseo%s\n'  "$c_b" "$c_0"; update-paseo         || true; }
+  want happy  && { printf '%s> happy%s\n'  "$c_b" "$c_0"; sudo /usr/local/bin/happy-setup --user "$USER" --upgrade || true; }
 }
 
 cmd_restart() {
@@ -152,6 +165,7 @@ cmd_restart() {
   want orca   && sudo systemctl restart orca-serve.service      && printf 'orca-serve restarted\n'
   want t3     && systemctl --user restart t3code.service        && printf 't3code restarted\n'
   want paseo  && sudo systemctl restart paseo.service           && printf 'paseo restarted\n'
+  want happy  && sudo systemctl restart happy-agent.service     && printf 'happy-agent restarted\n'
   # No herdr restart: the server holds your panes and is not managed by systemd.
   # A blunt restart would lose them — update-herdr does the handoff properly.
   if [[ "$TARGET" == "herdr" ]]; then
@@ -170,7 +184,8 @@ cmd_logs() {
     herdr)  exec journalctl --user -u herdr-update.service -f ;;
     t3)     exec journalctl --user -u t3code.service -f ;;
     paseo)  exec journalctl -u paseo.service -f ;;
-    all)    die "Pick a target: agentsvc logs moshi|orca|cursor|herdr|t3|paseo" ;;
+    happy)  exec journalctl -u happy-agent.service -f ;;
+    all)    die "Pick a target: agentsvc logs moshi|orca|cursor|herdr|t3|paseo|happy" ;;
   esac
 }
 

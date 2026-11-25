@@ -129,9 +129,19 @@ else
     write "$conf" 0644 $'# Managed by pct-bootstrap: log in as the admin user, then sudo.\nPermitRootLogin no\n'
     if [[ "$DRY_RUN" != 1 ]]; then
       "$SSHD" -t || { say "ERROR: sshd -t failed, removing $conf"; rm -f "$conf"; exit 1; }
-      # Socket-activated ssh (Ubuntu 24.04, Debian 13) has no running daemon to
-      # reload: each new connection reads the config, so a failed reload is fine.
-      systemctl try-reload-or-restart ssh.service sshd.service >/dev/null 2>&1 || true
+      # RESTART, never reload: on Debian 13 (OpenSSH 10) the SIGHUP re-exec of a
+      # running sshd died with "Cannot bind any address" and left the container
+      # without SSH. try-restart only touches a daemon that is running, so
+      # socket-activated ssh (Ubuntu 24.04) is left alone: each new connection
+      # reads the config anyway.
+      systemctl try-restart ssh.service sshd.service >/dev/null 2>&1 || true
+      if systemctl is-enabled --quiet ssh.service 2>/dev/null \
+         && ! systemctl is-active --quiet ssh.socket 2>/dev/null \
+         && ! systemctl is-active --quiet ssh.service 2>/dev/null; then
+        say "sshd was not running: starting ssh.service"
+        systemctl start ssh.service >/dev/null 2>&1 || say "WARNING: ssh.service did not start (journalctl -u ssh)"
+      fi
+      mkdir -p /run/sshd   # `sshd -T` needs the privilege separation directory
       say "root SSH login disabled ($("$SSHD" -T 2>/dev/null | grep -i '^permitrootlogin' || echo '?'))"
     fi
   fi

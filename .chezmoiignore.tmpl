@@ -262,7 +262,7 @@ bin/serie_renommer.py
 bin/media_automation
 {{ end }}
 
-# ── Agent stacks (moshi / orca / cursor-worker / t3 / paseo) : Linux only ──
+# ── Agent stacks (moshi / orca / cursor-worker / t3 / paseo / happy) : Linux only ──
 # herdr is the exception: scripts deploy on every Unix host (binary via
 # Homebrew on macOS, herdr.dev one-liner on Linux). Ignore = do not re-apply.
 # Actual deletion of leftovers is run_once_12, and only moshi/orca/cursor
@@ -276,6 +276,7 @@ bin/media_automation
 .local/bin/agentsvc
 .local/bin/cursor-setup
 .local/bin/cursor-uninstall
+.local/bin/happy-setup
 .local/bin/moshi-hook-launch
 .local/bin/moshi-setup
 .local/bin/moshi-uninstall
