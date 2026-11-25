@@ -1,0 +1,421 @@
+#!/usr/bin/env bash
+#
+# happy-setup — Turn a Linux box (LXC/VM) into an always-on Happy Agent server,
+# running as the agents' user. Idempotent: safe to run again.
+#
+# Happy Agent (https://happy.engineering, github.com/slopus/happy-agent) is a
+# headless daemon that runs the agent loop itself (Claude through the Agent
+# SDK, Codex, Grok, Antigravity, OpenCode, ACP agents) on the provider logins
+# of its user. Happy Desktop reaches it through Tailcat (WireGuard, no open
+# port); phones go through a Happy relay (HAPPY_AGENT_HAPPY_SERVER_URL).
+# Unlike Paseo it binds NO TCP port (unix socket + outbound Tailcat): no
+# firewall is needed.
+#
+# Install the agent CLIs first (agent-host-setup --vendor) and log them in as
+# <user>; restart the service after a new login so the provider is picked up.
+#
+# What it sets up (root, systemd):
+#   1. /usr/local/bin/happy-agent  the release binary, root-owned, latest
+#                             stable (or --version) for x64/arm64, SHA-256
+#                             checked against the release's .sha256 file
+#   2. ~/happy/config/happy.toml  ONLY when absent (0600): optional [profile],
+#                             team mode off, a fresh private [api] token,
+#                             Tailcat on (port 24779), permission_mode auto.
+#                             An existing file is never rewritten.
+#   3. ~/.config/happy-agent/service.env  HAPPY_AGENT_HAPPY_SERVER_URL from
+#                             --relay (0600), for a self-hosted relay
+#   4. happy-agent.service    `happy-agent run` as <user> (UMask 0077), mise
+#                             shims + ~/.local/bin + ~/.grok/bin on PATH,
+#                             MISE_*_DIR pinned, After= tailscaled
+#   5. happy-health.timer     every 10 min: authenticated /v0/health on the
+#                             unix socket must report ready; two misses in a
+#                             row restart the daemon (journal + agent-alert)
+#   6. /usr/local/bin/happy-setup  a copy of this script (sudo's secure_path
+#                             does not search ~/.local/bin)
+#
+# --upgrade replaces the binary with a newer release the safe way: download and
+# verify first, then `happy-agent drain` (as <user>), stop, swap, start, wait
+# for ready; the previous binary is kept as happy-agent.prev and restored if
+# the new one does not become ready.
+#
+# Secrets (the API token, the Tailcat address, provider logins) are never
+# printed. Register the server in Happy Desktop with the address in
+# ~<user>/.happy/agent/tailcat/address, its port and the [api] token.
+#
+# Usage (root):
+#   happy-setup --user <name> [--relay https://relay.example] [--version vX.Y.Z]
+#               [--name "Full Name"] [--email you@example.com] [--no-start]
+#   happy-setup --user <name> --upgrade [--version vX.Y.Z]
+#   happy-setup --status [--user <name>]
+#   happy-setup --uninstall           (units + health check; binary and
+#                                      ~/.happy, ~/happy are kept)
+#
+set -euo pipefail
+
+SVC_USER=""
+RELAY=""
+WANT_TAG=""
+PROFILE_NAME=""
+PROFILE_EMAIL=""
+NO_START=0
+MODE="install"
+TAILCAT_PORT=24779
+BIN="/usr/local/bin/happy-agent"
+UNIT_DIR="/etc/systemd/system"
+HEALTH_BIN="/usr/local/sbin/happy-health"
+ALERT_BIN="/usr/local/bin/agent-alert"
+REPO="slopus/happy-agent"
+
+c_g=$'\e[32m'; c_y=$'\e[33m'; c_r=$'\e[31m'; c_0=$'\e[0m'
+[[ -t 1 ]] || { c_g=""; c_y=""; c_r=""; c_0=""; }
+ok()   { printf '%s[happy-setup]%s %s\n' "$c_g" "$c_0" "$*"; }
+warn() { printf '%s[happy-setup]%s %s\n' "$c_y" "$c_0" "$*" >&2; }
+die()  { printf '%s[happy-setup] ERROR:%s %s\n' "$c_r" "$c_0" "$*" >&2; exit 1; }
+usage() { sed -n '3,/^set -euo/p' "$0" | sed '$d; s/^# \{0,1\}//'; }
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --user)      SVC_USER="${2:?--user needs a name}"; shift ;;
+    --relay)     RELAY="${2:?--relay needs a URL}"; shift ;;
+    --version)   WANT_TAG="${2:?--version needs a tag}"; shift ;;
+    --name)      PROFILE_NAME="${2:?--name needs a value}"; shift ;;
+    --email)     PROFILE_EMAIL="${2:?--email needs a value}"; shift ;;
+    --no-start)  NO_START=1 ;;
+    --upgrade)   MODE="upgrade" ;;
+    --status)    MODE="status" ;;
+    --uninstall) MODE="uninstall" ;;
+    -h|--help)   usage; exit 0 ;;
+    *)           die "Unknown option: $1 (see --help)" ;;
+  esac
+  shift
+done
+[[ -z "$WANT_TAG" || "$WANT_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$ ]] \
+  || die "--version: a release tag like v2026.11.10"
+[[ -z "$RELAY" || "$RELAY" =~ ^https?://[A-Za-z0-9.:-]+(/[A-Za-z0-9._/-]*)?$ ]] \
+  || die "--relay: an http(s) URL"
+[[ -z "$PROFILE_EMAIL" || "$PROFILE_EMAIL" =~ ^[^[:space:]@\"]+@[^[:space:]@\"]+$ ]] \
+  || die "--email: an e-mail address"
+[[ "$PROFILE_NAME" != *\"* && "$PROFILE_NAME" != *\\* ]] || die "--name: no quotes or backslashes"
+
+resolve_user() {
+  [[ "$SVC_USER" =~ ^[a-z_][a-z0-9_-]{0,31}$ ]] || die "--user <name> is required (the agents' user)."
+  [[ "$SVC_USER" != root ]] || die "Run Happy Agent as a regular user, not root."
+  SVC_HOME="$(getent passwd "$SVC_USER" | cut -d: -f6)"
+  [[ -n "$SVC_HOME" && -d "$SVC_HOME" ]] || die "Unknown user or missing home: $SVC_USER"
+  CONFIG="${SVC_HOME}/happy/config/happy.toml"
+  SOCK="${SVC_HOME}/.happy/agent/server.sock"
+}
+
+# Authenticated health probe. python reads the token from the config and sends
+# the request on the unix socket itself: the token is never in argv or output.
+probe_ready() {
+  [[ -S "$SOCK" && -r "$CONFIG" ]] || return 1
+  python3 - "$CONFIG" "$SOCK" <<'PY'
+import json, socket, sys, tomllib
+cfg, sock = sys.argv[1], sys.argv[2]
+tok = tomllib.load(open(cfg, "rb")).get("api", {}).get("token", "")
+if not tok:
+    sys.exit(1)
+s = socket.socket(socket.AF_UNIX); s.settimeout(10)
+try:
+    s.connect(sock)
+    s.sendall(f"GET /v0/health HTTP/1.0\r\nHost: localhost\r\nAuthorization: Bearer {tok}\r\n\r\n".encode())
+    data = b""
+    while chunk := s.recv(65536):
+        data += chunk
+except OSError:
+    sys.exit(1)
+head, _, body = data.partition(b"\r\n\r\n")
+if b" 200 " not in head.split(b"\r\n", 1)[0] + b" ":
+    sys.exit(1)
+try:
+    sys.exit(0 if json.loads(body).get("ready") is True else 1)
+except ValueError:
+    sys.exit(1)
+PY
+}
+
+if [[ "$MODE" == "status" ]]; then
+  for u in happy-agent.service happy-health.timer; do
+    printf '  %-22s %s\n' "$u" "$(systemctl is-active "$u" 2>/dev/null || true)"
+  done
+  printf '  %-22s %s\n' "binary" "$([[ -x "$BIN" ]] && "$BIN" --version 2>/dev/null | head -1 || echo missing)"
+  if [[ -n "$SVC_USER" ]]; then
+    resolve_user
+    if [[ "$(id -u)" -ne 0 && "$(id -un)" != "$SVC_USER" ]]; then
+      echo "  /v0/health             (run as root or ${SVC_USER} to probe)"
+    elif probe_ready; then
+      echo "  /v0/health             ready"
+    else
+      echo "  /v0/health             NOT READY"
+    fi
+    [[ -s "${SVC_HOME}/.happy/agent/tailcat/address" ]] \
+      && echo "  tailcat                address present (not shown)" \
+      || echo "  tailcat                no address yet"
+  fi
+  exit 0
+fi
+
+[[ "$(id -u)" -eq 0 ]] || die "Run as root (sudo)."
+command -v systemctl >/dev/null || die "systemd is required."
+
+if [[ "$MODE" == "uninstall" ]]; then
+  systemctl disable --now happy-health.timer happy-agent.service 2>/dev/null || true
+  # agent-alert is shared with orca-setup / paseo-setup: left installed.
+  rm -f "${UNIT_DIR}"/happy-agent.service "${UNIT_DIR}"/happy-health.{service,timer} "$HEALTH_BIN"
+  systemctl daemon-reload
+  ok "Happy Agent units removed (${BIN}, ~/.happy and ~/happy kept)."
+  exit 0
+fi
+
+resolve_user
+for c in curl jq tar sha256sum python3; do
+  command -v "$c" >/dev/null || die "$c is required (apt-get install curl jq tar coreutils python3)."
+done
+python3 -c 'import tomllib' 2>/dev/null || die "python3 >= 3.11 is required (tomllib)."
+command -v bwrap >/dev/null || warn "bubblewrap is missing: the sandbox cannot start (apt-get install bubblewrap socat)."
+SELF_BIN="/usr/local/bin/happy-setup"
+[[ "$(readlink -f -- "$0")" -ef "$SELF_BIN" ]] || install -m 0755 "$(readlink -f -- "$0")" "$SELF_BIN"
+
+as_user() {
+  runuser -u "$SVC_USER" -- env -i HOME="$SVC_HOME" USER="$SVC_USER" \
+    PATH="${SVC_HOME}/.local/share/mise/shims:${SVC_HOME}/.local/bin:/usr/local/bin:/usr/bin:/bin" \
+    bash -c 'cd "$HOME" && "$@"' _ "$@"
+}
+
+wait_ready() {
+  local _
+  for _ in $(seq 1 "${1:-60}"); do probe_ready && return 0; sleep 2; done
+  return 1
+}
+
+# --- 1. Binary -------------------------------------------------------------------
+case "$(uname -m)" in
+  x86_64)        TARGET="linux-x64" ;;
+  aarch64|arm64) TARGET="linux-arm64" ;;
+  *)             die "Unsupported architecture $(uname -m) (64-bit x86 or ARM only)." ;;
+esac
+installed_version() { [[ -x "$BIN" ]] && "$BIN" --version 2>/dev/null | awk '{print $NF; exit}' || true; }
+
+# Downloads and verifies the release into $1; sets NEW_VERSION.
+fetch_release() {
+  local dir="$1" tag="$WANT_TAG" archive base
+  if [[ -z "$tag" ]]; then
+    tag="$(curl -fsSL "https://api.github.com/repos/${REPO}/releases?per_page=100" \
+      | jq -er '[.[] | select(.draft == false and .prerelease == false)
+                     | select(.tag_name | test("^v[0-9]+\\.[0-9]+\\.[0-9]+$"))][0].tag_name')" \
+      || die "Could not resolve the latest stable Happy Agent release (GitHub API)."
+  fi
+  NEW_VERSION="${tag#v}"
+  archive="happy-agent-${NEW_VERSION}-${TARGET}.tar.gz"
+  base="https://github.com/${REPO}/releases/download/${tag}"
+  ( cd "$dir"
+    curl -fsSL -o "$archive" "${base}/${archive}" || exit 1
+    curl -fsSL -o "${archive}.sha256" "${base}/${archive}.sha256" || exit 1
+    sha256sum --check --status "${archive}.sha256" || { echo "checksum mismatch" >&2; exit 1; }
+    tar -xzf "$archive"
+    [[ -x "happy-agent-${TARGET}" ]] ) \
+    || die "Download or SHA-256 check of ${archive} failed: nothing installed."
+  NEW_BIN="${dir}/happy-agent-${TARGET}"
+}
+
+CUR_VERSION="$(installed_version)"
+NEED_BIN=0
+[[ -z "$CUR_VERSION" || "$MODE" == "upgrade" || -n "$WANT_TAG" ]] && NEED_BIN=1
+if (( NEED_BIN )); then
+  DL="$(mktemp -d)"; trap 'rm -rf "$DL"' EXIT
+  fetch_release "$DL"
+  if [[ "$NEW_VERSION" == "$CUR_VERSION" ]]; then
+    ok "Binary: Happy Agent ${CUR_VERSION} already installed."
+  elif [[ -z "$CUR_VERSION" ]] || ! systemctl is-active --quiet happy-agent.service; then
+    install -m 0755 -o root -g root "$NEW_BIN" "$BIN"
+    ok "Binary: Happy Agent ${NEW_VERSION} (${TARGET}, SHA-256 verified) in ${BIN}"
+  else
+    ok "Upgrading ${CUR_VERSION} -> ${NEW_VERSION}: draining the running daemon first"
+    as_user "$BIN" drain || die "happy-agent drain failed: nothing replaced (check the daemon)."
+    systemctl stop happy-agent.service
+    cp -p "$BIN" "${BIN}.prev"
+    install -m 0755 -o root -g root "$NEW_BIN" "$BIN"
+    systemctl start happy-agent.service
+    if wait_ready 60; then
+      ok "Happy Agent ${NEW_VERSION} is ready (previous binary kept as ${BIN}.prev)."
+    else
+      warn "${NEW_VERSION} did not become ready: restoring ${CUR_VERSION}."
+      systemctl stop happy-agent.service || true
+      install -m 0755 -o root -g root "${BIN}.prev" "$BIN"
+      systemctl start happy-agent.service
+      wait_ready 60 || die "The restored ${CUR_VERSION} is not ready either: journalctl -u happy-agent -e"
+      die "Upgrade rolled back to ${CUR_VERSION}: journalctl -u happy-agent -e"
+    fi
+  fi
+fi
+[[ "$MODE" == "upgrade" ]] && exit 0
+
+# --- 2. Config (only when absent) --------------------------------------------------
+# As the user: parents such as ~/.config must not end up root-owned.
+as_user bash -c 'umask 077; mkdir -p "$HOME/happy/config" "$HOME/.config/happy-agent"
+  chmod 0700 "$HOME/happy" "$HOME/happy/config" "$HOME/.config/happy-agent"'
+if [[ -e "$CONFIG" ]]; then
+  ok "Config: ${CONFIG} exists, left untouched."
+  grep -qE '^\[feature\.tailcat\]' "$CONFIG" || warn "No [feature.tailcat] in ${CONFIG}: Happy Desktop cannot reach this server."
+else
+  as_user env PROFILE_NAME="$PROFILE_NAME" PROFILE_EMAIL="$PROFILE_EMAIL" TAILCAT_PORT="$TAILCAT_PORT" \
+    CONFIG="$CONFIG" python3 - <<'PY'
+import base64, os, secrets
+tok = base64.urlsafe_b64encode(secrets.token_bytes(32)).rstrip(b"=").decode()
+name, email = os.environ["PROFILE_NAME"], os.environ["PROFILE_EMAIL"]
+profile = ""
+if name or email:
+    profile = "[profile]\n" + (f'name = "{name}"\n' if name else "") + (f'email = "{email}"\n' if email else "") + "\n"
+cfg = (
+    "# Managed by happy-setup at creation only: edit freely, it is never rewritten.\n"
+    + profile
+    + "[feature.team]\nenabled = false\n\n"
+    + f'[api]\ntoken = "{tok}"\n\n'
+    + f"[feature.tailcat]\nenabled = true\nport = {os.environ['TAILCAT_PORT']}\n\n"
+    + '[defaults]\npermission_mode = "auto"\n'
+)
+path = os.environ["CONFIG"]
+fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+with os.fdopen(fd, "w") as f:
+    f.write(cfg)
+PY
+  ok "Config: ${CONFIG} created (fresh private API token, Tailcat on port ${TAILCAT_PORT}, team off)."
+fi
+
+# --- 3. Relay --------------------------------------------------------------------
+ENV_FILE="${SVC_HOME}/.config/happy-agent/service.env"
+if [[ -n "$RELAY" ]]; then
+  as_user bash -c 'umask 077; f="$1"; touch "$f"; grep -v "^HAPPY_AGENT_HAPPY_SERVER_URL=" "$f" > "$f.tmp" || true
+    printf "HAPPY_AGENT_HAPPY_SERVER_URL=%s\n" "$2" >> "$f.tmp"; mv -f "$f.tmp" "$f"' _ "$ENV_FILE" "$RELAY"
+  ok "Relay: ${RELAY} (${ENV_FILE})"
+fi
+
+# --- 4. Daemon unit --------------------------------------------------------------
+cat > "${UNIT_DIR}/happy-agent.service" <<EOF
+# Managed by happy-setup.
+[Unit]
+Description=Happy Agent (headless agent server, user ${SVC_USER})
+Documentation=https://github.com/${REPO}
+After=network-online.target tailscaled.service
+Wants=network-online.target
+StartLimitIntervalSec=1800
+StartLimitBurst=5
+
+[Service]
+Type=simple
+User=${SVC_USER}
+Group=${SVC_USER}
+WorkingDirectory=${SVC_HOME}
+# A system unit never reads shell rc files: agents must be on PATH explicitly.
+Environment="PATH=${SVC_HOME}/.local/share/mise/shims:${SVC_HOME}/.local/bin:${SVC_HOME}/.grok/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+Environment="HOME=${SVC_HOME}"
+# Agent tools may isolate XDG_*: pin mise to its real dirs so the shims still work.
+Environment="MISE_DATA_DIR=${SVC_HOME}/.local/share/mise" "MISE_CONFIG_DIR=${SVC_HOME}/.config/mise" "MISE_STATE_DIR=${SVC_HOME}/.local/state/mise" "MISE_CACHE_DIR=${SVC_HOME}/.cache/mise"
+EnvironmentFile=-${ENV_FILE}
+ExecStart=${BIN} run
+Restart=on-failure
+RestartSec=5
+UMask=0077
+TimeoutStopSec=60
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+# --- 5. Health check -------------------------------------------------------------
+# agent-alert runs as ROOT from the health unit: taken only from this script's
+# own directory, owned by root or the invoking admin, not group/world-writable
+# (same trust rule as paseo-setup / orca-setup).
+trusted_source() {
+  local p uid
+  [[ -f "$1" && ! -L "$1" ]] || return 1
+  for p in "$1" "$(dirname "$1")"; do
+    uid="$(stat -c %u "$p")"
+    [[ "$uid" == 0 || ( -n "${SUDO_UID:-}" && "$uid" == "$SUDO_UID" ) ]] || return 1
+    (( (8#$(stat -c %a "$p") & 8#022) == 0 )) || return 1
+  done
+}
+c="$(dirname "$0")/agent-alert"
+if [[ -r "$c" ]] && trusted_source "$c"; then
+  [[ "$c" -ef "$ALERT_BIN" ]] || install -m 0755 "$c" "$ALERT_BIN"
+elif [[ ! -x "$ALERT_BIN" ]]; then
+  warn "agent-alert not found next to this script: alerts stay in the journal."
+fi
+# The probe is this script's own probe_ready, copied verbatim.
+{
+  printf '#!/usr/bin/env bash\n# Managed by happy-setup. Two failed /v0/health probes in a row restart Happy Agent.\n'
+  printf 'set -uo pipefail\nCONFIG=%q\nSOCK=%q\n' "$CONFIG" "$SOCK"
+  declare -f probe_ready
+  cat <<EOF
+STATE_DIR=/var/lib/happy-health; mkdir -p "\$STATE_DIR"
+fails=0; [[ -r "\$STATE_DIR/fails" ]] && fails=\$(<"\$STATE_DIR/fails")
+notify() {
+  logger -t happy-health -p user.err "\$1: \$2"
+  [[ -x ${ALERT_BIN} ]] || return 0
+  ${ALERT_BIN} --title "\$1" --priority high --tags rotating_light "\$2" >/dev/null 2>&1 || true
+}
+if probe_ready; then
+  (( fails > 0 )) && logger -t happy-health "Happy Agent is ready again"
+  echo 0 > "\$STATE_DIR/fails"; exit 0
+fi
+fails=\$((fails + 1)); echo "\$fails" > "\$STATE_DIR/fails"
+state=\$(systemctl is-active happy-agent.service 2>/dev/null || true)
+if (( fails >= 2 )); then
+  notify "Happy Agent down on \$(hostname)" "/v0/health not ready twice in a row (unit: \$state). Restarting happy-agent.service."
+  systemctl reset-failed happy-agent.service 2>/dev/null || true
+  systemctl restart happy-agent.service || notify "Happy Agent restart FAILED on \$(hostname)" "journalctl -u happy-agent -e"
+  echo 0 > "\$STATE_DIR/fails"
+else
+  logger -t happy-health "/v0/health not ready (unit: \$state), retry at the next run"
+fi
+exit 0
+EOF
+} > "$HEALTH_BIN"
+chmod 0755 "$HEALTH_BIN"
+cat > "${UNIT_DIR}/happy-health.service" <<EOF
+# Managed by happy-setup.
+[Unit]
+Description=Happy Agent health check (restart after two failed probes)
+After=happy-agent.service
+
+[Service]
+Type=oneshot
+ExecStart=${HEALTH_BIN}
+EOF
+cat > "${UNIT_DIR}/happy-health.timer" <<'EOF'
+# Managed by happy-setup.
+[Unit]
+Description=Happy Agent health check every 10 minutes
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=10min
+
+[Install]
+WantedBy=timers.target
+EOF
+
+systemctl daemon-reload
+systemctl enable happy-agent.service happy-health.timer >/dev/null 2>&1
+ok "Units installed: happy-agent (enabled), happy-health.timer"
+
+# --- Start -----------------------------------------------------------------------
+if (( NO_START )); then
+  ok "Not started (--no-start)."
+else
+  systemctl restart happy-agent.service
+  systemctl start happy-health.timer
+  wait_ready 60 || die "Happy Agent is not ready on /v0/health: journalctl -u happy-agent -e"
+  ok "Happy Agent is ready ($(installed_version))."
+  for _ in $(seq 1 45); do [[ -s "${SVC_HOME}/.happy/agent/tailcat/address" ]] && break; sleep 2; done
+  if [[ -s "${SVC_HOME}/.happy/agent/tailcat/address" ]]; then
+    ok "Tailcat address ready (private): ${SVC_HOME}/.happy/agent/tailcat/address, port $(cat "${SVC_HOME}/.happy/agent/tailcat/port" 2>/dev/null || echo "$TAILCAT_PORT")"
+  else
+    warn "No Tailcat address yet: check [feature.tailcat] in ${CONFIG}."
+  fi
+fi
+ok "Next: log the agents in as ${SVC_USER} (claude, codex login --device-auth, grok login, agy, gh auth login),
+  then: sudo systemctl restart happy-agent.service
+  Desktop: register this server with the Tailcat address, its port and the [api] token (keep them private).
+  Upgrades: sudo happy-setup --user ${SVC_USER} --upgrade"

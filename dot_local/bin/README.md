@@ -622,8 +622,8 @@ runs it on every change of the script.
 
 ## Self-hosted Agent Stacks
 
-Six independent stacks, each with an installer, an updater and systemd units.
-**Moshi / orca / cursor / t3 / paseo are not enabled automatically**: `chezmoi apply` only
+Seven independent stacks, each with an installer, an updater and systemd units.
+**Moshi / orca / cursor / t3 / paseo / happy are not enabled automatically**: `chezmoi apply` only
 drops the files on disk, and activation is an explicit command (the aliases
 below). **herdr is the exception**:
 - **macOS** — Homebrew formula on the hostname Brewfile overlays (`bup` upgrades it)
@@ -638,8 +638,9 @@ below). **herdr is the exception**:
 | **herdr** (multiplexer) | `--user` (binary on every Unix host) | `herdr-setup` | `update-herdr` | `herdr-update.{service,timer}` (Linux) |
 | **T3 Code** (headless server) | `--user` (+ linger), Linux only | `t3-setup` | `update-t3` | `t3code.service` (upstream `t3 service`), `t3-update.{service,timer}`, `t3-health.{service,timer}`, `t3-alert@.service` |
 | **Paseo** (agent server) | **system** (root), Linux only | `paseo-setup` (see *Paseo server*) | `agents-update` (`update-paseo` wraps it) | `paseo.service`, `paseo-firewall.service`, `paseo-health.{service,timer}` |
+| **Happy Agent** (agent server) | **system** (root), Linux only | `happy-setup` (see *Happy Agent server*) | `happy-setup --upgrade` (drain + rollback) | `happy-agent.service`, `happy-health.{service,timer}` |
 
-`agentsvc` is the umbrella over all six: `agentsvc status|update|restart|logs|reload` (targets `moshi|orca|cursor|herdr|t3|paseo`).
+`agentsvc` is the umbrella over all seven: `agentsvc status|update|restart|logs|reload` (targets `moshi|orca|cursor|herdr|t3|paseo|happy`).
 
 ### moshi-setup
 
@@ -1088,7 +1089,7 @@ agentsvc status herdr
 One uniform scheme, tab-completable on the stack name. The earlier two-letter
 aliases (`mhs`, `cwl`, `hu`…) were dropped in favour of this.
 
-## Agent host (shared base for Orca / T3 Code / Paseo)
+## Agent host (shared base for Orca / T3 Code / Paseo / Happy Agent)
 
 One recipe for every headless agent host (Proxmox LXC). Only one or two of them
 are meant to run at a time: everything below is per CT and tolerates the others
@@ -1216,6 +1217,46 @@ agents-update --install-timer --at 05:00 --user <name> --restart-on paseo=paseo.
   the Tailscale IP (absent at boot). mise's node needs `libatomic1` on a minimal
   Ubuntu template.
 
+## Happy Agent server (headless)
+
+`happy-setup` turns a Linux box into an always-on [Happy Agent](https://github.com/slopus/happy-agent)
+server running as the agents' user (same model as Orca / T3 / Paseo: no
+separate workload user). Happy Agent runs the agent loop itself on that user's
+provider logins; Happy Desktop reaches it through **Tailcat** (WireGuard, no
+open port), phones through a Happy **relay**. It binds no TCP port, so there is
+no firewall step. Install the agent CLIs first (`agent-host-setup --vendor`),
+then, as root:
+
+```bash
+happy-setup --user <name> [--relay https://happy-relay.example] [--name "Full Name" --email you@example.com]
+# log the agents in as <name>: claude, codex login --device-auth, grok login, agy, gh auth login
+systemctl restart happy-agent.service        # picks up new provider logins
+happy-setup --status --user <name>
+happy-setup --user <name> --upgrade          # newer stable release, drained + rolled back on failure
+```
+
+| Piece | What it does |
+|-------|--------------|
+| `/usr/local/bin/happy-agent` | latest stable release (or `--version vX.Y.Z`), `linux-x64`/`linux-arm64`, SHA-256 checked against the release `.sha256`, root-owned |
+| `~/happy/config/happy.toml` | created **only when absent** (0600): optional `[profile]`, team mode off, a fresh 43-char `[api]` token, Tailcat on (port 24779), `permission_mode = "auto"`. Never rewritten |
+| `~/.config/happy-agent/service.env` | `HAPPY_AGENT_HAPPY_SERVER_URL` from `--relay` (self-hosted relay), 0600 |
+| `happy-agent.service` | `happy-agent run` as `<name>`, `UMask=0077`, explicit PATH + pinned `MISE_*_DIR`, after `tailscaled` |
+| `happy-health.timer` | every 10 min an authenticated `/v0/health` on the unix socket must say `ready`; two misses in a row restart the daemon and alert (`agent-alert`) |
+| `/usr/local/bin/happy-setup` | copy of the script (sudo's `secure_path` skips `~/.local/bin`) |
+
+- **Secrets stay private.** The `[api]` token and the Tailcat address
+  (`~/.happy/agent/tailcat/address`) are never printed: register the server in
+  Happy Desktop (`[connections.<id>]` with `address`, `port`, `token`) by
+  copying them privately. Anyone with both can drive the server as you.
+- **Sandbox.** Commands run under Bubblewrap in Auto (`apt-get install
+  bubblewrap socat`); an unprivileged LXC needs `nesting=1` and working user
+  namespaces (`unshare -Ur true`). Ubuntu 24.04 also needs an AppArmor `userns`
+  allowance for the binary (see the upstream permissions doc).
+- **Upgrades** are not handled by `agents-update` (not a mise tool):
+  `happy-setup --upgrade` downloads and verifies first, then `happy-agent drain`,
+  stop, swap, start and waits for `ready`; the old binary stays as
+  `happy-agent.prev` and is restored automatically when the new one is not ready.
+
 ## Proxmox host helpers
 
 Run as root on the Proxmox VE host (`multibox`). Both refuse to run where `pct`
@@ -1235,7 +1276,7 @@ pct exec 210 -- passwd jeromesoyer        # if you also want a password
 |------|--------------|
 | user | creates it (bash shell), adds it to `sudo`/`wheel`, `/etc/sudoers.d/90-<user>` NOPASSWD, `visudo -cf` before the rename |
 | keys | appends each `--ssh-key` to `authorized_keys` (no duplicates) |
-| root SSH | `sshd_config.d/00-no-root.conf` = `PermitRootLogin no`, `sshd -t` checked (removed again on failure); `--keep-root-ssh` skips it |
+| root SSH | `sshd_config.d/00-no-root.conf` = `PermitRootLogin no`, `sshd -t` checked (removed again on failure), then sshd is **restarted** (never reloaded: the SIGHUP re-exec killed it on Debian 13) and started again if it is down; `--keep-root-ssh` skips it |
 | DNS | only when names do not resolve: with systemd-resolved, `/etc/.pve-ignore.resolv.conf` + `/etc/resolv.conf` -> resolved stub; otherwise a hint for `pct set <id> --nameserver` |
 | postfix | `--no-postfix` disables it (templates enable it on port 25 for nothing) |
 
