@@ -40,14 +40,9 @@ fi
 
 case "$OB_CHANNEL" in
   npm)
-    cur="$(ob --version 2>/dev/null || true)"
-    new="$(npm view obsidian-headless version 2>/dev/null || true)"
-    if [ -n "$new" ] && [ "$cur" != "$new" ]; then
-      log "npm install -g obsidian-headless@${new} (was ${cur:-none})"
-      npm install -g "obsidian-headless@${new}" || rc=1
-    else
-      log "obsidian-headless ${cur:-?} up to date"
-    fi ;;
+    # simpler: let npm work out what changed
+    log "npm update -g"
+    npm update -g || rc=1 ;;
   mise)
     if [ "${OB_MISE_BUMP:-0}" = 1 ]; then
       log "mise upgrade --bump npm:obsidian-headless"
