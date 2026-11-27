@@ -1,0 +1,66 @@
+#!/bin/sh
+#
+# obsidian-update — Nightly update of the Obsidian CLI (obsidian-headless, `ob`)
+# and of the global Obsidian skills (npx skills, obsidianmd/obsidian-skills).
+#
+# Install: npx skills add obsidianmd/obsidian-skills -g -y, and `ob` either
+# through mise ("npm:obsidian-headless" in the mise config, agent hosts) or with
+# `npm install -g obsidian-headless` into ~/.npm-global (Raspberry Pis).
+#
+# Channel (OB_CHANNEL, detected from where `ob` lives when unset):
+#   mise   agents-update already bumps it (OB_MISE_BUMP=1: this script does it,
+#          for hosts without agents-update)
+#   npm    `npm install -g obsidian-headless@<latest>` when it changed. NOT
+#          `npm update -g`: it resolves the WHOLE global tree and fails on
+#          unrelated peer conflicts (ERESOLVE).
+#   none   ob managed elsewhere (Linuxbrew) or absent: skills only
+#
+# Runs as the agent user: `agents-update --install-timer` adds it as
+# ExecStopPost of agents-update.service; hosts without agents-update give it a
+# timer of its own. A failure is reported (exit 1), never fatal to the caller.
+#
+set -u
+rc=0
+log() { printf '[obsidian-update] %s\n' "$*"; }
+
+case "${1:-}" in
+  -h|--help) sed -n '2,/^set -u/p' "$0" | sed 's/^# \{0,1\}//; $d'; exit 0 ;;
+  "") : ;;
+  *) echo "obsidian-update: unknown option: $1" >&2; exit 2 ;;
+esac
+
+PATH="${PATH}:${HOME}/.npm-global/bin"; export PATH
+if [ -z "${OB_CHANNEL:-}" ]; then
+  case "$(command -v ob 2>/dev/null || true)" in
+    */mise/shims/*|*/mise/installs/*) OB_CHANNEL=mise ;;
+    "${HOME}/.npm-global/"*)           OB_CHANNEL=npm ;;
+    *)                                 OB_CHANNEL=none ;;
+  esac
+fi
+
+case "$OB_CHANNEL" in
+  npm)
+    cur="$(ob --version 2>/dev/null || true)"
+    new="$(npm view obsidian-headless version 2>/dev/null || true)"
+    if [ -n "$new" ] && [ "$cur" != "$new" ]; then
+      log "npm install -g obsidian-headless@${new} (was ${cur:-none})"
+      npm install -g "obsidian-headless@${new}" || rc=1
+    else
+      log "obsidian-headless ${cur:-?} up to date"
+    fi ;;
+  mise)
+    if [ "${OB_MISE_BUMP:-0}" = 1 ]; then
+      log "mise upgrade --bump npm:obsidian-headless"
+      mise upgrade --bump npm:obsidian-headless || rc=1
+    fi ;;
+  none) log "ob not managed here (absent or Linuxbrew): skills only" ;;
+  *)    log "unknown OB_CHANNEL=${OB_CHANNEL}"; rc=1 ;;
+esac
+
+log "skills update -g (obsidianmd/obsidian-skills)"
+timeout 600 npx --yes skills update -g -y </dev/null || rc=1
+
+if [ "$OB_CHANNEL" != none ]; then
+  v="$(ob --version 2>/dev/null)" && log "ob ${v}" || { log "ob does not answer"; rc=1; }
+fi
+exit "$rc"

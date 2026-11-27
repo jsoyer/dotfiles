@@ -64,6 +64,7 @@ jobs:
           python3 scripts/test_pct_tools.py
           python3 scripts/test_paseo_setup.py
           python3 scripts/test_happy_setup.py
+          python3 scripts/test_obsidian_update.py
           python3 scripts/test_agent_host_setup.py
           python3 scripts/test_sysup_os_check.py
           python3 scripts/test_chezmoi_autoupdate_dirs.py

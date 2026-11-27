@@ -22,6 +22,9 @@
 #                      --vendor runs their official installers
 #   7. rtk             `rtk init -g` for every installed agent it supports
 #                      (grok and devin have no rtk integration)
+#   8. Obsidian skills `npx skills add obsidianmd/obsidian-skills -g -y` when
+#                      missing (`ob` itself comes from the mise template);
+#                      kept up to date by obsidian-update after agents-update
 #
 # Usage (as the agents' user, never root):
 #   agent-host-setup [--paseo] [--vendor] [--no-rtk] [--dry-run]
@@ -280,6 +283,18 @@ if (( WITH_RTK )) && have rtk; then
     rtk_init ${t#*:}
   done
   ok "rtk hooks done (restart the server so the agents reload them)."
+fi
+
+# --- 8. Obsidian skills ---------------------------------------------------------
+if [[ -d "$HOME/.agents/skills/obsidian-cli" ]]; then
+  ok "Obsidian skills present (~/.agents/skills)."
+elif have npx; then
+  if (( DRY_RUN )); then printf '  %s+%s npx skills add obsidianmd/obsidian-skills -g -y\n' "$c_y" "$c_0"
+  else
+    log "Obsidian skills (obsidianmd/obsidian-skills)..."
+    (cd "$HOME" && npx --yes skills add obsidianmd/obsidian-skills -g -y </dev/null >/dev/null 2>&1) \
+      && ok "Obsidian skills installed." || warn "npx skills add obsidianmd/obsidian-skills failed."
+  fi
 fi
 
 (( DRY_RUN )) && exit 0
