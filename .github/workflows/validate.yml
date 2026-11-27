@@ -69,6 +69,19 @@ jobs:
           python3 scripts/test_chezmoi_autoupdate_dirs.py
           python3 dot_local/bin/test_misew.py
 
+      - name: Claude hook safety tests
+        run: bash dot_claude/hooks/tests/executable_test-block-tree-revert.sh
+
+      - name: Fleet unit tests
+        run: |
+          python3 -m unittest \
+            scripts/test_fleet_inventory.py \
+            scripts/test_fleet_selector.py \
+            scripts/test_fleet_report.py \
+            scripts/test_fleet_windows_contract.py \
+            scripts/test_fleet_orchestrate.py \
+            scripts/test_fleet_appliances.py < /dev/null
+
       - name: Validate templates
         run: |
           # Verify all templates parse without errors

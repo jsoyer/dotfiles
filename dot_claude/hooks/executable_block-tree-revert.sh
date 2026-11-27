@@ -33,15 +33,13 @@ else
 fi
 [ -z "$COMMAND" ] && exit 0
 
-source ~/.claude/hooks/lib/hook-logger.sh 2>/dev/null || true
+[[ -r "$HOME/.claude/hooks/lib/hook-logger.sh" ]] && source "$HOME/.claude/hooks/lib/hook-logger.sh" 2>/dev/null || true
 
 CMD_NORM=$(printf '%s' "$COMMAND" | sed 's/  */ /g; s/^ *//; s/ *$//')
 
-# Only inspect commands that actually invoke git.
-case "$CMD_NORM" in
-  git|"git "*|*"; git "*|*"&& git "*|*"| git "*) : ;;
-  *) exit 0 ;;
-esac
+# Only inspect commands that actually invoke git (including via `rtk git` or chained operators).
+RE_GIT_CMD='(^|[[:space:];&|(])(rtk[[:space:]]+)?git([[:space:]]|$)'
+[[ "$CMD_NORM" =~ $RE_GIT_CMD ]] || exit 0
 
 # === CLASSIFY: does this command contain a destructive revert verb? ===
 MATCHED=""
@@ -129,5 +127,10 @@ printf 'Reason: block-tree-revert matched "%s"\nCommand: %s\nRepo: %s (%s dirty)
 
 log_hook_event "block-tree-revert" "soft-blocked" "$MATCHED: $CMD_NORM" 2>/dev/null || true
 
-printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"SOFT_BLOCK_APPROVAL_NEEDED: %s"}}\n' "$REASON"
+REASON_ESC="${REASON//\\/\\\\}"
+REASON_ESC="${REASON_ESC//\"/\\\"}"
+REASON_ESC="${REASON_ESC//$'\n'/\\n}"
+REASON_ESC="${REASON_ESC//$'\r'/\\r}"
+REASON_ESC="${REASON_ESC//$'\t'/\\t}"
+printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"SOFT_BLOCK_APPROVAL_NEEDED: %s"}}\n' "$REASON_ESC"
 exit 0

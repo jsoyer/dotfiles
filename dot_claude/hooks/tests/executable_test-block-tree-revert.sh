@@ -6,21 +6,30 @@ set -uo pipefail
 # safe `restore --staged` allow, branch-switch allow, non-revert git allow,
 # non-git allow, and the approval-token bypass.
 
-HOOK="$HOME/.claude/hooks/block-tree-revert.sh"
-APPROVAL_DIR="$HOME/.claude/hooks/.approvals"
-PENDING_DIR="$HOME/.claude/hooks/.pending"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [ -z "${HOOK:-}" ]; then
+  if [ -f "$SCRIPT_DIR/../executable_block-tree-revert.sh" ]; then
+    HOOK="$SCRIPT_DIR/../executable_block-tree-revert.sh"
+  else
+    HOOK="$HOME/.claude/hooks/block-tree-revert.sh"
+  fi
+fi
 
 PASS=0
 FAIL=0
 ERRORS=()
 RED='\033[0;31m'; GREEN='\033[0;32m'; CYAN='\033[0;36m'; BOLD='\033[1m'; NC='\033[0m'
 
-if [ ! -x "$HOOK" ]; then
-  printf "${RED}HOOK NOT EXECUTABLE: %s${NC}\n" "$HOOK"; exit 1
+if [ ! -r "$HOOK" ]; then
+  printf "${RED}HOOK NOT READABLE: %s${NC}\n" "$HOOK"; exit 1
 fi
 
-# --- temp repos ---
+# --- temp repos & isolated HOME (never touch user's real ~/.claude/hooks/.approvals) ---
 TMPROOT=$(mktemp -d)
+TEST_HOME="$TMPROOT/home"
+mkdir -p "$TEST_HOME"
+APPROVAL_DIR="$TEST_HOME/.claude/hooks/.approvals"
+PENDING_DIR="$TEST_HOME/.claude/hooks/.pending"
 DIRTY="$TMPROOT/dirty"
 CLEAN="$TMPROOT/clean"
 mk_repo() {
@@ -33,14 +42,14 @@ mk_repo "$DIRTY"; mk_repo "$CLEAN"
 printf 'v2-uncommitted\n' > "$DIRTY/file.txt"   # make DIRTY actually dirty
 
 cleanup_tokens() { rm -rf "$APPROVAL_DIR" "$PENDING_DIR" 2>/dev/null || true; }
-teardown() { rm -rf "$TMPROOT" 2>/dev/null || true; cleanup_tokens; }
+teardown() { rm -rf "$TMPROOT" 2>/dev/null || true; }
 trap teardown EXIT
 
 run_hook() {
   local cmd="$1" json tmpout exit_code=0
   json="{\"tool_name\":\"Bash\",\"session_id\":\"tree-revert-test\",\"cwd\":\"$TMPROOT\",\"tool_input\":{\"command\":\"$cmd\"}}"
   tmpout=$(mktemp)
-  printf '%s' "$json" | bash "$HOOK" >"$tmpout" 2>/dev/null || exit_code=$?
+  printf '%s' "$json" | HOME="$TEST_HOME" bash "$HOOK" >"$tmpout" 2>/dev/null || exit_code=$?
   HOOK_OUT=$(cat "$tmpout"); HOOK_EXIT=$exit_code; rm -f "$tmpout"
 }
 assert_allow() {
@@ -48,8 +57,13 @@ assert_allow() {
   else fail "$1" "expected allow, got exit=$HOOK_EXIT out='${HOOK_OUT:0:90}'"; fi
 }
 assert_soft_block() {
-  if [ "$HOOK_EXIT" -eq 0 ] && printf '%s' "$HOOK_OUT" | grep -q "SOFT_BLOCK_APPROVAL_NEEDED"; then pass "$1"
-  else fail "$1" "expected soft-block, got exit=$HOOK_EXIT out='${HOOK_OUT:0:90}'"; fi
+  if [ "$HOOK_EXIT" -eq 0 ] \
+    && printf '%s' "$HOOK_OUT" | grep -q "SOFT_BLOCK_APPROVAL_NEEDED" \
+    && printf '%s' "$HOOK_OUT" | python3 -m json.tool >/dev/null 2>&1; then
+    pass "$1"
+  else
+    fail "$1" "expected valid-JSON soft-block, got exit=$HOOK_EXIT out='${HOOK_OUT:0:90}'"
+  fi
 }
 pass() { PASS=$((PASS+1)); printf "  ${GREEN}✓${NC} %s\n" "$1"; }
 fail() { FAIL=$((FAIL+1)); printf "  ${RED}✗${NC} %s ${RED}(%s)${NC}\n" "$1" "$2"; ERRORS+=("$1: $2"); }
@@ -69,11 +83,15 @@ cleanup_tokens; run_hook "git -C $DIRTY stash drop";           assert_soft_block
 cleanup_tokens; run_hook "git -C $DIRTY stash clear";          assert_soft_block "stash clear (dirty)"
 cleanup_tokens; run_hook "git -C $DIRTY clean -fd";            assert_soft_block "clean -fd (dirty)"
 cleanup_tokens; run_hook "git -C $DIRTY checkout origin/main -- file.txt"; assert_soft_block "checkout <ref> -- <path> (dirty)"
+cleanup_tokens; run_hook "rtk git -C $DIRTY reset --hard HEAD"; assert_soft_block "rtk git reset --hard (dirty)"
+cleanup_tokens; run_hook "rtk git -C $DIRTY checkout -- file.txt"; assert_soft_block "rtk git checkout -- <path> (dirty)"
+cleanup_tokens; run_hook "false || git -C $DIRTY checkout ."; assert_soft_block "|| git checkout . (dirty)"
 
 # --- 2. Same verbs on a CLEAN tree → allow (nothing to lose) ---
 section "Revert verbs allowed on clean tree"
 cleanup_tokens; run_hook "git -C $CLEAN checkout -- file.txt"; assert_allow "checkout -- <path> (clean)"
 cleanup_tokens; run_hook "git -C $CLEAN reset --hard HEAD";    assert_allow "reset --hard (clean)"
+cleanup_tokens; run_hook "rtk git -C $CLEAN reset --hard HEAD"; assert_allow "rtk git reset --hard (clean)"
 cleanup_tokens; run_hook "git -C $CLEAN clean -fd";            assert_allow "clean -fd (clean)"
 
 # --- 3. Safe operations → allow even on dirty tree ---
@@ -81,6 +99,7 @@ section "Safe ops allowed on dirty tree"
 cleanup_tokens; run_hook "git -C $DIRTY restore --staged file.txt"; assert_allow "restore --staged only (unstage, safe)"
 cleanup_tokens; run_hook "git -C $DIRTY checkout other";       assert_allow "branch switch (no --/path)"
 cleanup_tokens; run_hook "git -C $DIRTY status";              assert_allow "git status"
+cleanup_tokens; run_hook "rtk git -C $DIRTY status";          assert_allow "rtk git status"
 cleanup_tokens; run_hook "git -C $DIRTY add file.txt";        assert_allow "git add"
 cleanup_tokens; run_hook "git -C $DIRTY commit -m wip";       assert_allow "git commit"
 cleanup_tokens; run_hook "git -C $DIRTY stash push -- file.txt"; assert_allow "stash push (non-destructive)"
