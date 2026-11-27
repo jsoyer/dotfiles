@@ -883,6 +883,30 @@ agents-update --dry-run                                   # what mise would upgr
 journalctl -u agents-update -e
 ```
 
+`--install-timer` also wires **obsidian-update** (next section) as
+`ExecStopPost` when it sits next to `agents-update`, and puts `~/.npm-global/bin`
+and Linuxbrew on the unit PATH when they exist (agents installed with `npm -g`
+or brew, as on the Raspberry Pis).
+
+#### Obsidian CLI and skills: obsidian-update
+
+Every agent host gets the Obsidian CLI (`ob`, npm `obsidian-headless`, Node
+>= 22) and the skills from `obsidianmd/obsidian-skills`:
+
+```bash
+npx skills add obsidianmd/obsidian-skills -g -y   # ~/.agents/skills + each agent's dir
+```
+
+`ob` comes from mise (`"npm:obsidian-headless"` in `mise-agents.toml`) on the
+agent hosts, from `npm install -g` into `~/.npm-global` on the Pis.
+`obsidian-update` runs after `agents-update` and refreshes the skills
+(`npx skills update -g -y`); for an npm install it also moves `ob` to the latest
+version with `npm install -g obsidian-headless@<latest>` — never `npm update
+-g`, which resolves the whole global tree and fails on unrelated peer conflicts
+(ERESOLVE). The channel is detected from where `ob` lives (`OB_CHANNEL=mise|npm|none`
+overrides it; `OB_MISE_BUMP=1` lets it bump a mise pin on a host without
+agents-update).
+
 #### Monitoring: orca-health
 
 `orca-health` probes **the real symptom — does the port actually answer** —
@@ -1177,7 +1201,7 @@ agents-update --install-timer --at 05:00 --user <name> --restart-on paseo=paseo.
 | `paseo-firewall.service` | nftables `paseo_guard`: port dropped on every interface but `lo` and `tailscale0` |
 | `paseo.service` | `paseo daemon run` as `<name>`, `Requires=` the firewall (fails closed), after `tailscaled` |
 | `paseo-health.timer` | every 10 min `/api/health`; two misses in a row restart the daemon and alert |
-| `agents.providers` | ACP entries for agents Paseo has no built-in for, when installed: `cursor-agent acp`, `gemini --acp`, `grok agent stdio`; `omp` enabled (off by default), `muse` disabled when absent. Missing keys only: edits are kept |
+| `agents.providers` | ACP entries for agents Paseo has no built-in for, when installed: `cursor-agent acp`, `gemini --acp`, `grok agent stdio`, `devin acp`; `omp` enabled (off by default), `muse` disabled when absent. Missing keys only: edits are kept |
 | `/usr/local/bin/paseo-setup` | copy of the script: sudo's `secure_path` skips `~/.local/bin` (`sudo paseo-setup: command not found`) |
 
 - **Password first.** The unit is not started until `paseo daemon set-password`
@@ -1216,6 +1240,27 @@ agents-update --install-timer --at 05:00 --user <name> --restart-on paseo=paseo.
   `~/.grok/bin`), pinned `MISE_*_DIR`, `0.0.0.0` + firewall instead of binding
   the Tailscale IP (absent at boot). mise's node needs `libatomic1` on a minimal
   Ubuntu template.
+- **Agents outside mise.** `~/.npm-global/bin` and Linuxbrew
+  (`/home/linuxbrew/.linuxbrew/bin`) join the unit PATH when they exist, so
+  agents installed with `npm -g` or brew are found too.
+- **SELinux (Fedora).** Under `Enforcing`, `init_t` may not execute the mise
+  shim in `/home` (`203/EXEC`, `Permission denied` in the journal, AVC on
+  `user_home_t`). The unit starts it through `/usr/bin/env` (`bin_t`): the
+  daemon then runs as `unconfined_service_t`, which may read the home. Harmless
+  elsewhere.
+- **Hosts whose `config.toml` belongs to chezmoi** (Raspberry Pis, a desktop):
+  put Paseo in `~/.config/mise/conf.d/paseo.toml` instead (`node = "lts"` +
+  `"npm:@getpaseo/cli"`), and point agents-update at that file with a drop-in
+  `Environment="MISE_GLOBAL_CONFIG_FILE=<home>/.config/mise/conf.d/paseo.toml"`
+  (its backup and rollback then act on it, not on the chezmoi file). On a
+  Raspberry Pi, also `Nice=19` + `IOSchedulingClass=idle`: a heavy `npm install`
+  once rebooted one through the hardware watchdog.
+- **Paseo Desktop next to the service** (Linux rpm/AppImage): the app manages a
+  bundled daemon by default, on the same `~/.paseo`. Write
+  `~/.config/Paseo/desktop-settings.json` before its first start with
+  `"daemon": {"manageBuiltInDaemon": false}` (and `"updates": {"mode": "notify"}`
+  if the system package manager owns it), then add `localhost:6767` as a host:
+  the app uses the service's daemon instead of starting its own.
 
 ## Happy Agent server (headless)
 

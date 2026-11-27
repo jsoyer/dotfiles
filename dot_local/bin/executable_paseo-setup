@@ -21,7 +21,7 @@
 #                             ntfy or Telegram, see `agent-alert --help`)
 #   5. agent providers        agents Paseo has no built-in entry for are added
 #                             as ACP providers when installed (cursor-agent acp,
-#                             gemini --acp, grok agent stdio); omp is enabled
+#                             gemini --acp, grok agent stdio, devin acp); omp is enabled
 #                             (off by default), muse disabled when absent.
 #                             Only keys not set yet are written: edits survive.
 #   6. /usr/local/bin/paseo-setup  a copy of this script, because sudo's
@@ -120,10 +120,18 @@ SELF_BIN="/usr/local/bin/paseo-setup"
 SHIM="${SVC_HOME}/.local/share/mise/shims/paseo"
 [[ -x "$SHIM" ]] || die "No mise shim at $SHIM: add npm:@getpaseo/cli to ${SVC_USER}'s mise config, then mise install."
 
+# Where the agents live. mise shims, vendor installers (~/.local/bin,
+# ~/.grok/bin), plus the npm global prefix and Linuxbrew when they exist
+# (Raspberry Pis, Fedora desktop: agents installed with `npm -g` / brew).
+AGENT_PATH="${SVC_HOME}/.local/share/mise/shims:${SVC_HOME}/.local/bin:${SVC_HOME}/.grok/bin"
+for d in "${SVC_HOME}/.npm-global/bin" /home/linuxbrew/.linuxbrew/bin; do
+  [[ -d "$d" ]] && AGENT_PATH+=":${d}"
+done
+
 # Run a command as the service user with the same environment as the unit.
 as_user() {
   runuser -u "$SVC_USER" -- env -i HOME="$SVC_HOME" USER="$SVC_USER" \
-    PATH="${SVC_HOME}/.local/share/mise/shims:${SVC_HOME}/.local/bin:/usr/local/bin:/usr/bin:/bin" \
+    PATH="${AGENT_PATH}:/usr/local/bin:/usr/bin:/bin" \
     MISE_DATA_DIR="${SVC_HOME}/.local/share/mise" MISE_CONFIG_DIR="${SVC_HOME}/.config/mise" \
     MISE_STATE_DIR="${SVC_HOME}/.local/state/mise" MISE_CACHE_DIR="${SVC_HOME}/.cache/mise" \
     PASEO_HOME="${SVC_HOME}/.paseo" bash -c 'cd "$HOME" && "$@"' _ "$@"
@@ -152,6 +160,7 @@ prov_add=()
 have_cli cursor-agent && prov_add+=('cursor={"extends":"acp","label":"Cursor","command":["cursor-agent","acp"]}')
 have_cli gemini       && prov_add+=('gemini={"extends":"acp","label":"Gemini","command":["gemini","--acp"]}')
 have_cli grok         && prov_add+=('grok={"extends":"acp","label":"Grok","command":["grok","agent","stdio"]}')
+have_cli devin        && prov_add+=('devin={"extends":"acp","label":"Devin","command":["devin","acp"]}')
 have_cli omp          && prov_add+=('omp={"enabled":true}')
 have_cli muse         || prov_add+=('muse={"enabled":false}')
 if (( ${#prov_add[@]} > 0 )); then
@@ -225,12 +234,15 @@ Type=simple
 User=${SVC_USER}
 WorkingDirectory=${SVC_HOME}
 # A system unit never reads shell rc files: agents must be on PATH explicitly.
-Environment="PATH=${SVC_HOME}/.local/share/mise/shims:${SVC_HOME}/.local/bin:${SVC_HOME}/.grok/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+Environment="PATH=${AGENT_PATH}:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 Environment="HOME=${SVC_HOME}"
 Environment="PASEO_HOME=${SVC_HOME}/.paseo"
 # Agent tools may isolate XDG_*: pin mise to its real dirs so the shims still work.
 Environment="MISE_DATA_DIR=${SVC_HOME}/.local/share/mise" "MISE_CONFIG_DIR=${SVC_HOME}/.config/mise" "MISE_STATE_DIR=${SVC_HOME}/.local/state/mise" "MISE_CACHE_DIR=${SVC_HOME}/.cache/mise"
-ExecStart=${SHIM} daemon run --home ${SVC_HOME}/.paseo
+# Through /usr/bin/env: under SELinux (Fedora, Enforcing) init_t may not
+# execute the shim in /home (203/EXEC "Permission denied"); env is bin_t, so the
+# daemon runs as unconfined_service_t, which may. A no-op everywhere else.
+ExecStart=/usr/bin/env ${SHIM} daemon run --home ${SVC_HOME}/.paseo
 Restart=on-failure
 RestartSec=5
 KillMode=mixed

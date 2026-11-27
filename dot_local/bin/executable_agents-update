@@ -134,6 +134,22 @@ install_timer() {
   [[ -n "$home" ]] || die "Unknown user: $user"
   # System location: systemd refuses to execute a home_t script under SELinux.
   install -m 0755 "$(readlink -f -- "$0")" /usr/local/bin/agents-update
+  # Same agent locations as paseo-setup: npm global prefix and Linuxbrew too.
+  local agent_path="${home}/.local/share/mise/shims:${home}/.local/bin:${home}/.grok/bin" d post=""
+  for d in "${home}/.npm-global/bin" /home/linuxbrew/.linuxbrew/bin; do
+    [[ -d "$d" ]] && agent_path+=":${d}"
+  done
+  # obsidian-update (Obsidian CLI + skills) runs after every update when it is
+  # shipped next to this script. ExecStopPost: also after a failed run.
+  local src_dir; src_dir="$(dirname "$(readlink -f -- "$0")")"
+  if [[ -f "${src_dir}/obsidian-update" && ! "${src_dir}/obsidian-update" -ef /usr/local/bin/obsidian-update ]]; then
+    install -m 0755 "${src_dir}/obsidian-update" /usr/local/bin/obsidian-update
+  fi
+  if [[ -x /usr/local/bin/obsidian-update ]]; then
+    post="ExecStopPost=-/usr/local/bin/obsidian-update"
+    # The unit now carries the hook: drop the hand-made drop-in (2026-11-27).
+    rm -f "/etc/systemd/system/${SERVICE_NAME}.service.d/obsidian.conf"
+  fi
   cat > "/etc/systemd/system/${SERVICE_NAME}.service" <<EOF
 [Unit]
 Description=Update the agent CLIs (mise + vendor updaters), smoke test, rollback
@@ -144,9 +160,10 @@ After=network-online.target
 Type=oneshot
 User=${user}
 Environment="HOME=${home}"
-Environment="PATH=${home}/.local/share/mise/shims:${home}/.local/bin:${home}/.grok/bin:/usr/local/bin:/usr/bin:/bin"
+Environment="PATH=${agent_path}:/usr/local/bin:/usr/bin:/bin"
 Environment="AGENTS_UPDATE_RESTART_ON=${restart_on[*]}"
 ExecStart=/usr/local/bin/agents-update
+${post}
 TimeoutStartSec=45min
 Nice=10
 PrivateTmp=yes
