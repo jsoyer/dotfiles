@@ -1,149 +1,64 @@
 # Documentation Index
 
-Complete reference for understanding, using, and extending the chezmoi dotfiles system.
+Reference index for understanding, operating, and extending this chezmoi dotfiles repository.
 
 ## Getting Started
 
-- **[ONBOARDING.md](ONBOARDING.md)** — Post-bootstrap setup and customization
-  - Understanding your machine profile and how to customize it
-  - Adding new tool configurations and packages
-  - Working with templates and template data
-  - Adding new platform profiles
-  - Working with AI agents and skills
-  - Managing secrets via 1Password and age encryption
-  - Quick reference of common tasks
+- **[ONBOARDING.md](ONBOARDING.md)** — Post-bootstrap setup, templates, profiles, AI skills (`dot_aictx/`), and secrets
+- **[QUICKREF.md](QUICKREF.md)** — Compact daily command cheat sheet
+- **[ALIASES.md](ALIASES.md)** — Full command aliases reference across shells
 
-## Architecture & Design
+## Architecture & Systems
 
-- **[ARCHITECTURE.md](ARCHITECTURE.md)** — System design and component overview
-  - System overview diagram showing data flow
-  - Profile detection logic and decision tree
-  - 5-phase lifecycle (01-setup through 05-maintenance)
-  - Package management wrapper system
-  - AI agent and skill ecosystem
-  - External dependencies management
+- **[ARCHITECTURE.md](ARCHITECTURE.md)** — System overview, profile detection, 4-phase lifecycle, package wrappers, AI ecosystem
+- **[CHEZMOISCRIPTS.md](CHEZMOISCRIPTS.md)** — Lifecycle scripts reference (`01-setup` through `04-update`)
+- **[PACKAGE_LAYERS.md](PACKAGE_LAYERS.md)** — Layered package model (`base` / `personal` / `professional` / `server` / `legacy`), previews, and host migration
+- **[PACKAGE_MANIFEST_INVENTORY.md](PACKAGE_MANIFEST_INVENTORY.md)** — Inventory of tracked manifests in `dot_private/`
+- **[GENERATED_CONFIG.md](GENERATED_CONFIG.md)** — Ownership and atomic regeneration of SSH config and 1Password shell secrets
+- **[FLEET.md](FLEET.md)** — `fleet` tailnet updater (Linux hosts, appliances, workstations, pull mode, invariants in [`../INVARIANTS.md`](../INVARIANTS.md))
 
-## Operations & Troubleshooting
+## Operations & Maintenance
 
-- **[RUNBOOK.md](RUNBOOK.md)** — Day-to-day operations and disaster recovery
-  - Daily sync operations (chezmoi update, apply, upgrade)
-  - Common tasks (install packages, add dotfiles, convert to templates)
-  - Re-running lifecycle scripts
-  - Updating agents and skills from upstream
-  - Comprehensive troubleshooting guide
-  - Disaster recovery procedures
-  - Maintenance calendar
+- **[RUNBOOK.md](RUNBOOK.md)** — Day-to-day operations, troubleshooting, and disaster recovery
+- **[MAINTENANCE.md](MAINTENANCE.md)** — Periodic hygiene and update routines
+- **[PROFILE-MIGRATION.md](PROFILE-MIGRATION.md)** — Changing machine profiles (server ↔ desktop, distro changes, OmArchy)
+- **[PROVENANCE.md](PROVENANCE.md)** — Provenance of vendored components
+- **[CLAUDE_LOCAL_PATCHES.md](CLAUDE_LOCAL_PATCHES.md)** — Local patches applied on top of vendored `dot_claude/`
+- **[session-learnings.md](session-learnings.md)** — Chronological lessons learned and regression notes
 
-- **[PROFILE-MIGRATION.md](PROFILE-MIGRATION.md)** — Changing machine profiles
-  - All 14 available profiles with detection methods
-  - 3 methods to change profiles (direct edit, re-init, hostname)
-  - 5 real-world migration scenarios (server↔desktop, distro changes, OmArchy)
-  - Cleanup procedures after migration
-  - Detailed troubleshooting for profile issues
+## Work-in-Progress & Archive
 
-## Directory Structure
+- **[tasks/](tasks/)** — Active multi-sprint specs and build candidates (e.g., `tasks/infra/`)
+- **[archive/](archive/)** — Completed audits, historical migration plans, and merged handoffs
 
-```
-docs/
-├── README.md              # This file (documentation index)
-├── ONBOARDING.md          # Setup & customization guide
-├── ARCHITECTURE.md        # System design & component overview
-├── RUNBOOK.md             # Operations & troubleshooting
-├── PROFILE-MIGRATION.md   # Changing machine profiles
-├── ALIASES.md             # Command aliases reference
-└── CHEZMOISCRIPTS.md      # Lifecycle scripts reference
-```
+## Related Guides Outside `docs/`
 
-## Quick Start
-
-**For a new machine:**
-```bash
-curl -sL https://raw.githubusercontent.com/jsoyer/dotfiles/main/scripts/bootstrap.sh | bash
-```
-
-**On an existing machine:**
-```bash
-cu   # chezmoi update -v (git pull + apply)
-```
-
-**Full system update (dotfiles + packages):**
-```bash
-cup  # chezmoi update + brew upgrade/apt upgrade/dnf upgrade
-```
+- **[../README.md](../README.md)** — Project overview and bootstrap quickstart
+- **[../CLAUDE.md](../CLAUDE.md)** — AI assistant instructions for this repository
+- **[../INVARIANTS.md](../INVARIANTS.md)** — Verifiable contracts for `fleet`
+- **[../dot_local/bin/README.md](../dot_local/bin/README.md)** — Utility scripts, wrappers, and self-hosted agent stacks
+- **[../dot_config/CONFIGURATION_INDEX.md](../dot_config/CONFIGURATION_INDEX.md)** — Tool configurations index
+- **[../dot_config/systemd/README.md](../dot_config/systemd/README.md)** — User systemd units
+- **[../dot_zsh/README.md](../dot_zsh/README.md)** & **[../dot_bash/README.md](../dot_bash/README.md)** — Modular shell configuration
+- **[../scripts/README.md](../scripts/README.md)** — Bootstrap scripts reference
 
 ## Key Concepts
 
-### Profiles
+### 4-Phase Lifecycle
 
-Your machine's profile determines which configs apply and which packages install. Profiles are auto-detected but can be overridden in `~/.config/chezmoi/chezmoi.toml`.
+Scripts in `.chezmoiscripts/` run in numbered order:
 
-See [ARCHITECTURE.md#profile-detection](ARCHITECTURE.md#profile-detection) for all profiles.
-
-### Templates
-
-Most config files use Go text/template syntax to adapt to platform, profile, and environment. Templates are evaluated at apply time.
-
-See [ONBOARDING.md#understanding-templates](ONBOARDING.md#understanding-templates) for template functions and examples.
-
-### Lifecycle Scripts
-
-Scripts in `.chezmoiscripts/` are organized into 5 phases:
-
-1. **01-setup** — Prerequisites (Xcode, build tools, etc.)
-2. **02-install** — Package managers and packages
-3. **03-configure** — Post-install configuration
+1. **01-setup** — Prerequisites (sudo preflight, OS setup)
+2. **02-install** — Package managers, layered packages, one-time cleanup migrations
+3. **03-configure** — Post-install configuration (SSH, 1Password secrets, `aictx`, `mise`, `fleet-agent`, autoupdate)
 4. **04-update** — Package updates
-5. **05-maintenance** — Ongoing tasks
 
-See [ARCHITECTURE.md#5-phase-lifecycle](ARCHITECTURE.md#5-phase-lifecycle) for script reference.
+See [CHEZMOISCRIPTS.md](CHEZMOISCRIPTS.md) and [ARCHITECTURE.md#4-phase-lifecycle](ARCHITECTURE.md#4-phase-lifecycle).
 
-### Package Wrappers
+### Package Layers & Wrappers
 
-Aliases intercept package manager commands and auto-update tracked manifests:
+Package scope (`package_profile`) is independent of `machine_profile`. Shell aliases route package commands (`brew`, `apt`, `dnf`, `pacman`, `yay`, `rpm-ostree`, `flatpak`, `snap`, `apk`, `pkg`, `scoop`, `mise`) through wrappers in `dot_local/bin/` that update the host overlay manifest. See [PACKAGE_LAYERS.md](PACKAGE_LAYERS.md).
 
-| Platform | Command | Manifest |
-|----------|---------|----------|
-| macOS | `brew install foo` | `Brewfile_*` |
-| Linux (Homebrew) | `brew install foo` | `Brewfile_brew_only` |
-| Debian/Ubuntu | `apt install foo` | `Aptfile_*` |
-| Fedora | `dnf install foo` | `Dnffile_*` |
-| Arch | `pacman -S foo` | `Pacfile_*` |
-| AUR | `yay -S foo` | `Pacfile_aur_*` |
-| Windows | `scoop install foo` | `Scoopfile.json` |
+### AI Resources (`dot_aictx/` & `dot_claude/`)
 
-### AI Skills
-
-646+ reusable AI skills are synced from `~/.agents/skills/` to `~/.claude/`, `~/.qwen/`, `~/.vibe/`, and `~/.codex/` via symlinks whenever `dot_agents/dot_skill-lock.json` changes.
-
-See [ONBOARDING.md#working-with-ai-agents-and-skills](ONBOARDING.md#working-with-ai-agents-and-skills) for adding skills.
-
-## Common Tasks
-
-| Task | See |
-|------|-----|
-| Apply dotfiles | [ONBOARDING.md](ONBOARDING.md#quick-reference) |
-| Add a new tool config | [ONBOARDING.md](ONBOARDING.md#adding-a-new-tool-configuration) |
-| Install a package | [RUNBOOK.md](RUNBOOK.md#install-a-new-package) |
-| Make config platform-specific | [ONBOARDING.md](ONBOARDING.md#understanding-templates) |
-| Add a new machine profile | [ONBOARDING.md](ONBOARDING.md#adding-a-new-platform-profile) |
-| Change machine profile | [PROFILE-MIGRATION.md](PROFILE-MIGRATION.md#changing-your-profile) |
-| Migrate server ↔ desktop | [PROFILE-MIGRATION.md](PROFILE-MIGRATION.md#migration-scenarios) |
-| Migrate to different distro | [PROFILE-MIGRATION.md](PROFILE-MIGRATION.md#scenario-3-ubuntu--arch-distro-change) |
-| Fix chezmoi issues | [RUNBOOK.md](RUNBOOK.md#troubleshooting) |
-| Recover from a bad change | [RUNBOOK.md](RUNBOOK.md#rollback-a-bad-change) |
-
-## Related Files
-
-- `README.md` — Main project README
-- `scripts/README.md` — Bootstrap script reference
-- `dot_local/bin/README.md` — Utility script reference
-- `dot_agents/README.md` — AI skills system
-- `.chezmoi.toml.tmpl` — Profile detection and template data
-- `.chezmoiignore.tmpl` — Platform-specific file exclusions
-- `.chezmoiscripts/` — Lifecycle script phases
-
-## Feedback & Issues
-
-- Questions? Check [RUNBOOK.md troubleshooting](RUNBOOK.md#troubleshooting)
-- Found a bug? See [RUNBOOK.md disaster recovery](RUNBOOK.md#disaster-recovery)
-- Suggestions? Open a GitHub issue or PR
+Shared skills, agents, commands, rules, and hooks live in `dot_aictx/` (deployed to `~/.aictx/`) and `dot_claude/`. The Rust CLI `aictx` (`tools/aictx/`) manages per-CLI symlinks and runs automatically after `chezmoi apply` via `run_after_sync-aictx.sh`.

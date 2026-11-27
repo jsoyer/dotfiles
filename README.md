@@ -45,7 +45,7 @@ This setup uses `chezmoi`'s templating capabilities to apply different configura
 ## 📁 What's Included
 
 ### 🐚 Shells
-- **Zsh** - Primary shell with Oh-My-Zsh + 48 plugins
+- **Zsh** - Primary shell with minimal Oh-My-Zsh plugins + cached tool init (`_cache_eval`)
 - **Bash** - Universal fallback shell with matching configuration
 - **Nushell** - Modern structured data shell
 - **Fish** - Friendly interactive shell (backup)
@@ -87,10 +87,10 @@ This setup uses `chezmoi`'s templating capabilities to apply different configura
 - **notmuch** - Email indexing and search
 
 ### AI Tools
-- **Claude Code** - AI coding assistant (192 agents, 654 skills, 60 slash commands, 64 rules, 19 MCP servers, 6 hooks, Claude Octopus plugin)
-- **CLI AI Tools** - Copilot CLI, Codex CLI (installed via AUR on Arch, native scripts on others)
+- **Claude Code** - Vendored Claude Workflow System (`dot_claude/`: commands, rules, hooks, workflows) + shared resource library (`dot_aictx/`, managed via `aictx` in `tools/aictx/`)
+- **CLI AI Tools** - Copilot CLI, Codex CLI, Grok CLI, Cursor Agent, pi, omp, Antigravity CLI (installed via `install-ai`)
 - **OpenCode** - Alternative AI coding CLI (ocx extensions, shared MCP config, optional installation)
-- **RTK** - Token optimization proxy for Claude Code
+- **RTK** - Token optimization proxy for CLI agents
 - **codecompanion.nvim** - Multi-provider AI in Neovim (Claude, OpenAI, Gemini, Mistral, Ollama + CLI agents)
 
 ### Other Tools
@@ -576,20 +576,19 @@ chezmoi update  # Pull + apply automatically
 ```
 ~/.local/share/chezmoi/
 ├── .chezmoiscripts/                    # Lifecycle scripts (numbered phases)
-│   ├── 01-setup/                       # System prerequisites (Xcode, Homebrew)
-│   ├── 02-install/                     # Package installation (1Password, brew, dnf)
-│   ├── 03-configure/                   # Post-install config (GPG, mail)
-│   ├── 04-update/                      # Package updates (Homebrew, App Store, dnf)
-│   └── 05-maintenance/                 # Container maintenance
+│   ├── 01-setup/                       # System prerequisites (sudo preflight, OS setup)
+│   ├── 02-install/                     # Package installation (1Password, brew, dnf, apt, ...)
+│   ├── 03-configure/                   # Post-install config (GPG, mail, SSH, secrets, aictx, fleet)
+│   └── 04-update/                      # Package updates (Homebrew, App Store, Linux, Windows)
 ├── dot_claude/                         # Vendored Claude Workflow System (vinicius91carvalho/.claude)
 │   ├── agents/                         # Specialized orchestrator/code reviewer agents
 │   ├── commands/                       # Slash commands (/plan, /verify, etc.)
 │   ├── rules/                          # Compound + language-specific rule sets
-│   ├── hooks/                          # Enforcement hooks (RTK, quality gates, cleanup)
-│   └── settings.json                   # Permissions, MCP servers, hook wiring
-├── dot_agents/                         # Shared AI agent skills
-│   ├── skills/                         # 654 skills (source of truth)
-│   └── dot_skill-lock.json             # Skill manifest (triggers sync)
+│   ├── hooks/                          # Enforcement hooks (RTK, quality gates, safety guards)
+│   └── modify_private_settings.json.tmpl # Baseline settings + hook wiring
+├── dot_aictx/                          # Shared AI resource cache (skills, agents, rules, commands)
+├── tools/aictx/                        # Rust CLI (aictx) managing per-CLI symlinks & project context
+├── docs/                               # Full documentation index (see docs/README.md)
 ├── dot_config/
 │   ├── aerospace/                      # Tiling window manager (macOS)
 │   ├── alacritty/                      # Terminal emulator

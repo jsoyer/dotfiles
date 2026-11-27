@@ -17,7 +17,6 @@ graph TD
     H --> J[02-install]
     H --> K[03-configure]
     H --> L[04-update]
-    H --> M[05-maintenance]
 ```
 
 Key inputs:
@@ -62,7 +61,7 @@ flowchart TD
 
 See the [README profile table](../README.md#-platform-profiles) for the full feature matrix per profile.
 
-## 5-Phase Lifecycle
+## 4-Phase Lifecycle
 
 Scripts in `.chezmoiscripts/` are organized into numbered phases. chezmoi runs them in lexicographic order based on trigger type.
 
@@ -71,7 +70,6 @@ graph LR
     A[01-setup<br>Prerequisites] --> B[02-install<br>Packages & tools]
     B --> C[03-configure<br>Post-install config]
     C --> D[04-update<br>Package updates]
-    D --> E[05-maintenance<br>Ongoing tasks]
 ```
 
 **Trigger types:**
@@ -105,7 +103,6 @@ graph LR
 | 04 | `update-homebrew.sh` | onchange | macOS |
 | 04 | `update-linux.sh` | onchange | Linux |
 | 04 | `update-windows.ps1` | onchange | Windows |
-| 05 | `maintenance-container.sh` | always | All |
 
 ## Package Layers
 
@@ -181,7 +178,7 @@ graph TD
     UCA --> CA
 
     SK --> UCS
-    UCS --> |dot_agents/skills/| SYNC
+    UCS --> |dot_aictx/skills/| SYNC
     SYNC --> CS
     SYNC --> QS
     SYNC --> VS

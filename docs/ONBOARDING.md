@@ -190,22 +190,20 @@ What tools it has access to.
 
 ### Adding a skill
 
-Add a directory under `dot_agents/skills/`:
+Add a directory under `dot_aictx/skills/`:
 
 ```bash
-mkdir -p dot_agents/skills/my-skill
-vim dot_agents/skills/my-skill/skill.md
+mkdir -p dot_aictx/skills/my-skill
+vim dot_aictx/skills/my-skill/SKILL.md
 ```
 
-Then update the lock file to trigger symlink sync:
+Then apply dotfiles to deploy to `~/.aictx/` and refresh CLI symlinks:
 
 ```bash
-# Optional: bump the lock file before running run_after_sync-aictx.sh
-date > dot_agents/dot_skill-lock.json
 chezmoi apply
 ```
 
-> The cache/symlink workflow now runs after every `chezmoi apply` via `run_after_sync-aictx.sh`, so touching the lock file is only needed when forcing a rerun manually.
+> The cache/symlink workflow runs after every `chezmoi apply` via `run_after_sync-aictx.sh` (using `aictx`).
 
 ### Updating agents from upstream
 
