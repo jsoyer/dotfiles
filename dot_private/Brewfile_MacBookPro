@@ -1,9 +1,11 @@
 tap "anomalyco/tap"
 tap "douglasdemoura/tap"
+tap "gurgeous/tap", trusted: true
 tap "homebrew/cask"
 tap "homebrew/core"
 tap "iamrohithrnair/tap"
 tap "mcs-cli/tap", trusted: true
+tap "ovh/tap"
 tap "rjyo/moshi", trusted: true
 tap "teamookla/speedtest", trusted: true
 brew "crane"
@@ -28,6 +30,7 @@ brew "poetry"
 brew "psqlodbc"
 brew "rclone"
 brew "redis"
+brew "scw"
 brew "semgrep"
 brew "signal-cli"
 brew "tuicr"
@@ -41,9 +44,11 @@ cask "bettercapture"
 cask "theboredteam/boring-notch/boring-notch", trusted: true
 cask "chatgpt"
 cask "douglasdemoura/tap/chroncal", trusted: true
+cask "codex-app"
 cask "davit"
 cask "elgato-camera-hub"
 cask "elgato-stream-deck"
+cask "fluidvoice"
 cask "granola"
 cask "grok-bot"
 cask "grok-build"
@@ -52,6 +57,7 @@ cask "ledger-wallet"
 cask "linear"
 cask "logi-options+"
 cask "logitune"
+cask "ovh/tap/ovhcloud-cli", trusted: true
 cask "plaud"
 cask "spotify"
 cask "zoom"
@@ -64,7 +70,6 @@ mas "Numbers", id: 361304891
 mas "Pages", id: 361309726
 mas "Parcel", id: 375589283
 mas "Presentify", id: 1507246666
-mas "Raycast Companion", id: 6738274497
 mas "Remote Desktop", id: 409907375
 mas "Save to Raindrop.io", id: 1549370672
 mas "Xcode", id: 497799835
